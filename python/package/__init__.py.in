@@ -38,7 +38,15 @@ try:
 except RuntimeError:
     FluidTorchVectorEnv = None
 
-from .psm_scene import PsmRobotInstance, PsmScene, create_psm_scene
+from .psm_builder import (
+    PsmAuthoringConfig,
+    PsmBuildResult,
+    PsmRobotInstance,
+    author_psm_scene,
+    get_psm_default_runtime_config,
+    set_psm_joint_targets,
+)
+from .psm_env import PsmEnv
 
 
 _PACKAGE_DIR = Path(__file__).resolve().parent

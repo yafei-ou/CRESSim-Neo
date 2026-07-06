@@ -18,8 +18,7 @@ def main() -> int:
     viewer_desc.show_stats = True
 
     resolve_root = Path(__file__).resolve().parents[2]
-    scene = neo.create_psm_scene(
-        env_count=1,
+    env = neo.PsmEnv(
         resolve_root=resolve_root,
         viewer_desc=viewer_desc,
     )
@@ -61,14 +60,13 @@ def main() -> int:
             jaw_target = jaw_base + jaw_amplitude * math.sin(
                 2.0 * math.pi * jaw_frequency * time_seconds + jaw_phase
             )
-            targets = [*arm_targets, jaw_target]
-            scene.set_joint_targets(targets, env_index=0)
+            env.set_joint_targets([*arm_targets, jaw_target])
 
         callbacks.before_tick = before_tick
-        scene.run_viewer(env_index=0, callbacks=callbacks)
+        env.run_viewer(callbacks=callbacks)
         return 0
     finally:
-        scene.shutdown()
+        env.shutdown()
 
 
 if __name__ == "__main__":

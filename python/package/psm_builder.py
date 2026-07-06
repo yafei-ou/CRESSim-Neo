@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 import os
 from pathlib import Path
@@ -63,7 +63,7 @@ _SLIDER_DRIVE_COMPLIANCE = 1.0e-6
 _HINGE_DRIVE_DAMPING = 0.0
 _SLIDER_DRIVE_DAMPING = 0.0
 _GROUND_HALF_EXTENT = 0.75
-_ENV_SPACING = 2.5
+_DEFAULT_ENV_SPACING = 2.5
 _BASE_HEIGHT = 0.1524
 _PSM_ASSET_BASIS = np.array(
     (
@@ -83,9 +83,6 @@ _PITCH_BOTTOM_FRONT_CLOSURE_OFFSET = np.array((0.096164, 0.0, 0.0), dtype=np.flo
 _InertiaDiag = tuple[float, float, float]
 _LinkDynamicsFallback = tuple[float, _InertiaDiag]
 
-# The PSM URDF carries zero inertias for most links, and the distal tool chain also uses
-# very small masses that make joint correction look visibly compliant. When those inertias are
-# missing, prefer hand-tuned tool dynamics over the render-mesh box approximation.
 _LINK_DYNAMICS_FALLBACKS: dict[str, _LinkDynamicsFallback] = {
     "psm_yaw_link": (1.4705, (6.0e-2, 6.0e-2, 1.2e-2)),
     "psm_pitch_end_link": (2.091, (5.0e-2, 5.0e-2, 1.6e-2)),
@@ -96,14 +93,6 @@ _LINK_DYNAMICS_FALLBACKS: dict[str, _LinkDynamicsFallback] = {
     "psm_tool_gripper1_link": (0.03, (1.0e-4, 6.0e-5, 1.0e-4)),
     "psm_tool_gripper2_link": (0.03, (1.0e-4, 6.0e-5, 1.0e-4)),
 }
-
-
-def _scale_inertia_diag(inertia_diag: _InertiaDiag, scale: float) -> _InertiaDiag:
-    return (
-        float(inertia_diag[0] * scale),
-        float(inertia_diag[1] * scale),
-        float(inertia_diag[2] * scale),
-    )
 
 
 @dataclass
@@ -119,10 +108,31 @@ class PsmRobotInstance:
     jaw_limit: tuple[float, float]
 
 
+@dataclass
+class PsmAuthoringConfig:
+    resolve_root: str | os.PathLike[str] | Path | None = None
+    urdf_path: str | os.PathLike[str] | Path | None = None
+    env_count: int = 1
+    add_ground: bool = True
+    add_default_lighting: bool = True
+    add_default_camera: bool = True
+    env_spacing: float = _DEFAULT_ENV_SPACING
+
+
+@dataclass
+class PsmBuildResult:
+    instances: list[PsmRobotInstance] = field(default_factory=list)
+    camera_entities: list[int] = field(default_factory=list)
+    ground_entities: list[int] = field(default_factory=list)
+    light_entities: list[list[int]] = field(default_factory=list)
+    urdf_path: Path | None = None
+    env_count: int = 0
+
+
 def _require_trimesh():
     if trimesh is None:
         raise RuntimeError(
-            "PsmScene requires trimesh for OBJ/STL visual mesh loading. "
+            "Psm builder requires trimesh for OBJ/STL visual mesh loading. "
             "Install it with `pip install trimesh` in your Python environment."
         )
     return trimesh
@@ -218,8 +228,6 @@ def _urdf_to_engine_root_matrix() -> np.ndarray:
 
 
 def _convert_psm_local_frame(transform: np.ndarray) -> np.ndarray:
-    # Keep the PSM asset conversion in one place and apply it to every local frame
-    # that was authored alongside the meshes.
     return _PSM_ASSET_BASIS @ transform @ _PSM_ASSET_BASIS
 
 
@@ -269,35 +277,6 @@ def _quaternion_rotate(quaternion: neo.Quaternion, vector: np.ndarray) -> np.nda
     q = np.array([quaternion.x, quaternion.y, quaternion.z], dtype=np.float64)
     t = 2.0 * np.cross(q, vector)
     return vector + quaternion.w * t + np.cross(q, t)
-
-
-def _make_joint_frame_rotation(axis_x: np.ndarray) -> neo.Quaternion:
-    axis = np.asarray(axis_x, dtype=np.float64)
-    length = float(np.linalg.norm(axis))
-    if length <= 1.0e-8:
-        axis = np.array([1.0, 0.0, 0.0], dtype=np.float64)
-    else:
-        axis /= length
-
-    reference = np.array([1.0, 0.0, 0.0], dtype=np.float64)
-    if abs(float(np.dot(reference, axis))) > 0.99:
-        reference = np.array([0.0, 1.0, 0.0], dtype=np.float64)
-
-    axis_y = np.cross(axis, reference)
-    axis_y_norm = float(np.linalg.norm(axis_y))
-    if axis_y_norm <= 1.0e-8:
-        axis_y = np.array([0.0, 1.0, 0.0], dtype=np.float64)
-    else:
-        axis_y /= axis_y_norm
-    axis_z = np.cross(axis, axis_y)
-    axis_z_norm = float(np.linalg.norm(axis_z))
-    if axis_z_norm > 1.0e-8:
-        axis_z /= axis_z_norm
-    basis = np.eye(4, dtype=np.float64)
-    basis[:3, 0] = axis
-    basis[:3, 1] = axis_y
-    basis[:3, 2] = axis_z
-    return _matrix_to_quaternion(basis)
 
 
 def _make_joint_frame_world_rotation(
@@ -363,12 +342,12 @@ def _look_rotation(position: np.ndarray, target: np.ndarray) -> neo.Quaternion:
     return _matrix_to_quaternion(basis)
 
 
-def _env_origin(env_index: int, env_count: int) -> np.ndarray:
+def _env_origin(env_index: int, env_count: int, env_spacing: float) -> np.ndarray:
     cols = max(1, math.ceil(math.sqrt(float(env_count))))
     row = env_index // cols
     col = env_index % cols
-    x_offset = (col - 0.5 * (cols - 1)) * _ENV_SPACING
-    y_offset = (row - 0.5 * (max(1, math.ceil(env_count / cols)) - 1)) * _ENV_SPACING
+    x_offset = (col - 0.5 * (cols - 1)) * env_spacing
+    y_offset = (row - 0.5 * (max(1, math.ceil(env_count / cols)) - 1)) * env_spacing
     return np.array([x_offset, y_offset, 0.0], dtype=np.float64)
 
 
@@ -432,7 +411,6 @@ def _mesh_to_desc(mesh, debug_name: str) -> neo.MeshResourceDesc:
     if faces_array.min() < 0 or faces_array.max() >= len(vertices_array):
         raise RuntimeError(f"Mesh {debug_name} references out-of-range vertex indices.")
 
-    # Match the engine's procedural/OBJ winding convention so front faces render correctly.
     faces_array = faces_array[:, [0, 2, 1]].copy()
     normals_array = _compute_vertex_normals(vertices_array, faces_array)
 
@@ -448,6 +426,14 @@ def _mesh_to_desc(mesh, debug_name: str) -> neo.MeshResourceDesc:
     desc.vertices = vertices
     desc.indices = faces_array.astype(np.uint32, copy=False).reshape(-1).tolist()
     return desc
+
+
+def _scale_inertia_diag(inertia_diag: _InertiaDiag, scale: float) -> _InertiaDiag:
+    return (
+        float(inertia_diag[0] * scale),
+        float(inertia_diag[1] * scale),
+        float(inertia_diag[2] * scale),
+    )
 
 
 def _resolve_link_dynamics(
@@ -526,12 +512,21 @@ def _parse_psm_urdf(urdf_path: Path) -> tuple[dict, dict, dict]:
             mesh = geometry.find("mesh")
             if mesh is None:
                 continue
-            xyz = _parse_floats(origin.attrib.get("xyz") if origin is not None else None,
-                                3, (0.0, 0.0, 0.0))
-            rpy = _parse_floats(origin.attrib.get("rpy") if origin is not None else None,
-                                3, (0.0, 0.0, 0.0))
-            scale = _parse_floats(mesh.attrib.get("scale"), 3, (1.0, 1.0, 1.0)) \
-                if mesh.attrib.get("scale") else None
+            xyz = _parse_floats(
+                origin.attrib.get("xyz") if origin is not None else None,
+                3,
+                (0.0, 0.0, 0.0),
+            )
+            rpy = _parse_floats(
+                origin.attrib.get("rpy") if origin is not None else None,
+                3,
+                (0.0, 0.0, 0.0),
+            )
+            scale = (
+                _parse_floats(mesh.attrib.get("scale"), 3, (1.0, 1.0, 1.0))
+                if mesh.attrib.get("scale")
+                else None
+            )
 
             material_name = "default"
             material_node = visual.find("material")
@@ -539,7 +534,11 @@ def _parse_psm_urdf(urdf_path: Path) -> tuple[dict, dict, dict]:
                 material_name = material_node.attrib.get("name", material_name)
                 inline_color = material_node.find("color")
                 if inline_color is not None:
-                    rgba = _parse_floats(inline_color.attrib.get("rgba"), 4, (1.0, 1.0, 1.0, 1.0))
+                    rgba = _parse_floats(
+                        inline_color.attrib.get("rgba"),
+                        4,
+                        (1.0, 1.0, 1.0, 1.0),
+                    )
                     materials[f"{link_name}.visual.{visual_index}"] = tuple(rgba)
                     material_name = f"{link_name}.visual.{visual_index}"
 
@@ -568,12 +567,21 @@ def _parse_psm_urdf(urdf_path: Path) -> tuple[dict, dict, dict]:
         origin = joint.find("origin")
         axis = joint.find("axis")
         limit = joint.find("limit")
-        xyz = _parse_floats(origin.attrib.get("xyz") if origin is not None else None,
-                            3, (0.0, 0.0, 0.0))
-        rpy = _parse_floats(origin.attrib.get("rpy") if origin is not None else None,
-                            3, (0.0, 0.0, 0.0))
-        axis_values = _parse_floats(axis.attrib.get("xyz") if axis is not None else None,
-                                    3, (1.0, 0.0, 0.0))
+        xyz = _parse_floats(
+            origin.attrib.get("xyz") if origin is not None else None,
+            3,
+            (0.0, 0.0, 0.0),
+        )
+        rpy = _parse_floats(
+            origin.attrib.get("rpy") if origin is not None else None,
+            3,
+            (0.0, 0.0, 0.0),
+        )
+        axis_values = _parse_floats(
+            axis.attrib.get("xyz") if axis is not None else None,
+            3,
+            (1.0, 0.0, 0.0),
+        )
         lower = float(limit.attrib.get("lower", "0.0")) if limit is not None else 0.0
         upper = float(limit.attrib.get("upper", "0.0")) if limit is not None else 0.0
         velocity = float(limit.attrib.get("velocity", "0.0")) if limit is not None else 0.0
@@ -591,100 +599,70 @@ def _parse_psm_urdf(urdf_path: Path) -> tuple[dict, dict, dict]:
     return materials, links, joints
 
 
-class PsmScene:
+class _PsmAuthor:
     def __init__(
         self,
-        runtime: neo.Runtime,
-        runtime_config: neo.RuntimeConfig,
-        env_count: int,
-        resolve_root: str | os.PathLike[str] | Path | None = None,
-        urdf_path: str | os.PathLike[str] | Path | None = None,
-        viewer: neo.DebugViewerApp | None = None,
-    ):
-        self.runtime = runtime
-        self.runtime_config = runtime_config
-        self.viewer = viewer
-        self.env_count = env_count
-        self.resolve_root = _normalize_optional_path(resolve_root)
-        self.urdf_path = _normalize_optional_path(urdf_path)
-        self.instances: list[PsmRobotInstance] = []
-        self.camera_entities: list[int] = []
-        self._frame = neo.FrameContext()
+        world: neo.World,
+        resources: neo.RenderResourceManager,
+        config: PsmAuthoringConfig,
+    ) -> None:
+        self.world = world
+        self.resources = resources
+        self.config = config
         self._materials: dict[str, neo.MaterialHandle] = {}
         self._mesh_handles: dict[str, neo.MeshHandle] = {}
         self._mesh_inertia_diagonals: dict[str, tuple[float, float, float]] = {}
-        self._viewer_session_started = False
-        self._shutdown = False
 
-    @classmethod
-    def create(
-        cls,
-        env_count: int = 1,
-        resolve_root: str | os.PathLike[str] | Path | None = None,
-        urdf_path: str | os.PathLike[str] | Path | None = None,
-        viewer_desc: neo.DebugViewerAppDesc | None = None,
-    ) -> "PsmScene":
-        config = neo.RuntimeConfig()
-        config.scene_layout.env_count = env_count
-        config.scene_layout.max_renderable_objects_per_env = 16
-        config.scene_layout.max_lights_per_env = 3
-        config.scene_layout.max_cameras_per_env = 1
-        config.physics_desc.enable_blocking_readback = False
-        config.physics_desc.substeps = 4
-        config.physics_desc.default_iterations = 50
-
-        viewer = None
-        if viewer_desc is not None:
-            if not hasattr(neo, "DebugViewerApp"):
-                raise RuntimeError("Debug viewer bindings are unavailable in this build.")
-            viewer = neo.DebugViewerApp()
-            if not viewer.initialize(viewer_desc, config):
-                raise RuntimeError("Failed to initialize the debug viewer.")
-
-        runtime = neo.Runtime()
-        if not runtime.initialize(config):
-            if viewer is not None:
-                viewer.shutdown()
-            raise RuntimeError("Failed to initialize the runtime for the PSM scene.")
-
-        scene = cls(runtime, config, env_count, resolve_root, urdf_path, viewer)
-        scene.author()
-        return scene
-
-    def author(self) -> None:
-        world = self.runtime.world()
-        resources = self.runtime.resources()
-        materials, links, joints = _parse_psm_urdf(
-            _find_psm_urdf_path(resolve_root=self.resolve_root, urdf_path=self.urdf_path)
+    def author(self) -> PsmBuildResult:
+        urdf_path = _find_psm_urdf_path(
+            resolve_root=self.config.resolve_root,
+            urdf_path=self.config.urdf_path,
         )
+        materials, links, joints = _parse_psm_urdf(urdf_path)
 
-        self._materials["ground"] = self._register_material(
-            resources, "PsmScene.Ground", (0.35, 0.36, 0.40, 1.0), 0.95
-        )
+        if self.config.add_ground:
+            self._materials["ground"] = self._register_material(
+                "PsmBuilder.Ground",
+                (0.35, 0.36, 0.40, 1.0),
+                0.95,
+            )
 
         retained_links = {"psm_base_link"}
         retained_links.update(joints[joint_name]["child"] for joint_name in _PHYSICAL_JOINT_ORDER)
         retained_joints = {joint_name: joints[joint_name] for joint_name in _PHYSICAL_JOINT_ORDER}
         material_handles = {
             name: self._register_material(
-                resources,
-                f"PsmScene.Material.{name}",
+                f"PsmBuilder.Material.{name}",
                 materials.get(name, (0.8, 0.8, 0.8, 1.0)),
                 0.55,
             )
-            for name in {visual["material_name"] for link_name in retained_links
-                         for visual in links[link_name]["visuals"]}
+            for name in {
+                visual["material_name"]
+                for link_name in retained_links
+                for visual in links[link_name]["visuals"]
+            }
         }
 
-        for env_index in range(self.env_count):
-            env_origin = _env_origin(env_index, self.env_count)
-            self._author_environment(
-                world, resources, env_index, env_origin, links, retained_joints, material_handles
+        result = PsmBuildResult(urdf_path=urdf_path, env_count=self.config.env_count)
+        for env_index in range(self.config.env_count):
+            env_origin = _env_origin(env_index, self.config.env_count, self.config.env_spacing)
+            instance, ground_entity, camera_entity, light_entities = self._author_environment(
+                env_index,
+                env_origin,
+                links,
+                retained_joints,
+                material_handles,
             )
+            result.instances.append(instance)
+            if ground_entity is not None:
+                result.ground_entities.append(ground_entity)
+            if camera_entity is not None:
+                result.camera_entities.append(camera_entity)
+            result.light_entities.append(light_entities)
+        return result
 
     def _register_material(
         self,
-        resources: neo.RenderResourceManager,
         debug_name: str,
         rgba: tuple[float, float, float, float],
         roughness: float,
@@ -696,23 +674,17 @@ class PsmScene:
         material.base_color = neo.Float3(float(rgba[0]), float(rgba[1]), float(rgba[2]))
         material.roughness = float(roughness)
         material.opacity = float(rgba[3])
-        self._materials[debug_name] = resources.register_material(material)
+        self._materials[debug_name] = self.resources.register_material(material)
         return self._materials[debug_name]
 
-    def _register_link_mesh(
-        self,
-        resources: neo.RenderResourceManager,
-        link_name: str,
-        link_data: dict,
-    ) -> neo.MeshHandle:
+    def _register_link_mesh(self, link_name: str, link_data: dict) -> neo.MeshHandle:
         if link_name in self._mesh_handles:
             return self._mesh_handles[link_name]
 
-        visual_meshes = []
-        for visual in link_data["visuals"]:
-            visual_meshes.append(
-                _load_trimesh(visual["mesh_path"], visual["origin"], visual["scale"])
-            )
+        visual_meshes = [
+            _load_trimesh(visual["mesh_path"], visual["origin"], visual["scale"])
+            for visual in link_data["visuals"]
+        ]
         combined = _combine_trimesh_objects(visual_meshes)
         bounds = np.asarray(combined.bounds, dtype=np.float64)
         extents = np.maximum(bounds[1] - bounds[0], 1.0e-4)
@@ -721,92 +693,106 @@ class PsmScene:
             float((extents[0] * extents[0] + extents[2] * extents[2]) / 12.0),
             float((extents[0] * extents[0] + extents[1] * extents[1]) / 12.0),
         )
-        mesh_desc = _mesh_to_desc(combined, f"PsmScene.Mesh.{link_name}")
-        handle = resources.register_mesh(mesh_desc)
+        mesh_desc = _mesh_to_desc(combined, f"PsmBuilder.Mesh.{link_name}")
+        handle = self.resources.register_mesh(mesh_desc)
         self._mesh_handles[link_name] = handle
         return handle
 
     def _author_environment(
         self,
-        world: neo.World,
-        resources: neo.RenderResourceManager,
         env_index: int,
         env_origin: np.ndarray,
         links: dict,
         joints: dict,
         material_handles: dict[str, neo.MaterialHandle],
-    ) -> None:
-        ground_entity = world.create_entity(env_index)
-        ground_transform = neo.TransformComponent()
-        ground_transform.world_transform.position = neo.Float3(
-            float(env_origin[0]), -0.02, float(env_origin[1])
-        )
-        ground_transform.world_transform.scale = neo.Float3(1.0, 1.0, 1.0)
-        world.set_transform(ground_entity, ground_transform)
-        ground_mesh = resources.register_mesh(
-            neo.make_plane_mesh(_GROUND_HALF_EXTENT, f"PsmScene.Ground.{env_index}", 1.0)
-        )
-        ground_renderer = neo.MeshRendererComponent()
-        ground_renderer.mesh = ground_mesh
-        ground_renderer.material = self._materials["ground"]
-        ground_renderer.visible = True
-        world.set_mesh_renderer(ground_entity, ground_renderer)
+    ) -> tuple[PsmRobotInstance, int | None, int | None, list[int]]:
+        ground_entity: int | None = None
+        if self.config.add_ground:
+            ground_entity = self.world.create_entity(env_index)
+            ground_transform = neo.TransformComponent()
+            ground_transform.world_transform.position = neo.Float3(
+                float(env_origin[0]),
+                -0.02,
+                float(env_origin[1]),
+            )
+            ground_transform.world_transform.scale = neo.Float3(1.0, 1.0, 1.0)
+            self.world.set_transform(ground_entity, ground_transform)
+            ground_mesh = self.resources.register_mesh(
+                neo.make_plane_mesh(_GROUND_HALF_EXTENT, f"PsmBuilder.Ground.{env_index}", 1.0)
+            )
+            ground_renderer = neo.MeshRendererComponent()
+            ground_renderer.mesh = ground_mesh
+            ground_renderer.material = self._materials["ground"]
+            ground_renderer.visible = True
+            self.world.set_mesh_renderer(ground_entity, ground_renderer)
 
-        camera_entity = world.create_entity(env_index)
-        camera_position = np.array(
-            [env_origin[0] + 1.25, 0.95, env_origin[2] - 1.10],
-            dtype=np.float64,
-        )
-        camera_target = np.array(
-            [env_origin[0], 0.30, env_origin[2]],
-            dtype=np.float64,
-        )
-        camera_transform = neo.TransformComponent()
-        camera_transform.world_transform.position = neo.Float3(
-            float(camera_position[0]), float(camera_position[1]), float(camera_position[2])
-        )
-        camera_transform.world_transform.rotation = _look_rotation(camera_position, camera_target)
-        world.set_transform(camera_entity, camera_transform)
-        camera = neo.CameraComponent()
-        camera.vertical_fov_degrees = 55.0
-        camera.near_clip = 0.01
-        camera.far_clip = 20.0
-        camera.clear_color = True
-        camera.clear_depth = True
-        camera.clear_color_value = neo.Float4(0.84, 0.90, 0.98, 1.0)
-        world.set_camera(camera_entity, camera)
-        self.camera_entities.append(camera_entity)
+        camera_entity: int | None = None
+        if self.config.add_default_camera:
+            camera_entity = self.world.create_entity(env_index)
+            camera_position = np.array(
+                [env_origin[0] + 1.25, 0.95, env_origin[2] - 1.10],
+                dtype=np.float64,
+            )
+            camera_target = np.array(
+                [env_origin[0], 0.30, env_origin[2]],
+                dtype=np.float64,
+            )
+            camera_transform = neo.TransformComponent()
+            camera_transform.world_transform.position = neo.Float3(
+                float(camera_position[0]),
+                float(camera_position[1]),
+                float(camera_position[2]),
+            )
+            camera_transform.world_transform.rotation = _look_rotation(camera_position, camera_target)
+            self.world.set_transform(camera_entity, camera_transform)
+            camera = neo.CameraComponent()
+            camera.vertical_fov_degrees = 55.0
+            camera.near_clip = 0.01
+            camera.far_clip = 20.0
+            camera.clear_color = True
+            camera.clear_depth = True
+            camera.clear_color_value = neo.Float4(0.84, 0.90, 0.98, 1.0)
+            self.world.set_camera(camera_entity, camera)
 
-        light_entity = world.create_entity(env_index)
-        light = neo.DirectionalLightComponent()
-        light.direction = neo.Float3(-0.35, -0.45, -0.82)
-        light.color = neo.Float3(1.0, 0.98, 0.95)
-        light.intensity = 7.5
-        world.set_directional_light(light_entity, light)
+        light_entities: list[int] = []
+        if self.config.add_default_lighting:
+            light_entity = self.world.create_entity(env_index)
+            light = neo.DirectionalLightComponent()
+            light.direction = neo.Float3(-0.35, -0.45, -0.82)
+            light.color = neo.Float3(1.0, 0.98, 0.95)
+            light.intensity = 7.5
+            self.world.set_directional_light(light_entity, light)
+            light_entities.append(light_entity)
 
-        fill_light_entity = world.create_entity(env_index)
-        fill_light = neo.PointLightComponent()
-        fill_light.color = neo.Float3(0.76, 0.84, 1.0)
-        fill_light.intensity = 28.0
-        fill_light.range = 4.0
-        world.set_point_light(fill_light_entity, fill_light)
-        fill_transform = neo.TransformComponent()
-        fill_transform.world_transform.position = neo.Float3(
-            float(env_origin[0] + 0.65), 1.15, float(env_origin[1] - 0.85)
-        )
-        world.set_transform(fill_light_entity, fill_transform)
+            fill_light_entity = self.world.create_entity(env_index)
+            fill_light = neo.PointLightComponent()
+            fill_light.color = neo.Float3(0.76, 0.84, 1.0)
+            fill_light.intensity = 28.0
+            fill_light.range = 4.0
+            self.world.set_point_light(fill_light_entity, fill_light)
+            fill_transform = neo.TransformComponent()
+            fill_transform.world_transform.position = neo.Float3(
+                float(env_origin[0] + 0.65),
+                1.15,
+                float(env_origin[1] - 0.85),
+            )
+            self.world.set_transform(fill_light_entity, fill_transform)
+            light_entities.append(fill_light_entity)
 
-        rim_light_entity = world.create_entity(env_index)
-        rim_light = neo.PointLightComponent()
-        rim_light.color = neo.Float3(1.0, 0.92, 0.82)
-        rim_light.intensity = 18.0
-        rim_light.range = 3.5
-        world.set_point_light(rim_light_entity, rim_light)
-        rim_transform = neo.TransformComponent()
-        rim_transform.world_transform.position = neo.Float3(
-            float(env_origin[0] - 0.55), 0.75, float(env_origin[1] + 0.75)
-        )
-        world.set_transform(rim_light_entity, rim_transform)
+            rim_light_entity = self.world.create_entity(env_index)
+            rim_light = neo.PointLightComponent()
+            rim_light.color = neo.Float3(1.0, 0.92, 0.82)
+            rim_light.intensity = 18.0
+            rim_light.range = 3.5
+            self.world.set_point_light(rim_light_entity, rim_light)
+            rim_transform = neo.TransformComponent()
+            rim_transform.world_transform.position = neo.Float3(
+                float(env_origin[0] - 0.55),
+                0.75,
+                float(env_origin[1] + 0.75),
+            )
+            self.world.set_transform(rim_light_entity, rim_transform)
+            light_entities.append(rim_light_entity)
 
         link_world = {"psm_base_link": _urdf_to_engine_root_matrix()}
         link_world["psm_base_link"][:3, 3] += np.array([env_origin[0], 0.0, env_origin[1]])
@@ -817,7 +803,7 @@ class PsmScene:
         link_entities: dict[str, int] = {}
         base_entity = 0
         for link_name in ["psm_base_link", *(joints[name]["child"] for name in _PHYSICAL_JOINT_ORDER)]:
-            link_entity = world.create_entity(env_index)
+            link_entity = self.world.create_entity(env_index)
             if link_name == "psm_base_link":
                 base_entity = link_entity
             link_entities[link_name] = link_entity
@@ -829,15 +815,15 @@ class PsmScene:
                 float(link_world[link_name][2, 3]),
             )
             transform.world_transform.rotation = _matrix_to_quaternion(link_world[link_name])
-            world.set_transform(link_entity, transform)
+            self.world.set_transform(link_entity, transform)
 
-            mesh_handle = self._register_link_mesh(resources, link_name, links[link_name])
+            mesh_handle = self._register_link_mesh(link_name, links[link_name])
             material_name = links[link_name]["visuals"][0]["material_name"]
             renderer = neo.MeshRendererComponent()
             renderer.mesh = mesh_handle
             renderer.material = material_handles[material_name]
             renderer.visible = link_name not in _HIDDEN_LINKS
-            world.set_mesh_renderer(link_entity, renderer)
+            self.world.set_mesh_renderer(link_entity, renderer)
 
             rigid_body = neo.RigidBodyComponent()
             if link_name == "psm_base_link":
@@ -858,7 +844,7 @@ class PsmScene:
                     0.0 if inertia_diag[1] <= 0.0 else float(1.0 / inertia_diag[1]),
                     0.0 if inertia_diag[2] <= 0.0 else float(1.0 / inertia_diag[2]),
                 )
-            world.set_rigid_body(link_entity, rigid_body)
+            self.world.set_rigid_body(link_entity, rigid_body)
 
         physical_joint_ids: dict[str, int] = {}
         physical_joint_limits: dict[str, tuple[float, float]] = {}
@@ -879,13 +865,19 @@ class PsmScene:
             parent_position = link_world[joint["parent"]][:3, 3]
             child_position = link_world[joint["child"]][:3, 3]
             local_anchor_a = _quaternion_rotate(
-                _quaternion_conjugate(parent_rotation), anchor_world - parent_position
+                _quaternion_conjugate(parent_rotation),
+                anchor_world - parent_position,
             )
             local_anchor_b = _quaternion_rotate(
-                _quaternion_conjugate(child_rotation), anchor_world - child_position
+                _quaternion_conjugate(child_rotation),
+                anchor_world - child_position,
             )
-            local_rotation_a = _matrix_to_quaternion(parent_world_rotation.T @ solver_joint_world[:3, :3])
-            local_rotation_b = _matrix_to_quaternion(child_world_rotation.T @ solver_joint_world[:3, :3])
+            local_rotation_a = _matrix_to_quaternion(
+                parent_world_rotation.T @ solver_joint_world[:3, :3]
+            )
+            local_rotation_b = _matrix_to_quaternion(
+                child_world_rotation.T @ solver_joint_world[:3, :3]
+            )
 
             assigned_joint_id = env_index * 100 + joint_index + 1
             physical_joint_ids[joint_name] = assigned_joint_id
@@ -897,10 +889,14 @@ class PsmScene:
                 state.body_a = parent_entity
                 state.body_b = child_entity
                 state.local_anchor_a = neo.Float3(
-                    float(local_anchor_a[0]), float(local_anchor_a[1]), float(local_anchor_a[2])
+                    float(local_anchor_a[0]),
+                    float(local_anchor_a[1]),
+                    float(local_anchor_a[2]),
                 )
                 state.local_anchor_b = neo.Float3(
-                    float(local_anchor_b[0]), float(local_anchor_b[1]), float(local_anchor_b[2])
+                    float(local_anchor_b[0]),
+                    float(local_anchor_b[1]),
+                    float(local_anchor_b[2]),
                 )
                 state.local_rotation_a = local_rotation_a
                 state.local_rotation_b = local_rotation_b
@@ -913,9 +909,10 @@ class PsmScene:
                     state.drive_compliance = _HINGE_DRIVE_COMPLIANCE
                     state.drive_damping = _HINGE_DRIVE_DAMPING
                     state.drive_max_angular_velocity = max(
-                        float(joint["velocity"]), _DRIVE_MAX_ANGULAR_VELOCITY
+                        float(joint["velocity"]),
+                        _DRIVE_MAX_ANGULAR_VELOCITY,
                     )
-                if not world.upsert_hinge_joint(state):
+                if not self.world.upsert_hinge_joint(state):
                     raise RuntimeError(f"Failed to author hinge joint {joint_name}.")
             else:
                 state = neo.SliderJointState()
@@ -923,10 +920,14 @@ class PsmScene:
                 state.body_a = parent_entity
                 state.body_b = child_entity
                 state.local_anchor_a = neo.Float3(
-                    float(local_anchor_a[0]), float(local_anchor_a[1]), float(local_anchor_a[2])
+                    float(local_anchor_a[0]),
+                    float(local_anchor_a[1]),
+                    float(local_anchor_a[2]),
                 )
                 state.local_anchor_b = neo.Float3(
-                    float(local_anchor_b[0]), float(local_anchor_b[1]), float(local_anchor_b[2])
+                    float(local_anchor_b[0]),
+                    float(local_anchor_b[1]),
+                    float(local_anchor_b[2]),
                 )
                 state.local_rotation_a = local_rotation_a
                 state.local_rotation_b = local_rotation_b
@@ -938,21 +939,15 @@ class PsmScene:
                 state.drive_compliance = _SLIDER_DRIVE_COMPLIANCE
                 state.drive_damping = _SLIDER_DRIVE_DAMPING
                 state.drive_max_velocity = max(float(joint["velocity"]), _DRIVE_MAX_LINEAR_VELOCITY)
-                if not world.upsert_slider_joint(state):
+                if not self.world.upsert_slider_joint(state):
                     raise RuntimeError(f"Failed to author slider joint {joint_name}.")
 
         closure_joint_offset = 0
-        if {
-            "psm_pitch_bottom_link",
-            "psm_pitch_end_link",
-        }.issubset(link_entities):
+        if {"psm_pitch_bottom_link", "psm_pitch_end_link"}.issubset(link_entities):
             pitch_bottom_rotation = _matrix_to_quaternion(link_world["psm_pitch_bottom_link"])
             pitch_bottom_position = link_world["psm_pitch_bottom_link"][:3, 3]
-            # The pitch-chain closure is attached at the pitch-end visual mesh origin, not the
-            # pitch-end link frame origin.
             pitch_end_anchor_world = (
-                link_world["psm_pitch_end_link"]
-                @ links["psm_pitch_end_link"]["visuals"][0]["origin"]
+                link_world["psm_pitch_end_link"] @ links["psm_pitch_end_link"]["visuals"][0]["origin"]
             )[:3, 3]
             pitch_bottom_anchor_local = _quaternion_rotate(
                 _quaternion_conjugate(pitch_bottom_rotation),
@@ -974,14 +969,11 @@ class PsmScene:
                 float(pitch_end_anchor_local[1]),
                 float(pitch_end_anchor_local[2]),
             )
-            if not world.upsert_ball_joint(closure):
+            if not self.world.upsert_ball_joint(closure):
                 raise RuntimeError("Failed to author pitch bottom/end closure joint.")
             closure_joint_offset += 1
 
-        if {
-            "psm_pitch_top_link",
-            "psm_pitch_end_link",
-        }.issubset(link_entities):
+        if {"psm_pitch_top_link", "psm_pitch_end_link"}.issubset(link_entities):
             pitch_top_rotation = _matrix_to_quaternion(link_world["psm_pitch_top_link"])
             pitch_top_position = link_world["psm_pitch_top_link"][:3, 3]
             pitch_end_top_anchor_world = (
@@ -1012,19 +1004,15 @@ class PsmScene:
                 float(pitch_end_top_anchor_local[1]),
                 float(pitch_end_top_anchor_local[2]),
             )
-            if not world.upsert_ball_joint(closure):
+            if not self.world.upsert_ball_joint(closure):
                 raise RuntimeError("Failed to author pitch top/end closure joint.")
             closure_joint_offset += 1
 
-        if {
-            "psm_pitch_bottom_link",
-            "psm_pitch_front_link",
-        }.issubset(link_entities):
+        if {"psm_pitch_bottom_link", "psm_pitch_front_link"}.issubset(link_entities):
             pitch_bottom_rotation = _matrix_to_quaternion(link_world["psm_pitch_bottom_link"])
             pitch_bottom_position = link_world["psm_pitch_bottom_link"][:3, 3]
             pitch_front_rotation = _matrix_to_quaternion(link_world["psm_pitch_front_link"])
             pitch_front_position = link_world["psm_pitch_front_link"][:3, 3]
-            # Assumption: the provided "horizontal" offsets are local +X offsets in the mesh frame.
             pitch_bottom_front_anchor_world = (
                 link_world["psm_pitch_bottom_link"]
                 @ _pose_matrix(_PITCH_BOTTOM_FRONT_CLOSURE_OFFSET, (0.0, 0.0, 0.0))
@@ -1052,159 +1040,148 @@ class PsmScene:
                 float(pitch_front_anchor_local[1]),
                 float(pitch_front_anchor_local[2]),
             )
-            if not world.upsert_ball_joint(closure):
+            if not self.world.upsert_ball_joint(closure):
                 raise RuntimeError("Failed to author pitch bottom/front closure joint.")
-            closure_joint_offset += 1
 
-        self.instances.append(
-            PsmRobotInstance(
-                env_index=env_index,
-                base_entity=base_entity,
-                link_entities=link_entities,
-                arm_joint_ids=[physical_joint_ids[joint_name] for joint_name in _ARM_JOINT_ORDER],
-                arm_joint_limits=[
-                    physical_joint_limits[joint_name] for joint_name in _ARM_JOINT_ORDER
-                ],
-                passive_joint_ids={
-                    joint_name: physical_joint_ids[joint_name] for joint_name in _PASSIVE_JOINT_ORDER
-                },
-                passive_joint_limits={
-                    joint_name: physical_joint_limits[joint_name]
-                    for joint_name in _PASSIVE_JOINT_ORDER
-                },
-                jaw_joint_ids=(
-                    physical_joint_ids["psm_tool_gripper1_joint"],
-                    physical_joint_ids["psm_tool_gripper2_joint"],
-                ),
-                jaw_limit=_resolve_jaw_limits(
-                    joints["psm_tool_gripper1_joint"],
-                    joints["psm_tool_gripper2_joint"],
-                ),
-            )
+        instance = PsmRobotInstance(
+            env_index=env_index,
+            base_entity=base_entity,
+            link_entities=link_entities,
+            arm_joint_ids=[physical_joint_ids[joint_name] for joint_name in _ARM_JOINT_ORDER],
+            arm_joint_limits=[physical_joint_limits[joint_name] for joint_name in _ARM_JOINT_ORDER],
+            passive_joint_ids={
+                joint_name: physical_joint_ids[joint_name] for joint_name in _PASSIVE_JOINT_ORDER
+            },
+            passive_joint_limits={
+                joint_name: physical_joint_limits[joint_name] for joint_name in _PASSIVE_JOINT_ORDER
+            },
+            jaw_joint_ids=(
+                physical_joint_ids["psm_tool_gripper1_joint"],
+                physical_joint_ids["psm_tool_gripper2_joint"],
+            ),
+            jaw_limit=_resolve_jaw_limits(
+                joints["psm_tool_gripper1_joint"],
+                joints["psm_tool_gripper2_joint"],
+            ),
+        )
+        return instance, ground_entity, camera_entity, light_entities
+
+
+def get_psm_default_runtime_config(env_count: int = 1) -> neo.RuntimeConfig:
+    if env_count < 1:
+        raise ValueError(f"Expected env_count >= 1, got {env_count}.")
+    config = neo.RuntimeConfig()
+    config.scene_layout.env_count = env_count
+    config.scene_layout.max_renderable_objects_per_env = 16
+    config.scene_layout.max_lights_per_env = 3
+    config.scene_layout.max_cameras_per_env = 1
+    config.physics_desc.enable_blocking_readback = False
+    config.physics_desc.substeps = 4
+    config.physics_desc.default_iterations = 50
+    return config
+
+
+def author_psm_scene(
+    world: neo.World,
+    resources: neo.RenderResourceManager,
+    config: PsmAuthoringConfig,
+) -> PsmBuildResult:
+    if config.env_count < 1:
+        raise ValueError(f"Expected env_count >= 1, got {config.env_count}.")
+    return _PsmAuthor(world, resources, config).author()
+
+
+def set_psm_joint_targets(
+    world: neo.World,
+    build_result: PsmBuildResult,
+    targets: Iterable[float] | Iterable[Iterable[float]],
+    env_index: int | None = None,
+) -> None:
+    if env_index is not None:
+        _set_env_joint_targets(world, build_result, env_index, list(float(value) for value in targets))
+        return
+
+    target_list = list(targets)
+    if build_result.env_count == 1 and target_list and not isinstance(
+        target_list[0],
+        (list, tuple, np.ndarray),
+    ):
+        _set_env_joint_targets(world, build_result, 0, list(float(value) for value in target_list))
+        return
+
+    if len(target_list) != build_result.env_count:
+        raise ValueError(
+            f"Expected {build_result.env_count} target vectors, got {len(target_list)}."
+        )
+    for current_env, env_targets in enumerate(target_list):
+        _set_env_joint_targets(
+            world,
+            build_result,
+            current_env,
+            list(float(value) for value in env_targets),
         )
 
-    def set_joint_targets(
-        self,
-        targets: Iterable[float] | Iterable[Iterable[float]],
-        env_index: int | None = None,
-    ) -> None:
-        if env_index is not None:
-            self._set_env_joint_targets(env_index, list(float(value) for value in targets))
-            return
 
-        target_list = list(targets)
-        if self.env_count == 1 and target_list and not isinstance(target_list[0], (list, tuple, np.ndarray)):
-            self._set_env_joint_targets(0, list(float(value) for value in target_list))
-            return
-
-        if len(target_list) != self.env_count:
-            raise ValueError(f"Expected {self.env_count} target vectors, got {len(target_list)}.")
-        for current_env, env_targets in enumerate(target_list):
-            self._set_env_joint_targets(current_env, list(float(value) for value in env_targets))
-
-    def _set_env_joint_targets(self, env_index: int, targets: list[float]) -> None:
-        if env_index < 0 or env_index >= self.env_count:
-            raise ValueError(f"Environment index {env_index} is out of range.")
-        if len(targets) not in (len(_ARM_JOINT_ORDER), len(_COMMAND_JOINT_ORDER)):
-            raise ValueError(
-                "Expected "
-                f"{len(_ARM_JOINT_ORDER)} arm targets or {len(_COMMAND_JOINT_ORDER)} "
-                f"arm-plus-jaw targets, got {len(targets)}."
-            )
-
-        world = self.runtime.world()
-        instance = self.instances[env_index]
-        arm_targets = targets[: len(_ARM_JOINT_ORDER)]
-        jaw_target = 0.0 if len(targets) == len(_ARM_JOINT_ORDER) else float(targets[-1])
-
-        for joint_name, joint_id, limits, target in zip(
-            _ARM_JOINT_ORDER, instance.arm_joint_ids, instance.arm_joint_limits, arm_targets
-        ):
-            clamped = min(max(float(target), limits[0]), limits[1])
-            if _JOINT_KIND[joint_name] == "hinge":
-                state = world.try_get_hinge_joint(joint_id)
-                if state is None:
-                    raise RuntimeError(f"Missing hinge joint state for {joint_name}.")
-                state.drive_target_angle = clamped
-                if not world.upsert_hinge_joint(state):
-                    raise RuntimeError(f"Failed to update hinge joint {joint_name}.")
-            else:
-                state = world.try_get_slider_joint(joint_id)
-                if state is None:
-                    raise RuntimeError(f"Missing slider joint state for {joint_name}.")
-                state.drive_target_position = clamped
-                if not world.upsert_slider_joint(state):
-                    raise RuntimeError(f"Failed to update slider joint {joint_name}.")
-
-        jaw_clamped = min(max(jaw_target, instance.jaw_limit[0]), instance.jaw_limit[1])
-        gripper_targets = (
-            ("psm_tool_gripper1_joint", instance.jaw_joint_ids[0], jaw_clamped),
-            ("psm_tool_gripper2_joint", instance.jaw_joint_ids[1], -jaw_clamped),
+def _set_env_joint_targets(
+    world: neo.World,
+    build_result: PsmBuildResult,
+    env_index: int,
+    targets: list[float],
+) -> None:
+    if env_index < 0 or env_index >= build_result.env_count:
+        raise ValueError(f"Environment index {env_index} is out of range.")
+    if len(targets) not in (len(_ARM_JOINT_ORDER), len(_COMMAND_JOINT_ORDER)):
+        raise ValueError(
+            "Expected "
+            f"{len(_ARM_JOINT_ORDER)} arm targets or {len(_COMMAND_JOINT_ORDER)} "
+            f"arm-plus-jaw targets, got {len(targets)}."
         )
-        for joint_name, joint_id, target in gripper_targets:
+
+    instance = build_result.instances[env_index]
+    arm_targets = targets[: len(_ARM_JOINT_ORDER)]
+    jaw_target = 0.0 if len(targets) == len(_ARM_JOINT_ORDER) else float(targets[-1])
+
+    for joint_name, joint_id, limits, target in zip(
+        _ARM_JOINT_ORDER,
+        instance.arm_joint_ids,
+        instance.arm_joint_limits,
+        arm_targets,
+    ):
+        clamped = min(max(float(target), limits[0]), limits[1])
+        if _JOINT_KIND[joint_name] == "hinge":
             state = world.try_get_hinge_joint(joint_id)
             if state is None:
                 raise RuntimeError(f"Missing hinge joint state for {joint_name}.")
-            state.drive_target_angle = float(target)
+            state.drive_target_angle = clamped
             if not world.upsert_hinge_joint(state):
                 raise RuntimeError(f"Failed to update hinge joint {joint_name}.")
+        else:
+            state = world.try_get_slider_joint(joint_id)
+            if state is None:
+                raise RuntimeError(f"Missing slider joint state for {joint_name}.")
+            state.drive_target_position = clamped
+            if not world.upsert_slider_joint(state):
+                raise RuntimeError(f"Failed to update slider joint {joint_name}.")
 
-    def sync(self) -> None:
-        self.runtime.prepare()
-        if not self.runtime.upload_world():
-            raise RuntimeError("Failed to upload authored PSM world state.")
-
-    def step(self, delta_seconds: float = 1.0 / 60.0) -> None:
-        self.sync()
-        self._frame.frame_index += 1
-        self._frame.delta_seconds = float(delta_seconds)
-        self._frame.time_seconds += float(delta_seconds)
-        if not self.runtime.step_physics(self._frame):
-            raise RuntimeError("PSM scene physics step failed.")
-        if not self.runtime.step_simulation_sensors(self._frame):
-            raise RuntimeError("PSM scene simulation-sensor step failed.")
-        self.runtime.step_visual_sensors(self._frame)
-        self.runtime.end_frame(self._frame)
-
-    def run_viewer(
-        self,
-        env_index: int = 0,
-        callbacks: neo.DebugViewerCallbacks | None = None,
-    ) -> bool:
-        if self.viewer is None:
-            raise RuntimeError("This PSM scene was not created with a debug viewer.")
-        if env_index < 0 or env_index >= len(self.camera_entities):
-            raise ValueError(f"Environment index {env_index} is out of range.")
-        binding = neo.DebugViewerCameraBinding()
-        binding.camera_entity = self.camera_entities[env_index]
-        self._viewer_session_started = True
-        if callbacks is None:
-            return self.viewer.run(self.runtime, binding)
-        return self.viewer.run(self.runtime, binding, callbacks)
-
-    def shutdown(self) -> None:
-        if self._shutdown:
-            return
-        self._shutdown = True
-
-        viewer = self.viewer
-        self.viewer = None
-
-        if viewer is not None and not self._viewer_session_started:
-            viewer.shutdown()
-
-        self.runtime.shutdown()
-
-
-def create_psm_scene(
-    env_count: int = 1,
-    resolve_root: str | os.PathLike[str] | Path | None = None,
-    urdf_path: str | os.PathLike[str] | Path | None = None,
-    viewer_desc: neo.DebugViewerAppDesc | None = None,
-) -> PsmScene:
-    return PsmScene.create(
-        env_count=env_count,
-        resolve_root=resolve_root,
-        urdf_path=urdf_path,
-        viewer_desc=viewer_desc,
+    jaw_clamped = min(max(jaw_target, instance.jaw_limit[0]), instance.jaw_limit[1])
+    gripper_targets = (
+        ("psm_tool_gripper1_joint", instance.jaw_joint_ids[0], jaw_clamped),
+        ("psm_tool_gripper2_joint", instance.jaw_joint_ids[1], -jaw_clamped),
     )
+    for joint_name, joint_id, target in gripper_targets:
+        state = world.try_get_hinge_joint(joint_id)
+        if state is None:
+            raise RuntimeError(f"Missing hinge joint state for {joint_name}.")
+        state.drive_target_angle = float(target)
+        if not world.upsert_hinge_joint(state):
+            raise RuntimeError(f"Failed to update hinge joint {joint_name}.")
+
+
+__all__ = [
+    "PsmAuthoringConfig",
+    "PsmBuildResult",
+    "PsmRobotInstance",
+    "author_psm_scene",
+    "get_psm_default_runtime_config",
+    "set_psm_joint_targets",
+]
