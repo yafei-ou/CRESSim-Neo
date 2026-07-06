@@ -276,6 +276,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mUpdateSuturingTipPathsPass, kUpdateSuturingTipPaths) ||
         !initPass(mAssignSuturingInsideParticlesPass, kAssignSuturingInsideParticles) ||
         !initPass(mSolveSuturingNodePathConstraintsPass, kSolveSuturingNodePathConstraints) ||
+        !initPass(mApplySoftCuttingToolPass, kApplySoftCuttingTool) ||
+        !initPass(mEvaluateSoftFracturePass, kEvaluateSoftFracture) ||
         !initSolverConfigPass(mSolveSoftEdgeConstraintsPass, kSolveSoftEdgeConstraints) ||
         !initSolverConfigPass(mSolveSoftBendConstraintsPass, kSolveSoftBendConstraints) ||
         !initSolverConfigPass(mSolveSoftTetConstraintsPass, kSolveSoftTetConstraints) ||
@@ -2100,18 +2102,76 @@ bool PhysicsPassDispatcher::solveSoftEdgeConstraints(Diligent::IDeviceContext *c
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftEdges", softTopology.edgesBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftEdgeLambdas", transient.softEdgeLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_SoftEdgeCorrections", transient.softEdgeCorrectionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        gpu::GpuBufferBinding{"g_SoftEdgeToolCounters", transient.softEdgeToolCountersBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     return writeParticleDispatchConstants(computeContext, constants) &&
            mSolveSoftEdgeConstraintsPass.dispatch(computeContext, kDefaultVariant, solveBindings,
                                                   dispatchGroupCount(softEdgeCount));
+}
+
+bool PhysicsPassDispatcher::applySoftCuttingTool(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t softEdgeCount, const GpuParticleDispatchConstants &constants)
+{
+    if (softEdgeCount == 0u || constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const auto &transient     = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftEdges", softTopology.edgesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SoftEdgeLambdas", transient.softEdgeLambdasBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SoftEdgeToolCounters", transient.softEdgeToolCountersBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mApplySoftCuttingToolPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                              dispatchGroupCount(softEdgeCount));
+}
+
+bool PhysicsPassDispatcher::evaluateSoftFracture(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t softEdgeCount, const GpuParticleDispatchConstants &constants)
+{
+    if (softEdgeCount == 0u || constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const auto &transient     = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftEdges", softTopology.edgesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SoftEdgeLambdas", transient.softEdgeLambdasBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mEvaluateSoftFracturePass.dispatch(computeContext, kDefaultVariant, bindings,
+                                              dispatchGroupCount(softEdgeCount));
 }
 
 bool PhysicsPassDispatcher::solveSoftBendConstraints(Diligent::IDeviceContext *computeContext,
@@ -5755,6 +5815,8 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
         mUpdateSuturingTipPathsPass.forceRecreateAllVariants() &&
         mAssignSuturingInsideParticlesPass.forceRecreateAllVariants() &&
         mSolveSuturingNodePathConstraintsPass.forceRecreateAllVariants() &&
+        mApplySoftCuttingToolPass.forceRecreateAllVariants() &&
+        mEvaluateSoftFracturePass.forceRecreateAllVariants() &&
         mSolveSoftEdgeConstraintsPass.forceRecreateAllVariants() &&
         mSolveSoftBendConstraintsPass.forceRecreateAllVariants() &&
         mSolveSoftTetConstraintsPass.forceRecreateAllVariants() &&

@@ -639,6 +639,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
+        if (softEdgeCount > 0u &&
+            !mImpl->passDispatcher.applySoftCuttingTool(
+                computeBackend.computeContext, mImpl->sceneState, softEdgeCount,
+                particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ApplySoftCuttingTool dispatch.");
+            return false;
+        }
+
         if (hasParticleBroadPhaseWork)
         {
             if (!mImpl->passDispatcher.buildParticleBroadPhaseEntries(
@@ -1286,6 +1295,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     return false;
                 }
             }
+        }
+
+        if (softEdgeCount > 0u &&
+            !mImpl->passDispatcher.evaluateSoftFracture(
+                computeBackend.computeContext, mImpl->sceneState, softEdgeCount,
+                particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: EvaluateSoftFracture dispatch.");
+            return false;
         }
 
         if (rigidContactIterations > 0u && !useInitialRigidContactSolve &&

@@ -143,6 +143,14 @@ public:
                                           const PhysicsSceneGpuState &sceneState,
                                           std::uint32_t suturingParticleCount,
                                           const GpuParticleDispatchConstants &constants);
+    bool applySoftCuttingTool(Diligent::IDeviceContext *computeContext,
+                              const PhysicsSceneGpuState &sceneState,
+                              std::uint32_t softEdgeCount,
+                              const GpuParticleDispatchConstants &constants);
+    bool evaluateSoftFracture(Diligent::IDeviceContext *computeContext,
+                              const PhysicsSceneGpuState &sceneState,
+                              std::uint32_t softEdgeCount,
+                              const GpuParticleDispatchConstants &constants);
     bool solveSoftEdgeConstraints(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
                                   std::uint32_t softEdgeCount,
@@ -512,6 +520,8 @@ private:
     gpu::GpuComputePass mUpdateSuturingTipPathsPass;
     gpu::GpuComputePass mAssignSuturingInsideParticlesPass;
     gpu::GpuComputePass mSolveSuturingNodePathConstraintsPass;
+    gpu::GpuComputePass mApplySoftCuttingToolPass;
+    gpu::GpuComputePass mEvaluateSoftFracturePass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
     gpu::GpuComputePass mSolveSoftBendConstraintsPass;
     gpu::GpuComputePass mSolveSoftTetConstraintsPass;
