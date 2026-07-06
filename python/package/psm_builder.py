@@ -651,7 +651,7 @@ def _mesh_to_desc(mesh, debug_name: str) -> neo.MeshResourceDesc:
             if texture_coords is not None:
                 uv = texture_coords[corner_index]
                 vertex.tex_coord_u = float(uv[0])
-                vertex.tex_coord_v = float(uv[1])
+                vertex.tex_coord_v = float(1.0 - uv[1])
             indices.append(len(vertices))
             vertices.append(vertex)
     desc.vertices = vertices
