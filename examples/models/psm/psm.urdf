@@ -92,7 +92,7 @@
             <geometry>
                 <mesh filename="meshes/visual/pitch_end_link.STL"/>
             </geometry>
-            <material name="yellow"/>
+            <material name="black"/>
         </visual>
         <!--    <collision>-->
         <!--      &lt;!&ndash; by jqxu: rpy="0 0 3.14159265359 &ndash;&gt;-->
