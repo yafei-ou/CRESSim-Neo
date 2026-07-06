@@ -38,6 +38,11 @@ try:
 except RuntimeError:
     FluidTorchVectorEnv = None
 
+try:
+    from .psm_soft_grasp_env import PsmSoftGraspTorchVectorEnv
+except RuntimeError:
+    PsmSoftGraspTorchVectorEnv = None
+
 from .psm_builder import (
     PsmAuthoringConfig,
     PsmBuildResult,

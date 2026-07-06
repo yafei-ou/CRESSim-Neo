@@ -406,6 +406,42 @@ def _compute_vertex_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarr
     return normals
 
 
+def _extract_vertex_normals(mesh, vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
+    normals = None
+    cache = getattr(mesh, "_cache", None)
+    cache_dict = getattr(cache, "cache", None)
+    if isinstance(cache_dict, dict):
+        normals = cache_dict.get("vertex_normals")
+    if normals is not None:
+        normals_array = np.asarray(normals, dtype=np.float64)
+        if normals_array.shape == vertices.shape:
+            lengths = np.linalg.norm(normals_array, axis=1)
+            valid = lengths > 1.0e-8
+            if np.all(valid):
+                return normals_array / lengths[:, None]
+    return _compute_vertex_normals(vertices, faces)
+
+
+def _extract_face_normals(mesh, face_count: int) -> np.ndarray | None:
+    normals = None
+    cache = getattr(mesh, "_cache", None)
+    cache_dict = getattr(cache, "cache", None)
+    if isinstance(cache_dict, dict):
+        normals = cache_dict.get("face_normals")
+    if normals is None:
+        normals = getattr(mesh, "face_normals", None)
+    if normals is None:
+        return None
+    normals_array = np.asarray(normals, dtype=np.float64)
+    if normals_array.shape != (face_count, 3):
+        return None
+    lengths = np.linalg.norm(normals_array, axis=1)
+    valid = lengths > 1.0e-8
+    if not np.all(valid):
+        return None
+    return normals_array / lengths[:, None]
+
+
 def _mesh_to_desc(mesh, debug_name: str) -> neo.MeshResourceDesc:
     vertices_array = np.asarray(mesh.vertices, dtype=np.float64)
     faces_array = np.asarray(mesh.faces, dtype=np.int64)
@@ -419,19 +455,26 @@ def _mesh_to_desc(mesh, debug_name: str) -> neo.MeshResourceDesc:
         raise RuntimeError(f"Mesh {debug_name} references out-of-range vertex indices.")
 
     faces_array = faces_array[:, [0, 2, 1]].copy()
-    normals_array = _compute_vertex_normals(vertices_array, faces_array)
+    vertex_normals = _extract_vertex_normals(mesh, vertices_array, faces_array)
+    face_normals = _extract_face_normals(mesh, len(faces_array))
 
     desc = neo.MeshResourceDesc()
     desc.debug_name = debug_name
     vertices = []
-    for index, position in enumerate(vertices_array):
-        vertex = neo.MeshVertex()
-        vertex.position = neo.Float3(float(position[0]), float(position[1]), float(position[2]))
-        normal = normals_array[index]
-        vertex.normal = neo.Float3(float(normal[0]), float(normal[1]), float(normal[2]))
-        vertices.append(vertex)
+    indices: list[int] = []
+    use_face_normals = face_normals is not None
+    for face_index, face in enumerate(faces_array):
+        face_normal = face_normals[face_index] if use_face_normals else None
+        for corner_index in face:
+            vertex = neo.MeshVertex()
+            position = vertices_array[corner_index]
+            vertex.position = neo.Float3(float(position[0]), float(position[1]), float(position[2]))
+            normal = face_normal if face_normal is not None else vertex_normals[corner_index]
+            vertex.normal = neo.Float3(float(normal[0]), float(normal[1]), float(normal[2]))
+            indices.append(len(vertices))
+            vertices.append(vertex)
     desc.vertices = vertices
-    desc.indices = faces_array.astype(np.uint32, copy=False).reshape(-1).tolist()
+    desc.indices = indices
     return desc
 
 
@@ -820,41 +863,11 @@ class _PsmAuthor:
         if self.config.add_default_lighting:
             light_entity = self.world.create_entity(env_index)
             light = neo.DirectionalLightComponent()
-            light.direction = neo.Float3(-0.35, -0.45, -0.82)
-            light.color = neo.Float3(1.0, 0.98, 0.95)
+            light.direction = neo.Float3(-0.35, -1.0, 0.25)
+            light.color = neo.Float3(1.0, 1.0, 1.0)
             light.intensity = 7.5
             self.world.set_directional_light(light_entity, light)
             light_entities.append(light_entity)
-
-            fill_light_entity = self.world.create_entity(env_index)
-            fill_light = neo.PointLightComponent()
-            fill_light.color = neo.Float3(0.76, 0.84, 1.0)
-            fill_light.intensity = 28.0
-            fill_light.range = float(4.0 * self.config.global_scale)
-            self.world.set_point_light(fill_light_entity, fill_light)
-            fill_transform = neo.TransformComponent()
-            fill_transform.world_transform.position = neo.Float3(
-                float(env_origin[0] + 0.65 * self.config.global_scale),
-                float(1.15 * self.config.global_scale),
-                float(env_origin[1] - 0.85 * self.config.global_scale),
-            )
-            self.world.set_transform(fill_light_entity, fill_transform)
-            light_entities.append(fill_light_entity)
-
-            rim_light_entity = self.world.create_entity(env_index)
-            rim_light = neo.PointLightComponent()
-            rim_light.color = neo.Float3(1.0, 0.92, 0.82)
-            rim_light.intensity = 18.0
-            rim_light.range = float(3.5 * self.config.global_scale)
-            self.world.set_point_light(rim_light_entity, rim_light)
-            rim_transform = neo.TransformComponent()
-            rim_transform.world_transform.position = neo.Float3(
-                float(env_origin[0] - 0.55 * self.config.global_scale),
-                float(0.75 * self.config.global_scale),
-                float(env_origin[1] + 0.75 * self.config.global_scale),
-            )
-            self.world.set_transform(rim_light_entity, rim_transform)
-            light_entities.append(rim_light_entity)
 
         link_world = {"psm_base_link": _urdf_to_engine_root_matrix(self.config.global_scale)}
         link_world["psm_base_link"][:3, 3] += np.array([env_origin[0], 0.0, env_origin[1]])

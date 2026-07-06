@@ -21,7 +21,8 @@ set(CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/package/soft_body_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/fluid_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/psm_builder.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/psm_env.py")
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/psm_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/psm_soft_grasp_env.py")
 
 configure_file(
     "${CRESSIM_NEO_PYTHON_PACKAGE_INIT_TEMPLATE}"
