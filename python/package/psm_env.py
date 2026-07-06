@@ -24,6 +24,7 @@ class PsmEnv:
         add_ground: bool = True,
         add_default_lighting: bool = True,
         add_default_camera: bool = True,
+        global_scale: float = 1.0,
     ) -> None:
         config = runtime_config or get_psm_default_runtime_config(1)
         config.scene_layout.env_count = 1
@@ -57,6 +58,7 @@ class PsmEnv:
                 add_ground=add_ground,
                 add_default_lighting=add_default_lighting,
                 add_default_camera=add_default_camera,
+                global_scale=global_scale,
             ),
         )
 

@@ -1,10 +1,23 @@
+import argparse
 import math
 from pathlib import Path
 
 import cressim_neo as neo
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="View and scrub a scaled CRESSim-Neo PSM.")
+    parser.add_argument(
+        "--scale",
+        type=float,
+        default=1.0,
+        help="Uniform world-space scale applied during PSM authoring.",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    args = parse_args()
     if not hasattr(neo, "DebugViewerApp"):
         raise RuntimeError(
             "This build does not include the Python debug viewer bindings."
@@ -21,13 +34,14 @@ def main() -> int:
     env = neo.PsmEnv(
         resolve_root=resolve_root,
         viewer_desc=viewer_desc,
+        global_scale=args.scale,
     )
 
     try:
         base_targets = [
             0.05 * math.pi,
             -0.05 * math.pi,
-            0.10,
+            0.10 * args.scale, # slider joint motion should be scaled with the robot
             0.0 * math.pi,
             0.0 * math.pi,
             0.0 * math.pi,
@@ -35,7 +49,7 @@ def main() -> int:
         amplitudes = [
             0.10 * math.pi,
             0.10 * math.pi,
-            0.0,
+            0.0 * args.scale, # slider joint motion should be scaled with the robot
             0.0 * math.pi,
             0.0 * math.pi,
             0.0 * math.pi,

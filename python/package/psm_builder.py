@@ -117,6 +117,7 @@ class PsmAuthoringConfig:
     add_default_lighting: bool = True
     add_default_camera: bool = True
     env_spacing: float = _DEFAULT_ENV_SPACING
+    global_scale: float = 1.0
 
 
 @dataclass
@@ -223,8 +224,14 @@ def _pose_matrix(xyz: Iterable[float], rpy: Iterable[float]) -> np.ndarray:
     return transform
 
 
-def _urdf_to_engine_root_matrix() -> np.ndarray:
-    return _pose_matrix((0.0, _BASE_HEIGHT, 0.0), (0.5 * math.pi, math.pi, 0.0))
+def _scale_transform_translation(transform: np.ndarray, scale: float) -> np.ndarray:
+    scaled = np.array(transform, copy=True)
+    scaled[:3, 3] *= float(scale)
+    return scaled
+
+
+def _urdf_to_engine_root_matrix(scale: float) -> np.ndarray:
+    return _pose_matrix((0.0, _BASE_HEIGHT * scale, 0.0), (0.5 * math.pi, math.pi, 0.0))
 
 
 def _convert_psm_local_frame(transform: np.ndarray) -> np.ndarray:
@@ -440,6 +447,7 @@ def _resolve_link_dynamics(
     link_name: str,
     link_data: dict,
     mesh_inertia_diagonals: dict[str, _InertiaDiag],
+    global_scale: float,
 ) -> tuple[float, _InertiaDiag]:
     mass = float(link_data["mass"])
     inertia_diag = tuple(float(value) for value in link_data["inertia_diag"])
@@ -448,7 +456,15 @@ def _resolve_link_dynamics(
 
     if fallback is not None and (mass <= 0.0 or not has_valid_inertia):
         fallback_mass, fallback_inertia = fallback
-        return fallback_mass, _scale_inertia_diag(fallback_inertia, _FALLBACK_INERTIA_SCALE)
+        scale_cubed = global_scale * global_scale * global_scale
+        scale_quintic = scale_cubed * global_scale * global_scale
+        return (
+            fallback_mass * scale_cubed,
+            _scale_inertia_diag(
+                fallback_inertia,
+                _FALLBACK_INERTIA_SCALE * scale_quintic,
+            ),
+        )
 
     if not has_valid_inertia:
         fallback_diag = mesh_inertia_diagonals.get(link_name, _DEFAULT_INERTIA_DIAG)
@@ -471,6 +487,34 @@ def _resolve_jaw_limits(gripper1: dict, gripper2: dict) -> tuple[float, float]:
             "PSM gripper mimic limits are inconsistent and cannot be mapped to a single jaw command."
         )
     return lower, upper
+
+
+def _scale_psm_authoring_data(links: dict, joints: dict, scale: float) -> None:
+    if abs(scale - 1.0) <= 1.0e-8:
+        return
+
+    scale_squared = scale * scale
+    scale_cubed = scale_squared * scale
+    scale_quintic = scale_cubed * scale_squared
+
+    for link_data in links.values():
+        link_data["mass"] = float(link_data["mass"]) * scale_cubed
+        inertia_diag = tuple(float(value) for value in link_data["inertia_diag"])
+        link_data["inertia_diag"] = tuple(value * scale_quintic for value in inertia_diag)
+        for visual in link_data["visuals"]:
+            visual["origin"] = _scale_transform_translation(visual["origin"], scale)
+            visual_scale = visual["scale"]
+            if visual_scale is None:
+                visual["scale"] = [scale, scale, scale]
+            else:
+                visual["scale"] = [float(value) * scale for value in visual_scale]
+
+    for joint in joints.values():
+        joint["origin"] = _scale_transform_translation(joint["origin"], scale)
+        if joint["type"] == "prismatic":
+            joint["lower"] = float(joint["lower"]) * scale
+            joint["upper"] = float(joint["upper"]) * scale
+            joint["velocity"] = float(joint["velocity"]) * scale
 
 
 def _parse_psm_urdf(urdf_path: Path) -> tuple[dict, dict, dict]:
@@ -619,6 +663,7 @@ class _PsmAuthor:
             urdf_path=self.config.urdf_path,
         )
         materials, links, joints = _parse_psm_urdf(urdf_path)
+        _scale_psm_authoring_data(links, joints, self.config.global_scale)
 
         if self.config.add_ground:
             self._materials["ground"] = self._register_material(
@@ -712,13 +757,17 @@ class _PsmAuthor:
             ground_transform = neo.TransformComponent()
             ground_transform.world_transform.position = neo.Float3(
                 float(env_origin[0]),
-                -0.02,
+                float(-0.02 * self.config.global_scale),
                 float(env_origin[1]),
             )
             ground_transform.world_transform.scale = neo.Float3(1.0, 1.0, 1.0)
             self.world.set_transform(ground_entity, ground_transform)
             ground_mesh = self.resources.register_mesh(
-                neo.make_plane_mesh(_GROUND_HALF_EXTENT, f"PsmBuilder.Ground.{env_index}", 1.0)
+                neo.make_plane_mesh(
+                    _GROUND_HALF_EXTENT * self.config.global_scale,
+                    f"PsmBuilder.Ground.{env_index}",
+                    1.0,
+                )
             )
             ground_renderer = neo.MeshRendererComponent()
             ground_renderer.mesh = ground_mesh
@@ -729,12 +778,25 @@ class _PsmAuthor:
         camera_entity: int | None = None
         if self.config.add_default_camera:
             camera_entity = self.world.create_entity(env_index)
+            camera_offset = self.config.global_scale * np.array([1.25, 0.95, -1.10], dtype=np.float64)
+            camera_target_offset = self.config.global_scale * np.array(
+                [0.0, 0.30, 0.0],
+                dtype=np.float64,
+            )
             camera_position = np.array(
-                [env_origin[0] + 1.25, 0.95, env_origin[2] - 1.10],
+                [
+                    env_origin[0] + camera_offset[0],
+                    camera_offset[1],
+                    env_origin[2] + camera_offset[2],
+                ],
                 dtype=np.float64,
             )
             camera_target = np.array(
-                [env_origin[0], 0.30, env_origin[2]],
+                [
+                    env_origin[0] + camera_target_offset[0],
+                    camera_target_offset[1],
+                    env_origin[2] + camera_target_offset[2],
+                ],
                 dtype=np.float64,
             )
             camera_transform = neo.TransformComponent()
@@ -747,8 +809,8 @@ class _PsmAuthor:
             self.world.set_transform(camera_entity, camera_transform)
             camera = neo.CameraComponent()
             camera.vertical_fov_degrees = 55.0
-            camera.near_clip = 0.01
-            camera.far_clip = 20.0
+            camera.near_clip = float(0.01 * self.config.global_scale)
+            camera.far_clip = float(max(20.0 * self.config.global_scale, 20.0))
             camera.clear_color = True
             camera.clear_depth = True
             camera.clear_color_value = neo.Float4(0.84, 0.90, 0.98, 1.0)
@@ -768,13 +830,13 @@ class _PsmAuthor:
             fill_light = neo.PointLightComponent()
             fill_light.color = neo.Float3(0.76, 0.84, 1.0)
             fill_light.intensity = 28.0
-            fill_light.range = 4.0
+            fill_light.range = float(4.0 * self.config.global_scale)
             self.world.set_point_light(fill_light_entity, fill_light)
             fill_transform = neo.TransformComponent()
             fill_transform.world_transform.position = neo.Float3(
-                float(env_origin[0] + 0.65),
-                1.15,
-                float(env_origin[1] - 0.85),
+                float(env_origin[0] + 0.65 * self.config.global_scale),
+                float(1.15 * self.config.global_scale),
+                float(env_origin[1] - 0.85 * self.config.global_scale),
             )
             self.world.set_transform(fill_light_entity, fill_transform)
             light_entities.append(fill_light_entity)
@@ -783,18 +845,18 @@ class _PsmAuthor:
             rim_light = neo.PointLightComponent()
             rim_light.color = neo.Float3(1.0, 0.92, 0.82)
             rim_light.intensity = 18.0
-            rim_light.range = 3.5
+            rim_light.range = float(3.5 * self.config.global_scale)
             self.world.set_point_light(rim_light_entity, rim_light)
             rim_transform = neo.TransformComponent()
             rim_transform.world_transform.position = neo.Float3(
-                float(env_origin[0] - 0.55),
-                0.75,
-                float(env_origin[1] + 0.75),
+                float(env_origin[0] - 0.55 * self.config.global_scale),
+                float(0.75 * self.config.global_scale),
+                float(env_origin[1] + 0.75 * self.config.global_scale),
             )
             self.world.set_transform(rim_light_entity, rim_transform)
             light_entities.append(rim_light_entity)
 
-        link_world = {"psm_base_link": _urdf_to_engine_root_matrix()}
+        link_world = {"psm_base_link": _urdf_to_engine_root_matrix(self.config.global_scale)}
         link_world["psm_base_link"][:3, 3] += np.array([env_origin[0], 0.0, env_origin[1]])
         for joint_name in _PHYSICAL_JOINT_ORDER:
             joint = joints[joint_name]
@@ -835,6 +897,7 @@ class _PsmAuthor:
                     link_name,
                     links[link_name],
                     self._mesh_inertia_diagonals,
+                    self.config.global_scale,
                 )
                 inverse_mass = 0.0 if mass <= 0.0 else 1.0 / mass
                 rigid_body.body_type = neo.RigidBodyType.Dynamic
@@ -979,7 +1042,10 @@ class _PsmAuthor:
             pitch_end_top_anchor_world = (
                 link_world["psm_pitch_end_link"]
                 @ links["psm_pitch_end_link"]["visuals"][0]["origin"]
-                @ _pose_matrix(_PITCH_END_TOP_CLOSURE_MESH_OFFSET, (0.0, 0.0, 0.0))
+                @ _pose_matrix(
+                    self.config.global_scale * _PITCH_END_TOP_CLOSURE_MESH_OFFSET,
+                    (0.0, 0.0, 0.0),
+                )
             )[:3, 3]
             pitch_top_anchor_local = _quaternion_rotate(
                 _quaternion_conjugate(pitch_top_rotation),
@@ -997,7 +1063,10 @@ class _PsmAuthor:
             )
             pitch_end_top_anchor_local = (
                 links["psm_pitch_end_link"]["visuals"][0]["origin"]
-                @ _pose_matrix(_PITCH_END_TOP_CLOSURE_MESH_OFFSET, (0.0, 0.0, 0.0))
+                @ _pose_matrix(
+                    self.config.global_scale * _PITCH_END_TOP_CLOSURE_MESH_OFFSET,
+                    (0.0, 0.0, 0.0),
+                )
             )[:3, 3]
             closure.local_anchor_b = neo.Float3(
                 float(pitch_end_top_anchor_local[0]),
@@ -1015,7 +1084,10 @@ class _PsmAuthor:
             pitch_front_position = link_world["psm_pitch_front_link"][:3, 3]
             pitch_bottom_front_anchor_world = (
                 link_world["psm_pitch_bottom_link"]
-                @ _pose_matrix(_PITCH_BOTTOM_FRONT_CLOSURE_OFFSET, (0.0, 0.0, 0.0))
+                @ _pose_matrix(
+                    self.config.global_scale * _PITCH_BOTTOM_FRONT_CLOSURE_OFFSET,
+                    (0.0, 0.0, 0.0),
+                )
             )[:3, 3]
             pitch_bottom_front_anchor_local = _quaternion_rotate(
                 _quaternion_conjugate(pitch_bottom_rotation),
@@ -1088,6 +1160,8 @@ def author_psm_scene(
 ) -> PsmBuildResult:
     if config.env_count < 1:
         raise ValueError(f"Expected env_count >= 1, got {config.env_count}.")
+    if config.global_scale <= 0.0:
+        raise ValueError(f"Expected global_scale > 0, got {config.global_scale}.")
     return _PsmAuthor(world, resources, config).author()
 
 
