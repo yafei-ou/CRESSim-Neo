@@ -4,8 +4,10 @@ from dataclasses import dataclass, field
 import math
 import os
 from pathlib import Path
+import struct
 from typing import Iterable
 import xml.etree.ElementTree as ET
+import zlib
 
 from . import _cressim_neo as neo
 
@@ -383,6 +385,54 @@ def _load_trimesh(path: Path, transform: np.ndarray, scale: list[float] | None):
     return _combine_trimesh_objects(source_meshes)
 
 
+def _parse_obj_mtllib_paths(obj_path: Path) -> list[Path]:
+    mtllib_paths: list[Path] = []
+    try:
+        with obj_path.open("r", encoding="utf-8", errors="ignore") as handle:
+            for line in handle:
+                stripped = line.strip()
+                if not stripped.startswith("mtllib "):
+                    continue
+                relative_path = stripped[7:].strip()
+                if relative_path:
+                    mtllib_paths.append((obj_path.parent / relative_path).resolve())
+    except OSError:
+        return []
+    return mtllib_paths
+
+
+def _parse_mtl_base_color_texture(mtl_path: Path) -> Path | None:
+    try:
+        with mtl_path.open("r", encoding="utf-8", errors="ignore") as handle:
+            for line in handle:
+                stripped = line.strip()
+                if not stripped.startswith("map_Kd "):
+                    continue
+                relative_path = stripped[7:].strip()
+                if relative_path:
+                    texture_path = (mtl_path.parent / relative_path).resolve()
+                    if texture_path.exists():
+                        return texture_path
+    except OSError:
+        return None
+    return None
+
+
+def _find_visual_base_color_texture(mesh_path: Path) -> Path | None:
+    lower_suffix = mesh_path.suffix.lower()
+    if lower_suffix == ".obj":
+        for mtl_path in _parse_obj_mtllib_paths(mesh_path):
+            texture_path = _parse_mtl_base_color_texture(mtl_path)
+            if texture_path is not None and texture_path.suffix.lower() == ".png":
+                return texture_path
+
+    for suffix in (".png",):
+        candidate = mesh_path.with_suffix(suffix)
+        if candidate.exists():
+            return candidate.resolve()
+    return None
+
+
 def _compute_vertex_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
     normals = np.zeros_like(vertices, dtype=np.float64)
     for i0, i1, i2 in faces:
@@ -442,6 +492,132 @@ def _extract_face_normals(mesh, face_count: int) -> np.ndarray | None:
     return normals_array / lengths[:, None]
 
 
+def _extract_texture_coords(mesh, vertex_count: int) -> np.ndarray | None:
+    visual = getattr(mesh, "visual", None)
+    if visual is None:
+        return None
+    texture_coords = getattr(visual, "uv", None)
+    if texture_coords is None:
+        return None
+    texture_coords_array = np.asarray(texture_coords, dtype=np.float64)
+    if texture_coords_array.shape != (vertex_count, 2):
+        return None
+    return texture_coords_array
+
+
+def _read_png_rgba8(path: Path) -> tuple[int, int, bytes]:
+    data = path.read_bytes()
+    signature = b"\x89PNG\r\n\x1a\n"
+    if len(data) < len(signature) or data[: len(signature)] != signature:
+        raise RuntimeError(f"Unsupported texture format for {path}: expected a PNG file.")
+
+    width = 0
+    height = 0
+    bit_depth = 0
+    color_type = 0
+    interlace_method = 0
+    idat_chunks: list[bytes] = []
+    offset = len(signature)
+
+    while offset + 8 <= len(data):
+        chunk_length = struct.unpack(">I", data[offset : offset + 4])[0]
+        chunk_type = data[offset + 4 : offset + 8]
+        chunk_data_start = offset + 8
+        chunk_data_end = chunk_data_start + chunk_length
+        if chunk_data_end + 4 > len(data):
+            raise RuntimeError(f"Corrupted PNG texture: {path}")
+        chunk_data = data[chunk_data_start:chunk_data_end]
+        offset = chunk_data_end + 4
+
+        if chunk_type == b"IHDR":
+            width, height, bit_depth, color_type, _compression, _filter_method, interlace_method = (
+                struct.unpack(">IIBBBBB", chunk_data)
+            )
+        elif chunk_type == b"IDAT":
+            idat_chunks.append(chunk_data)
+        elif chunk_type == b"IEND":
+            break
+
+    if width <= 0 or height <= 0:
+        raise RuntimeError(f"PNG texture is missing image dimensions: {path}")
+    if bit_depth != 8:
+        raise RuntimeError(f"Unsupported PNG bit depth for {path}: expected 8, got {bit_depth}.")
+    if interlace_method != 0:
+        raise RuntimeError(f"Unsupported interlaced PNG texture: {path}")
+    if color_type not in (2, 6):
+        raise RuntimeError(
+            f"Unsupported PNG color type for {path}: expected RGB or RGBA, got {color_type}."
+        )
+
+    bytes_per_pixel = 4 if color_type == 6 else 3
+    stride = width * bytes_per_pixel
+    decoded = zlib.decompress(b"".join(idat_chunks))
+    expected_size = (stride + 1) * height
+    if len(decoded) != expected_size:
+        raise RuntimeError(
+            f"PNG texture {path} decoded to an unexpected size: "
+            f"expected {expected_size}, got {len(decoded)}."
+        )
+
+    rows = bytearray(width * height * bytes_per_pixel)
+    previous_row = bytearray(stride)
+    source_offset = 0
+    target_offset = 0
+    for _ in range(height):
+        filter_type = decoded[source_offset]
+        source_offset += 1
+        raw_row = decoded[source_offset : source_offset + stride]
+        source_offset += stride
+        row = bytearray(stride)
+
+        if filter_type == 0:
+            row[:] = raw_row
+        elif filter_type == 1:
+            for index in range(stride):
+                left = row[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
+                row[index] = (raw_row[index] + left) & 0xFF
+        elif filter_type == 2:
+            for index in range(stride):
+                row[index] = (raw_row[index] + previous_row[index]) & 0xFF
+        elif filter_type == 3:
+            for index in range(stride):
+                left = row[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
+                up = previous_row[index]
+                row[index] = (raw_row[index] + ((left + up) // 2)) & 0xFF
+        elif filter_type == 4:
+            for index in range(stride):
+                left = row[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
+                up = previous_row[index]
+                up_left = previous_row[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
+                p = left + up - up_left
+                pa = abs(p - left)
+                pb = abs(p - up)
+                pc = abs(p - up_left)
+                predictor = left if pa <= pb and pa <= pc else (up if pb <= pc else up_left)
+                row[index] = (raw_row[index] + predictor) & 0xFF
+        else:
+            raise RuntimeError(f"Unsupported PNG filter type {filter_type} in {path}.")
+
+        rows[target_offset : target_offset + stride] = row
+        target_offset += stride
+        previous_row = row
+
+    if color_type == 6:
+        return width, height, bytes(rows)
+
+    rgba = bytearray(width * height * 4)
+    src = 0
+    dst = 0
+    while src < len(rows):
+        rgba[dst] = rows[src]
+        rgba[dst + 1] = rows[src + 1]
+        rgba[dst + 2] = rows[src + 2]
+        rgba[dst + 3] = 255
+        src += 3
+        dst += 4
+    return width, height, bytes(rgba)
+
+
 def _mesh_to_desc(mesh, debug_name: str) -> neo.MeshResourceDesc:
     vertices_array = np.asarray(mesh.vertices, dtype=np.float64)
     faces_array = np.asarray(mesh.faces, dtype=np.int64)
@@ -457,6 +633,7 @@ def _mesh_to_desc(mesh, debug_name: str) -> neo.MeshResourceDesc:
     faces_array = faces_array[:, [0, 2, 1]].copy()
     vertex_normals = _extract_vertex_normals(mesh, vertices_array, faces_array)
     face_normals = _extract_face_normals(mesh, len(faces_array))
+    texture_coords = _extract_texture_coords(mesh, len(vertices_array))
 
     desc = neo.MeshResourceDesc()
     desc.debug_name = debug_name
@@ -471,6 +648,10 @@ def _mesh_to_desc(mesh, debug_name: str) -> neo.MeshResourceDesc:
             vertex.position = neo.Float3(float(position[0]), float(position[1]), float(position[2]))
             normal = face_normal if face_normal is not None else vertex_normals[corner_index]
             vertex.normal = neo.Float3(float(normal[0]), float(normal[1]), float(normal[2]))
+            if texture_coords is not None:
+                uv = texture_coords[corner_index]
+                vertex.tex_coord_u = float(uv[0])
+                vertex.tex_coord_v = float(uv[1])
             indices.append(len(vertices))
             vertices.append(vertex)
     desc.vertices = vertices
@@ -635,6 +816,9 @@ def _parse_psm_urdf(urdf_path: Path) -> tuple[dict, dict, dict]:
                     "origin": _convert_psm_local_frame(_pose_matrix(xyz, rpy)),
                     "scale": scale,
                     "material_name": material_name,
+                    "base_color_texture_path": _find_visual_base_color_texture(
+                        urdf_path.parent / mesh.attrib["filename"]
+                    ),
                 }
             )
 
@@ -699,6 +883,7 @@ class _PsmAuthor:
         self._materials: dict[str, neo.MaterialHandle] = {}
         self._mesh_handles: dict[str, neo.MeshHandle] = {}
         self._mesh_inertia_diagonals: dict[str, tuple[float, float, float]] = {}
+        self._textures: dict[str, neo.TextureHandle] = {}
 
     def author(self) -> PsmBuildResult:
         urdf_path = _find_psm_urdf_path(
@@ -718,18 +903,22 @@ class _PsmAuthor:
         retained_links = {"psm_base_link"}
         retained_links.update(joints[joint_name]["child"] for joint_name in _PHYSICAL_JOINT_ORDER)
         retained_joints = {joint_name: joints[joint_name] for joint_name in _PHYSICAL_JOINT_ORDER}
-        material_handles = {
-            name: self._register_material(
-                f"PsmBuilder.Material.{name}",
-                materials.get(name, (0.8, 0.8, 0.8, 1.0)),
+        material_handles = {}
+        for link_name in retained_links:
+            primary_visual = links[link_name]["visuals"][0]
+            texture_handle = None
+            texture_path = primary_visual.get("base_color_texture_path")
+            if texture_path is not None:
+                texture_handle = self._register_texture(
+                    Path(texture_path),
+                    f"PsmBuilder.Texture.{link_name}",
+                )
+            material_handles[link_name] = self._register_material(
+                f"PsmBuilder.Material.{link_name}",
+                materials.get(primary_visual["material_name"], (0.8, 0.8, 0.8, 1.0)),
                 0.55,
+                texture_handle,
             )
-            for name in {
-                visual["material_name"]
-                for link_name in retained_links
-                for visual in links[link_name]["visuals"]
-            }
-        }
 
         result = PsmBuildResult(urdf_path=urdf_path, env_count=self.config.env_count)
         for env_index in range(self.config.env_count):
@@ -754,6 +943,7 @@ class _PsmAuthor:
         debug_name: str,
         rgba: tuple[float, float, float, float],
         roughness: float,
+        base_color_texture: neo.TextureHandle | None = None,
     ) -> neo.MaterialHandle:
         if debug_name in self._materials:
             return self._materials[debug_name]
@@ -762,8 +952,29 @@ class _PsmAuthor:
         material.base_color = neo.Float3(float(rgba[0]), float(rgba[1]), float(rgba[2]))
         material.roughness = float(roughness)
         material.opacity = float(rgba[3])
+        if base_color_texture is not None:
+            material.base_color_texture = base_color_texture
         self._materials[debug_name] = self.resources.register_material(material)
         return self._materials[debug_name]
+
+    def _register_texture(self, texture_path: Path, debug_name: str) -> neo.TextureHandle:
+        cache_key = str(texture_path)
+        if cache_key in self._textures:
+            return self._textures[cache_key]
+
+        width, height, pixel_data = _read_png_rgba8(texture_path)
+        texture = neo.TextureResourceDesc()
+        texture.debug_name = debug_name
+        texture.width = int(width)
+        texture.height = int(height)
+        texture.pixel_format = neo.TexturePixelFormat.RGBA8
+        texture.color_space = neo.TextureColorSpace.Srgb
+        texture_subresource = neo.TextureSubresourceDesc()
+        texture_subresource.pixel_data = list(pixel_data)
+        texture.subresources = [texture_subresource]
+        handle = self.resources.register_texture(texture)
+        self._textures[cache_key] = handle
+        return handle
 
     def _register_link_mesh(self, link_name: str, link_data: dict) -> neo.MeshHandle:
         if link_name in self._mesh_handles:
@@ -893,10 +1104,9 @@ class _PsmAuthor:
             self.world.set_transform(link_entity, transform)
 
             mesh_handle = self._register_link_mesh(link_name, links[link_name])
-            material_name = links[link_name]["visuals"][0]["material_name"]
             renderer = neo.MeshRendererComponent()
             renderer.mesh = mesh_handle
-            renderer.material = material_handles[material_name]
+            renderer.material = material_handles[link_name]
             renderer.visible = link_name not in _HIDDEN_LINKS
             self.world.set_mesh_renderer(link_entity, renderer)
 
