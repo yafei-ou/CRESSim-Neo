@@ -19,6 +19,7 @@ class PsmEnv:
         self,
         resolve_root: str | os.PathLike[str] | Path | None = None,
         urdf_path: str | os.PathLike[str] | Path | None = None,
+        tool_type: str = "large_needle_driver",
         viewer_desc: neo.DebugViewerAppDesc | None = None,
         runtime_config: neo.RuntimeConfig | None = None,
         add_ground: bool = True,
@@ -54,6 +55,7 @@ class PsmEnv:
             PsmAuthoringConfig(
                 resolve_root=resolve_root,
                 urdf_path=urdf_path,
+                tool_type=tool_type,
                 env_count=1,
                 add_ground=add_ground,
                 add_default_lighting=add_default_lighting,

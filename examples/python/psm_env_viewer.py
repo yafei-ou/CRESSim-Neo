@@ -13,6 +13,12 @@ def parse_args() -> argparse.Namespace:
         default=1.0,
         help="Uniform world-space scale applied during PSM authoring.",
     )
+    parser.add_argument(
+        "--tool-type",
+        type=str,
+        default="large_needle_driver",
+        help="PSM tool variant to author: large_needle_driver or suction_irrigator.",
+    )
     return parser.parse_args()
 
 
@@ -33,6 +39,7 @@ def main() -> int:
     resolve_root = Path(__file__).resolve().parents[2]
     env = neo.PsmEnv(
         resolve_root=resolve_root,
+        tool_type=args.tool_type,
         viewer_desc=viewer_desc,
         global_scale=args.scale,
     )

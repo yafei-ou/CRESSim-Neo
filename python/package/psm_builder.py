@@ -91,6 +91,24 @@ _LINK_DYNAMICS_FALLBACKS: dict[str, _LinkDynamicsFallback] = {
     "psm_tool_gripper2_link": (0.03, (1.0e-4, 6.0e-5, 1.0e-4)),
 }
 
+_DEFAULT_PSM_TOOL_TYPE = "large_needle_driver"
+_PSM_TOOL_URDF_FILENAMES = {
+    "large_needle_driver": "psm.urdf",
+    "suction_irrigator": "psm_suction_irrigator.urdf",
+}
+_PSM_TOOL_ALIASES = {
+    "default": _DEFAULT_PSM_TOOL_TYPE,
+    "large_needle_driver": "large_needle_driver",
+    "needle_driver": "large_needle_driver",
+    "lnd": "large_needle_driver",
+    "suction_irrigator": "suction_irrigator",
+    "suction-irrigator": "suction_irrigator",
+    "suction": "suction_irrigator",
+}
+_MISSING_JOINT_ID = -1
+_MISSING_JOINT_LIMIT = (0.0, 0.0)
+_MISSING_JAW_IDS = (_MISSING_JOINT_ID, _MISSING_JOINT_ID)
+
 
 @dataclass
 class PsmRobotInstance:
@@ -109,6 +127,7 @@ class PsmRobotInstance:
 class PsmAuthoringConfig:
     resolve_root: str | os.PathLike[str] | Path | None = None
     urdf_path: str | os.PathLike[str] | Path | None = None
+    tool_type: str = _DEFAULT_PSM_TOOL_TYPE
     env_count: int = 1
     add_ground: bool = True
     add_default_lighting: bool = True
@@ -136,12 +155,16 @@ def _normalize_optional_path(path: str | os.PathLike[str] | Path | None) -> Path
 def _find_psm_urdf_path(
     resolve_root: str | os.PathLike[str] | Path | None = None,
     urdf_path: str | os.PathLike[str] | Path | None = None,
+    tool_type: str = _DEFAULT_PSM_TOOL_TYPE,
 ) -> Path:
     explicit_urdf_path = _normalize_optional_path(urdf_path)
     if explicit_urdf_path is not None:
         if explicit_urdf_path.exists():
             return explicit_urdf_path
         raise RuntimeError(f"Configured PSM URDF path does not exist: {explicit_urdf_path}")
+
+    normalized_tool_type = _normalize_psm_tool_type(tool_type)
+    candidate_filename = _PSM_TOOL_URDF_FILENAMES[normalized_tool_type]
 
     search_roots: list[Path] = []
     explicit_root = _normalize_optional_path(resolve_root)
@@ -156,20 +179,39 @@ def _find_psm_urdf_path(
     search_roots.extend(current.parents)
 
     for root in search_roots:
-        local_candidate = root / "examples" / "models" / "psm" / "psm.urdf"
+        local_candidate = root / "examples" / "models" / "psm" / candidate_filename
         if local_candidate.exists():
             return local_candidate
 
-        extern_candidate = root / "extern" / "SurRoL" / "surrol" / "assets" / "psm" / "psm.urdf"
+        extern_candidate = root / "extern" / "SurRoL" / "surrol" / "assets" / "psm" / candidate_filename
         if extern_candidate.exists():
             return extern_candidate
 
+        if normalized_tool_type == _DEFAULT_PSM_TOOL_TYPE:
+            fallback_candidate = root / "extern" / "SurRoL" / "surrol" / "assets" / "psm" / "psm.urdf"
+            if fallback_candidate.exists():
+                return fallback_candidate
+
     raise RuntimeError(
-        "Failed to locate examples/models/psm/psm.urdf or "
-        "extern/SurRoL/surrol/assets/psm/psm.urdf. "
+        f"Failed to locate the PSM URDF for tool type {normalized_tool_type!r}: "
+        f"examples/models/psm/{candidate_filename} or "
+        f"extern/SurRoL/surrol/assets/psm/{candidate_filename}. "
         "Pass `resolve_root=...`, `urdf_path=...`, or set "
         "`CRESSIM_NEO_PSM_RESOLVE_ROOT`."
     )
+
+
+def _normalize_psm_tool_type(tool_type: str | None) -> str:
+    raw_value = _DEFAULT_PSM_TOOL_TYPE if tool_type is None else str(tool_type).strip().lower()
+    if not raw_value:
+        raw_value = _DEFAULT_PSM_TOOL_TYPE
+    normalized = _PSM_TOOL_ALIASES.get(raw_value)
+    if normalized is None:
+        supported = ", ".join(sorted(_PSM_TOOL_URDF_FILENAMES))
+        raise RuntimeError(
+            f"Unsupported PSM tool type {tool_type!r}. Supported tool types: {supported}."
+        )
+    return normalized
 
 
 def _parse_floats(raw: str | None, count: int, default: Iterable[float]) -> list[float]:
@@ -984,13 +1026,19 @@ class _PsmAuthor:
         self._mesh_inertia_diagonals: dict[str, tuple[float, float, float]] = {}
         self._textures: dict[str, neo.TextureHandle] = {}
 
+    @staticmethod
+    def _authored_joint_names(joints: dict[str, dict], requested_names: Iterable[str]) -> list[str]:
+        return [joint_name for joint_name in requested_names if joint_name in joints]
+
     def author(self) -> PsmBuildResult:
         urdf_path = _find_psm_urdf_path(
             resolve_root=self.config.resolve_root,
             urdf_path=self.config.urdf_path,
+            tool_type=self.config.tool_type,
         )
         materials, links, joints = _parse_psm_urdf(urdf_path)
         _scale_psm_authoring_data(links, joints, self.config.global_scale)
+        authored_physical_joint_names = self._authored_joint_names(joints, _PHYSICAL_JOINT_ORDER)
 
         if self.config.add_ground:
             self._materials["ground"] = self._register_material(
@@ -1000,8 +1048,8 @@ class _PsmAuthor:
             )
 
         retained_links = {"psm_base_link"}
-        retained_links.update(joints[joint_name]["child"] for joint_name in _PHYSICAL_JOINT_ORDER)
-        retained_joints = {joint_name: joints[joint_name] for joint_name in _PHYSICAL_JOINT_ORDER}
+        retained_links.update(joints[joint_name]["child"] for joint_name in authored_physical_joint_names)
+        retained_joints = {joint_name: joints[joint_name] for joint_name in authored_physical_joint_names}
         material_handles = {}
         for link_name in retained_links:
             primary_visual = links[link_name]["visuals"][0]
@@ -1027,6 +1075,7 @@ class _PsmAuthor:
                 env_origin,
                 links,
                 retained_joints,
+                authored_physical_joint_names,
                 material_handles,
             )
             result.instances.append(instance)
@@ -1129,6 +1178,7 @@ class _PsmAuthor:
         env_origin: np.ndarray,
         links: dict,
         joints: dict,
+        authored_physical_joint_names: list[str],
         material_handles: dict[str, neo.MaterialHandle],
     ) -> tuple[PsmRobotInstance, int | None, int | None, list[int]]:
         ground_entity: int | None = None
@@ -1208,13 +1258,13 @@ class _PsmAuthor:
 
         link_world = {"psm_base_link": _urdf_to_engine_root_matrix(self.config.global_scale)}
         link_world["psm_base_link"][:3, 3] += np.array([env_origin[0], 0.0, env_origin[1]])
-        for joint_name in _PHYSICAL_JOINT_ORDER:
+        for joint_name in authored_physical_joint_names:
             joint = joints[joint_name]
             link_world[joint["child"]] = link_world[joint["parent"]] @ joint["origin"]
 
         link_entities: dict[str, int] = {}
         base_entity = 0
-        for link_name in ["psm_base_link", *(joints[name]["child"] for name in _PHYSICAL_JOINT_ORDER)]:
+        for link_name in ["psm_base_link", *(joints[name]["child"] for name in authored_physical_joint_names)]:
             link_entity = self.world.create_entity(env_index)
             if link_name == "psm_base_link":
                 base_entity = link_entity
@@ -1260,7 +1310,7 @@ class _PsmAuthor:
 
         physical_joint_ids: dict[str, int] = {}
         physical_joint_limits: dict[str, tuple[float, float]] = {}
-        for joint_index, joint_name in enumerate(_PHYSICAL_JOINT_ORDER):
+        for joint_index, joint_name in enumerate(authored_physical_joint_names):
             joint = joints[joint_name]
             parent_entity = link_entities[joint["parent"]]
             child_entity = link_entities[joint["child"]]
@@ -1468,21 +1518,36 @@ class _PsmAuthor:
             env_index=env_index,
             base_entity=base_entity,
             link_entities=link_entities,
-            arm_joint_ids=[physical_joint_ids[joint_name] for joint_name in _ARM_JOINT_ORDER],
-            arm_joint_limits=[physical_joint_limits[joint_name] for joint_name in _ARM_JOINT_ORDER],
+            arm_joint_ids=[physical_joint_ids.get(joint_name, _MISSING_JOINT_ID) for joint_name in _ARM_JOINT_ORDER],
+            arm_joint_limits=[
+                physical_joint_limits.get(joint_name, _MISSING_JOINT_LIMIT) for joint_name in _ARM_JOINT_ORDER
+            ],
             passive_joint_ids={
-                joint_name: physical_joint_ids[joint_name] for joint_name in _PASSIVE_JOINT_ORDER
+                joint_name: physical_joint_ids[joint_name]
+                for joint_name in _PASSIVE_JOINT_ORDER
+                if joint_name in physical_joint_ids
             },
             passive_joint_limits={
-                joint_name: physical_joint_limits[joint_name] for joint_name in _PASSIVE_JOINT_ORDER
+                joint_name: physical_joint_limits[joint_name]
+                for joint_name in _PASSIVE_JOINT_ORDER
+                if joint_name in physical_joint_limits
             },
             jaw_joint_ids=(
-                physical_joint_ids["psm_tool_gripper1_joint"],
-                physical_joint_ids["psm_tool_gripper2_joint"],
+                (
+                    physical_joint_ids["psm_tool_gripper1_joint"],
+                    physical_joint_ids["psm_tool_gripper2_joint"],
+                )
+                if "psm_tool_gripper1_joint" in physical_joint_ids
+                and "psm_tool_gripper2_joint" in physical_joint_ids
+                else _MISSING_JAW_IDS
             ),
-            jaw_limit=_resolve_jaw_limits(
-                joints["psm_tool_gripper1_joint"],
-                joints["psm_tool_gripper2_joint"],
+            jaw_limit=(
+                _resolve_jaw_limits(
+                    joints["psm_tool_gripper1_joint"],
+                    joints["psm_tool_gripper2_joint"],
+                )
+                if "psm_tool_gripper1_joint" in joints and "psm_tool_gripper2_joint" in joints
+                else _MISSING_JOINT_LIMIT
             ),
         )
         return instance, ground_entity, camera_entity, light_entities
@@ -1571,6 +1636,8 @@ def _set_env_joint_targets(
         arm_targets,
     ):
         clamped = min(max(float(target), limits[0]), limits[1])
+        if int(joint_id) == _MISSING_JOINT_ID:
+            continue
         if _JOINT_KIND[joint_name] == "hinge":
             state = world.try_get_hinge_joint(joint_id)
             if state is None:
@@ -1592,6 +1659,8 @@ def _set_env_joint_targets(
         ("psm_tool_gripper2_joint", instance.jaw_joint_ids[1], -jaw_clamped),
     )
     for joint_name, joint_id, target in gripper_targets:
+        if int(joint_id) == _MISSING_JOINT_ID:
+            continue
         state = world.try_get_hinge_joint(joint_id)
         if state is None:
             raise RuntimeError(f"Missing hinge joint state for {joint_name}.")

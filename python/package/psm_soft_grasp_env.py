@@ -797,6 +797,7 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
         target_sampling_fraction_z: float = 0.0,
         resolve_root=None,
         urdf_path=None,
+        tool_type: str = "large_needle_driver",
     ) -> None:
         super().__init__(env_count)
         self.max_episode_steps = max_episode_steps
@@ -859,7 +860,7 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
         self._attachment_slot_indices: list[int] = []
         self._target_candidate_local_indices: list[int] = []
 
-        self._author_scene(resolve_root=resolve_root, urdf_path=urdf_path)
+        self._author_scene(resolve_root=resolve_root, urdf_path=urdf_path, tool_type=tool_type)
         self.runtime.prepare()
         self._constraint_mapping = self.runtime.get_prepared_constraint_layout_mapping()
         self._particle_mapping = self.runtime.get_prepared_particle_layout_mapping()
@@ -918,7 +919,7 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
         material_desc.roughness = roughness
         return self.runtime.resources().register_material(material_desc)
 
-    def _author_scene(self, *, resolve_root=None, urdf_path=None) -> None:
+    def _author_scene(self, *, resolve_root=None, urdf_path=None, tool_type="large_needle_driver") -> None:
         world = self.runtime.world()
         self._psm_build = author_psm_scene(
             world,
@@ -926,6 +927,7 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
             PsmAuthoringConfig(
                 resolve_root=resolve_root,
                 urdf_path=urdf_path,
+                tool_type=tool_type,
                 env_count=self.env_count,
                 add_ground=False,
                 add_default_lighting=False,
@@ -952,18 +954,30 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
                 env_index=env_index,
             )
 
-            gripper_a = world.try_get_transform(instance.link_entities["psm_tool_gripper1_link"])
-            gripper_b = world.try_get_transform(instance.link_entities["psm_tool_gripper2_link"])
             tooltip_body_entity = instance.link_entities["psm_tool_yaw_link"]
             tooltip_body_transform = world.try_get_transform(tooltip_body_entity)
-            if gripper_a is None or gripper_b is None or tooltip_body_transform is None:
+            if tooltip_body_transform is None:
                 raise RuntimeError("Failed to resolve authored PSM tooltip transforms.")
-
-            tooltip_midpoint = (
-                0.5 * (float(gripper_a.world_transform.position.x) + float(gripper_b.world_transform.position.x)),
-                0.5 * (float(gripper_a.world_transform.position.y) + float(gripper_b.world_transform.position.y)),
-                0.5 * (float(gripper_a.world_transform.position.z) + float(gripper_b.world_transform.position.z)),
-            )
+            gripper_a_entity = instance.link_entities.get("psm_tool_gripper1_link")
+            gripper_b_entity = instance.link_entities.get("psm_tool_gripper2_link")
+            gripper_a = world.try_get_transform(gripper_a_entity) if gripper_a_entity is not None else None
+            gripper_b = world.try_get_transform(gripper_b_entity) if gripper_b_entity is not None else None
+            if gripper_a is not None and gripper_b is not None:
+                tooltip_midpoint = (
+                    0.5 * (float(gripper_a.world_transform.position.x) + float(gripper_b.world_transform.position.x)),
+                    0.5 * (float(gripper_a.world_transform.position.y) + float(gripper_b.world_transform.position.y)),
+                    0.5 * (float(gripper_a.world_transform.position.z) + float(gripper_b.world_transform.position.z)),
+                )
+            else:
+                tip_entity = instance.link_entities.get("psm_tool_tip_link")
+                tip_transform = world.try_get_transform(tip_entity) if tip_entity is not None else None
+                if tip_transform is None:
+                    raise RuntimeError("Failed to resolve authored PSM tooltip transforms.")
+                tooltip_midpoint = (
+                    float(tip_transform.world_transform.position.x),
+                    float(tip_transform.world_transform.position.y),
+                    float(tip_transform.world_transform.position.z),
+                )
             body_position = (
                 float(tooltip_body_transform.world_transform.position.x),
                 float(tooltip_body_transform.world_transform.position.y),
@@ -1225,18 +1239,20 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
             )
 
             arm_hinge_slots = [
-                hinge_slot_by_id[int(instance.arm_joint_ids[0])],
-                hinge_slot_by_id[int(instance.arm_joint_ids[1])],
-                hinge_slot_by_id[int(instance.arm_joint_ids[3])],
-                hinge_slot_by_id[int(instance.arm_joint_ids[4])],
-                hinge_slot_by_id[int(instance.arm_joint_ids[5])],
+                hinge_slot_by_id.get(int(instance.arm_joint_ids[0]), self.INVALID_INDEX),
+                hinge_slot_by_id.get(int(instance.arm_joint_ids[1]), self.INVALID_INDEX),
+                hinge_slot_by_id.get(int(instance.arm_joint_ids[3]), self.INVALID_INDEX),
+                hinge_slot_by_id.get(int(instance.arm_joint_ids[4]), self.INVALID_INDEX),
+                hinge_slot_by_id.get(int(instance.arm_joint_ids[5]), self.INVALID_INDEX),
             ]
             self._arm_hinge_slots.append(arm_hinge_slots)
-            self._arm_slider_slots.append(slider_slot_by_id[int(instance.arm_joint_ids[2])])
+            self._arm_slider_slots.append(
+                slider_slot_by_id.get(int(instance.arm_joint_ids[2]), self.INVALID_INDEX)
+            )
             self._jaw_hinge_slots.append(
                 [
-                    hinge_slot_by_id[int(instance.jaw_joint_ids[0])],
-                    hinge_slot_by_id[int(instance.jaw_joint_ids[1])],
+                    hinge_slot_by_id.get(int(instance.jaw_joint_ids[0]), self.INVALID_INDEX),
+                    hinge_slot_by_id.get(int(instance.jaw_joint_ids[1]), self.INVALID_INDEX),
                 ]
             )
             tooltip_body_index = rigid_slot_by_entity[self._tooltip_body_entities[env_index]]
@@ -1262,7 +1278,10 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
                 )
             self._attachment_slot_indices.append(attachment_slot)
 
+            rigid_reset_count_for_env = 0
             for link_name in body_entity_order:
+                if link_name != "psm_base_link" and link_name not in instance.link_entities:
+                    continue
                 entity = (
                     instance.base_entity
                     if link_name == "psm_base_link"
@@ -1285,8 +1304,9 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
                 self._rigid_reset_orientations.append(
                     (float(rotation.x), float(rotation.y), float(rotation.z), float(rotation.w))
                 )
-
-        self._rigid_body_reset_count = len(body_entity_order)
+                rigid_reset_count_for_env += 1
+            if env_index == 0:
+                self._rigid_body_reset_count = rigid_reset_count_for_env
         self._target_candidate_local_indices = self._build_target_candidate_local_indices(world)
 
     def _build_target_candidate_local_indices(self, world: neo.World) -> list[int]:

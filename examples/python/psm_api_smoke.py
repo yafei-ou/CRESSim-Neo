@@ -39,6 +39,27 @@ def main() -> int:
         if not runtime.upload_world():
             raise RuntimeError("Failed to upload PSM builder smoke world.")
 
+        suction_build = neo.author_psm_scene(
+            runtime.world(),
+            runtime.resources(),
+            neo.PsmAuthoringConfig(
+                resolve_root=resolve_root,
+                tool_type="suction_irrigator",
+                env_count=1,
+                add_ground=False,
+                add_default_lighting=False,
+                add_default_camera=False,
+            ),
+        )
+        assert suction_build.env_count == 1
+        assert suction_build.urdf_path is not None
+        assert suction_build.urdf_path.name == "psm_suction_irrigator.urdf"
+        assert len(suction_build.instances[0].arm_joint_ids) == 6
+        assert int(suction_build.instances[0].arm_joint_ids[3]) == -1
+        assert tuple(float(v) for v in suction_build.instances[0].arm_joint_limits[3]) == (0.0, 0.0)
+        assert tuple(int(v) for v in suction_build.instances[0].jaw_joint_ids) == (-1, -1)
+        assert tuple(float(v) for v in suction_build.instances[0].jaw_limit) == (0.0, 0.0)
+
     finally:
         runtime.shutdown()
 
