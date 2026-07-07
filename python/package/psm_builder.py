@@ -76,6 +76,15 @@ _DEFAULT_INERTIA_DIAG = (1.0e-4, 1.0e-4, 1.0e-4)
 _FALLBACK_INERTIA_SCALE = 1.0
 _PITCH_END_TOP_CLOSURE_MESH_OFFSET = np.array((0.00388, -0.036286, 0.0), dtype=np.float64)
 _PITCH_BOTTOM_FRONT_CLOSURE_OFFSET = np.array((0.096164, 0.0, 0.0), dtype=np.float64)
+_SUCTION_IRRIGATOR_YAW_CAPSULE_RADIUS = 0.004
+_SUCTION_IRRIGATOR_YAW_CAPSULE_TOTAL_LENGTH = 0.011958
+_SUCTION_IRRIGATOR_YAW_CAPSULE_HALF_HEIGHT = (
+    0.5 * _SUCTION_IRRIGATOR_YAW_CAPSULE_TOTAL_LENGTH - _SUCTION_IRRIGATOR_YAW_CAPSULE_RADIUS
+)
+_SUCTION_IRRIGATOR_YAW_CAPSULE_LOCAL_POSITION = np.array(
+    (0.0, 0.5 * _SUCTION_IRRIGATOR_YAW_CAPSULE_TOTAL_LENGTH, 0.0),
+    dtype=np.float64,
+)
 
 _InertiaDiag = tuple[float, float, float]
 _LinkDynamicsFallback = tuple[float, _InertiaDiag]
@@ -1025,6 +1034,7 @@ class _PsmAuthor:
         self._mesh_handles: dict[str, neo.MeshHandle] = {}
         self._mesh_inertia_diagonals: dict[str, tuple[float, float, float]] = {}
         self._textures: dict[str, neo.TextureHandle] = {}
+        self._normalized_tool_type = _normalize_psm_tool_type(config.tool_type)
 
     @staticmethod
     def _authored_joint_names(joints: dict[str, dict], requested_names: Iterable[str]) -> list[str]:
@@ -1172,6 +1182,26 @@ class _PsmAuthor:
         self._mesh_handles[link_name] = handle
         return handle
 
+    def _maybe_add_special_link_collider(self, link_name: str, link_entity: int) -> None:
+        if self._normalized_tool_type != "suction_irrigator" or link_name != "psm_tool_yaw_link":
+            return
+        collider = neo.ColliderComponent()
+        collider.shape_type = neo.ColliderShapeType.Capsule
+        collider.local_position = neo.Float3(
+            float(_SUCTION_IRRIGATOR_YAW_CAPSULE_LOCAL_POSITION[0] * self.config.global_scale),
+            float(_SUCTION_IRRIGATOR_YAW_CAPSULE_LOCAL_POSITION[1] * self.config.global_scale),
+            float(_SUCTION_IRRIGATOR_YAW_CAPSULE_LOCAL_POSITION[2] * self.config.global_scale),
+        )
+        collider.shape_params = neo.Float4(
+            float(_SUCTION_IRRIGATOR_YAW_CAPSULE_RADIUS * self.config.global_scale),
+            float(_SUCTION_IRRIGATOR_YAW_CAPSULE_HALF_HEIGHT * self.config.global_scale),
+            0.0,
+            0.0,
+        )
+        collider.friction = 1.0
+        collider.static_friction = 1.0
+        self.world.add_collider(link_entity, collider)
+
     def _author_environment(
         self,
         env_index: int,
@@ -1307,6 +1337,7 @@ class _PsmAuthor:
                     0.0 if inertia_diag[2] <= 0.0 else float(1.0 / inertia_diag[2]),
                 )
             self.world.set_rigid_body(link_entity, rigid_body)
+            self._maybe_add_special_link_collider(link_name, link_entity)
 
         physical_joint_ids: dict[str, int] = {}
         physical_joint_limits: dict[str, tuple[float, float]] = {}
