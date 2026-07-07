@@ -43,6 +43,11 @@ try:
 except RuntimeError:
     PsmSoftGraspTorchVectorEnv = None
 
+try:
+    from .psm_blood_suction_env import PsmBloodSuctionTorchVectorEnv
+except RuntimeError:
+    PsmBloodSuctionTorchVectorEnv = None
+
 from .psm_builder import (
     PsmAuthoringConfig,
     PsmBuildResult,
