@@ -1029,6 +1029,7 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         env_count: int = 16,
         max_episode_steps: int = 240,
         enable_rgb_observation: bool = False,
+        return_combined_observation: bool = False,
         image_width: int = 160,
         image_height: int = 160,
         scene_scale: float = DEFAULT_SCENE_SCALE,
@@ -1053,6 +1054,9 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         super().__init__(env_count)
         self.max_episode_steps = int(max_episode_steps)
         self.enable_rgb_observation = enable_rgb_observation
+        self.return_combined_observation = bool(return_combined_observation)
+        if self.return_combined_observation and not self.enable_rgb_observation:
+            raise ValueError("return_combined_observation=True requires enable_rgb_observation=True.")
         self.image_width = int(image_width)
         self.image_height = int(image_height)
         self.scene_scale = float(scene_scale)
@@ -2199,19 +2203,37 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             self._rgb_render_pass = self._register_custom_pass(self.runtime, render_desc)
 
     def _sync_outputs_to_cuda(self) -> None:
+        handles = [
+            self.observation_buffer,
+            self.reward_buffer,
+            self.terminated_buffer,
+            self.truncated_buffer,
+            self.episode_steps_buffer,
+        ]
+        if self.return_combined_observation and self.enable_rgb_observation:
+            handles.append(self.rgb_observation_buffer)
         self._sync_to_cuda(
             self.runtime,
-            [
-                self.observation_buffer,
-                self.reward_buffer,
-                self.terminated_buffer,
-                self.truncated_buffer,
-                self.episode_steps_buffer,
-            ],
+            handles,
             device=self.observation_tensor.device,
         )
 
-    def reset(self, env_ids: "torch.Tensor | list[int] | None" = None) -> "torch.Tensor":
+    def _render_rgb_observation(self) -> None:
+        if not self.enable_rgb_observation:
+            raise RuntimeError("RGB observations were not enabled for this PSM blood-suction env.")
+        self.runtime.step_visual_sensors(self._frame)
+        if not self.runtime.execute_custom_compute_pass(self._rgb_render_pass):
+            raise RuntimeError("Failed to execute PSM blood-suction RGB observation pass.")
+
+    def _make_observation_output(self) -> "torch.Tensor | dict[str, torch.Tensor]":
+        if self.return_combined_observation:
+            return {
+                "vector": self.observation_tensor,
+                "rgb": self.rgb_observation_tensor,
+            }
+        return self.observation_tensor
+
+    def reset(self, env_ids: "torch.Tensor | list[int] | None" = None) -> "torch.Tensor | dict[str, torch.Tensor]":
         if env_ids is None:
             env_indices = torch.arange(self.env_count, device=self.action_tensor.device, dtype=torch.int64)
         elif isinstance(env_ids, torch.Tensor):
@@ -2219,7 +2241,7 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         else:
             env_indices = torch.tensor(list(env_ids), device=self.action_tensor.device, dtype=torch.int64)
         if env_indices.numel() == 0:
-            return self.observation_tensor
+            return self._make_observation_output()
 
         self.reset_mask_tensor.zero_()
         for env_index in env_indices.tolist():
@@ -2240,15 +2262,17 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             raise RuntimeError("Failed to execute PSM blood-suction rigid reset pass.")
         if not self.runtime.execute_custom_compute_pass(self._reset_outputs_pass):
             raise RuntimeError("Failed to execute PSM blood-suction output reset pass.")
+        if self.return_combined_observation:
+            self._render_rgb_observation()
         self._sync_outputs_to_cuda()
         self._end_frame(self.runtime, advance=False)
         self.reset_mask_tensor.zero_()
         self._sync_from_cuda(self.runtime, [self.reset_mask_buffer])
-        return self.observation_tensor
+        return self._make_observation_output()
 
     def step(
         self, action_tensor: "torch.Tensor"
-    ) -> tuple["torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor"]:
+    ) -> tuple["torch.Tensor | dict[str, torch.Tensor]", "torch.Tensor", "torch.Tensor", "torch.Tensor"]:
         if list(action_tensor.shape) != [self.env_count, self.ACTION_DIM]:
             raise ValueError(
                 f"Expected action tensor shape [{self.env_count}, {self.ACTION_DIM}], "
@@ -2268,10 +2292,12 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             raise RuntimeError("Failed to execute PSM blood-suction post-particle pass.")
         if not self.runtime.execute_custom_compute_pass(self._post_pass):
             raise RuntimeError("Failed to execute PSM blood-suction post-physics pass.")
+        if self.return_combined_observation:
+            self._render_rgb_observation()
         self._sync_outputs_to_cuda()
         self._end_frame(self.runtime, advance=True)
         return (
-            self.observation_tensor,
+            self._make_observation_output(),
             self.reward_tensor,
             self.terminated_tensor,
             self.truncated_tensor,
@@ -2280,9 +2306,7 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
     def render(self) -> "torch.Tensor":
         if not self.enable_rgb_observation:
             raise RuntimeError("RGB observations were not enabled for this PSM blood-suction env.")
-        self.runtime.step_visual_sensors(self._frame)
-        if not self.runtime.execute_custom_compute_pass(self._rgb_render_pass):
-            raise RuntimeError("Failed to execute PSM blood-suction RGB observation pass.")
+        self._render_rgb_observation()
         if not self.runtime.sync_shared_buffer_to_cuda(self.rgb_observation_buffer):
             raise RuntimeError("Failed to synchronize PSM blood-suction RGB observation buffer to CUDA.")
         self.runtime.end_frame(self._frame)
