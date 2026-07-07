@@ -247,7 +247,6 @@ cbuffer PsmBloodSuctionPostPhysicsConstants
 CRESSIM_STRUCTURED_BUFFER(uint, g_EnvMetadataU32);
 CRESSIM_STRUCTURED_BUFFER(float4, g_EnvMetadataF32);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidActiveMask);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidOrientations);
 CRESSIM_STRUCTURED_BUFFER(GpuHingeJointRuntimeState, g_HingeJointRuntimeStates);
@@ -261,7 +260,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Truncated);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_EpisodeSteps);
 
 static const uint kCommandJointCount = 5u;
-static const uint kObservationDim = 19u;
+static const uint kObservationDim = 13u;
 static const uint kEnvMetadataU32Stride = 12u;
 static const uint kEnvStepStride = 4u;
 
@@ -327,15 +326,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 tooltipPosition =
         rigidPosition.xyz + QuaternionRotate(rigidOrientation, tooltipLocalAnchor);
 
-    float3 bestDelta = float3(0.0f, 0.0f, 0.0f);
     const uint envStepBase = envIndex * kEnvStepStride;
     const uint nearestDistanceSqBits = CRESSIM_SB_LOAD(g_EnvStepU32, envStepBase + 2u);
-    const uint nearestParticleIndex = CRESSIM_SB_LOAD(g_EnvStepU32, envStepBase + 3u);
     float currentNearest = observationDistanceLimit;
-    if (nearestParticleIndex != kInvalidIndex)
+    if (CRESSIM_SB_LOAD(g_EnvStepU32, envStepBase + 3u) != kInvalidIndex)
     {
-        const float3 particlePosition = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, nearestParticleIndex).xyz;
-        bestDelta = particlePosition - tooltipPosition;
         currentNearest = sqrt(asfloat(nearestDistanceSqBits));
     }
 
@@ -343,10 +338,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float previousNearest = stats.x;
     const uint removedCount = CRESSIM_SB_LOAD(g_EnvStepU32, envStepBase + 0u);
     const uint remainingCount = CRESSIM_SB_LOAD(g_EnvStepU32, envStepBase + 1u);
-    const uint initialCount = max(envMetaU32(envIndex, 10u), 1u);
-    const float removedFraction = float(removedCount) / float(initialCount);
-    const float remainingFraction = float(remainingCount) / float(initialCount);
-
     float progressReward = 0.0f;
     if (removedCount == 0u &&
         previousNearest < observationDistanceLimit &&
@@ -355,14 +346,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         progressReward = progressRewardScale * (previousNearest - currentNearest);
     }
 
-    uint terminated = remainingCount <= uint(completionRemainingThreshold + 0.5f) ? 1u : 0u;
     const uint nextEpisodeStep = CRESSIM_SB_LOAD(g_EpisodeSteps, envIndex) + 1u;
     const uint truncated = nextEpisodeStep >= maxEpisodeSteps ? 1u : 0u;
-    float reward = float(removedCount) * removedRewardScale + progressReward - stepPenalty;
-    if (terminated != 0u)
-    {
-        reward += completionBonus;
-    }
+    const uint terminated = 0u;
+    float reward = float(removedCount) * removedRewardScale + progressReward;
 
     stats.x = currentNearest;
     stats.y = currentNearest;
@@ -384,12 +371,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     CRESSIM_SB_STORE(g_Observations, obsBase + 10u, tooltipPosition.x);
     CRESSIM_SB_STORE(g_Observations, obsBase + 11u, tooltipPosition.y);
     CRESSIM_SB_STORE(g_Observations, obsBase + 12u, tooltipPosition.z);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 13u, nearestParticleIndex != kInvalidIndex ? bestDelta.x : 0.0f);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 14u, nearestParticleIndex != kInvalidIndex ? bestDelta.y : 0.0f);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 15u, nearestParticleIndex != kInvalidIndex ? bestDelta.z : 0.0f);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 16u, remainingFraction);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 17u, min(currentNearest, observationDistanceLimit));
-    CRESSIM_SB_STORE(g_Observations, obsBase + 18u, removedFraction);
     CRESSIM_SB_STORE(g_Rewards, envIndex, reward);
     CRESSIM_SB_STORE(g_Terminated, envIndex, terminated);
     CRESSIM_SB_STORE(g_Truncated, envIndex, truncated);
@@ -675,7 +656,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Truncated);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_EpisodeSteps);
 
 static const uint kCommandJointCount = 5u;
-static const uint kObservationDim = 19u;
+static const uint kObservationDim = 13u;
 
 uint envMetaU32(uint envIndex, uint offset)
 {
@@ -730,7 +711,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const float nearestDistance =
         bestDistanceSq < 1.0e29f ? sqrt(bestDistanceSq) : observationDistanceLimit;
-    const uint initialCount = max(envMetaU32(envIndex, 10u), 1u);
     const uint remainingCount = envMetaU32(envIndex, 9u);
     CRESSIM_SB_STORE(
         g_EnvStats,
@@ -754,12 +734,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     CRESSIM_SB_STORE(g_Observations, obsBase + 10u, tooltipPosition.x);
     CRESSIM_SB_STORE(g_Observations, obsBase + 11u, tooltipPosition.y);
     CRESSIM_SB_STORE(g_Observations, obsBase + 12u, tooltipPosition.z);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 13u, bestDistanceSq < 1.0e29f ? bestDelta.x : 0.0f);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 14u, bestDistanceSq < 1.0e29f ? bestDelta.y : 0.0f);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 15u, bestDistanceSq < 1.0e29f ? bestDelta.z : 0.0f);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 16u, float(remainingCount) / float(initialCount));
-    CRESSIM_SB_STORE(g_Observations, obsBase + 17u, nearestDistance);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 18u, 0.0f);
 }
 """
 
@@ -1023,7 +997,7 @@ def _bottom_static_particle_indices(node_path: Path, band_height: float) -> list
 
 class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
     ACTION_DIM = 5
-    OBSERVATION_DIM = 19
+    OBSERVATION_DIM = 13
     OBS_DIM = OBSERVATION_DIM
     DEFAULT_SCENE_SCALE = 2.5
     DEFAULT_PSM_SCALE = 10.0 * DEFAULT_SCENE_SCALE
@@ -1068,9 +1042,9 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         suction_velocity_scale: float = 0.40,
         removed_reward_scale: float = 0.03,
         progress_reward_scale: float = 1.5,
-        step_penalty: float = 0.001,
-        completion_bonus: float = 1.0,
-        completion_remaining_threshold: int = 3,
+        step_penalty: float = 0.0,
+        completion_bonus: float = 0.0,
+        completion_remaining_threshold: int = 0,
         env_spacing: float | None = None,
         resolve_root=None,
         urdf_path=None,
@@ -2086,7 +2060,6 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             [
                 ("g_EnvMetadataU32", self.env_metadata_u32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_EnvMetadataF32", self.env_metadata_f32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
-                ("g_ParticlePositionsInvMass", None, "particle.positions_inv_mass", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_RigidPositionsInvMass", None, "rigid.positions", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_RigidOrientations", None, "rigid.orientations", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_HingeJointRuntimeStates", None, "joint.hinge_runtime", neo.CustomComputeResourceAccess.ReadOnly),
