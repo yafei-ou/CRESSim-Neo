@@ -23,16 +23,12 @@ except ImportError as exc:
 
 _PSM_BLOOD_SUCTION_PRE_PHYSICS_SHADER = r"""
 #include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
 #include "include/physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer PsmBloodSuctionPrePhysicsConstants
 {
     float rotationalActionScale;
     float insertionActionScale;
-    float suctionRadius;
-    float removalRadius;
-    float suctionVelocityScale;
     float padding0;
     float padding1;
     float padding2;
@@ -42,28 +38,18 @@ CRESSIM_STRUCTURED_BUFFER(float, g_Actions);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_CurrentJointTargets);
 CRESSIM_STRUCTURED_BUFFER(float2, g_JointLimits);
 CRESSIM_STRUCTURED_BUFFER(uint, g_EnvMetadataU32);
-CRESSIM_STRUCTURED_BUFFER(float4, g_EnvMetadataF32);
-CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePreviousPositions);
-CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticleVelocities);
-CRESSIM_STRUCTURED_BUFFER(float4, g_RigidPositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(float4, g_RigidOrientations);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuHingeJoint, g_HingeJoints);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSliderJoint, g_SliderJoints);
-CRESSIM_RW_STRUCTURED_BUFFER(uint, g_FluidActiveMask);
-CRESSIM_RW_STRUCTURED_BUFFER(float4, g_EnvStats);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_EnvStepU32);
 
 static const uint kCommandJointCount = 5u;
 static const uint kEnvMetadataU32Stride = 12u;
+static const uint kEnvStepStride = 4u;
+static const uint kNearestDistanceSqInitBits = 0x7F7FFFFFu;
 
 uint envMetaU32(uint envIndex, uint offset)
 {
     return CRESSIM_SB_LOAD(g_EnvMetadataU32, envIndex * kEnvMetadataU32Stride + offset);
-}
-
-float4 envMetaF32(uint envIndex, uint slot)
-{
-    return CRESSIM_SB_LOAD(g_EnvMetadataF32, envIndex * 2u + slot);
 }
 
 [numthreads(64, 1, 1)]
@@ -72,7 +58,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint envIndex = dispatchThreadID.x;
     uint envCount = 0u;
     uint stride = 0u;
-    g_EnvStats.GetDimensions(envCount, stride);
+    g_EnvMetadataU32.GetDimensions(envCount, stride);
+    envCount /= kEnvMetadataU32Stride;
     if (envIndex >= envCount)
     {
         return;
@@ -133,6 +120,71 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         joint.driveTargetParams.x = commandTargets[4u];
         CRESSIM_SB_STORE(g_HingeJoints, hingeSlot3, joint);
     }
+    const uint envStepBase = envIndex * kEnvStepStride;
+    CRESSIM_SB_STORE(g_EnvStepU32, envStepBase + 0u, 0u);
+    CRESSIM_SB_STORE(g_EnvStepU32, envStepBase + 1u, 0u);
+    CRESSIM_SB_STORE(g_EnvStepU32, envStepBase + 2u, kNearestDistanceSqInitBits);
+    CRESSIM_SB_STORE(g_EnvStepU32, envStepBase + 3u, kInvalidIndex);
+}
+"""
+
+
+_PSM_BLOOD_SUCTION_PRE_PARTICLE_SHADER = r"""
+#include "include/structured_buffer_compat.hlsli"
+#include "include/physics/core/physics_math.hlsli"
+
+cbuffer PsmBloodSuctionPreParticleConstants
+{
+    float suctionRadius;
+    float removalRadius;
+    float suctionVelocityScale;
+    float padding0;
+};
+
+CRESSIM_STRUCTURED_BUFFER(uint, g_FluidParticleIndices);
+CRESSIM_STRUCTURED_BUFFER(uint, g_FluidParticleEnvIndices);
+CRESSIM_STRUCTURED_BUFFER(uint, g_EnvMetadataU32);
+CRESSIM_STRUCTURED_BUFFER(float4, g_EnvMetadataF32);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePreviousPositions);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticleVelocities);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidOrientations);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_FluidActiveMask);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_EnvStepU32);
+
+static const uint kEnvMetadataU32Stride = 12u;
+static const uint kEnvStepStride = 4u;
+
+uint envMetaU32(uint envIndex, uint offset)
+{
+    return CRESSIM_SB_LOAD(g_EnvMetadataU32, envIndex * kEnvMetadataU32Stride + offset);
+}
+
+float4 envMetaF32(uint envIndex, uint slot)
+{
+    return CRESSIM_SB_LOAD(g_EnvMetadataF32, envIndex * 2u + slot);
+}
+
+[numthreads(64, 1, 1)]
+void main(uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+    const uint fluidListIndex = dispatchThreadID.x;
+    uint fluidParticleCount = 0u;
+    uint stride = 0u;
+    g_FluidParticleIndices.GetDimensions(fluidParticleCount, stride);
+    if (fluidListIndex >= fluidParticleCount)
+    {
+        return;
+    }
+
+    const uint particleIndex = CRESSIM_SB_LOAD(g_FluidParticleIndices, fluidListIndex);
+    if (CRESSIM_SB_LOAD(g_FluidActiveMask, particleIndex) == 0u)
+    {
+        return;
+    }
+
+    const uint envIndex = CRESSIM_SB_LOAD(g_FluidParticleEnvIndices, fluidListIndex);
     const uint tooltipBodyIndex = envMetaU32(envIndex, 5u);
     const float4 rigidPosition = CRESSIM_SB_LOAD(g_RigidPositionsInvMass, tooltipBodyIndex);
     const float4 rigidOrientation =
@@ -141,57 +193,36 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 tooltipPosition =
         rigidPosition.xyz + QuaternionRotate(rigidOrientation, tooltipLocalAnchor);
 
-    const uint particleOffset = envMetaU32(envIndex, 8u);
-    const uint particleCount = envMetaU32(envIndex, 9u);
-    const float3 removalTeleport = envMetaF32(envIndex, 1u).xyz;
-    uint removedCount = 0u;
-    uint remainingCount = 0u;
-    float nearestDistance = 1.0e30f;
-    const float safeRadius = max(suctionRadius, 1.0e-4f);
+    float4 particlePosition = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
+    const float3 delta = particlePosition.xyz - tooltipPosition;
+    const float distanceSq = dot(delta, delta);
+    const float distance = sqrt(max(distanceSq, 1.0e-12f));
+    const uint envStepBase = envIndex * kEnvStepStride;
 
-    for (uint i = 0u; i < particleCount; ++i)
+    if (distance <= removalRadius)
     {
-        const uint particleIndex = particleOffset + i;
-        if (CRESSIM_SB_LOAD(g_FluidActiveMask, particleIndex) == 0u)
-        {
-            continue;
-        }
-
-        float4 particlePosition = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
-        const float3 delta = particlePosition.xyz - tooltipPosition;
-        const float distanceSq = dot(delta, delta);
-        const float distance = sqrt(max(distanceSq, 1.0e-12f));
-        nearestDistance = min(nearestDistance, distance);
-
-        if (distance <= removalRadius)
-        {
-            particlePosition.xyz = removalTeleport;
-            CRESSIM_SB_STORE(g_ParticlePositionsInvMass, particleIndex, particlePosition);
-            CRESSIM_SB_STORE(g_ParticlePreviousPositions, particleIndex, float4(removalTeleport, 0.0f));
-            CRESSIM_SB_STORE(g_ParticleVelocities, particleIndex, float4(0.0f, 0.0f, 0.0f, 0.0f));
-            CRESSIM_SB_STORE(g_FluidActiveMask, particleIndex, 0u);
-            removedCount += 1u;
-            continue;
-        }
-
-        remainingCount += 1u;
-        if (distance > safeRadius)
-        {
-            continue;
-        }
-
-        const float falloff = max(0.0f, 1.0f - distance / safeRadius);
-        const float3 direction = distance > 1.0e-5f ? (-delta / distance) : float3(0.0f, -1.0f, 0.0f);
-        float4 velocity = CRESSIM_SB_LOAD(g_ParticleVelocities, particleIndex);
-        velocity.xyz += direction * (suctionVelocityScale * falloff);
-        CRESSIM_SB_STORE(g_ParticleVelocities, particleIndex, velocity);
+        const float3 removalTeleport = envMetaF32(envIndex, 1u).xyz;
+        particlePosition.xyz = removalTeleport;
+        CRESSIM_SB_STORE(g_ParticlePositionsInvMass, particleIndex, particlePosition);
+        CRESSIM_SB_STORE(g_ParticlePreviousPositions, particleIndex, float4(removalTeleport, 0.0f));
+        CRESSIM_SB_STORE(g_ParticleVelocities, particleIndex, float4(0.0f, 0.0f, 0.0f, 0.0f));
+        CRESSIM_SB_STORE(g_FluidActiveMask, particleIndex, 0u);
+        InterlockedAdd(CRESSIM_SB_REF(g_EnvStepU32, envStepBase + 0u), 1u);
+        return;
     }
 
-    float4 stats = CRESSIM_SB_LOAD(g_EnvStats, envIndex);
-    stats.y = nearestDistance;
-    stats.z = float(removedCount);
-    stats.w = float(remainingCount);
-    CRESSIM_SB_STORE(g_EnvStats, envIndex, stats);
+    InterlockedAdd(CRESSIM_SB_REF(g_EnvStepU32, envStepBase + 1u), 1u);
+    const float safeRadius = max(suctionRadius, 1.0e-4f);
+    if (distance > safeRadius)
+    {
+        return;
+    }
+
+    const float falloff = max(0.0f, 1.0f - distance / safeRadius);
+    const float3 direction = distance > 1.0e-5f ? (-delta / distance) : float3(0.0f, -1.0f, 0.0f);
+    float4 velocity = CRESSIM_SB_LOAD(g_ParticleVelocities, particleIndex);
+    velocity.xyz += direction * (suctionVelocityScale * falloff);
+    CRESSIM_SB_STORE(g_ParticleVelocities, particleIndex, velocity);
 }
 """
 
@@ -222,6 +253,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_RigidOrientations);
 CRESSIM_STRUCTURED_BUFFER(GpuHingeJointRuntimeState, g_HingeJointRuntimeStates);
 CRESSIM_STRUCTURED_BUFFER(GpuSliderJointRuntimeState, g_SliderJointRuntimeStates);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_EnvStats);
+CRESSIM_STRUCTURED_BUFFER(uint, g_EnvStepU32);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_Observations);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_Rewards);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Terminated);
@@ -231,6 +263,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_EpisodeSteps);
 static const uint kCommandJointCount = 5u;
 static const uint kObservationDim = 19u;
 static const uint kEnvMetadataU32Stride = 12u;
+static const uint kEnvStepStride = 4u;
 
 uint envMetaU32(uint envIndex, uint offset)
 {
@@ -294,32 +327,22 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 tooltipPosition =
         rigidPosition.xyz + QuaternionRotate(rigidOrientation, tooltipLocalAnchor);
 
-    const uint particleOffset = envMetaU32(envIndex, 8u);
-    const uint particleCount = envMetaU32(envIndex, 9u);
-    float bestDistanceSq = 1.0e30f;
     float3 bestDelta = float3(0.0f, 0.0f, 0.0f);
-    for (uint i = 0u; i < particleCount; ++i)
+    const uint envStepBase = envIndex * kEnvStepStride;
+    const uint nearestDistanceSqBits = CRESSIM_SB_LOAD(g_EnvStepU32, envStepBase + 2u);
+    const uint nearestParticleIndex = CRESSIM_SB_LOAD(g_EnvStepU32, envStepBase + 3u);
+    float currentNearest = observationDistanceLimit;
+    if (nearestParticleIndex != kInvalidIndex)
     {
-        const uint particleIndex = particleOffset + i;
-        if (CRESSIM_SB_LOAD(g_FluidActiveMask, particleIndex) == 0u)
-        {
-            continue;
-        }
-        const float3 particlePosition = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex).xyz;
-        const float3 delta = particlePosition - tooltipPosition;
-        const float distanceSq = dot(delta, delta);
-        if (distanceSq < bestDistanceSq)
-        {
-            bestDistanceSq = distanceSq;
-            bestDelta = delta;
-        }
+        const float3 particlePosition = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, nearestParticleIndex).xyz;
+        bestDelta = particlePosition - tooltipPosition;
+        currentNearest = sqrt(asfloat(nearestDistanceSqBits));
     }
 
     float4 stats = CRESSIM_SB_LOAD(g_EnvStats, envIndex);
     const float previousNearest = stats.x;
-    const float currentNearest = stats.y;
-    const uint removedCount = uint(max(stats.z, 0.0f) + 0.5f);
-    const uint remainingCount = uint(max(stats.w, 0.0f) + 0.5f);
+    const uint removedCount = CRESSIM_SB_LOAD(g_EnvStepU32, envStepBase + 0u);
+    const uint remainingCount = CRESSIM_SB_LOAD(g_EnvStepU32, envStepBase + 1u);
     const uint initialCount = max(envMetaU32(envIndex, 10u), 1u);
     const float removedFraction = float(removedCount) / float(initialCount);
     const float remainingFraction = float(remainingCount) / float(initialCount);
@@ -342,6 +365,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     stats.x = currentNearest;
+    stats.y = currentNearest;
+    stats.z = float(removedCount);
+    stats.w = float(remainingCount);
     CRESSIM_SB_STORE(g_EnvStats, envIndex, stats);
 
     const uint obsBase = envIndex * kObservationDim;
@@ -358,9 +384,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     CRESSIM_SB_STORE(g_Observations, obsBase + 10u, tooltipPosition.x);
     CRESSIM_SB_STORE(g_Observations, obsBase + 11u, tooltipPosition.y);
     CRESSIM_SB_STORE(g_Observations, obsBase + 12u, tooltipPosition.z);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 13u, bestDistanceSq < 1.0e29f ? bestDelta.x : 0.0f);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 14u, bestDistanceSq < 1.0e29f ? bestDelta.y : 0.0f);
-    CRESSIM_SB_STORE(g_Observations, obsBase + 15u, bestDistanceSq < 1.0e29f ? bestDelta.z : 0.0f);
+    CRESSIM_SB_STORE(g_Observations, obsBase + 13u, nearestParticleIndex != kInvalidIndex ? bestDelta.x : 0.0f);
+    CRESSIM_SB_STORE(g_Observations, obsBase + 14u, nearestParticleIndex != kInvalidIndex ? bestDelta.y : 0.0f);
+    CRESSIM_SB_STORE(g_Observations, obsBase + 15u, nearestParticleIndex != kInvalidIndex ? bestDelta.z : 0.0f);
     CRESSIM_SB_STORE(g_Observations, obsBase + 16u, remainingFraction);
     CRESSIM_SB_STORE(g_Observations, obsBase + 17u, min(currentNearest, observationDistanceLimit));
     CRESSIM_SB_STORE(g_Observations, obsBase + 18u, removedFraction);
@@ -368,6 +394,86 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     CRESSIM_SB_STORE(g_Terminated, envIndex, terminated);
     CRESSIM_SB_STORE(g_Truncated, envIndex, truncated);
     CRESSIM_SB_STORE(g_EpisodeSteps, envIndex, nextEpisodeStep);
+}
+"""
+
+
+_PSM_BLOOD_SUCTION_POST_PARTICLE_SHADER = r"""
+#include "include/structured_buffer_compat.hlsli"
+#include "include/physics/core/physics_math.hlsli"
+
+CRESSIM_STRUCTURED_BUFFER(uint, g_FluidParticleIndices);
+CRESSIM_STRUCTURED_BUFFER(uint, g_FluidParticleEnvIndices);
+CRESSIM_STRUCTURED_BUFFER(uint, g_EnvMetadataU32);
+CRESSIM_STRUCTURED_BUFFER(float4, g_EnvMetadataF32);
+CRESSIM_STRUCTURED_BUFFER(uint, g_FluidActiveMask);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidOrientations);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_EnvStepU32);
+
+static const uint kEnvMetadataU32Stride = 12u;
+static const uint kEnvStepStride = 4u;
+
+uint envMetaU32(uint envIndex, uint offset)
+{
+    return CRESSIM_SB_LOAD(g_EnvMetadataU32, envIndex * kEnvMetadataU32Stride + offset);
+}
+
+float4 envMetaF32(uint envIndex, uint slot)
+{
+    return CRESSIM_SB_LOAD(g_EnvMetadataF32, envIndex * 2u + slot);
+}
+
+[numthreads(64, 1, 1)]
+void main(uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+    const uint fluidListIndex = dispatchThreadID.x;
+    uint fluidParticleCount = 0u;
+    uint stride = 0u;
+    g_FluidParticleIndices.GetDimensions(fluidParticleCount, stride);
+    if (fluidListIndex >= fluidParticleCount)
+    {
+        return;
+    }
+
+    const uint particleIndex = CRESSIM_SB_LOAD(g_FluidParticleIndices, fluidListIndex);
+    if (CRESSIM_SB_LOAD(g_FluidActiveMask, particleIndex) == 0u)
+    {
+        return;
+    }
+
+    const uint envIndex = CRESSIM_SB_LOAD(g_FluidParticleEnvIndices, fluidListIndex);
+    const uint tooltipBodyIndex = envMetaU32(envIndex, 5u);
+    const float4 rigidPosition = CRESSIM_SB_LOAD(g_RigidPositionsInvMass, tooltipBodyIndex);
+    const float4 rigidOrientation =
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_RigidOrientations, tooltipBodyIndex));
+    const float3 tooltipLocalAnchor = envMetaF32(envIndex, 0u).xyz;
+    const float3 tooltipPosition =
+        rigidPosition.xyz + QuaternionRotate(rigidOrientation, tooltipLocalAnchor);
+    const float3 particlePosition = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex).xyz;
+    const uint distanceSqBits = asuint(dot(particlePosition - tooltipPosition, particlePosition - tooltipPosition));
+    const uint envStepBase = envIndex * kEnvStepStride;
+    const uint nearestDistanceSlot = envStepBase + 2u;
+    const uint nearestIndexSlot = envStepBase + 3u;
+    uint compareBits = CRESSIM_SB_LOAD(g_EnvStepU32, nearestDistanceSlot);
+    [allow_uav_condition]
+    while (distanceSqBits < compareBits)
+    {
+        uint originalBits = 0u;
+        InterlockedCompareExchange(
+            CRESSIM_SB_REF(g_EnvStepU32, nearestDistanceSlot),
+            compareBits,
+            distanceSqBits,
+            originalBits
+        );
+        if (originalBits == compareBits)
+        {
+            CRESSIM_SB_STORE(g_EnvStepU32, nearestIndexSlot, particleIndex);
+            break;
+        }
+        compareBits = originalBits;
+    }
 }
 """
 
@@ -1465,6 +1571,8 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         self._container_particle_counts: list[int] = []
         self._fluid_particle_offsets: list[int] = []
         self._fluid_particle_counts: list[int] = []
+        self._fluid_particle_indices_flat: list[int] = []
+        self._fluid_particle_env_indices_flat: list[int] = []
         self._arm_hinge_slots: list[list[int]] = []
         self._arm_slider_slots: list[int] = []
         self._tooltip_body_indices: list[int] = []
@@ -1504,6 +1612,12 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             self._fluid_particle_counts.append(
                 int(self._particle_mapping.fluid_particle_counts[fluid_slot])
             )
+            fluid_particle_offset = self._fluid_particle_offsets[-1]
+            fluid_particle_count = self._fluid_particle_counts[-1]
+            self._fluid_particle_indices_flat.extend(
+                fluid_particle_offset + local_index for local_index in range(fluid_particle_count)
+            )
+            self._fluid_particle_env_indices_flat.extend(env_index for _ in range(fluid_particle_count))
 
             self._arm_hinge_slots.append(
                 [
@@ -1676,10 +1790,29 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             element_stride_bytes=16,
             shape=[self.env_count, 4],
         )
+        self.env_step_u32_buffer, self.env_step_u32_tensor = self._register_shared_buffer(
+            self.runtime,
+            "PsmBloodSuction.EnvStepU32",
+            self.env_count * 4,
+            neo.SharedBufferTensorDTypeCode.UInt,
+            shape=[self.env_count, 4],
+        )
         self.fluid_active_mask_buffer, self.fluid_active_mask_tensor = self._register_shared_buffer(
             self.runtime,
             "PsmBloodSuction.FluidActiveMask",
             self._particle_mapping.particle_count,
+            neo.SharedBufferTensorDTypeCode.UInt,
+        )
+        self.fluid_particle_indices_buffer, self.fluid_particle_indices_tensor = self._register_shared_buffer(
+            self.runtime,
+            "PsmBloodSuction.FluidParticleIndices",
+            len(self._fluid_particle_indices_flat),
+            neo.SharedBufferTensorDTypeCode.UInt,
+        )
+        self.fluid_particle_env_indices_buffer, self.fluid_particle_env_indices_tensor = self._register_shared_buffer(
+            self.runtime,
+            "PsmBloodSuction.FluidParticleEnvIndices",
+            len(self._fluid_particle_env_indices_flat),
             neo.SharedBufferTensorDTypeCode.UInt,
         )
         self.reset_positions_buffer, self.reset_positions_tensor = self._register_shared_buffer(
@@ -1732,6 +1865,7 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         self.truncated_tensor.zero_()
         self.episode_steps_tensor.zero_()
         self.env_stats_tensor.zero_()
+        self.env_step_u32_tensor.zero_()
         self.fluid_active_mask_tensor.zero_()
 
         self.current_joint_targets_tensor.copy_(
@@ -1786,6 +1920,20 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
                 dtype=self.reset_positions_tensor.dtype,
             )
         )
+        self.fluid_particle_indices_tensor.copy_(
+            torch.tensor(
+                self._fluid_particle_indices_flat,
+                device=device,
+                dtype=self.fluid_particle_indices_tensor.dtype,
+            )
+        )
+        self.fluid_particle_env_indices_tensor.copy_(
+            torch.tensor(
+                self._fluid_particle_env_indices_flat,
+                device=device,
+                dtype=self.fluid_particle_env_indices_tensor.dtype,
+            )
+        )
         self.rigid_reset_body_indices_tensor.copy_(
             torch.tensor(
                 self._rigid_reset_body_indices,
@@ -1822,7 +1970,10 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             self.env_metadata_u32_buffer,
             self.env_metadata_f32_buffer,
             self.env_stats_buffer,
+            self.env_step_u32_buffer,
             self.fluid_active_mask_buffer,
+            self.fluid_particle_indices_buffer,
+            self.fluid_particle_env_indices_buffer,
             self.reset_positions_buffer,
             self.rigid_reset_body_indices_buffer,
             self.rigid_reset_positions_buffer,
@@ -1845,16 +1996,9 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
                 ("g_CurrentJointTargets", self.current_joint_targets_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_JointLimits", self.joint_limits_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_EnvMetadataU32", self.env_metadata_u32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
-                ("g_EnvMetadataF32", self.env_metadata_f32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
-                ("g_ParticlePositionsInvMass", None, "particle.positions_inv_mass", neo.CustomComputeResourceAccess.ReadWrite),
-                ("g_ParticlePreviousPositions", None, "particle.previous_positions", neo.CustomComputeResourceAccess.ReadWrite),
-                ("g_ParticleVelocities", None, "particle.velocities", neo.CustomComputeResourceAccess.ReadWrite),
-                ("g_RigidPositionsInvMass", None, "rigid.positions", neo.CustomComputeResourceAccess.ReadOnly),
-                ("g_RigidOrientations", None, "rigid.orientations", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_HingeJoints", None, "joint.hinge", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_SliderJoints", None, "joint.slider", neo.CustomComputeResourceAccess.ReadWrite),
-                ("g_FluidActiveMask", self.fluid_active_mask_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
-                ("g_EnvStats", self.env_stats_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
+                ("g_EnvStepU32", self.env_step_u32_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ],
         )
         pre_desc.constant_buffer_variable_name = "PsmBloodSuctionPrePhysicsConstants"
@@ -1864,9 +2008,9 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
                 "<8f",
                 self.rotational_action_scale,
                 self.insertion_action_scale,
-                self.suction_radius,
-                self.removal_radius,
-                self.suction_velocity_scale,
+                0.0,
+                0.0,
+                0.0,
                 0.0,
                 0.0,
                 0.0,
@@ -1875,6 +2019,63 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         pre_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
         pre_desc.dispatch.group_count_x = (self.env_count + 63) // 64
         self._pre_pass = self._register_custom_pass(self.runtime, pre_desc)
+
+        pre_particle_desc = neo.CustomComputePassDesc()
+        pre_particle_desc.debug_name = "PsmBloodSuction.PreParticle"
+        pre_particle_desc.shader_source = _PSM_BLOOD_SUCTION_PRE_PARTICLE_SHADER
+        pre_particle_desc.thread_group_size_x = 64
+        _bind_resources(
+            pre_particle_desc,
+            [
+                ("g_FluidParticleIndices", self.fluid_particle_indices_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_FluidParticleEnvIndices", self.fluid_particle_env_indices_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_EnvMetadataU32", self.env_metadata_u32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_EnvMetadataF32", self.env_metadata_f32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_ParticlePositionsInvMass", None, "particle.positions_inv_mass", neo.CustomComputeResourceAccess.ReadWrite),
+                ("g_ParticlePreviousPositions", None, "particle.previous_positions", neo.CustomComputeResourceAccess.ReadWrite),
+                ("g_ParticleVelocities", None, "particle.velocities", neo.CustomComputeResourceAccess.ReadWrite),
+                ("g_RigidPositionsInvMass", None, "rigid.positions", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_RigidOrientations", None, "rigid.orientations", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_FluidActiveMask", self.fluid_active_mask_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
+                ("g_EnvStepU32", self.env_step_u32_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
+            ],
+        )
+        pre_particle_desc.constant_buffer_variable_name = "PsmBloodSuctionPreParticleConstants"
+        pre_particle_desc.constant_buffer_size_bytes = 16
+        pre_particle_desc.constant_data = list(
+            struct.pack(
+                "<4f",
+                self.suction_radius,
+                self.removal_radius,
+                self.suction_velocity_scale,
+                0.0,
+            )
+        )
+        pre_particle_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
+        pre_particle_desc.dispatch.group_count_x = (len(self._fluid_particle_indices_flat) + 63) // 64
+        self._pre_particle_pass = self._register_custom_pass(self.runtime, pre_particle_desc)
+
+        post_particle_desc = neo.CustomComputePassDesc()
+        post_particle_desc.debug_name = "PsmBloodSuction.PostParticle"
+        post_particle_desc.shader_source = _PSM_BLOOD_SUCTION_POST_PARTICLE_SHADER
+        post_particle_desc.thread_group_size_x = 64
+        _bind_resources(
+            post_particle_desc,
+            [
+                ("g_FluidParticleIndices", self.fluid_particle_indices_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_FluidParticleEnvIndices", self.fluid_particle_env_indices_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_EnvMetadataU32", self.env_metadata_u32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_EnvMetadataF32", self.env_metadata_f32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_FluidActiveMask", self.fluid_active_mask_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_ParticlePositionsInvMass", None, "particle.positions_inv_mass", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_RigidPositionsInvMass", None, "rigid.positions", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_RigidOrientations", None, "rigid.orientations", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_EnvStepU32", self.env_step_u32_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
+            ],
+        )
+        post_particle_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
+        post_particle_desc.dispatch.group_count_x = (len(self._fluid_particle_indices_flat) + 63) // 64
+        self._post_particle_pass = self._register_custom_pass(self.runtime, post_particle_desc)
 
         post_desc = neo.CustomComputePassDesc()
         post_desc.debug_name = "PsmBloodSuction.PostPhysics"
@@ -1885,13 +2086,13 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             [
                 ("g_EnvMetadataU32", self.env_metadata_u32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_EnvMetadataF32", self.env_metadata_f32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
-                ("g_FluidActiveMask", self.fluid_active_mask_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_ParticlePositionsInvMass", None, "particle.positions_inv_mass", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_RigidPositionsInvMass", None, "rigid.positions", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_RigidOrientations", None, "rigid.orientations", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_HingeJointRuntimeStates", None, "joint.hinge_runtime", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_SliderJointRuntimeStates", None, "joint.slider_runtime", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_EnvStats", self.env_stats_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
+                ("g_EnvStepU32", self.env_step_u32_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_Observations", self.observation_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_Rewards", self.reward_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_Terminated", self.terminated_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
@@ -2086,8 +2287,12 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         self._sync_from_cuda(self.runtime, [self.action_buffer])
         if not self.runtime.execute_custom_compute_pass(self._pre_pass):
             raise RuntimeError("Failed to execute PSM blood-suction pre-physics pass.")
+        if not self.runtime.execute_custom_compute_pass(self._pre_particle_pass):
+            raise RuntimeError("Failed to execute PSM blood-suction pre-particle pass.")
         if not self.runtime.step_physics(self._frame):
             raise RuntimeError("PSM blood-suction physics step failed.")
+        if not self.runtime.execute_custom_compute_pass(self._post_particle_pass):
+            raise RuntimeError("Failed to execute PSM blood-suction post-particle pass.")
         if not self.runtime.execute_custom_compute_pass(self._post_pass):
             raise RuntimeError("Failed to execute PSM blood-suction post-physics pass.")
         self._sync_outputs_to_cuda()
