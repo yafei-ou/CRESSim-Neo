@@ -47,6 +47,24 @@ def parse_args() -> argparse.Namespace:
         help="TetGen radius-edge ratio quality target.",
     )
     parser.add_argument(
+        "--maxvolume",
+        type=float,
+        default=-1.0,
+        help=(
+            "TetGen maximum tetra volume constraint. Smaller positive values "
+            "produce denser tetrahedra. Disabled when negative."
+        ),
+    )
+    parser.add_argument(
+        "--maxvolume-length",
+        type=float,
+        default=-1.0,
+        help=(
+            "TetGen maximum tetra volume length scale. Smaller positive values "
+            "produce denser tetrahedra. Disabled when negative."
+        ),
+    )
+    parser.add_argument(
         "--plot",
         action="store_true",
         help="Show the generated tetrahedral grid after export.",
@@ -86,7 +104,18 @@ def main() -> None:
     surface = load_surface_mesh(input_path)
 
     tet = tetgen.TetGen(surface)
-    tet.tetrahedralize(order=1, mindihedral=args.mindihedral, minratio=args.minratio)
+    tetrahedralize_kwargs = {
+        "order": 1,
+        "mindihedral": args.mindihedral,
+        "minratio": args.minratio,
+    }
+    if args.maxvolume >= 0.0:
+        tetrahedralize_kwargs["fixedvolume"] = True
+        tetrahedralize_kwargs["maxvolume"] = args.maxvolume
+    if args.maxvolume_length >= 0.0:
+        tetrahedralize_kwargs["fixedvolume"] = True
+        tetrahedralize_kwargs["maxvolume_length"] = args.maxvolume_length
+    tet.tetrahedralize(**tetrahedralize_kwargs)
     grid = tet.grid
 
     node_path = output_prefix.with_suffix(".node")
@@ -100,6 +129,10 @@ def main() -> None:
     print(f"Tet elements:    {output_prefix.with_suffix('.ele')}")
     print(f"Render surface:  {surface_obj_path}")
     print(f"Points / tets:   {grid.n_points} / {grid.n_cells}")
+    if args.maxvolume >= 0.0:
+        print(f"Max volume:      {args.maxvolume}")
+    if args.maxvolume_length >= 0.0:
+        print(f"Max vol length:  {args.maxvolume_length}")
 
     if args.plot:
         grid.plot(show_edges=True)

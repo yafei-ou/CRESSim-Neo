@@ -1,5 +1,3 @@
-import argparse
-import importlib.util
 import math
 from pathlib import Path
 import sys
@@ -13,76 +11,95 @@ if str(BUILD_BIN) not in sys.path:
 import cressim_neo as neo
 
 
-def _load_local_package_module(module_name: str, file_path: Path):
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Failed to create import spec for {file_path}.")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-_load_local_package_module("cressim_neo.psm_builder", REPO_ROOT / "python" / "package" / "psm_builder.py")
-psm_env_module = _load_local_package_module(
-    "cressim_neo.psm_env",
-    REPO_ROOT / "python" / "package" / "psm_env.py",
-)
-PsmEnv = psm_env_module.PsmEnv
-
-
-CONTAINER_TOP_Y_LOCAL = 0.025932
+SCENE_SCALE = 2.5
+PSM_SCALE = 10.0 * SCENE_SCALE
+PSM_MASS_SCALE = 0.02
+PSM_INERTIA_SCALE = 0.02
+PSM_INSERTION_BASE_TARGET = 0.15 * PSM_SCALE
+PSM_INSERTION_AMPLITUDE = 0.04 * PSM_SCALE
+PSM_INSERTION_FREQUENCY_HZ = 0.20
+PSM_TOOL_YAW_ZERO_POSE_Z_PER_SCALE = -0.4864
+FLUID_PARTICLE_RADIUS = 0.09
+FLUID_HORIZONTAL_FILL_FRACTION = 1.0
+FLUID_HEIGHT_FILL_FRACTION = 1.0
+CONTAINER_OPENING_CENTER_X_LOCAL = -0.105369
+CONTAINER_OPENING_CENTER_Z_LOCAL = -0.174073
+CONTAINER_OPENING_TOP_Y_LOCAL = -0.01413111111111111
 CONTAINER_BOTTOM_Y_LOCAL = -0.569843
-CONTAINER_CENTER_X_LOCAL = -0.105369
-CONTAINER_CENTER_Z_LOCAL = 1.0
-CONTAINER_ALIGN_Z = -1.9456
 CONTAINER_ALIGN_X = 0.0
-PSM_INSERTION_STROKE_LOCAL = 0.24
-DEFAULT_START_INSERTION_FRACTION = 0.10
-DEFAULT_END_INSERTION_FRACTION = 0.92
+CONTAINER_ALIGN_Z = 0.0
+CONTAINER_TOP_Y = 1.10
+CONTAINER_STATIC_BAND_HEIGHT = 0.06
+CONTAINER_PARTICLE_MASS = 0.12
+CONTAINER_PARTICLE_RADIUS = 0.30
+CONTAINER_EDGE_COMPLIANCE = 0.0
+CONTAINER_VOLUME_COMPLIANCE = 8.0e-4
+CONTAINER_CONTACT_FRICTION = 0.55
+CONTAINER_CONTACT_STATIC_FRICTION = 0.75
+CONTAINER_CONTACT_RESTITUTION = 0.05
+CONTAINER_CONTACT_DAMPING = 0.8
+GROUND_HALF = neo.Float3(5.6 * SCENE_SCALE, 0.08 * SCENE_SCALE, 2.4 * SCENE_SCALE)
+GROUND_CLEARANCE = 0.01 * SCENE_SCALE
+FLUID_DROP_GAP_Y = 0.24 * SCENE_SCALE
+CAMERA_POSITION = (0.0, 2.8 * SCENE_SCALE, -6.0 * SCENE_SCALE)
+PSM_WORLD_OFFSET = (
+    0.0,
+    CONTAINER_TOP_Y * SCENE_SCALE + 0.5 * SCENE_SCALE,
+    -PSM_TOOL_YAW_ZERO_POSE_Z_PER_SCALE * PSM_SCALE,
+)
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="View a suction-irrigator PSM above a TetGen soft-body container."
+def _compute_regular_grid_axis(
+    inner_half_extent: float,
+    particle_radius: float,
+    fill_fraction: float,
+) -> tuple[int, float]:
+    spacing = 2.0 * particle_radius
+    max_count = max(
+        1,
+        int(math.floor((2.0 * max(0.0, inner_half_extent - particle_radius)) / spacing)) + 1,
     )
-    parser.add_argument(
-        "--robot-scale",
-        type=float,
-        default=6.0,
-        help="Uniform world-space scale applied during PSM authoring.",
-    )
-    parser.add_argument(
-        "--container-top-y",
-        type=float,
-        default=0.49,
-        help="World-space height for the container rim top.",
-    )
-    parser.add_argument(
-        "--start-insertion",
-        type=float,
-        default=None,
-        help="Initial insertion target in authored world units. Defaults to a scale-aware stroke fraction.",
-    )
-    parser.add_argument(
-        "--end-insertion",
-        type=float,
-        default=None,
-        help="Final insertion target in authored world units. Defaults to a deeper scale-aware stroke fraction.",
-    )
-    parser.add_argument(
-        "--ramp-seconds",
-        type=float,
-        default=3.0,
-        help="Seconds spent driving the tool down into the container.",
-    )
-    return parser.parse_args()
+    count = max(1, min(max_count, int(math.floor(max_count * fill_fraction + 0.5))))
+    return count, float(count) * spacing
 
 
-def _resolve_insertion_target(explicit_value: float | None, robot_scale: float, fraction: float) -> float:
-    if explicit_value is not None:
-        return float(explicit_value)
-    return float(PSM_INSERTION_STROKE_LOCAL * robot_scale * fraction)
+def _compute_fluid_block_desc(
+    block_half_extents: neo.Float3,
+    particle_radius: float,
+    fill_fraction_xy: float,
+    fill_fraction_height: float,
+) -> tuple[neo.Float3, float]:
+    spacing = 2.0 * particle_radius
+    _, size_x = _compute_regular_grid_axis(block_half_extents.x, particle_radius, fill_fraction_xy)
+    _, size_z = _compute_regular_grid_axis(block_half_extents.z, particle_radius, fill_fraction_xy)
+    _, size_y = _compute_regular_grid_axis(block_half_extents.y, particle_radius, fill_fraction_height)
+    return neo.Float3(size_x, size_y, size_z), spacing
+
+
+def _register_material(
+    resources: neo.RenderResourceManager,
+    debug_name: str,
+    base_color: neo.Float3,
+    roughness: float,
+) -> int:
+    material = neo.MaterialResourceDesc()
+    material.debug_name = debug_name
+    material.base_color = base_color
+    material.metallic = 0.0
+    material.roughness = roughness
+    return resources.register_material(material)
+
+
+def _container_entity_world_position(top_y: float) -> tuple[float, float, float]:
+    return (
+        CONTAINER_ALIGN_X - CONTAINER_OPENING_CENTER_X_LOCAL * SCENE_SCALE,
+        top_y - CONTAINER_OPENING_TOP_Y_LOCAL * SCENE_SCALE,
+        CONTAINER_ALIGN_Z - CONTAINER_OPENING_CENTER_Z_LOCAL * SCENE_SCALE,
+    )
+
+
+def _container_bottom_world_y(top_y: float) -> float:
+    return top_y - CONTAINER_OPENING_TOP_Y_LOCAL * SCENE_SCALE + CONTAINER_BOTTOM_Y_LOCAL * SCENE_SCALE
 
 
 def _look_rotation(position: tuple[float, float, float], target: tuple[float, float, float]) -> neo.Quaternion:
@@ -109,7 +126,6 @@ def _look_rotation(position: tuple[float, float, float], target: tuple[float, fl
         forward[2] * right[0] - forward[0] * right[2],
         forward[0] * right[1] - forward[1] * right[0],
     ]
-
     m00, m01, m02 = right[0], corrected_up[0], forward[0]
     m10, m11, m12 = right[1], corrected_up[1], forward[1]
     m20, m21, m22 = right[2], corrected_up[2], forward[2]
@@ -205,8 +221,7 @@ def _bottom_static_particle_indices(node_path: Path, band_height: float) -> list
     return [index for index, entry in enumerate(entries) if float(entry[2]) <= threshold]
 
 
-def _author_container(env: neo.PsmEnv, top_y: float) -> None:
-    runtime = env.runtime
+def _author_container(runtime: neo.Runtime) -> None:
     world = runtime.world()
     resources = runtime.resources()
     models_dir = REPO_ROOT / "examples" / "models"
@@ -217,159 +232,279 @@ def _author_container(env: neo.PsmEnv, top_y: float) -> None:
     soft_entity = world.create_entity(0)
     soft_transform = neo.TransformComponent()
     soft_transform.world_transform.position = neo.Float3(
-        CONTAINER_ALIGN_X - CONTAINER_CENTER_X_LOCAL,
-        top_y - CONTAINER_TOP_Y_LOCAL,
-        CONTAINER_ALIGN_Z - CONTAINER_CENTER_Z_LOCAL,
+        *_container_entity_world_position(CONTAINER_TOP_Y * SCENE_SCALE)
     )
+    soft_transform.world_transform.scale = neo.Float3(SCENE_SCALE, SCENE_SCALE, SCENE_SCALE)
     world.set_transform(soft_entity, soft_transform)
 
     soft_body = neo.SoftBodyComponent()
     soft_body.source.kind = neo.SoftBodySourceKind.TetGenFiles
     soft_body.source.tet_gen.node_file = str(node_path)
     soft_body.source.tet_gen.ele_file = str(ele_path)
-    soft_body.source.tet_gen.static_particle_indices = _bottom_static_particle_indices(node_path, 0.03)
-    soft_body.particle_mass = 0.06
-    soft_body.particle_radius = 0.025
-    soft_body.edge_compliance = 8.0e-4
-    soft_body.volume_compliance = 2.0e-3
-    soft_body.self_collision_enabled = True
+    soft_body.source.tet_gen.static_particle_indices = _bottom_static_particle_indices(
+        node_path,
+        CONTAINER_STATIC_BAND_HEIGHT * SCENE_SCALE,
+    )
+    soft_body.particle_mass = CONTAINER_PARTICLE_MASS
+    soft_body.particle_radius = CONTAINER_PARTICLE_RADIUS
+    soft_body.edge_compliance = CONTAINER_EDGE_COMPLIANCE
+    soft_body.volume_compliance = CONTAINER_VOLUME_COMPLIANCE
+    soft_body.self_collision_enabled = False
     soft_body.supports_suturing = False
     soft_body.simulated = True
     soft_body.collision_layer = 0x1
     soft_body.collision_mask = 0xFFFFFFFF
-    soft_body.material.contact.friction = 0.85
-    soft_body.material.contact.static_friction = 1.0
-    soft_body.material.contact.damping = 0.35
+    soft_body.material.contact.friction = CONTAINER_CONTACT_FRICTION
+    soft_body.material.contact.static_friction = CONTAINER_CONTACT_STATIC_FRICTION
+    soft_body.material.contact.restitution = CONTAINER_CONTACT_RESTITUTION
+    soft_body.material.contact.damping = CONTAINER_CONTACT_DAMPING
     if not world.set_soft_body(soft_entity, soft_body):
         raise RuntimeError("Failed to author TetGen soft-body container.")
 
-    material = neo.MaterialResourceDesc()
-    material.debug_name = "PsmSuctionContainer.ContainerMaterial"
-    material.base_color = neo.Float3(0.76, 0.47, 0.32)
-    material.roughness = 0.88
-    material.metallic = 0.0
-    container_material = resources.register_material(material)
-
+    container_material = _register_material(
+        resources,
+        "FluidIsolation.ContainerMaterial",
+        neo.Float3(0.76, 0.47, 0.32),
+        0.88,
+    )
     renderer = neo.MeshRendererComponent()
     renderer.mesh = resources.register_mesh(
-        _load_obj_mesh(
-            surface_path,
-            "PsmSuctionContainer.ContainerMesh",
-            reverse_winding=True,
-        )
+        _load_obj_mesh(surface_path, "FluidIsolation.ContainerMesh", reverse_winding=True)
     )
     renderer.material = container_material
     renderer.visible = True
     world.set_mesh_renderer(soft_entity, renderer)
 
 
-def _author_ground(env: neo.PsmEnv, top_y: float) -> None:
-    runtime = env.runtime
+def _author_psm(runtime: neo.Runtime) -> neo.PsmBuildResult:
+    world = runtime.world()
+    resources = runtime.resources()
+    urdf_path = REPO_ROOT / "examples" / "models" / "psm" / "psm_suction_irrigator.urdf"
+    build = neo.author_psm_scene(
+        world,
+        resources,
+        neo.PsmAuthoringConfig(
+            resolve_root=REPO_ROOT,
+            urdf_path=urdf_path,
+            env_count=1,
+            add_ground=False,
+            add_default_lighting=False,
+            add_default_camera=False,
+            global_scale=PSM_SCALE,
+        ),
+    )
+    neo.set_psm_joint_targets(
+        world,
+        build,
+        [0.0, 0.0, PSM_INSERTION_BASE_TARGET, 0.0, 0.0, 0.0, 0.0],
+    )
+    offset_x, offset_y, offset_z = PSM_WORLD_OFFSET
+    translated_entities: set[int] = set()
+    for instance in build.instances:
+        for entity in instance.link_entities.values():
+            if entity in translated_entities:
+                continue
+            translated_entities.add(entity)
+            transform = world.try_get_transform(entity)
+            if transform is None:
+                continue
+            transform.world_transform.position = neo.Float3(
+                transform.world_transform.position.x + offset_x,
+                transform.world_transform.position.y + offset_y,
+                transform.world_transform.position.z + offset_z,
+            )
+            world.set_transform(entity, transform)
+            rigid_body = world.try_get_rigid_body(entity)
+            if rigid_body is None or rigid_body.body_type != neo.RigidBodyType.Dynamic:
+                continue
+            if rigid_body.inverse_mass > 0.0:
+                mass = 1.0 / rigid_body.inverse_mass
+                scaled_mass = max(mass * PSM_MASS_SCALE, 1.0e-6)
+                rigid_body.inverse_mass = 1.0 / scaled_mass
+            rigid_body.inverse_inertia_local = neo.Float3(
+                rigid_body.inverse_inertia_local.x / PSM_INERTIA_SCALE
+                if rigid_body.inverse_inertia_local.x > 0.0
+                else 0.0,
+                rigid_body.inverse_inertia_local.y / PSM_INERTIA_SCALE
+                if rigid_body.inverse_inertia_local.y > 0.0
+                else 0.0,
+                rigid_body.inverse_inertia_local.z / PSM_INERTIA_SCALE
+                if rigid_body.inverse_inertia_local.z > 0.0
+                else 0.0,
+            )
+            world.set_rigid_body(entity, rigid_body)
+    return build
+
+
+def _author_scene(runtime: neo.Runtime) -> tuple[int, neo.PsmBuildResult]:
     world = runtime.world()
     resources = runtime.resources()
 
-    ground_half_height = 0.05
-    ground_y = top_y - CONTAINER_TOP_Y_LOCAL + CONTAINER_BOTTOM_Y_LOCAL - ground_half_height - 0.01
+    fluid_block_half = neo.Float3(0.8, 0.8, 0.8)
+    fluid_size, fluid_spacing = _compute_fluid_block_desc(
+        fluid_block_half,
+        FLUID_PARTICLE_RADIUS,
+        FLUID_HORIZONTAL_FILL_FRACTION,
+        FLUID_HEIGHT_FILL_FRACTION,
+    )
+    z_offset = 0.0
+
+    ground_mesh = resources.register_mesh(neo.make_box_mesh(GROUND_HALF, "FluidIsolation.GroundMesh"))
+    ground_material = _register_material(
+        resources,
+        "FluidIsolation.GroundMaterial",
+        neo.Float3(0.62, 0.64, 0.68),
+        0.92,
+    )
 
     ground_entity = world.create_entity(0)
     ground_transform = neo.TransformComponent()
-    ground_transform.world_transform.position = neo.Float3(0.0, ground_y, CONTAINER_ALIGN_Z)
+    ground_y = _container_bottom_world_y(CONTAINER_TOP_Y * SCENE_SCALE) - GROUND_HALF.y - GROUND_CLEARANCE
+    ground_transform.world_transform.position = neo.Float3(0.0, ground_y, 0.0)
     world.set_transform(ground_entity, ground_transform)
-
-    ground_material = neo.MaterialResourceDesc()
-    ground_material.debug_name = "PsmSuctionContainer.GroundMaterial"
-    ground_material.base_color = neo.Float3(0.58, 0.60, 0.64)
-    ground_material.roughness = 0.96
-    ground_material.metallic = 0.0
-    ground_material_handle = resources.register_material(ground_material)
-
-    ground_renderer = neo.MeshRendererComponent()
-    ground_renderer.mesh = resources.register_mesh(
-        neo.make_plane_mesh(3.5, "PsmSuctionContainer.GroundMesh", 2.0)
-    )
-    ground_renderer.material = ground_material_handle
-    ground_renderer.visible = True
-    world.set_mesh_renderer(ground_entity, ground_renderer)
-
     ground_body = neo.RigidBodyComponent()
     ground_body.body_type = neo.RigidBodyType.Static
     ground_body.inverse_mass = 0.0
-    ground_body.inverse_inertia_local = neo.Float3(0.0, 0.0, 0.0)
+    ground_body.simulated = True
     world.set_rigid_body(ground_entity, ground_body)
-
     ground_collider = neo.ColliderComponent()
     ground_collider.shape_type = neo.ColliderShapeType.Box
-    ground_collider.shape_params = neo.Float4(3.5, ground_half_height, 3.5, 0.0)
-    ground_collider.friction = 0.95
-    ground_collider.static_friction = 1.1
+    ground_collider.shape_params = neo.Float4(GROUND_HALF.x, GROUND_HALF.y, GROUND_HALF.z, 0.0)
     world.add_collider(ground_entity, ground_collider)
+    ground_renderer = neo.MeshRendererComponent()
+    ground_renderer.mesh = ground_mesh
+    ground_renderer.material = ground_material
+    ground_renderer.visible = True
+    world.set_mesh_renderer(ground_entity, ground_renderer)
 
+    psm_build = _author_psm(runtime)
+    _author_container(runtime)
 
-def _reposition_camera(env: neo.PsmEnv) -> None:
-    world = env.runtime.world()
-    transform = world.try_get_transform(env.camera_entity)
-    if transform is None:
-        return
-    camera_position = (0.0, 4.2, -8.4)
-    camera_target = (0.0, 0.45, CONTAINER_ALIGN_Z)
-    transform.world_transform.position = neo.Float3(*camera_position)
-    transform.world_transform.rotation = _look_rotation(camera_position, camera_target)
-    world.set_transform(env.camera_entity, transform)
+    fluid_entity = world.create_entity(0)
+    fluid_transform = neo.TransformComponent()
+    fluid_transform.world_transform.position = neo.Float3(
+        0.0,
+        CONTAINER_TOP_Y * SCENE_SCALE + FLUID_DROP_GAP_Y + 0.5 * fluid_size.y,
+        z_offset,
+    )
+    world.set_transform(fluid_entity, fluid_transform)
+    fluid = neo.FluidComponent()
+    fluid.source.kind = neo.FluidSourceKind.RegularGrid
+    fluid.source.regular_grid.size = fluid_size
+    fluid.source.regular_grid.target_particle_spacing = fluid_spacing
+    fluid.particle_radius = FLUID_PARTICLE_RADIUS
+    fluid.material = neo.FluidMaterialDesc()
+    fluid.material.contact = neo.ParticleContactMaterialDesc()
+    fluid.material.contact.friction = 0.04
+    fluid.material.contact.static_friction = 0.06
+    fluid.material.contact.restitution = 0.0
+    fluid.material.contact.damping = 0.2
+    fluid.material.viscosity = 1.5
+    fluid.material.cohesion = 0.8
+    fluid.material.gravity_scale = 0.75
+    fluid.material.cfl_coefficient = 1.0
+    fluid.material.vorticity_confinement = 0.25
+    fluid.material.surface_tension = 1.5
+    particle_diameter = 2.0 * fluid.particle_radius
+    fluid.particle_mass = particle_diameter * particle_diameter * particle_diameter * 10.0
+    fluid.simulated = True
+    fluid.visual_color = neo.Float4(0.90, 0.16, 0.16, 0.80)
+    if not world.set_fluid(fluid_entity, fluid):
+        raise RuntimeError("Failed to author fluid body.")
+
+    fluid_visuals = neo.EnvironmentFluidDesc()
+    fluid_visuals.smoothness = 0.95
+    fluid_visuals.specular = neo.Float3(0.38, 0.44, 0.50)
+    fluid_visuals.fresnel = 0.84
+    fluid_visuals.depth_edge_threshold = 0.18
+    fluid_visuals.filter_radius_pixels = 4.0
+    fluid_visuals.filter_world_radius = 0.18
+    fluid_visuals.filter_depth_threshold = 0.11
+    fluid_visuals.enable_background_refraction = True
+    fluid_visuals.refraction_ior = 1.33
+    fluid_visuals.refraction_view_thickness = 0.40
+    world.set_environment_fluid(0, fluid_visuals)
+
+    light_entity = world.create_entity(0)
+    light = neo.DirectionalLightComponent()
+    light.direction = neo.Float3(-0.45, -1.0, 0.35)
+    light.color = neo.Float3(1.0, 1.0, 1.0)
+    light.intensity = 7.5
+    light.casts_shadows = False
+    world.set_directional_light(light_entity, light)
+
+    camera_entity = world.create_entity(0)
+    camera_transform = neo.TransformComponent()
+    camera_transform.world_transform.position = neo.Float3(*CAMERA_POSITION)
+    camera_transform.world_transform.rotation = _look_rotation(
+        CAMERA_POSITION,
+        (0.0, CONTAINER_TOP_Y * SCENE_SCALE + 0.5 * SCENE_SCALE, 0.0),
+    )
+    world.set_transform(camera_entity, camera_transform)
+
+    camera = neo.CameraComponent()
+    camera.product = neo.CameraProduct.ColorDepth
+    camera.vertical_fov_degrees = 42.0
+    camera.clear_color = True
+    camera.clear_depth = True
+    camera.clear_color_value = neo.Float4(0.03, 0.04, 0.06, 1.0)
+    world.set_camera(camera_entity, camera)
+    return camera_entity, psm_build
 
 
 def main() -> int:
-    args = parse_args()
     if not hasattr(neo, "DebugViewerApp"):
         raise RuntimeError("This build does not include the Python debug viewer bindings.")
 
-    start_insertion = _resolve_insertion_target(
-        args.start_insertion,
-        args.robot_scale,
-        DEFAULT_START_INSERTION_FRACTION,
-    )
-    end_insertion = _resolve_insertion_target(
-        args.end_insertion,
-        args.robot_scale,
-        DEFAULT_END_INSERTION_FRACTION,
-    )
-
     viewer_desc = neo.DebugViewerAppDesc()
-    viewer_desc.window_title = "CRESSim-Neo Suction Irrigator Container Demo"
+    viewer_desc.window_title = "CRESSim-Neo Fluid RL Isolation"
     viewer_desc.width = 1600
     viewer_desc.height = 900
     viewer_desc.step_simulation = True
     viewer_desc.show_stats = True
 
-    env = PsmEnv(
-        resolve_root=REPO_ROOT,
-        tool_type="suction_irrigator",
-        viewer_desc=viewer_desc,
-        add_ground=False,
-        global_scale=args.robot_scale,
-    )
+    config = neo.RuntimeConfig()
+    config.gpu_device_desc.preferred_backend = neo.GpuBackend.Vulkan
+    config.gpu_device_desc.enable_validation = False
+    config.physics_desc.enable_blocking_readback = False
+    config.scene_layout.env_count = 1
+    config.scene_layout.max_renderable_objects_per_env = 64
+    config.scene_layout.max_lights_per_env = 2
+    config.scene_layout.max_cameras_per_env = 1
+
+    viewer = neo.DebugViewerApp()
+    if not viewer.initialize(viewer_desc, config):
+        raise RuntimeError("Failed to initialize the debug viewer.")
+
+    runtime = neo.Runtime()
+    if not runtime.initialize(config):
+        viewer.shutdown()
+        raise RuntimeError("Failed to initialize the runtime.")
 
     try:
-        _author_ground(env, args.container_top_y)
-        _author_container(env, args.container_top_y)
-        _reposition_camera(env)
-
-        initial_targets = [0.0, 0.0, start_insertion, 0.0, 0.0, 0.0, 0.0]
-        env.set_joint_targets(initial_targets)
-
+        camera_entity, psm_build = _author_scene(runtime)
+        binding = neo.DebugViewerCameraBinding()
+        binding.camera_entity = camera_entity
         callbacks = neo.DebugViewerCallbacks()
 
-        def before_tick(frame: neo.FrameContext, runtime: neo.Runtime) -> None:
-            time_seconds = float(frame.time_seconds)
-            alpha = min(max(time_seconds / max(args.ramp_seconds, 1.0e-4), 0.0), 1.0)
-            smooth = alpha * alpha * (3.0 - 2.0 * alpha)
-            insertion = (1.0 - smooth) * start_insertion + smooth * end_insertion
-            env.set_joint_targets([0.0, 0.0, insertion, 0.0, 0.0, 0.0, 0.0])
+        def before_tick(frame: neo.FrameContext, current_runtime: neo.Runtime) -> None:
+            insertion_target = (
+                PSM_INSERTION_BASE_TARGET
+                + PSM_INSERTION_AMPLITUDE
+                * math.sin(2.0 * math.pi * PSM_INSERTION_FREQUENCY_HZ * float(frame.time_seconds))
+            )
+            neo.set_psm_joint_targets(
+                current_runtime.world(),
+                psm_build,
+                [0.0, 0.0, insertion_target, 0.0, 0.0, 0.0, 0.0],
+            )
 
         callbacks.before_tick = before_tick
-        env.run_viewer(callbacks=callbacks)
+        viewer.run(runtime, binding, callbacks)
         return 0
     finally:
-        env.shutdown()
+        runtime.shutdown()
+        viewer.shutdown()
 
 
 if __name__ == "__main__":
