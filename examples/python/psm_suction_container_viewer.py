@@ -15,8 +15,8 @@ SCENE_SCALE = 2.5
 PSM_SCALE = 10.0 * SCENE_SCALE
 PSM_MASS_SCALE = 0.02
 PSM_INERTIA_SCALE = 0.02
-PSM_INSERTION_BASE_TARGET = 0.15 * PSM_SCALE
-PSM_INSERTION_AMPLITUDE = 0.04 * PSM_SCALE
+PSM_INSERTION_BASE_TARGET = 0.08 * PSM_SCALE
+PSM_INSERTION_AMPLITUDE = 0.1 * PSM_SCALE
 PSM_INSERTION_FREQUENCY_HZ = 0.20
 PSM_TOOL_YAW_ZERO_POSE_Z_PER_SCALE = -0.4864
 FLUID_PARTICLE_RADIUS = 0.09
@@ -40,7 +40,8 @@ CONTAINER_CONTACT_RESTITUTION = 0.05
 CONTAINER_CONTACT_DAMPING = 0.8
 GROUND_HALF = neo.Float3(5.6 * SCENE_SCALE, 0.08 * SCENE_SCALE, 2.4 * SCENE_SCALE)
 GROUND_CLEARANCE = 0.01 * SCENE_SCALE
-FLUID_DROP_GAP_Y = 0.24 * SCENE_SCALE
+FLUID_DROP_GAP_Y = 0.10 * SCENE_SCALE
+FLUID_DROP_EXTRA_Z = 0.0
 CAMERA_POSITION = (0.0, 2.8 * SCENE_SCALE, -6.0 * SCENE_SCALE)
 PSM_WORLD_OFFSET = (
     0.0,
@@ -286,6 +287,7 @@ def _author_psm(runtime: neo.Runtime) -> neo.PsmBuildResult:
         neo.PsmAuthoringConfig(
             resolve_root=REPO_ROOT,
             urdf_path=urdf_path,
+            tool_type="suction_irrigator",
             env_count=1,
             add_ground=False,
             add_default_lighting=False,
@@ -347,7 +349,7 @@ def _author_scene(runtime: neo.Runtime) -> tuple[int, neo.PsmBuildResult]:
         FLUID_HORIZONTAL_FILL_FRACTION,
         FLUID_HEIGHT_FILL_FRACTION,
     )
-    z_offset = 0.0
+    container_center_x, _, container_center_z = _container_entity_world_position(CONTAINER_TOP_Y * SCENE_SCALE)
 
     ground_mesh = resources.register_mesh(neo.make_box_mesh(GROUND_HALF, "FluidIsolation.GroundMesh"))
     ground_material = _register_material(
@@ -383,9 +385,9 @@ def _author_scene(runtime: neo.Runtime) -> tuple[int, neo.PsmBuildResult]:
     fluid_entity = world.create_entity(0)
     fluid_transform = neo.TransformComponent()
     fluid_transform.world_transform.position = neo.Float3(
-        0.0,
+        container_center_x,
         CONTAINER_TOP_Y * SCENE_SCALE + FLUID_DROP_GAP_Y + 0.5 * fluid_size.y,
-        z_offset,
+        container_center_z + FLUID_DROP_EXTRA_Z,
     )
     world.set_transform(fluid_entity, fluid_transform)
     fluid = neo.FluidComponent()
