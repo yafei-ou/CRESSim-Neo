@@ -4,6 +4,7 @@ import math
 
 import cressim_neo as neo
 import torch
+from live_capture_utils import InteractiveImageCapture, rgb_tensor_to_numpy
 
 try:
     import matplotlib.pyplot as plt
@@ -16,7 +17,7 @@ def create_live_figure(
     rgb_tensor: "torch.Tensor",
     observation_tensor: "torch.Tensor",
 ) -> tuple["plt.Figure", np.ndarray, np.ndarray]:
-    rgb_images = np.clip(rgb_tensor[..., :3].detach().cpu().numpy(), 0.0, 1.0)
+    rgb_images = rgb_tensor_to_numpy(rgb_tensor)
     ultrasound_images = observation_tensor[:, -1].detach().cpu().numpy()
     env_count = rgb_images.shape[0]
     column_count = min(4, env_count)
@@ -66,7 +67,7 @@ def update_live_figure(
     rgb_tensor: "torch.Tensor",
     observation_tensor: "torch.Tensor",
 ) -> None:
-    rgb_images = np.clip(rgb_tensor[..., :3].detach().cpu().numpy(), 0.0, 1.0)
+    rgb_images = rgb_tensor_to_numpy(rgb_tensor)
     ultrasound_images = observation_tensor[:, -1].detach().cpu().numpy()
     for env_index, rgb_artist in enumerate(rgb_artists.tolist()):
         rgb_artist.set_data(rgb_images[env_index])
@@ -109,6 +110,14 @@ def main() -> int:
         observation = env.reset()
         rgb = env.render()
         figure, rgb_artists, ultrasound_artists = create_live_figure(rgb, observation)
+        capture = InteractiveImageCapture(figure, __file__)
+        capture.update(
+            "reset",
+            [
+                ("rgb", rgb_tensor_to_numpy(rgb), None),
+                ("ultrasound", observation[:, -1].detach().cpu().numpy(), "gray"),
+            ],
+        )
         print(f"reset observation shape: {tuple(observation.shape)}")
         print(f"render rgb shape: {tuple(rgb.shape)}")
         for step_index in range(160):
@@ -130,12 +139,21 @@ def main() -> int:
             if plt.fignum_exists(figure.number):
                 rgb = env.render()
                 update_live_figure(rgb_artists, ultrasound_artists, rgb, observation)
+                capture.update(
+                    f"step_{step_index:04d}",
+                    [
+                        ("rgb", rgb_tensor_to_numpy(rgb), None),
+                        ("ultrasound", observation[:, -1].detach().cpu().numpy(), "gray"),
+                    ],
+                )
                 plt.pause(0.05)
 
         while plt.fignum_exists(figure.number):
             plt.pause(0.1)
     finally:
         plt.close("all")
+        if "capture" in locals():
+            capture.close()
         env.close()
     return 0
 
