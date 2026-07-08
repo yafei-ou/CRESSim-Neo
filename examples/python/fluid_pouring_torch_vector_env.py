@@ -44,7 +44,7 @@ def scripted_action(
     )
     warmup_steps = 12
     nudge_steps = 50
-    tilt_steps = 90
+    tilt_steps = 150
     hold_steps = 200
     if step_index < warmup_steps:
         return action
@@ -54,7 +54,7 @@ def scripted_action(
         return action
     motion_step -= nudge_steps
     if motion_step < tilt_steps:
-        action[:, 1] = -1.0
+        action[:, 1] = -0.5
         return action
     motion_step -= tilt_steps
     if motion_step < hold_steps:

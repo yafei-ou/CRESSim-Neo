@@ -588,7 +588,7 @@ class CartpoleTorchVectorEnv:
 
         camera_entity = world.create_entity(env_index)
         camera_transform = neo.TransformComponent()
-        camera_transform.world_transform.position = neo.Float3(0.0, 1.35, z_offset - 6.0)
+        camera_transform.world_transform.position = neo.Float3(0.0, 1.35, z_offset - 4.2)
         world.set_transform(camera_entity, camera_transform)
 
         camera = neo.CameraComponent()
