@@ -62,8 +62,8 @@ def main() -> int:
     env = neo.CartpoleTorchVectorEnv(
         env_count=8,
         max_episode_steps=256,
-        image_width=256,
-        image_height=256,
+        image_width=1024,
+        image_height=1024,
         reset_pole_angle_range_radians=0.15,
     )
     try:

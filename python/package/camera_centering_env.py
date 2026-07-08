@@ -165,6 +165,20 @@ _CAMERA_CENTERING_RGB_SHADER = r"""
 Texture2DArray<float4> g_ColorTarget;
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ColorObservation);
 
+float toneMapReinhard(float value)
+{
+    return value / (1.0 + value);
+}
+
+float linearToSrgb(float value)
+{
+    if (value <= 0.0031308)
+    {
+        return value * 12.92;
+    }
+    return 1.055 * pow(abs(value), 1.0 / 2.4) - 0.055;
+}
+
 [numthreads(8, 8, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -182,8 +196,13 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const uint pixelIndex = envIndex * width * height + y * width + x;
-    CRESSIM_SB_STORE(g_ColorObservation, pixelIndex,
-                     saturate(g_ColorTarget.Load(int4(int(x), int(y), int(envIndex), 0))));
+    float4 color = g_ColorTarget.Load(int4(int(x), int(y), int(envIndex), 0));
+    color.rgb = max(color.rgb, 0.0);
+    color.r = linearToSrgb(toneMapReinhard(color.r));
+    color.g = linearToSrgb(toneMapReinhard(color.g));
+    color.b = linearToSrgb(toneMapReinhard(color.b));
+    color = saturate(color);
+    CRESSIM_SB_STORE(g_ColorObservation, pixelIndex, color);
 }
 """
 
@@ -371,9 +390,9 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         color_desc.array_size = self.env_count
         color_desc.color = True
         color_desc.depth = True
+        color_desc.color_format = neo.TextureFormat.RGBA16Float
         color_desc.layered_rendering = True
         color_desc.shader_readable = True
-        color_desc.color_format = neo.TextureFormat.RGBA8UnormSrgb
         color_desc.debug_name = "CameraCentering.ColorTarget"
         self._color_render_target = self.runtime.create_render_target(color_desc)
         if not self.runtime.is_valid_render_target(self._color_render_target):
