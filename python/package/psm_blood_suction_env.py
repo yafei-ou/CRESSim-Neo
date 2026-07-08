@@ -1029,9 +1029,12 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         env_count: int = 16,
         max_episode_steps: int = 240,
         enable_rgb_observation: bool = False,
+        enable_visualization_camera: bool = False,
         return_combined_observation: bool = False,
         image_width: int = 160,
         image_height: int = 160,
+        visualization_image_width: int | None = None,
+        visualization_image_height: int | None = None,
         scene_scale: float = DEFAULT_SCENE_SCALE,
         psm_scale: float = DEFAULT_PSM_SCALE,
         psm_mass_scale: float = DEFAULT_PSM_MASS_SCALE,
@@ -1054,11 +1057,18 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         super().__init__(env_count)
         self.max_episode_steps = int(max_episode_steps)
         self.enable_rgb_observation = enable_rgb_observation
+        self.enable_visualization_camera = bool(enable_visualization_camera)
         self.return_combined_observation = bool(return_combined_observation)
         if self.return_combined_observation and not self.enable_rgb_observation:
             raise ValueError("return_combined_observation=True requires enable_rgb_observation=True.")
         self.image_width = int(image_width)
         self.image_height = int(image_height)
+        self.visualization_image_width = (
+            int(visualization_image_width) if visualization_image_width is not None else self.image_width
+        )
+        self.visualization_image_height = (
+            int(visualization_image_height) if visualization_image_height is not None else self.image_height
+        )
         self.scene_scale = float(scene_scale)
         self.psm_scale = float(psm_scale)
         self.psm_mass_scale = float(psm_mass_scale)
@@ -1120,9 +1130,11 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         config.physics_desc.substeps = 4
         config.physics_desc.default_iterations = 10
         config.physics_desc.rigid_joint_iterations = 50
-        config.scene_layout.max_renderable_objects_per_env = 32 if enable_rgb_observation else 24
-        config.scene_layout.max_lights_per_env = 1 if enable_rgb_observation else 0
-        config.scene_layout.max_cameras_per_env = 1 if enable_rgb_observation else 0
+        camera_count = (1 if enable_rgb_observation else 0) + (1 if self.enable_visualization_camera else 0)
+        any_camera_enabled = camera_count > 0
+        config.scene_layout.max_renderable_objects_per_env = 32 if any_camera_enabled else 24
+        config.scene_layout.max_lights_per_env = 1 if any_camera_enabled else 0
+        config.scene_layout.max_cameras_per_env = camera_count
 
         self.runtime = neo.Runtime()
         if not self.runtime.initialize(config):
@@ -1140,6 +1152,8 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
 
         if self.enable_rgb_observation:
             self._initialize_rgb_observation_resources()
+        if self.enable_visualization_camera:
+            self._initialize_visualization_render_resources()
 
         self._author_scene()
         self.runtime.prepare()
@@ -1171,6 +1185,21 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         self._rgb_render_target = self.runtime.create_render_target(target_desc)
         if not self.runtime.is_valid_render_target(self._rgb_render_target):
             raise RuntimeError("Failed to create PSM blood-suction RGB render target.")
+
+    def _initialize_visualization_render_resources(self) -> None:
+        target_desc = neo.GpuRenderTargetDesc()
+        target_desc.width = self.visualization_image_width
+        target_desc.height = self.visualization_image_height
+        target_desc.array_size = self.env_count
+        target_desc.color = True
+        target_desc.depth = True
+        target_desc.color_format = neo.TextureFormat.RGBA16Float
+        target_desc.layered_rendering = True
+        target_desc.shader_readable = True
+        target_desc.debug_name = "PsmBloodSuction.VisualizationRenderTarget"
+        self._visualization_render_target = self.runtime.create_render_target(target_desc)
+        if not self.runtime.is_valid_render_target(self._visualization_render_target):
+            raise RuntimeError("Failed to create PSM blood-suction visualization render target.")
 
     def _make_material(
         self,
@@ -1315,7 +1344,25 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             fluid_visuals.refraction_view_thickness = 0.40
             world.set_environment_fluid(env_index, fluid_visuals)
             if self.enable_rgb_observation:
-                self._author_rgb_camera(world, env_index, env_center_x, env_center_z)
+                self._author_rgb_camera(
+                    world,
+                    env_index,
+                    env_center_x,
+                    env_center_z,
+                    render_target=self._rgb_render_target,
+                    image_width=self.image_width,
+                    image_height=self.image_height,
+                )
+            if self.enable_visualization_camera:
+                self._author_rgb_camera(
+                    world,
+                    env_index,
+                    env_center_x,
+                    env_center_z,
+                    render_target=self._visualization_render_target,
+                    image_width=self.visualization_image_width,
+                    image_height=self.visualization_image_height,
+                )
 
     def _author_env_support(
         self,
@@ -1462,6 +1509,10 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         env_index: int,
         env_center_x: float,
         env_center_z: float,
+        *,
+        render_target: neo.GpuRenderTargetHandle,
+        image_width: int,
+        image_height: int,
     ) -> None:
         light_entity = world.create_entity(env_index)
         light = neo.DirectionalLightComponent()
@@ -1494,11 +1545,11 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         camera.vertical_fov_degrees = 46.0
         camera.output.mode = neo.RenderOutputMode.ExplicitSurface
         camera.output.binding = neo.GpuRenderTargetBinding()
-        camera.output.binding.target = self._rgb_render_target
+        camera.output.binding.target = render_target
         camera.output.binding.first_layer = env_index
         camera.output.binding.layer_count = 1
-        camera.output_width = self.image_width
-        camera.output_height = self.image_height
+        camera.output_width = image_width
+        camera.output_height = image_height
         camera.clear_color = True
         camera.clear_depth = True
         camera.clear_color_value = neo.Float4(0.03, 0.04, 0.06, 1.0)
@@ -1833,6 +1884,22 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
                 element_stride_bytes=16,
                 shape=[self.env_count, self.image_height, self.image_width, 4],
             )
+        if self.enable_visualization_camera:
+            self.visualization_rgb_observation_buffer, self.visualization_rgb_observation_tensor = (
+                self._register_shared_buffer(
+                    self.runtime,
+                    "PsmBloodSuction.VisualizationRgbObservation",
+                    self.env_count * self.visualization_image_width * self.visualization_image_height,
+                    neo.SharedBufferTensorDTypeCode.Float,
+                    element_stride_bytes=16,
+                    shape=[
+                        self.env_count,
+                        self.visualization_image_height,
+                        self.visualization_image_width,
+                        4,
+                    ],
+                )
+            )
 
     def _populate_lookup_buffers(self) -> None:
         device = self.action_tensor.device
@@ -1960,6 +2027,9 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         if self.enable_rgb_observation:
             self.rgb_observation_tensor.zero_()
             handles.append(self.rgb_observation_buffer)
+        if self.enable_visualization_camera:
+            self.visualization_rgb_observation_tensor.zero_()
+            handles.append(self.visualization_rgb_observation_buffer)
         self._sync_from_cuda(self.runtime, handles)
 
     def _create_custom_passes(self) -> None:
@@ -2202,6 +2272,35 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             render_desc.dispatch.group_count_z = self.env_count
             self._rgb_render_pass = self._register_custom_pass(self.runtime, render_desc)
 
+        if self.enable_visualization_camera:
+            visualization_render_desc = neo.CustomComputePassDesc()
+            visualization_render_desc.debug_name = "PsmBloodSuction.VisualizationRgbObservation"
+            visualization_render_desc.shader_source = _PSM_BLOOD_SUCTION_RGB_SHADER
+            visualization_render_desc.thread_group_size_x = 8
+            visualization_render_desc.thread_group_size_y = 8
+            visualization_render_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(2)]
+            visualization_render_desc.resource_bindings[0].shader_variable_name = "g_ColorTarget"
+            visualization_render_desc.resource_bindings[0].render_target_binding = neo.GpuRenderTargetBinding()
+            visualization_render_desc.resource_bindings[0].render_target_binding.target = self._visualization_render_target
+            visualization_render_desc.resource_bindings[0].render_target_binding.first_layer = 0
+            visualization_render_desc.resource_bindings[0].render_target_binding.layer_count = self.env_count
+            visualization_render_desc.resource_bindings[0].render_target_texture_plane = (
+                neo.GpuRenderTargetTexturePlane.Color
+            )
+            visualization_render_desc.resource_bindings[0].access = neo.CustomComputeResourceAccess.ReadOnly
+            visualization_render_desc.resource_bindings[1].shader_variable_name = "g_ColorObservation"
+            visualization_render_desc.resource_bindings[1].shared_buffer_handle = (
+                self.visualization_rgb_observation_buffer
+            )
+            visualization_render_desc.resource_bindings[1].access = neo.CustomComputeResourceAccess.ReadWrite
+            visualization_render_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
+            visualization_render_desc.dispatch.group_count_x = (self.visualization_image_width + 7) // 8
+            visualization_render_desc.dispatch.group_count_y = (self.visualization_image_height + 7) // 8
+            visualization_render_desc.dispatch.group_count_z = self.env_count
+            self._visualization_rgb_render_pass = self._register_custom_pass(
+                self.runtime, visualization_render_desc
+            )
+
     def _sync_outputs_to_cuda(self) -> None:
         handles = [
             self.observation_buffer,
@@ -2224,6 +2323,13 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         self.runtime.step_visual_sensors(self._frame)
         if not self.runtime.execute_custom_compute_pass(self._rgb_render_pass):
             raise RuntimeError("Failed to execute PSM blood-suction RGB observation pass.")
+
+    def _render_visualization_rgb_observation(self) -> None:
+        if not self.enable_visualization_camera:
+            raise RuntimeError("Visualization camera was not enabled for this PSM blood-suction env.")
+        self.runtime.step_visual_sensors(self._frame)
+        if not self.runtime.execute_custom_compute_pass(self._visualization_rgb_render_pass):
+            raise RuntimeError("Failed to execute PSM blood-suction visualization RGB observation pass.")
 
     def _make_observation_output(self) -> "torch.Tensor | dict[str, torch.Tensor]":
         if self.return_combined_observation:
@@ -2304,6 +2410,15 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         )
 
     def render(self) -> "torch.Tensor":
+        if self.enable_visualization_camera:
+            self._render_visualization_rgb_observation()
+            if not self.runtime.sync_shared_buffer_to_cuda(self.visualization_rgb_observation_buffer):
+                raise RuntimeError(
+                    "Failed to synchronize PSM blood-suction visualization RGB observation buffer to CUDA."
+                )
+            self.runtime.end_frame(self._frame)
+            torch.cuda.synchronize(device=self.visualization_rgb_observation_tensor.device)
+            return self.visualization_rgb_observation_tensor
         if not self.enable_rgb_observation:
             raise RuntimeError("RGB observations were not enabled for this PSM blood-suction env.")
         self._render_rgb_observation()

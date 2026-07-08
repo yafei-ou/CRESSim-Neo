@@ -45,14 +45,20 @@ def _make_base_env(
     *,
     image_width: int,
     image_height: int,
+    enable_visualization_camera: bool,
+    visualization_image_width: int | None = None,
+    visualization_image_height: int | None = None,
 ) -> neo.PsmBloodSuctionTorchVectorEnv:
     return neo.PsmBloodSuctionTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         enable_rgb_observation=True,
+        enable_visualization_camera=enable_visualization_camera,
         return_combined_observation=True,
         image_width=image_width,
         image_height=image_height,
+        visualization_image_width=visualization_image_width,
+        visualization_image_height=visualization_image_height,
         insertion_action_scale=0.05,
         resolve_root=REPO_ROOT,
     )
@@ -64,6 +70,7 @@ def make_train_env(env_count: int, max_episode_steps: int) -> neo.PsmBloodSuctio
         max_episode_steps,
         image_width=64,
         image_height=64,
+        enable_visualization_camera=False,
     )
 
 
@@ -72,12 +79,18 @@ def make_infer_env(
     max_episode_steps: int,
     image_width: int,
     image_height: int,
+    *,
+    visualization_image_width: int,
+    visualization_image_height: int,
 ) -> neo.PsmBloodSuctionTorchVectorEnv:
     return _make_base_env(
         env_count,
         max_episode_steps,
         image_width=image_width,
         image_height=image_height,
+        enable_visualization_camera=True,
+        visualization_image_width=visualization_image_width,
+        visualization_image_height=visualization_image_height,
     )
 
 
@@ -93,6 +106,7 @@ def run_training(args: argparse.Namespace) -> int:
             max_episode_steps,
             image_width=args.train_image_width,
             image_height=args.train_image_height,
+            enable_visualization_camera=False,
         )
 
     return train_ppo_continuous(
@@ -115,7 +129,14 @@ def run_training(args: argparse.Namespace) -> int:
 
 def run_inference(args: argparse.Namespace) -> int:
     return run_inference_continuous(
-        env_factory=make_infer_env,
+        env_factory=lambda env_count, max_episode_steps, image_width, image_height: make_infer_env(
+            env_count,
+            max_episode_steps,
+            image_width,
+            image_height,
+            visualization_image_width=args.image_width,
+            visualization_image_height=args.image_height,
+        ),
         action_dim=neo.PsmBloodSuctionTorchVectorEnv.ACTION_DIM,
         model_path=args.model_path,
         infer_env_count=args.infer_env_count,
