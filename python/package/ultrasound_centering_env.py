@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import struct
+from pathlib import Path
 
 from . import _cressim_neo as neo
 from .torch_env import TorchStagedVectorEnvBase
@@ -356,6 +357,152 @@ def _probe_orientation() -> neo.Quaternion:
     return quat
 
 
+def _resolve_repo_root(resolve_root: str | Path | None) -> Path:
+    search_roots: list[Path] = []
+    if resolve_root is not None:
+        search_roots.append(Path(resolve_root).expanduser().resolve())
+    search_roots.extend(Path(__file__).resolve().parents)
+    for candidate in search_roots:
+        if (candidate / "examples" / "models" / "Linear Probe.obj").exists():
+            return candidate
+    raise RuntimeError(
+        "Failed to locate examples/models/Linear Probe.obj. Pass resolve_root=... to the env constructor."
+    )
+_PROBE_BODY_HALF_HEIGHT = 0.06
+_PROBE_BODY_DEPTH = 0.08
+
+
+def _rotate_x_neg_90(x: float, y: float, z: float) -> tuple[float, float, float]:
+    return (x, z, -y)
+
+
+def _load_linear_probe_visual_mesh(
+    path: Path,
+    debug_name: str,
+    *,
+    scanline_spacing: float,
+    num_scanlines: int,
+) -> neo.MeshResourceDesc | None:
+    if not path.exists():
+        return None
+
+    raw_positions: list[tuple[float, float, float]] = []
+    texcoords: list[tuple[float, float]] = []
+    raw_normals: list[tuple[float, float, float]] = []
+    faces: list[list[tuple[int, int | None, int | None]]] = []
+
+    with path.open("r", encoding="utf-8", errors="ignore") as handle:
+        for raw_line in handle:
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            tokens = stripped.split()
+            if tokens[0] == "v" and len(tokens) >= 4:
+                raw_positions.append((float(tokens[1]), float(tokens[2]), float(tokens[3])))
+            elif tokens[0] == "vt" and len(tokens) >= 3:
+                texcoords.append((float(tokens[1]), float(tokens[2])))
+            elif tokens[0] == "vn" and len(tokens) >= 4:
+                raw_normals.append((float(tokens[1]), float(tokens[2]), float(tokens[3])))
+            elif tokens[0] == "f" and len(tokens) >= 4:
+                face: list[tuple[int, int | None, int | None]] = []
+                for face_token in tokens[1:]:
+                    parts = face_token.split("/")
+                    position_index = int(parts[0]) - 1
+                    texcoord_index = int(parts[1]) - 1 if len(parts) > 1 and parts[1] else None
+                    normal_index = int(parts[2]) - 1 if len(parts) > 2 and parts[2] else None
+                    face.append((position_index, texcoord_index, normal_index))
+                faces.append(face)
+
+    if not raw_positions or not faces:
+        return None
+
+    rotated_positions = [_rotate_x_neg_90(*position) for position in raw_positions]
+    min_x = min(position[0] for position in rotated_positions)
+    max_x = max(position[0] for position in rotated_positions)
+    min_y = min(position[1] for position in rotated_positions)
+    max_y = max(position[1] for position in rotated_positions)
+    max_z = max(position[2] for position in rotated_positions)
+    extent_x = max(max_x - min_x, 1.0e-4)
+    scanline_span = (
+        float(max(num_scanlines, 1) - 1) * scanline_spacing if max(num_scanlines, 1) > 1 else scanline_spacing
+    )
+    uniform_scale = max(scanline_span, 1.0e-4) / extent_x
+    translate_x = -0.5 * (min_x + max_x)
+    translate_y = -0.5 * (min_y + max_y)
+    translate_z = -max_z
+
+    transformed_positions = [
+        (
+            (position[0] + translate_x) * uniform_scale,
+            (position[1] + translate_y) * uniform_scale,
+            (position[2] + translate_z) * uniform_scale,
+        )
+        for position in rotated_positions
+    ]
+    transformed_normals = [_rotate_x_neg_90(*normal) for normal in raw_normals]
+
+    mesh = neo.MeshResourceDesc()
+    mesh.debug_name = debug_name
+    vertices: list[neo.MeshVertex] = []
+    indices: list[int] = []
+
+    for face in faces:
+        if len(face) < 3:
+            continue
+        for triangle_index in range(1, len(face) - 1):
+            triangle = [face[0], face[triangle_index + 1], face[triangle_index]]
+            p0 = transformed_positions[triangle[0][0]]
+            p1 = transformed_positions[triangle[1][0]]
+            p2 = transformed_positions[triangle[2][0]]
+            edge1 = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
+            edge2 = (p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])
+            fallback_normal = (
+                edge1[1] * edge2[2] - edge1[2] * edge2[1],
+                edge1[2] * edge2[0] - edge1[0] * edge2[2],
+                edge1[0] * edge2[1] - edge1[1] * edge2[0],
+            )
+            fallback_length = math.sqrt(
+                fallback_normal[0] * fallback_normal[0]
+                + fallback_normal[1] * fallback_normal[1]
+                + fallback_normal[2] * fallback_normal[2]
+            )
+            if fallback_length <= 1.0e-8:
+                fallback_normal = (0.0, 1.0, 0.0)
+            else:
+                fallback_normal = (
+                    fallback_normal[0] / fallback_length,
+                    fallback_normal[1] / fallback_length,
+                    fallback_normal[2] / fallback_length,
+                )
+
+            for position_index, texcoord_index, normal_index in triangle:
+                vertex = neo.MeshVertex()
+                px, py, pz = transformed_positions[position_index]
+                vertex.position = neo.Float3(px, py, pz)
+                if normal_index is not None and 0 <= normal_index < len(transformed_normals):
+                    nx, ny, nz = transformed_normals[normal_index]
+                    normal_length = math.sqrt(nx * nx + ny * ny + nz * nz)
+                    if normal_length > 1.0e-8:
+                        vertex.normal = neo.Float3(nx / normal_length, ny / normal_length, nz / normal_length)
+                    else:
+                        vertex.normal = neo.Float3(*fallback_normal)
+                else:
+                    vertex.normal = neo.Float3(*fallback_normal)
+                if texcoord_index is not None and 0 <= texcoord_index < len(texcoords):
+                    u, v = texcoords[texcoord_index]
+                    vertex.tex_coord_u = u
+                    vertex.tex_coord_v = 1.0 - v
+                indices.append(len(vertices))
+                vertices.append(vertex)
+
+    if not vertices:
+        return None
+
+    mesh.vertices = vertices
+    mesh.indices = indices
+    return mesh
+
+
 class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
     ACTION_DIM = 2
 
@@ -381,6 +528,7 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         enable_rgb_observation: bool = False,
         render_width: int = 256,
         render_height: int = 256,
+        resolve_root: str | Path | None = None,
         debug_logging: bool = False,
     ) -> None:
         super().__init__(env_count)
@@ -403,6 +551,7 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         self.enable_rgb_observation = enable_rgb_observation
         self.render_width = max(1, int(render_width))
         self.render_height = max(1, int(render_height))
+        self.repo_root = _resolve_repo_root(resolve_root)
         self.debug_logging = debug_logging
 
         config = neo.RuntimeConfig()
@@ -492,16 +641,29 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
                 "UltrasoundCentering.RenderGround",
             )
         )
-        lateral_span = max(
-            (self.probe_num_scanlines - 1) * self.probe_scanline_spacing,
-            0.04,
+        probe_mesh_desc = _load_linear_probe_visual_mesh(
+            self.repo_root / "examples" / "models" / "Linear Probe.obj",
+            "UltrasoundCentering.RenderLinearProbeObj",
+            scanline_spacing=self.probe_scanline_spacing,
+            num_scanlines=self.probe_num_scanlines,
         )
-        self._rgb_probe_mesh = resources.register_mesh(
-            neo.make_box_mesh(
-                neo.Float3(0.5 * (lateral_span + 0.04), 0.06, 0.04),
-                "UltrasoundCentering.RenderProbe",
+        if probe_mesh_desc is not None:
+            self._rgb_probe_mesh = resources.register_mesh(probe_mesh_desc)
+        else:
+            lateral_span = max(
+                (self.probe_num_scanlines - 1) * self.probe_scanline_spacing,
+                0.04,
             )
-        )
+            self._rgb_probe_mesh = resources.register_mesh(
+                neo.make_box_mesh(
+                    neo.Float3(
+                        0.5 * (lateral_span + 0.04),
+                        _PROBE_BODY_HALF_HEIGHT,
+                        0.5 * _PROBE_BODY_DEPTH,
+                    ),
+                    "UltrasoundCentering.RenderProbe",
+                )
+            )
 
     def _make_material(
         self, debug_name: str, base_color: neo.Float3, roughness: float
@@ -559,18 +721,18 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         if self.enable_rgb_observation:
             ground_material = self._make_material(
                 "UltrasoundCentering.GroundMaterial",
-                neo.Float3(0.70, 0.73, 0.78),
-                0.92,
+                neo.Float3(0.72, 0.75, 0.79),
+                0.90,
             )
             soft_material = self._make_material(
                 "UltrasoundCentering.SoftMaterial",
-                neo.Float3(0.82, 0.54, 0.47),
-                0.68,
+                neo.Float3(0.86, 0.54, 0.44),
+                0.72,
             )
             probe_material = self._make_material(
                 "UltrasoundCentering.ProbeMaterial",
-                neo.Float3(0.22, 0.27, 0.33),
-                0.34,
+                neo.Float3(0.88, 0.89, 0.91),
+                0.38,
             )
 
         for env_index in range(self.env_count):
