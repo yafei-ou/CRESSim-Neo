@@ -792,6 +792,10 @@ struct DeformableDistanceConstraint
     float failureThreshold = 1.0e6f;    ///< Strain threshold for fracture.
     float cutResistance = 1.0f;         ///< Cutting damage resistance.
     std::uint32_t flags = Edge_Active;  ///< Active/cut/fracture state flags.
+    float referenceRestLength = 0.0f;          ///< Immutable rest length for cutting evaluation.
+    float referenceFailureThreshold = 1.0e6f;  ///< Immutable fracture threshold.
+    float referenceCutResistance = 1.0f;       ///< Immutable cutting resistance.
+    float referenceCompliance = 0.0f;          ///< Immutable XPBD compliance.
 };
 
 /// @brief Alias for deformable distance edge constraint.

@@ -125,6 +125,10 @@ struct GpuSoftEdge
     float failureThreshold;
     float cutResistance;
     uint flags;
+    float referenceRestLength;
+    float referenceFailureThreshold;
+    float referenceCutResistance;
+    float referenceCompliance;
 };
 
 struct GpuSoftTet
@@ -197,6 +201,37 @@ struct GpuSoftIncidentEdge
     uint reserved0;
     uint reserved1;
 };
+
+struct GpuSoftThermalAdjacency
+{
+    uint neighbourParticleIndex;
+    uint connectingEdgeIndex;
+    uint edgeFlags;
+    uint reserved0;
+};
+
+uint GetSoftEdgeOtherParticle(GpuSoftEdge edge, uint particleIndex)
+{
+    return edge.particleA == particleIndex ? edge.particleB : edge.particleA;
+}
+
+bool IsSoftEdgeTopologyConductive(GpuSoftEdge edge)
+{
+    return (edge.flags & kSoftEdgeActiveFlag) != 0u &&
+           (edge.flags & kSoftEdgeDisabledFlag) == 0u;
+}
+
+GpuSoftThermalAdjacency MakeSoftThermalAdjacency(uint particleIndex,
+                                                 GpuSoftIncidentEdge incidentEdge,
+                                                 GpuSoftEdge edge)
+{
+    GpuSoftThermalAdjacency adjacency;
+    adjacency.neighbourParticleIndex = GetSoftEdgeOtherParticle(edge, particleIndex);
+    adjacency.connectingEdgeIndex = incidentEdge.edgeIndex;
+    adjacency.edgeFlags = edge.flags;
+    adjacency.reserved0 = 0u;
+    return adjacency;
+}
 
 struct GpuSoftIncidentTet
 {
