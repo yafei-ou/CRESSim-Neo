@@ -121,6 +121,8 @@ struct PhysicsGpuSoftSceneView
     Diligent::IBuffer *membershipShapeClusterIndicesBuffer  = nullptr;
     Diligent::IBuffer *shapeClusterPosesBuffer              = nullptr;
     Diligent::IBuffer *shapeCorrectionMagnitudesBuffer      = nullptr;
+    Diligent::IBuffer *particleEdgeRangesBuffer          = nullptr;
+    Diligent::IBuffer *particleIncidentEdgesBuffer       = nullptr;
     Diligent::IBuffer *segmentStrandJointRangesBuffer    = nullptr;
     Diligent::IBuffer *segmentIncidentStrandJointsBuffer = nullptr;
     Diligent::IBuffer *suturingPairsBuffer               = nullptr;

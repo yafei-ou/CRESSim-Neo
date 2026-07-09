@@ -835,7 +835,7 @@ static_assert(sizeof(GpuSoftIncidentTet) == 16u);
 static_assert(sizeof(GpuStrandIncidentSegment) == 16u);
 static_assert(sizeof(GpuStrandIncidentJoint) == 16u);
 static_assert(sizeof(GpuStrandIncidentAttachment) == 16u);
-static_assert(sizeof(DeformableDistanceConstraint) == 36u);
+static_assert(sizeof(DeformableDistanceConstraint) == 52u);
 static_assert(sizeof(SoftEdgeToolCounters) == 16u);
 static_assert(sizeof(GpuSuturingPair) == 64u);
 static_assert(sizeof(GpuSuturingPathHeader) == 32u);

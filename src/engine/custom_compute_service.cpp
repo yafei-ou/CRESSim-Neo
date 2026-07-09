@@ -873,6 +873,13 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
               sceneView.soft.bindingGeneration);
     addBuffer("soft.edges", sceneView.soft.edgesBuffer, CustomComputeResourceAccess::ReadOnly,
               sceneView.soft.edgeCount, sceneView.soft.bindingGeneration);
+    addBuffer("soft.particle_edge_ranges", sceneView.soft.particleEdgeRangesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.particle_incident_edges", sceneView.soft.particleIncidentEdgesBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.particleIncidentEdgesBuffer),
+              sceneView.soft.bindingGeneration);
     addBuffer("soft.bends", sceneView.soft.bendsBuffer, CustomComputeResourceAccess::ReadOnly,
               sceneView.soft.bendCount, sceneView.soft.bindingGeneration);
     addBuffer("soft.tets", sceneView.soft.tetsBuffer, CustomComputeResourceAccess::ReadOnly,

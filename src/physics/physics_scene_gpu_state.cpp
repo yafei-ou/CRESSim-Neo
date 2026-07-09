@@ -4682,6 +4682,10 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.shapeClusterPosesBuffer = mPersistentSoftTopology.shapeClusterPosesBuffer;
     view.soft.shapeCorrectionMagnitudesBuffer =
         mPersistentSoftTopology.shapeCorrectionMagnitudesBuffer;
+    view.soft.particleEdgeRangesBuffer =
+        mPersistentSoftTopology.particleEdgeRangesBuffer;
+    view.soft.particleIncidentEdgesBuffer =
+        mPersistentSoftTopology.particleIncidentEdgesBuffer;
     view.soft.segmentStrandJointRangesBuffer =
         mPersistentSoftTopology.segmentStrandJointRangesBuffer;
     view.soft.segmentIncidentStrandJointsBuffer =

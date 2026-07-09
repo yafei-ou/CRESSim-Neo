@@ -670,6 +670,10 @@ struct DeformableDistanceConstraint
     float failureThreshold         = 1.0e6f;
     float cutResistance            = 1.0f;
     std::uint32_t flags            = Edge_Active;
+    float referenceRestLength      = 0.0f;
+    float referenceFailureThreshold = 1.0e6f;
+    float referenceCutResistance   = 1.0f;
+    float referenceCompliance      = 0.0f;
 };
 
 using SoftEdge = DeformableDistanceConstraint;

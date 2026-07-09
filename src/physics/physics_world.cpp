@@ -44,6 +44,35 @@ Diligent::float4 toLinearVelocity(const RigidBodyState &state)
                             0.0f};
 }
 
+void initializeSoftEdgeReferences(SoftEdge &edge) noexcept
+{
+    edge.referenceRestLength       = edge.restLength;
+    edge.referenceCompliance       = edge.compliance;
+    edge.referenceFailureThreshold = edge.failureThreshold;
+    edge.referenceCutResistance    = edge.cutResistance;
+}
+
+void normalizeSoftEdgeReferences(SoftEdge &edge) noexcept
+{
+    const bool missingReferenceValues = edge.referenceRestLength <= 0.0f;
+    edge.restLength                   = std::max(edge.restLength, 0.0f);
+    edge.compliance                   = std::max(edge.compliance, 0.0f);
+    edge.damage                       = std::clamp(edge.damage, 0.0f, 1.0f);
+    edge.failureThreshold             = std::max(edge.failureThreshold, 0.0f);
+    edge.cutResistance                = std::max(edge.cutResistance, 1.0e-6f);
+
+    if (missingReferenceValues)
+    {
+        initializeSoftEdgeReferences(edge);
+        return;
+    }
+
+    edge.referenceRestLength       = std::max(edge.referenceRestLength, 0.0f);
+    edge.referenceCompliance       = std::max(edge.referenceCompliance, 0.0f);
+    edge.referenceFailureThreshold = std::max(edge.referenceFailureThreshold, 0.0f);
+    edge.referenceCutResistance    = std::max(edge.referenceCutResistance, 1.0e-6f);
+}
+
 Diligent::float4 toScale(const RigidBodyState &state)
 {
     return Diligent::float4{state.scale.x, state.scale.y, state.scale.z, 0.0f};
@@ -3153,10 +3182,7 @@ bool PhysicsWorld::setSoftEdgeState(std::uint32_t edgeIndex, const SoftEdge &edg
     }
 
     SoftEdge normalized = edge;
-    normalized.compliance       = std::max(normalized.compliance, 0.0f);
-    normalized.damage           = std::clamp(normalized.damage, 0.0f, 1.0f);
-    normalized.failureThreshold = std::max(normalized.failureThreshold, 0.0f);
-    normalized.cutResistance    = std::max(normalized.cutResistance, 1.0e-6f);
+    normalizeSoftEdgeReferences(normalized);
     mImpl->mSoftEdges[edgeIndex] = normalized;
     ++mImpl->mSoftTopologyRevision;
     ++mImpl->mAuthoredRevision;
@@ -4412,6 +4438,9 @@ void PhysicsWorld::Impl::applySoftBodyRuntimeProperties(
         edge.compliance       = softBody.edgeCompliance;
         edge.failureThreshold = softBody.edgeFailureThreshold;
         edge.cutResistance    = softBody.edgeCutResistance;
+        edge.referenceCompliance       = softBody.edgeCompliance;
+        edge.referenceFailureThreshold = softBody.edgeFailureThreshold;
+        edge.referenceCutResistance    = softBody.edgeCutResistance;
     }
 
     const std::uint32_t tetBegin = softBody.tetOffset;
@@ -5298,6 +5327,7 @@ void PhysicsWorld::Impl::rebuildSoftParticleLayout() noexcept
             edge.failureThreshold = softBody.edgeFailureThreshold;
             edge.cutResistance    = softBody.edgeCutResistance;
             edge.flags            = Edge_Active;
+            initializeSoftEdgeReferences(edge);
             mSoftEdges.push_back(edge);
         }
 
@@ -5739,6 +5769,7 @@ void PhysicsWorld::Impl::rebuildSoftParticleLayout() noexcept
         resolved.restLength = constraint.restLength;
         resolved.compliance = constraint.compliance;
         resolved.flags      = constraint.enabled ? Edge_Active : Edge_Disabled;
+        initializeSoftEdgeReferences(resolved);
         mSoftEdges.push_back(resolved);
     }
 
@@ -5985,6 +6016,10 @@ void PhysicsWorld::Impl::rebuildSoftConstraintData() noexcept
             edge.particleB  = globalB;
             edge.restLength = std::sqrt(Diligent::dot(delta, delta));
             edge.compliance = softBody.edgeCompliance;
+            edge.failureThreshold = softBody.edgeFailureThreshold;
+            edge.cutResistance    = softBody.edgeCutResistance;
+            edge.flags            = Edge_Active;
+            initializeSoftEdgeReferences(edge);
             mSoftEdges.push_back(edge);
         }
 
@@ -6147,6 +6182,7 @@ void PhysicsWorld::Impl::rebuildSoftConstraintData() noexcept
         resolved.restLength = constraint.restLength;
         resolved.compliance = constraint.compliance;
         resolved.flags      = constraint.enabled ? Edge_Active : Edge_Disabled;
+        initializeSoftEdgeReferences(resolved);
         mSoftEdges.push_back(resolved);
     }
 
