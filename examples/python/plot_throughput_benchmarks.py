@@ -124,7 +124,6 @@ def filter_mode(rows: list[dict[str, str]], mode: str) -> dict[str, list[tuple[i
 
 def plot_panel(axis: object, grouped: dict[str, list[tuple[int, float]]], tasks: tuple[str, ...], title: str) -> None:
     axis.set_title(title)
-    axis.set_xscale("log", base=2)
     axis.set_yscale("log")
     axis.set_xlabel("# Environments")
     axis.set_ylabel("Environment steps/s")
@@ -134,11 +133,19 @@ def plot_panel(axis: object, grouped: dict[str, list[tuple[int, float]]], tasks:
     for task in tasks:
         if task not in grouped:
             continue
+        xticks.extend(item[0] for item in grouped[task])
+
+    unique_ticks = sorted(set(xticks))
+    tick_positions = {value: index for index, value in enumerate(unique_ticks)}
+
+    for task in tasks:
+        if task not in grouped:
+            continue
         xs = [item[0] for item in grouped[task]]
         ys = [item[1] for item in grouped[task]]
-        xticks.extend(xs)
+        x_positions = [tick_positions[value] for value in xs]
         axis.plot(
-            xs,
+            x_positions,
             ys,
             marker=TASK_MARKERS.get(task, "o"),
             color=TASK_COLORS.get(task),
@@ -147,9 +154,8 @@ def plot_panel(axis: object, grouped: dict[str, list[tuple[int, float]]], tasks:
             label=TASK_LABELS.get(task, task),
         )
 
-    if xticks:
-        unique_ticks = sorted(set(xticks))
-        axis.set_xticks(unique_ticks)
+    if unique_ticks:
+        axis.set_xticks(list(range(len(unique_ticks))))
         axis.set_xticklabels([str(value) for value in unique_ticks])
     axis.legend(frameon=False)
 
