@@ -109,8 +109,8 @@ def main() -> int:
         probe_line_length=0.7,
         probe_scanline_spacing=0.006,
         enable_rgb_observation=True,
-        render_width=320,
-        render_height=240,
+        render_width=1024,
+        render_height=1024,
         resolve_root=REPO_ROOT,
         debug_logging=True,
     )

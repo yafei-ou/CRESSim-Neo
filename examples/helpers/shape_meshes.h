@@ -246,6 +246,89 @@ inline graphics::MeshResourceDesc makeCapsuleMesh(float radius, float halfHeight
     return mesh;
 }
 
+inline graphics::MeshResourceDesc makeCylinderMesh(float radius, float halfHeight,
+                                                   std::uint32_t slices,
+                                                   const std::string &debugName)
+{
+    graphics::MeshResourceDesc mesh{};
+    mesh.debugName = debugName;
+
+    const std::uint32_t clampedSlices = std::max(slices, 3u);
+    mesh.vertices.reserve(static_cast<std::size_t>(clampedSlices + 1u) * 4u + 2u);
+    mesh.indices.reserve(static_cast<std::size_t>(clampedSlices) * 12u);
+
+    const auto addVertex = [&](const Diligent::float3 &position, const Diligent::float3 &normal,
+                               float u, float v, const Diligent::float4 &tangent) {
+        mesh.vertices.push_back({position, normal, u, v, tangent});
+    };
+
+    for (std::uint32_t slice = 0u; slice <= clampedSlices; ++slice)
+    {
+        const float u = static_cast<float>(slice) / static_cast<float>(clampedSlices);
+        const float theta = u * (2.0f * detail::kPi);
+        const float x = radius * std::cos(theta);
+        const float z = radius * std::sin(theta);
+        const Diligent::float3 normal =
+            Diligent::normalize(Diligent::float3{x, 0.0f, z});
+        const Diligent::float4 tangent{-std::sin(theta), 0.0f, std::cos(theta), 1.0f};
+        addVertex({x, halfHeight, z}, normal, u, 0.0f, tangent);
+        addVertex({x, -halfHeight, z}, normal, u, 1.0f, tangent);
+    }
+
+    for (std::uint32_t slice = 0u; slice < clampedSlices; ++slice)
+    {
+        const std::uint32_t base = slice * 2u;
+        mesh.indices.push_back(base + 0u);
+        mesh.indices.push_back(base + 1u);
+        mesh.indices.push_back(base + 2u);
+        mesh.indices.push_back(base + 2u);
+        mesh.indices.push_back(base + 1u);
+        mesh.indices.push_back(base + 3u);
+    }
+
+    const std::uint32_t topCenterIndex = static_cast<std::uint32_t>(mesh.vertices.size());
+    addVertex({0.0f, halfHeight, 0.0f}, {0.0f, 1.0f, 0.0f}, 0.5f, 0.5f,
+              {1.0f, 0.0f, 0.0f, 1.0f});
+    for (std::uint32_t slice = 0u; slice <= clampedSlices; ++slice)
+    {
+        const float u = static_cast<float>(slice) / static_cast<float>(clampedSlices);
+        const float theta = u * (2.0f * detail::kPi);
+        const float x = radius * std::cos(theta);
+        const float z = radius * std::sin(theta);
+        addVertex({x, halfHeight, z}, {0.0f, 1.0f, 0.0f}, 0.5f + 0.5f * std::cos(theta),
+                  0.5f + 0.5f * std::sin(theta), {1.0f, 0.0f, 0.0f, 1.0f});
+    }
+
+    for (std::uint32_t slice = 0u; slice < clampedSlices; ++slice)
+    {
+        mesh.indices.push_back(topCenterIndex);
+        mesh.indices.push_back(topCenterIndex + slice + 1u);
+        mesh.indices.push_back(topCenterIndex + slice + 2u);
+    }
+
+    const std::uint32_t bottomCenterIndex = static_cast<std::uint32_t>(mesh.vertices.size());
+    addVertex({0.0f, -halfHeight, 0.0f}, {0.0f, -1.0f, 0.0f}, 0.5f, 0.5f,
+              {1.0f, 0.0f, 0.0f, 1.0f});
+    for (std::uint32_t slice = 0u; slice <= clampedSlices; ++slice)
+    {
+        const float u = static_cast<float>(slice) / static_cast<float>(clampedSlices);
+        const float theta = u * (2.0f * detail::kPi);
+        const float x = radius * std::cos(theta);
+        const float z = radius * std::sin(theta);
+        addVertex({x, -halfHeight, z}, {0.0f, -1.0f, 0.0f}, 0.5f + 0.5f * std::cos(theta),
+                  0.5f - 0.5f * std::sin(theta), {1.0f, 0.0f, 0.0f, 1.0f});
+    }
+
+    for (std::uint32_t slice = 0u; slice < clampedSlices; ++slice)
+    {
+        mesh.indices.push_back(bottomCenterIndex);
+        mesh.indices.push_back(bottomCenterIndex + slice + 2u);
+        mesh.indices.push_back(bottomCenterIndex + slice + 1u);
+    }
+
+    return mesh;
+}
+
 inline graphics::MeshResourceDesc makeCanonicalCurveTubeMesh(std::uint32_t sampleCount,
                                                              std::uint32_t radialResolution,
                                                              const std::string &debugName,
