@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from process_runtime_report import print_process_runtime_report
+
 try:
     import torch
     import torch.nn as nn
@@ -462,10 +464,13 @@ def train_ppo_continuous(
     action_dim: int,
     config: PPOTrainConfig,
     model_kind: str = ContinuousActorCritic.MODEL_KIND,
+    log_runtime_environment: bool = False,
 ) -> int:
     device = torch.device(config.device)
     observation_shape = _normalize_observation_spec(observation_dim)
     env = env_factory(config.train_env_count, config.max_episode_steps)
+    if log_runtime_environment:
+        print_process_runtime_report(f"{config.name} runtime report")
     model = _build_model(
         model_kind,
         observation_shape,
@@ -668,6 +673,7 @@ def run_inference_continuous(
     image_height: int,
     fps: float,
     device_name: str = "cuda",
+    log_runtime_environment: bool = False,
 ) -> int:
     try:
         import matplotlib.pyplot as plt
@@ -698,6 +704,8 @@ def run_inference_continuous(
         effective_image_width,
         effective_image_height,
     )
+    if log_runtime_environment:
+        print_process_runtime_report("inference runtime report")
     frame_interval = 1.0 / max(fps, 1.0)
 
     try:

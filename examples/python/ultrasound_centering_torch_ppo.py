@@ -8,6 +8,9 @@ import cressim_neo as neo
 from ppo_common import PPOTrainConfig, run_inference_continuous, train_ppo_continuous
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train or run inference for the CRESSim ultrasound centering PPO example."
@@ -30,6 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hidden-dim", type=int, default=256)
     parser.add_argument("--render-width", type=int, default=320)
     parser.add_argument("--render-height", type=int, default=240)
+    parser.add_argument("--log-runtime-libs", action="store_true")
     return parser.parse_args()
 
 
@@ -63,6 +67,7 @@ def _make_base_env(
         enable_rgb_observation=enable_rgb_observation,
         render_width=render_width,
         render_height=render_height,
+        resolve_root=REPO_ROOT,
     )
 
 
@@ -109,6 +114,7 @@ def run_training(args: argparse.Namespace) -> int:
             hidden_dim=args.hidden_dim,
             minibatch_size=256,
         ),
+        log_runtime_environment=args.log_runtime_libs,
     )
 
 
@@ -130,6 +136,7 @@ def run_inference(args: argparse.Namespace) -> int:
         image_width=args.render_width,
         image_height=args.render_height,
         fps=args.fps,
+        log_runtime_environment=args.log_runtime_libs,
     )
 
 

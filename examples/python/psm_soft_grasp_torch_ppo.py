@@ -28,6 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-height", type=int, default=1024)
     parser.add_argument("--fps", type=float, default=30.0)
     parser.add_argument("--hidden-dim", type=int, default=256)
+    parser.add_argument("--log-runtime-libs", action="store_true")
     parser.add_argument(
         "--disable-target-marker",
         action="store_true",
@@ -109,6 +110,7 @@ def run_training(args: argparse.Namespace) -> int:
             hidden_dim=args.hidden_dim,
             minibatch_size=1024,
         ),
+        log_runtime_environment=args.log_runtime_libs,
     )
 
 
@@ -128,6 +130,7 @@ def run_inference(args: argparse.Namespace) -> int:
         image_width=args.image_width,
         image_height=args.image_height,
         fps=args.fps,
+        log_runtime_environment=args.log_runtime_libs,
     )
 
 
