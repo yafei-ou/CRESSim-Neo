@@ -1,0 +1,66 @@
+mode  task      env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  --------  ---------  ------  --------  ---------  ---------------
+step  cartpole  1          64      256       0.422923   605.311        
+step  cartpole  8          64      256       0.427460   4791.097       
+step  cartpole  32         64      256       0.495104   16546.025      
+step  cartpole  64         64      256       0.596510   27466.422      
+step  cartpole  128        64      256       0.628935   52100.805      
+step  cartpole  256        64      256       0.646599   101354.966     
+
+
+mode  task            env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  --------------  ---------  ------  --------  ---------  ---------------
+step  soft_body_push  1          64      256       3.633701   70.452         
+step  soft_body_push  8          64      256       3.883466   527.364        
+step  soft_body_push  32         64      256       4.255187   1925.180       
+step  soft_body_push  64         64      256       4.595945   3564.882       
+step  soft_body_push  128        64      256       5.566536   5886.606       
+step  soft_body_push  256        64      256       8.307571   7888.708       
+
+
+mode  task        env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  ----------  ---------  ------  --------  ---------  ---------------
+step  fluid_pour  1          64      256       1.777146   144.051        
+step  fluid_pour  8          64      256       1.969511   1039.852       
+step  fluid_pour  32         64      256       2.422466   3381.678       
+step  fluid_pour  64         64      256       2.956758   5541.204       
+step  fluid_pour  128        64      256       5.257622   6232.476       
+step  fluid_pour  256        64      256       13.664438  4796.099       
+
+
+mode  task           env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  -------------  ---------  ------  --------  ---------  ---------------
+step  target_center  1          64      256       0.126757   2019.615       
+step  target_center  8          64      256       0.133907   15294.221      
+step  target_center  32         64      256       0.235270   34819.578      
+step  target_center  64         64      256       0.580980   28200.649      
+step  target_center  128        64      256       1.135560   28856.249      
+step  target_center  256        64      256       3.069945   21347.614      
+
+
+mode  task            env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  --------------  ---------  ------  --------  ---------  ---------------
+step  tissue_retract  1          64      256       4.185751   61.160         
+step  tissue_retract  8          64      256       4.466493   458.525        
+step  tissue_retract  32         64      256       4.847808   1689.836       
+step  tissue_retract  64         64      256       5.146486   3183.532       
+step  tissue_retract  128        64      256       5.846208   5605.001       
+step  tissue_retract  256        64      256       7.411845   8842.063       
+
+
+mode  task           env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  -------------  ---------  ------  --------  ---------  ---------------
+step  blood_suction  1          64      256       9.607777   26.645         
+step  blood_suction  8          64      256       12.002132  170.636        
+step  blood_suction  32         64      256       16.336650  501.449        
+step  blood_suction  64         64      256       23.312029  702.813        
+step  blood_suction  128        64      256       39.555007  828.416        
+step  blood_suction  256        64      256       78.885152  830.777        
+
+
+mode  task             env_count  warmup  measured  elapsed_s   env_steps_per_s
+----  ---------------  ---------  ------  --------  ----------  ---------------
+step  ultrasound_scan  1          64      256       3.951479    64.786         
+step  ultrasound_scan  8          64      256       11.318032   180.950        
+step  ultrasound_scan  32         64      256       39.054694   209.757        
+step  ultrasound_scan  64         64      256       100.870602  162.426        
