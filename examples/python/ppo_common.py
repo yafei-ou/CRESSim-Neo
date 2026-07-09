@@ -105,6 +105,31 @@ def _index_observation_batch(observation: Any, batch_indices: "torch.Tensor") ->
     return observation[batch_indices]
 
 
+def _get_observation_device(observation: Any) -> "torch.device | None":
+    if isinstance(observation, dict):
+        for value in observation.values():
+            return value.device
+        return None
+    return observation.device
+
+
+def _synchronize_device(device: "torch.device | None") -> None:
+    if device is not None and device.type == "cuda":
+        torch.cuda.synchronize(device=device)
+
+
+def _reset_done_environments(env: object, next_observation: Any, terminated: "torch.Tensor", truncated: "torch.Tensor") -> Any:
+    done_mask = (terminated != 0) | (truncated != 0)
+    done_indices = torch.nonzero(done_mask, as_tuple=False).flatten()
+    if done_indices.numel() == 0:
+        return next_observation
+
+    reset_observation = env.reset(done_indices)
+    next_observation = _clone_observation(next_observation)
+    _assign_observation(next_observation, reset_observation, done_indices)
+    return next_observation
+
+
 class ContinuousActorCritic(nn.Module):
     MODEL_KIND = "mlp"
 
@@ -300,6 +325,7 @@ class PPOTrainConfig:
     rollout_steps: int
     update_count: int
     max_episode_steps: int
+    warmup_updates: int = 0
     hidden_dim: int = 128
     minibatch_size: int = 2048
     ppo_epochs: int = 4
@@ -311,6 +337,25 @@ class PPOTrainConfig:
     learning_rate: float = 3.0e-4
     max_grad_norm: float = 0.5
     device: str = "cuda"
+
+
+@dataclass
+class StepBenchmarkResult:
+    env_count: int
+    measured_steps: int
+    warmup_steps: int
+    elapsed_seconds: float
+    env_steps_per_second: float
+
+
+@dataclass
+class PPOBenchmarkResult:
+    env_count: int
+    measured_updates: int
+    warmup_updates: int
+    measured_env_steps: int
+    elapsed_seconds: float
+    env_steps_per_second: float
 
 
 def gaussian_log_prob(action: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
@@ -381,7 +426,7 @@ def load_model(model_path: Path, device: torch.device) -> nn.Module:
 
 
 def reshape_env_action(action: torch.Tensor, action_dim: int) -> torch.Tensor:
-    if action_dim == 1:
+    if action_dim == 1 and action.ndim > 1 and action.shape[-1] == 1:
         return action.squeeze(-1)
     return action
 
@@ -457,6 +502,233 @@ def update_live_figure(
             ultrasound_artist.set_data(ultrasound_images[env_index])
 
 
+def benchmark_env_stepping(
+    *,
+    env_factory: Callable[[int, int], object],
+    action_dim: int,
+    env_count: int,
+    max_episode_steps: int,
+    warmup_steps: int,
+    measured_steps: int,
+    device_name: str = "cuda",
+    log_runtime_environment: bool = False,
+) -> StepBenchmarkResult:
+    if measured_steps <= 0:
+        raise ValueError("measured_steps must be positive.")
+
+    env = env_factory(env_count, max_episode_steps)
+    if log_runtime_environment:
+        print_process_runtime_report(f"step benchmark runtime report ({env_count} envs)")
+
+    try:
+        observation = env.reset()
+        device = _get_observation_device(observation) or torch.device(device_name)
+        if action_dim == 1:
+            action = torch.zeros(env_count, device=device, dtype=torch.float32)
+        else:
+            action = torch.zeros((env_count, action_dim), device=device, dtype=torch.float32)
+
+        for _ in range(max(0, warmup_steps)):
+            next_observation, _, terminated, truncated = env.step(reshape_env_action(action, action_dim))
+            observation = _reset_done_environments(env, next_observation, terminated, truncated)
+
+        _synchronize_device(device)
+        start_time = time.perf_counter()
+        for _ in range(measured_steps):
+            next_observation, _, terminated, truncated = env.step(reshape_env_action(action, action_dim))
+            observation = _reset_done_environments(env, next_observation, terminated, truncated)
+        _synchronize_device(device)
+        elapsed_seconds = max(time.perf_counter() - start_time, 1.0e-8)
+    finally:
+        env.close()
+
+    return StepBenchmarkResult(
+        env_count=env_count,
+        measured_steps=measured_steps,
+        warmup_steps=max(0, warmup_steps),
+        elapsed_seconds=elapsed_seconds,
+        env_steps_per_second=(measured_steps * env_count) / elapsed_seconds,
+    )
+
+
+def benchmark_ppo_training_throughput(
+    *,
+    env_factory: Callable[[int, int], object],
+    observation_dim: Any,
+    action_dim: int,
+    config: PPOTrainConfig,
+    model_kind: str = ContinuousActorCritic.MODEL_KIND,
+    log_runtime_environment: bool = False,
+) -> PPOBenchmarkResult:
+    device = torch.device(config.device)
+    observation_shape = _normalize_observation_spec(observation_dim)
+    env = env_factory(config.train_env_count, config.max_episode_steps)
+    if log_runtime_environment:
+        print_process_runtime_report(f"{config.name} benchmark runtime report")
+
+    model = _build_model(
+        model_kind,
+        observation_shape,
+        action_dim,
+        hidden_dim=config.hidden_dim,
+    ).to(device=device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
+
+    observation = env.reset()
+    total_env_steps = 0
+    measured_updates = max(0, config.update_count - max(0, config.warmup_updates))
+    elapsed_seconds = 0.0
+
+    try:
+        start_time = None
+        for update_index in range(config.update_count):
+            if update_index == config.warmup_updates:
+                _synchronize_device(device)
+                start_time = time.perf_counter()
+                total_env_steps = 0
+
+            obs_buffer = _make_observation_buffer(
+                config.rollout_steps,
+                env.env_count,
+                observation_shape,
+                device=device,
+                dtype=torch.float32,
+            )
+            actions_buffer = torch.empty(
+                (config.rollout_steps, env.env_count, action_dim),
+                device=device,
+                dtype=torch.float32,
+            )
+            log_prob_buffer = torch.empty(
+                (config.rollout_steps, env.env_count),
+                device=device,
+                dtype=torch.float32,
+            )
+            rewards_buffer = torch.empty(
+                (config.rollout_steps, env.env_count),
+                device=device,
+                dtype=torch.float32,
+            )
+            done_buffer = torch.empty(
+                (config.rollout_steps, env.env_count),
+                device=device,
+                dtype=torch.float32,
+            )
+            values_buffer = torch.empty(
+                (config.rollout_steps, env.env_count),
+                device=device,
+                dtype=torch.float32,
+            )
+
+            for step_index in range(config.rollout_steps):
+                _store_observation_step(obs_buffer, step_index, observation)
+                with torch.no_grad():
+                    mean, std, value = model(observation)
+                    action = mean + std * torch.randn_like(mean)
+                    log_prob = gaussian_log_prob(action, mean, std)
+
+                next_observation, reward, terminated, truncated = env.step(
+                    reshape_env_action(action, action_dim)
+                )
+                done_mask = ((terminated != 0) | (truncated != 0)).to(dtype=torch.float32)
+
+                actions_buffer[step_index].copy_(action)
+                log_prob_buffer[step_index].copy_(log_prob)
+                rewards_buffer[step_index].copy_(reward)
+                done_buffer[step_index].copy_(done_mask)
+                values_buffer[step_index].copy_(value)
+
+                observation = _reset_done_environments(env, next_observation, terminated, truncated)
+
+            if update_index >= config.warmup_updates:
+                total_env_steps += config.rollout_steps * env.env_count
+
+            with torch.no_grad():
+                _, _, next_value = model(observation)
+
+            advantages = torch.empty_like(rewards_buffer)
+            last_advantage = torch.zeros(env.env_count, device=device, dtype=torch.float32)
+            for step_index in range(config.rollout_steps - 1, -1, -1):
+                not_done = 1.0 - done_buffer[step_index]
+                next_values = next_value if step_index == config.rollout_steps - 1 else values_buffer[step_index + 1]
+                delta = rewards_buffer[step_index] + config.gamma * next_values * not_done - values_buffer[step_index]
+                last_advantage = delta + config.gamma * config.gae_lambda * not_done * last_advantage
+                advantages[step_index] = last_advantage
+
+            returns = advantages + values_buffer
+            flat_observations = _flatten_observation_buffer(obs_buffer, observation_shape)
+            flat_actions = actions_buffer.reshape(-1, action_dim)
+            flat_log_probs = log_prob_buffer.reshape(-1)
+            flat_advantages = advantages.reshape(-1)
+            flat_returns = returns.reshape(-1)
+            flat_values = values_buffer.reshape(-1)
+            flat_advantages = (flat_advantages - flat_advantages.mean()) / (flat_advantages.std() + 1.0e-8)
+
+            sample_count = (
+                next(iter(flat_observations.values())).shape[0]
+                if isinstance(flat_observations, dict)
+                else flat_observations.shape[0]
+            )
+            for _ in range(config.ppo_epochs):
+                permutation = torch.randperm(sample_count, device=device)
+                for start in range(0, sample_count, config.minibatch_size):
+                    batch_indices = permutation[start : start + config.minibatch_size]
+                    batch_obs = _index_observation_batch(flat_observations, batch_indices)
+                    batch_actions = flat_actions[batch_indices]
+                    batch_old_log_probs = flat_log_probs[batch_indices]
+                    batch_advantages = flat_advantages[batch_indices]
+                    batch_returns = flat_returns[batch_indices]
+                    batch_old_values = flat_values[batch_indices]
+
+                    mean, std, value = model(batch_obs)
+                    log_prob = gaussian_log_prob(batch_actions, mean, std)
+                    entropy = (0.5 + 0.5 * math.log(2.0 * math.pi) + std.log()).sum(dim=-1)
+
+                    ratio = (log_prob - batch_old_log_probs).exp()
+                    surrogate_1 = ratio * batch_advantages
+                    surrogate_2 = torch.clamp(
+                        ratio,
+                        1.0 - config.clip_epsilon,
+                        1.0 + config.clip_epsilon,
+                    ) * batch_advantages
+                    policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
+
+                    value_clipped = batch_old_values + torch.clamp(
+                        value - batch_old_values,
+                        -config.clip_epsilon,
+                        config.clip_epsilon,
+                    )
+                    value_loss_unclipped = (value - batch_returns).square()
+                    value_loss_clipped = (value_clipped - batch_returns).square()
+                    value_loss = 0.5 * torch.maximum(value_loss_unclipped, value_loss_clipped).mean()
+
+                    loss = (
+                        policy_loss
+                        + config.value_coef * value_loss
+                        - config.entropy_coef * entropy.mean()
+                    )
+
+                    optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), config.max_grad_norm)
+                    optimizer.step()
+
+        _synchronize_device(device)
+        if start_time is not None:
+            elapsed_seconds = max(time.perf_counter() - start_time, 1.0e-8)
+    finally:
+        env.close()
+
+    return PPOBenchmarkResult(
+        env_count=config.train_env_count,
+        measured_updates=measured_updates,
+        warmup_updates=max(0, config.warmup_updates),
+        measured_env_steps=total_env_steps,
+        elapsed_seconds=elapsed_seconds,
+        env_steps_per_second=(total_env_steps / elapsed_seconds) if elapsed_seconds > 0.0 else 0.0,
+    )
+
+
 def train_ppo_continuous(
     *,
     env_factory: Callable[[int, int], object],
@@ -484,11 +756,15 @@ def train_ppo_continuous(
     running_episode_lengths = torch.zeros(env.env_count, device=device, dtype=torch.int32)
     finished_returns: list[float] = []
     finished_lengths: list[int] = []
-    training_start_time = time.perf_counter()
+    training_start_time = None
     total_env_steps = 0
 
     try:
         for update_index in range(config.update_count):
+            if update_index == config.warmup_updates:
+                _synchronize_device(device)
+                training_start_time = time.perf_counter()
+                total_env_steps = 0
             update_start_time = time.perf_counter()
             obs_buffer = _make_observation_buffer(
                 config.rollout_steps,
@@ -558,7 +834,8 @@ def train_ppo_continuous(
 
                 observation = next_observation
 
-            total_env_steps += config.rollout_steps * env.env_count
+            if update_index >= config.warmup_updates:
+                total_env_steps += config.rollout_steps * env.env_count
             with torch.no_grad():
                 _, _, next_value = model(observation)
 
@@ -636,17 +913,25 @@ def train_ppo_continuous(
             mean_return = sum(recent_returns) / len(recent_returns) if recent_returns else 0.0
             mean_length = sum(recent_lengths) / len(recent_lengths) if recent_lengths else 0.0
             update_elapsed = max(time.perf_counter() - update_start_time, 1.0e-8)
-            average_elapsed = max(time.perf_counter() - training_start_time, 1.0e-8)
-            update_fps = (config.rollout_steps * env.env_count) / update_elapsed
-            average_fps = total_env_steps / average_elapsed
-            print(
-                f"{config.name} update {update_index:03d}  "
-                f"mean_return={mean_return:.2f}  "
-                f"mean_length={mean_length:.1f}  "
-                f"finished_episodes={len(finished_returns)}  "
-                f"fps={update_fps:.1f}  "
-                f"avg_fps={average_fps:.1f}"
-            )
+            if update_index < config.warmup_updates:
+                print(
+                    f"{config.name} warmup {update_index:03d}  "
+                    f"mean_return={mean_return:.2f}  "
+                    f"mean_length={mean_length:.1f}  "
+                    f"finished_episodes={len(finished_returns)}"
+                )
+            else:
+                average_elapsed = max(time.perf_counter() - (training_start_time or time.perf_counter()), 1.0e-8)
+                update_fps = (config.rollout_steps * env.env_count) / update_elapsed
+                average_fps = total_env_steps / average_elapsed
+                print(
+                    f"{config.name} update {update_index:03d}  "
+                    f"mean_return={mean_return:.2f}  "
+                    f"mean_length={mean_length:.1f}  "
+                    f"finished_episodes={len(finished_returns)}  "
+                    f"fps={update_fps:.1f}  "
+                    f"avg_fps={average_fps:.1f}"
+                )
 
         save_model(
             model,
