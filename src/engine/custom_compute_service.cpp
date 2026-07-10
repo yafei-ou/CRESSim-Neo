@@ -852,6 +852,15 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
     addBuffer("particle.fluid_materials", sceneView.soft.particles.fluidMaterialsBuffer,
               CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.fluidMaterialCount,
               sceneView.soft.bindingGeneration);
+    addBuffer("soft.thermal_state_a", sceneView.soft.thermal.thermalStateBufferA,
+              CustomComputeResourceAccess::ReadWrite, sceneView.soft.thermal.particleCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.thermal_state_b", sceneView.soft.thermal.thermalStateBufferB,
+              CustomComputeResourceAccess::ReadWrite, sceneView.soft.thermal.particleCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.thermal_materials", sceneView.soft.thermal.thermalMaterialsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.thermal.softBodyCount,
+              sceneView.soft.bindingGeneration);
     addBuffer("particle.phases", sceneView.soft.particles.phasesBuffer,
               CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
               sceneView.soft.bindingGeneration);

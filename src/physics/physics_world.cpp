@@ -319,6 +319,38 @@ void normalizeFluidMaterial(FluidMaterialDesc &material) noexcept
     material.cflCoefficient       = std::max(material.cflCoefficient, 0.0f);
 }
 
+void normalizeSoftThermalMaterial(SoftThermalMaterialDesc &material) noexcept
+{
+    material.bodyTemperatureC        = std::max(material.bodyTemperatureC, -273.15f);
+    material.maximumTemperatureC     = std::max(material.maximumTemperatureC,
+                                               material.bodyTemperatureC);
+    material.diffusionRate           = std::max(material.diffusionRate, 0.0f);
+    material.coolingRate             = std::max(material.coolingRate, 0.0f);
+    material.damageStartTemperatureC = std::max(material.damageStartTemperatureC,
+                                               material.bodyTemperatureC);
+    material.damageFullTemperatureC =
+        std::max(material.damageFullTemperatureC, material.damageStartTemperatureC);
+    material.damageRate                   = std::max(material.damageRate, 0.0f);
+    material.evaporationStartTemperatureC = std::max(material.evaporationStartTemperatureC,
+                                                     material.bodyTemperatureC);
+    material.evaporationRate              = std::max(material.evaporationRate, 0.0f);
+    material.charStartTemperatureC        = std::max(material.charStartTemperatureC,
+                                                    material.bodyTemperatureC);
+    material.charRate                     = std::max(material.charRate, 0.0f);
+    material.maximumShrinkage             = std::clamp(material.maximumShrinkage, 0.0f, 1.0f);
+    material.shrinkageRate                = std::max(material.shrinkageRate, 0.0f);
+    material.minimumFailureThresholdScale =
+        std::clamp(material.minimumFailureThresholdScale, 0.0f, 1.0f);
+    material.minimumCutResistanceScale =
+        std::clamp(material.minimumCutResistanceScale, 0.0f, 1.0f);
+    material.thermalCutDamageThreshold =
+        std::clamp(material.thermalCutDamageThreshold, 0.0f, 1.0f);
+    material.thermalCutWaterThreshold =
+        std::clamp(material.thermalCutWaterThreshold, 0.0f, 1.0f);
+    material.maximumComplianceMultiplier =
+        std::max(material.maximumComplianceMultiplier, 1.0f);
+}
+
 std::uint32_t findOrAppendParticleContactMaterial(std::vector<Diligent::float4> &materials,
                                                   const Diligent::float4 &material) noexcept
 {
@@ -4200,6 +4232,7 @@ void PhysicsWorld::Impl::normalizeColliderState(ColliderState &state) noexcept
 void PhysicsWorld::Impl::normalizeSoftBodyState(SoftBodyState &state) noexcept
 {
     normalizeParticleContactMaterial(state.material.contact);
+    normalizeSoftThermalMaterial(state.material.thermal);
     state.particleMass         = std::max(state.particleMass, 1.0e-4f);
     state.particleRadius       = std::max(state.particleRadius, 1.0e-4f);
     state.edgeCompliance       = std::max(state.edgeCompliance, 0.0f);

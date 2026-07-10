@@ -21,6 +21,8 @@ constexpr std::uint32_t kComputeThreadGroupSize  = 64u;
 constexpr std::uint32_t kNarrowPhaseChunkSize    = 128u;
 constexpr std::uint32_t kSoftBodyBoundsChunkSize = 64u;
 constexpr float kPi                              = 3.14159265358979323846f;
+constexpr SoftParticleThermalStateGPU kInitialSoftParticleThermalState{
+    37.0f, 0.0f, 1.0f, 0.0f};
 
 std::uint32_t nextPowerOfTwo(std::uint32_t value) noexcept
 {
@@ -44,6 +46,32 @@ Diligent::float3 choosePerpendicular(const Diligent::float3 &axis) noexcept
                                            ? Diligent::float3{0.0f, 1.0f, 0.0f}
                                            : Diligent::float3{1.0f, 0.0f, 0.0f};
     return Diligent::normalize(Diligent::cross(reference, axis));
+}
+
+SoftThermalMaterialGPU toSoftThermalMaterialGpu(
+    const SoftThermalMaterialDesc &material) noexcept
+{
+    return SoftThermalMaterialGPU{
+        material.bodyTemperatureC,
+        material.maximumTemperatureC,
+        material.diffusionRate,
+        material.coolingRate,
+        material.damageStartTemperatureC,
+        material.damageFullTemperatureC,
+        material.damageRate,
+        0.0f,
+        material.evaporationStartTemperatureC,
+        material.evaporationRate,
+        material.charStartTemperatureC,
+        material.charRate,
+        material.maximumShrinkage,
+        material.shrinkageRate,
+        material.minimumFailureThresholdScale,
+        material.minimumCutResistanceScale,
+        material.thermalCutDamageThreshold,
+        material.thermalCutWaterThreshold,
+        material.maximumComplianceMultiplier,
+        0.0f};
 }
 
 float wrapAngleDelta(float delta) noexcept
@@ -414,6 +442,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const auto particlePositionsBefore  = mPersistentParticles.positionsInvMassBuffer.RawPtr();
     const auto particlePreviousBefore   = mPersistentParticles.previousPositionsBuffer.RawPtr();
     const auto particleVelocitiesBefore = mPersistentParticles.velocitiesBuffer.RawPtr();
+    const auto thermalStateABefore = mPersistentSoftThermal.thermalStateBufferA.RawPtr();
+    const auto thermalStateBBefore = mPersistentSoftThermal.thermalStateBufferB.RawPtr();
+    const auto thermalMaterialsBefore = mPersistentSoftThermal.thermalMaterialsBuffer.RawPtr();
     const auto ballJointsBefore         = mPersistentJoints.ballJointsBuffer.RawPtr();
     const auto sphericalJointsBefore    = mPersistentJoints.sphericalJointsBuffer.RawPtr();
     const auto hingeJointsBefore        = mPersistentJoints.hingeJointsBuffer.RawPtr();
@@ -726,7 +757,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mReadbackParticles.shapeCorrectionMagnitudesBuffer != nullptr &&
         mReadbackParticles.neighborMetaBuffer != nullptr &&
         mReadbackSoftEdges.edgesBuffer != nullptr &&
-        mReadbackSoftEdges.toolCountersBuffer != nullptr;
+        mReadbackSoftEdges.toolCountersBuffer != nullptr &&
+        mPersistentSoftThermal.thermalStateBufferA != nullptr &&
+        mPersistentSoftThermal.thermalStateBufferB != nullptr &&
+        mPersistentSoftThermal.thermalMaterialsBuffer != nullptr;
     const std::uint32_t newRigidBodyCapacity    = std::max<std::uint32_t>(bodyCount, 64u);
     const std::uint32_t newColliderCapacity     = std::max<std::uint32_t>(colliderCount, 64u);
     const std::uint32_t newSoftParticleCapacity = std::max<std::uint32_t>(particleCount, 64u);
@@ -1215,6 +1249,23 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentParticles.broadPhaseMetadataBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SoftParticleThermalStateA",
+            sizeof(SoftParticleThermalStateGPU), newSoftParticleCapacity,
+            Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+            mPersistentSoftThermal.thermalStateBufferA) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SoftParticleThermalStateB",
+            sizeof(SoftParticleThermalStateGPU), newSoftParticleCapacity,
+            Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+            mPersistentSoftThermal.thermalStateBufferB) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftThermalMaterials",
+                                sizeof(SoftThermalMaterialGPU), newSoftBodyRangeCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftThermal.thermalMaterialsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftEdges", sizeof(SoftEdge),
                                 newSoftEdgeCapacity,
                                 Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
@@ -2394,6 +2445,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
         particlePositionsBefore != mPersistentParticles.positionsInvMassBuffer.RawPtr() ||
         particlePreviousBefore != mPersistentParticles.previousPositionsBuffer.RawPtr() ||
         particleVelocitiesBefore != mPersistentParticles.velocitiesBuffer.RawPtr() ||
+        thermalStateABefore != mPersistentSoftThermal.thermalStateBufferA.RawPtr() ||
+        thermalStateBBefore != mPersistentSoftThermal.thermalStateBufferB.RawPtr() ||
+        thermalMaterialsBefore != mPersistentSoftThermal.thermalMaterialsBuffer.RawPtr() ||
         softEdgesBefore != mPersistentSoftTopology.edgesBuffer.RawPtr() ||
         softBendsBefore != mPersistentSoftTopology.bendsBuffer.RawPtr() ||
         softTetsBefore != mPersistentSoftTopology.tetsBuffer.RawPtr() ||
@@ -2465,6 +2519,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         world.jointCollisionSuppression();
     const ParticleSoAHost &particles      = world.particles();
     const std::vector<FluidState> &fluids = world.fluidSnapshot();
+    const std::vector<SoftBodyState> &softBodies = world.softBodySnapshot();
     const std::vector<Diligent::float4> &particleContactMaterials =
         world.particleContactMaterials();
     const std::vector<FluidMaterialGpu> &fluidMaterials = world.fluidMaterials();
@@ -2579,7 +2634,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         mSoftTopologyUploadResetRequired ||
         mLastUploadedSoftConstraintAdjacencyRevision != softConstraintAdjacencyRevision;
 
-    if ((needsSoftParticleUpload && !uploadParticles(computeContext, particles, fluids,
+    if ((needsSoftParticleUpload && !uploadParticles(computeContext, particles, fluids, softBodies,
                                                      particleContactMaterials, fluidMaterials)) ||
         ((needsSoftTopologyUpload || needsSoftConstraintAdjacencyUpload) &&
          !uploadSoftTopology(
@@ -3265,12 +3320,13 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
 
 bool PhysicsSceneGpuState::uploadParticles(
     Diligent::IDeviceContext *computeContext, const ParticleSoAHost &particles,
-    const std::vector<FluidState> &fluids,
+    const std::vector<FluidState> &fluids, const std::vector<SoftBodyState> &softBodies,
     const std::vector<Diligent::float4> &particleContactMaterials,
     const std::vector<FluidMaterialGpu> &fluidMaterials)
 {
     const std::uint32_t count = static_cast<std::uint32_t>(particles.size());
-    if (count == 0u && fluids.empty() && particleContactMaterials.empty() && fluidMaterials.empty())
+    if (count == 0u && fluids.empty() && softBodies.empty() && particleContactMaterials.empty() &&
+        fluidMaterials.empty())
     {
         return true;
     }
@@ -3280,6 +3336,14 @@ bool PhysicsSceneGpuState::uploadParticles(
     {
         fluidVisuals[i] = fluids[i].visualColor;
     }
+
+    std::vector<SoftThermalMaterialGPU> thermalMaterials(softBodies.size());
+    for (std::size_t i = 0; i < softBodies.size(); ++i)
+    {
+        thermalMaterials[i] = toSoftThermalMaterialGpu(softBodies[i].material.thermal);
+    }
+    const bool initializeThermalState =
+        mSoftParticleUploadResetRequired || mLastInitializedSoftThermalParticleCount != count;
 
     return updateStructuredBufferRange(computeContext, mPersistentParticles.positionsInvMassBuffer,
                                        particles.positionsInvMass, 0u, count) &&
@@ -3324,6 +3388,28 @@ bool PhysicsSceneGpuState::uploadParticles(
            updateStructuredBufferRange(computeContext, mPersistentParticles.fluidMaterialsBuffer,
                                        fluidMaterials, 0u,
                                        static_cast<std::uint32_t>(fluidMaterials.size())) &&
+           (!initializeThermalState ||
+            [&]()
+            {
+                std::vector<SoftParticleThermalStateGPU> initialThermalStates(
+                    count, kInitialSoftParticleThermalState);
+                const bool uploaded =
+                    updateStructuredBufferRange(computeContext,
+                                                mPersistentSoftThermal.thermalStateBufferA,
+                                                initialThermalStates, 0u, count) &&
+                    updateStructuredBufferRange(computeContext,
+                                                mPersistentSoftThermal.thermalStateBufferB,
+                                                initialThermalStates, 0u, count);
+                if (uploaded)
+                {
+                    mLastInitializedSoftThermalParticleCount = count;
+                }
+                return uploaded;
+            }()) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentSoftThermal.thermalMaterialsBuffer,
+                                       thermalMaterials, 0u,
+                                       static_cast<std::uint32_t>(thermalMaterials.size())) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.phasesBuffer,
                                        particles.phases, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.collisionLayersBuffer,
@@ -4683,6 +4769,16 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.particles.fluidVisualCount       = mFluidCount;
     view.soft.particles.contactMaterialCount   = mParticleContactMaterialCount;
     view.soft.particles.fluidMaterialCount     = mFluidMaterialCount;
+    view.soft.thermal.thermalStateBufferA      = mPersistentSoftThermal.thermalStateBufferA;
+    view.soft.thermal.thermalStateBufferB      = mPersistentSoftThermal.thermalStateBufferB;
+    view.soft.thermal.thermalMaterialsBuffer   = mPersistentSoftThermal.thermalMaterialsBuffer;
+    view.soft.thermal.particleEdgeRangesBuffer =
+        mPersistentSoftTopology.particleEdgeRangesBuffer;
+    view.soft.thermal.particleIncidentEdgesBuffer =
+        mPersistentSoftTopology.particleIncidentEdgesBuffer;
+    view.soft.thermal.softEdgesBuffer  = mPersistentSoftTopology.edgesBuffer;
+    view.soft.thermal.particleCount    = mSoftParticleCount;
+    view.soft.thermal.softBodyCount    = mSoftBodyCount;
     view.soft.edgesBuffer                      = mPersistentSoftTopology.edgesBuffer;
     view.soft.bendsBuffer                      = mPersistentSoftTopology.bendsBuffer;
     view.soft.tetsBuffer                       = mPersistentSoftTopology.tetsBuffer;

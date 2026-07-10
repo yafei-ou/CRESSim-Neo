@@ -131,6 +131,42 @@ struct GpuSoftEdge
     float referenceCompliance;
 };
 
+struct GpuSoftParticleThermalState
+{
+    float temperatureC;
+    float damage;
+    float waterFraction;
+    float charFraction;
+};
+
+struct GpuSoftThermalMaterial
+{
+    float bodyTemperatureC;
+    float maximumTemperatureC;
+    float diffusionRate;
+    float coolingRate;
+
+    float damageStartTemperatureC;
+    float damageFullTemperatureC;
+    float damageRate;
+    float reserved0;
+
+    float evaporationStartTemperatureC;
+    float evaporationRate;
+    float charStartTemperatureC;
+    float charRate;
+
+    float maximumShrinkage;
+    float shrinkageRate;
+    float minimumFailureThresholdScale;
+    float minimumCutResistanceScale;
+
+    float thermalCutDamageThreshold;
+    float thermalCutWaterThreshold;
+    float maximumComplianceMultiplier;
+    float reserved1;
+};
+
 struct GpuSoftTet
 {
     uint4 particleIndices;

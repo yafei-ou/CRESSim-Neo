@@ -345,9 +345,71 @@ struct ParticleContactMaterialDesc
     float staticFriction = -1.0f;
 };
 
+struct SoftThermalMaterialDesc
+{
+    float bodyTemperatureC              = 37.0f;
+    float maximumTemperatureC           = 250.0f;
+    float diffusionRate                 = 0.25f;
+    float coolingRate                   = 0.02f;
+    float damageStartTemperatureC       = 45.0f;
+    float damageFullTemperatureC        = 100.0f;
+    float damageRate                    = 1.0f;
+    float evaporationStartTemperatureC  = 100.0f;
+    float evaporationRate               = 0.5f;
+    float charStartTemperatureC         = 180.0f;
+    float charRate                      = 0.25f;
+    float maximumShrinkage              = 0.25f;
+    float shrinkageRate                 = 1.0f;
+    float minimumFailureThresholdScale  = 0.25f;
+    float minimumCutResistanceScale     = 0.25f;
+    float thermalCutDamageThreshold     = 0.85f;
+    float thermalCutWaterThreshold      = 0.15f;
+    float maximumComplianceMultiplier   = 4.0f;
+};
+
+struct alignas(16) SoftParticleThermalStateGPU
+{
+    float temperatureC   = 37.0f;
+    float damage         = 0.0f;
+    float waterFraction  = 1.0f;
+    float charFraction   = 0.0f;
+};
+
+struct alignas(16) SoftThermalMaterialGPU
+{
+    float bodyTemperatureC;
+    float maximumTemperatureC;
+    float diffusionRate;
+    float coolingRate;
+
+    float damageStartTemperatureC;
+    float damageFullTemperatureC;
+    float damageRate;
+    float reserved0;
+
+    float evaporationStartTemperatureC;
+    float evaporationRate;
+    float charStartTemperatureC;
+    float charRate;
+
+    float maximumShrinkage;
+    float shrinkageRate;
+    float minimumFailureThresholdScale;
+    float minimumCutResistanceScale;
+
+    float thermalCutDamageThreshold;
+    float thermalCutWaterThreshold;
+    float maximumComplianceMultiplier;
+    float reserved1;
+};
+
+static_assert(sizeof(SoftParticleThermalStateGPU) == 16u);
+static_assert(sizeof(SoftThermalMaterialGPU) == 80u);
+
 struct SoftBodyMaterialDesc
 {
     ParticleContactMaterialDesc contact{};
+    SoftThermalMaterialDesc thermal{};
 };
 
 struct StrandMaterialDesc

@@ -104,9 +104,22 @@ struct PhysicsGpuParticleBufferView
     std::uint32_t fluidMaterialCount                       = 0;
 };
 
+struct PhysicsGpuSoftThermalView
+{
+    Diligent::IBuffer *thermalStateBufferA         = nullptr;
+    Diligent::IBuffer *thermalStateBufferB         = nullptr;
+    Diligent::IBuffer *thermalMaterialsBuffer      = nullptr;
+    Diligent::IBuffer *particleEdgeRangesBuffer    = nullptr;
+    Diligent::IBuffer *particleIncidentEdgesBuffer = nullptr;
+    Diligent::IBuffer *softEdgesBuffer             = nullptr;
+    std::uint32_t particleCount                    = 0u;
+    std::uint32_t softBodyCount                    = 0u;
+};
+
 struct PhysicsGpuSoftSceneView
 {
     PhysicsGpuParticleBufferView particles{};
+    PhysicsGpuSoftThermalView thermal{};
     Diligent::IBuffer *edgesBuffer                       = nullptr;
     Diligent::IBuffer *bendsBuffer                       = nullptr;
     Diligent::IBuffer *tetsBuffer                        = nullptr;

@@ -167,6 +167,13 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyWorldAabbsBuffer;
     };
 
+    struct PersistentSoftThermalBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> thermalStateBufferA;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> thermalStateBufferB;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> thermalMaterialsBuffer;
+    };
+
     struct PersistentSuturingBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> pairsBuffer;
@@ -520,6 +527,7 @@ private:
                                         const std::vector<RigidDistanceConstraint> &constraints);
     bool uploadParticles(Diligent::IDeviceContext *computeContext, const ParticleSoAHost &particles,
                          const std::vector<FluidState> &fluids,
+                         const std::vector<SoftBodyState> &softBodies,
                          const std::vector<Diligent::float4> &particleContactMaterials,
                          const std::vector<FluidMaterialGpu> &fluidMaterials);
     bool uploadSoftTopology(
@@ -550,6 +558,7 @@ private:
     PersistentRoutedCableBuffers mPersistentRoutedCables;
     PersistentParticleBuffers mPersistentParticles;
     PersistentSoftTopologyBuffers mPersistentSoftTopology;
+    PersistentSoftThermalBuffers mPersistentSoftThermal;
     PersistentSuturingBuffers mPersistentSuturing;
     PersistentCurveRenderBuffers mPersistentCurveRender;
     SolverTransientBuffers mTransientState;
@@ -664,6 +673,7 @@ private:
     std::uint64_t mLastUploadedSoftParticleRevision                    = 0;
     std::uint64_t mLastUploadedSoftTopologyRevision                    = 0;
     std::uint64_t mLastUploadedSoftConstraintAdjacencyRevision         = 0;
+    std::uint32_t mLastInitializedSoftThermalParticleCount             = 0;
     std::uint64_t mLastUploadedRigidParticleAttachmentResolvedRevision = 0;
     std::uint64_t mLastUploadedStrandRigidAttachmentResolvedRevision   = 0;
     std::uint64_t mLastUploadedRigidDistanceConstraintResolvedRevision = 0;
