@@ -381,7 +381,7 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         self._create_shared_buffers()
         self._populate_lookup_buffers()
         self._create_custom_passes()
-        self.reset()
+        self._end_frame(self.runtime, advance=False)
 
     def _initialize_render_targets(self) -> None:
         color_desc = neo.GpuRenderTargetDesc()
@@ -843,8 +843,6 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             device=self.rgb_observation_tensor.device,
         )
         self._end_frame(self.runtime, advance=False)
-        self.reset_mask_tensor.zero_()
-        self._sync_from_cuda(self.runtime, [self.reset_mask_buffer])
         return self.rgb_observation_tensor
 
     def step(

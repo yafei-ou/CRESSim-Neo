@@ -1169,7 +1169,7 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         self._create_shared_buffers()
         self._populate_lookup_buffers()
         self._create_custom_passes()
-        self.reset()
+        self._end_frame(self.runtime, advance=False)
 
     def _initialize_rgb_observation_resources(self) -> None:
         target_desc = neo.GpuRenderTargetDesc()
@@ -2372,8 +2372,6 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
             self._render_rgb_observation()
         self._sync_outputs_to_cuda()
         self._end_frame(self.runtime, advance=False)
-        self.reset_mask_tensor.zero_()
-        self._sync_from_cuda(self.runtime, [self.reset_mask_buffer])
         return self._make_observation_output()
 
     def step(

@@ -470,7 +470,7 @@ class CartpoleTorchVectorEnv:
         self._create_shared_buffers()
         self._populate_lookup_buffers()
         self._create_custom_passes()
-        self.reset()
+        self.runtime.end_frame(self._frame)
 
     def _initialize_rgb_observation_resources(self) -> None:
         resources = self.runtime.resources()
@@ -1065,17 +1065,13 @@ class CartpoleTorchVectorEnv:
         )
         self.reset_state_tensor.index_copy_(0, env_indices, sampled_reset_state)
 
-        if not self.runtime.sync_shared_buffer_from_cuda(self.reset_mask_buffer):
-            raise RuntimeError("Failed to synchronize cartpole reset mask from CUDA.")
-        if not self.runtime.sync_shared_buffer_from_cuda(self.reset_state_buffer):
-            raise RuntimeError("Failed to synchronize cartpole reset state from CUDA.")
+        for handle in (self.reset_mask_buffer, self.reset_state_buffer):
+            if not self.runtime.sync_shared_buffer_from_cuda(handle):
+                raise RuntimeError(f"Failed to synchronize cartpole reset buffer {handle.id} from CUDA.")
         if not self.runtime.execute_custom_compute_pass(self._reset_pass):
             raise RuntimeError("Failed to execute cartpole reset pass.")
         self._sync_outputs_to_cuda()
         self.runtime.end_frame(self._frame)
-        self.reset_mask_tensor.zero_()
-        if not self.runtime.sync_shared_buffer_from_cuda(self.reset_mask_buffer):
-            raise RuntimeError("Failed to clear cartpole reset mask after reset.")
         return self.observation_tensor
 
     def step(self, action_tensor: "torch.Tensor") -> tuple["torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor"]:

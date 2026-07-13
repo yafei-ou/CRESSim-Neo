@@ -611,7 +611,7 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             device=self.current_frame_tensor.device,
             dtype=self.current_frame_tensor.dtype,
         )
-        self.reset()
+        self._end_frame(self.runtime, advance=False)
 
     def _initialize_rgb_observation_resources(self) -> None:
         resources = self.runtime.resources()
@@ -1500,8 +1500,6 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         self._sync_step_outputs_to_cuda()
         self._update_observation_stack(env_indices, fill=True)
         self._end_frame(self.runtime, advance=False)
-        self.reset_mask_tensor.zero_()
-        self._sync_from_cuda(self.runtime, [self.reset_mask_buffer])
         return self.observation_tensor
 
     def step(
