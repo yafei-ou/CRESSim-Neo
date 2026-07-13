@@ -1344,6 +1344,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
+        if (particleCount > 0u &&
+            !mImpl->passDispatcher.diffuseSoftTemperature(
+                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: DiffuseSoftTemperature dispatch.");
+            return false;
+        }
+
         if (rigidContactIterations > 0u && !useInitialRigidContactSolve &&
             !mImpl->passDispatcher.resetRigidContactVelocityAggregates(
                 computeBackend.computeContext, mImpl->sceneState, constants))

@@ -673,9 +673,27 @@ constexpr Diligent::ShaderResourceVariableDesc kApplyElectrocauteryToolVars[] = 
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftThermalMaterials",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ThermalStateRead",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ThermalStateWrite",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kDiffuseSoftTemperatureVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleOwningSoftBodyIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftThermalMaterials",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleEdgeRanges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleIncidentEdges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdges", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ThermalStateRead",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ThermalStateWrite",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kEvaluateSoftFractureVars[] = {
@@ -2490,6 +2508,14 @@ const gpu::GpuComputePassDefinition kApplyElectrocauteryTool{
     "CRESSimNeo.Physics.ApplyElectrocauteryTool.PSO",
     kApplyElectrocauteryToolVars,
     std::size(kApplyElectrocauteryToolVars),
+};
+
+const gpu::GpuComputePassDefinition kDiffuseSoftTemperature{
+    "physics/soft/solver/physics_soft_diffuse_temperature.cs.hlsl",
+    "CRESSimNeo.Physics.DiffuseSoftTemperature.CS",
+    "CRESSimNeo.Physics.DiffuseSoftTemperature.PSO",
+    kDiffuseSoftTemperatureVars,
+    std::size(kDiffuseSoftTemperatureVars),
 };
 
 const gpu::GpuComputePassDefinition kEvaluateSoftFracture{
