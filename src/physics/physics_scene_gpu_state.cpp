@@ -3403,6 +3403,7 @@ bool PhysicsSceneGpuState::uploadParticles(
                 if (uploaded)
                 {
                     mLastInitializedSoftThermalParticleCount = count;
+                    mSoftThermalReadBufferIndex = 0u;
                 }
                 return uploaded;
             }()) &&
@@ -4666,6 +4667,25 @@ std::uint64_t PhysicsSceneGpuState::softBindingGeneration() const noexcept
     return mSoftBindingGeneration;
 }
 
+Diligent::IBuffer *PhysicsSceneGpuState::softThermalStateReadBuffer() const noexcept
+{
+    return mSoftThermalReadBufferIndex == 0u
+               ? mPersistentSoftThermal.thermalStateBufferA.RawPtr()
+               : mPersistentSoftThermal.thermalStateBufferB.RawPtr();
+}
+
+Diligent::IBuffer *PhysicsSceneGpuState::softThermalStateWriteBuffer() const noexcept
+{
+    return mSoftThermalReadBufferIndex == 0u
+               ? mPersistentSoftThermal.thermalStateBufferB.RawPtr()
+               : mPersistentSoftThermal.thermalStateBufferA.RawPtr();
+}
+
+void PhysicsSceneGpuState::advanceSoftThermalStateBuffers() noexcept
+{
+    mSoftThermalReadBufferIndex = 1u - mSoftThermalReadBufferIndex;
+}
+
 PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
 {
     PhysicsGpuSceneView view{};
@@ -4769,6 +4789,7 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.particles.fluidVisualCount       = mFluidCount;
     view.soft.particles.contactMaterialCount   = mParticleContactMaterialCount;
     view.soft.particles.fluidMaterialCount     = mFluidMaterialCount;
+    view.soft.thermal.thermalStateBuffer       = softThermalStateReadBuffer();
     view.soft.thermal.thermalStateBufferA      = mPersistentSoftThermal.thermalStateBufferA;
     view.soft.thermal.thermalStateBufferB      = mPersistentSoftThermal.thermalStateBufferB;
     view.soft.thermal.thermalMaterialsBuffer   = mPersistentSoftThermal.thermalMaterialsBuffer;

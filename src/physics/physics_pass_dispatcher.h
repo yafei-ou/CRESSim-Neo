@@ -147,6 +147,9 @@ public:
                               const PhysicsSceneGpuState &sceneState,
                               std::uint32_t softEdgeCount,
                               const GpuParticleDispatchConstants &constants);
+    bool applyElectrocauteryTool(Diligent::IDeviceContext *computeContext,
+                                 PhysicsSceneGpuState &sceneState,
+                                 const GpuParticleDispatchConstants &constants);
     bool evaluateSoftFracture(Diligent::IDeviceContext *computeContext,
                               const PhysicsSceneGpuState &sceneState,
                               std::uint32_t softEdgeCount,
@@ -525,6 +528,7 @@ private:
     gpu::GpuComputePass mAssignSuturingInsideParticlesPass;
     gpu::GpuComputePass mSolveSuturingNodePathConstraintsPass;
     gpu::GpuComputePass mApplySoftCuttingToolPass;
+    gpu::GpuComputePass mApplyElectrocauteryToolPass;
     gpu::GpuComputePass mEvaluateSoftFracturePass;
     gpu::GpuComputePass mValidateShapeClustersPass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;

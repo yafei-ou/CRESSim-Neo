@@ -106,6 +106,7 @@ struct PhysicsGpuParticleBufferView
 
 struct PhysicsGpuSoftThermalView
 {
+    Diligent::IBuffer *thermalStateBuffer          = nullptr;
     Diligent::IBuffer *thermalStateBufferA         = nullptr;
     Diligent::IBuffer *thermalStateBufferB         = nullptr;
     Diligent::IBuffer *thermalMaterialsBuffer      = nullptr;

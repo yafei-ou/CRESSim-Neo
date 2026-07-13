@@ -56,11 +56,11 @@ private:
         float fallbackRadius             = 0.15f;
         float highStrainThreshold        = 0.35f;
         float damageDisplayThreshold     = 0.01f;
+        float heatmapMaximumTemperatureC = 250.0f;
         float shapeCorrectionScale       = 40.0f;
         float shapeCenterRadius          = 0.055f;
         float shapeAxisLength            = 0.09f;
         float padding1                   = 0.0f;
-        float padding2                   = 0.0f;
     };
 
     struct PipelineKey
@@ -96,6 +96,7 @@ private:
     bool mInitialized = false;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mFallbackRadiusBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mFallbackThermalStateBuffer;
     std::unordered_map<PipelineKey, Diligent::RefCntAutoPtr<Diligent::IPipelineState>,
                        PipelineKeyHasher>
         mPipelines;

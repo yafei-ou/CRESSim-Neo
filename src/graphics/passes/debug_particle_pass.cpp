@@ -4,6 +4,7 @@
 #include "graphics/passes/render_pass_types.h"
 #include "physics/physics_gpu_scene_view.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace cressim::neo::graphics::detail
@@ -17,6 +18,7 @@ constexpr std::uint32_t kHighlightStaticParticlesFlag = 1u << 1u;
 constexpr std::uint32_t kShowCutEdgesFlag             = 1u << 2u;
 constexpr std::uint32_t kShowStrainFlag               = 1u << 3u;
 constexpr std::uint32_t kShowDamageFlag               = 1u << 4u;
+constexpr std::uint32_t kShowThermalHeatmapFlag       = 1u << 5u;
 constexpr std::uint32_t kShapePrimitiveCenters        = 0u;
 constexpr std::uint32_t kShapePrimitiveAxes           = 1u;
 constexpr std::uint32_t kShapePrimitiveMembers        = 2u;
@@ -84,7 +86,22 @@ bool DebugParticlePass::ensureConstants(Diligent::IRenderDevice *renderDevice)
         renderDevice->CreateBuffer(radiusBufferDesc, &radiusData, &mFallbackRadiusBuffer);
     }
 
-    return mFallbackRadiusBuffer != nullptr;
+    if (mFallbackThermalStateBuffer == nullptr)
+    {
+        const Diligent::float4 fallbackThermalState{37.0f, 0.0f, 1.0f, 0.0f};
+        Diligent::BufferDesc thermalBufferDesc{};
+        thermalBufferDesc.Name              = "CRESSimNeo.DebugParticlePass.FallbackThermalState";
+        thermalBufferDesc.Size              = sizeof(Diligent::float4);
+        thermalBufferDesc.Usage             = Diligent::USAGE_IMMUTABLE;
+        thermalBufferDesc.BindFlags         = Diligent::BIND_SHADER_RESOURCE;
+        thermalBufferDesc.Mode              = Diligent::BUFFER_MODE_STRUCTURED;
+        thermalBufferDesc.ElementByteStride = sizeof(Diligent::float4);
+        const Diligent::BufferData thermalData{&fallbackThermalState,
+                                               sizeof(fallbackThermalState)};
+        renderDevice->CreateBuffer(thermalBufferDesc, &thermalData, &mFallbackThermalStateBuffer);
+    }
+
+    return mFallbackRadiusBuffer != nullptr && mFallbackThermalStateBuffer != nullptr;
 }
 
 Diligent::IPipelineState *DebugParticlePass::getOrCreatePipeline(
@@ -174,6 +191,8 @@ Diligent::IPipelineState *DebugParticlePass::getOrCreatePipeline(
         {Diligent::SHADER_TYPE_VERTEX, "g_ParticleShapeMembershipRanges",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_ShapeCorrectionMagnitudes",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_VERTEX, "g_SoftThermalState",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -505,9 +524,17 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     }
 
     const bool useParticleRadii = options.useParticleRadii && particles.radiiBuffer != nullptr;
+    const bool showThermalHeatmap =
+        options.showThermalHeatmap && physicsScene.soft.thermal.thermalStateBuffer != nullptr;
     Diligent::IBuffer *radiiBuffer =
         useParticleRadii ? particles.radiiBuffer : mFallbackRadiusBuffer;
     if (!setBufferView(Diligent::SHADER_TYPE_VERTEX, "g_ParticleRadii", radiiBuffer))
+    {
+        return false;
+    }
+    if (!setBufferView(Diligent::SHADER_TYPE_VERTEX, "g_SoftThermalState",
+                       showThermalHeatmap ? physicsScene.soft.thermal.thermalStateBuffer
+                                          : mFallbackThermalStateBuffer.RawPtr()))
     {
         return false;
     }
@@ -527,15 +554,18 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     constants.flags |= options.showCutEdges ? kShowCutEdgesFlag : 0u;
     constants.flags |= options.showStrain ? kShowStrainFlag : 0u;
     constants.flags |= options.showDamage ? kShowDamageFlag : 0u;
+    constants.flags |= showThermalHeatmap ? kShowThermalHeatmapFlag : 0u;
     constants.shapeModes = options.shapeMatchingModes;
     constants.maxMembershipCount =
         std::max<std::uint32_t>(options.shapeMaxMembershipCount, 1u);
-    constants.fallbackRadius         = options.fallbackRadius;
-    constants.highStrainThreshold    = options.highStrainThreshold;
-    constants.damageDisplayThreshold = options.damageDisplayThreshold;
-    constants.shapeCenterRadius      = options.shapeCenterRadius;
-    constants.shapeAxisLength        = options.shapeAxisLength;
-    constants.shapeCorrectionScale   = options.shapeCorrectionScale;
+    constants.fallbackRadius             = options.fallbackRadius;
+    constants.highStrainThreshold        = options.highStrainThreshold;
+    constants.damageDisplayThreshold     = options.damageDisplayThreshold;
+    constants.heatmapMaximumTemperatureC =
+        std::max(options.heatmapMaximumTemperatureC, 37.0f);
+    constants.shapeCenterRadius          = options.shapeCenterRadius;
+    constants.shapeAxisLength            = options.shapeAxisLength;
+    constants.shapeCorrectionScale       = options.shapeCorrectionScale;
 
     void *mapped = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,

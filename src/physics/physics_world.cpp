@@ -351,6 +351,47 @@ void normalizeSoftThermalMaterial(SoftThermalMaterialDesc &material) noexcept
         std::max(material.maximumComplianceMultiplier, 1.0f);
 }
 
+bool nearlyZero(const Diligent::float3 &value) noexcept
+{
+    return std::abs(value.x) <= 1.0e-6f && std::abs(value.y) <= 1.0e-6f &&
+           std::abs(value.z) <= 1.0e-6f;
+}
+
+bool hasPreviousToolTipPose(const ToolQueryShapeGPU &query) noexcept
+{
+    return !nearlyZero(query.previousTipA) || !nearlyZero(query.previousTipB);
+}
+
+void normalizeToolQueryShape(ToolQueryShapeGPU &query) noexcept
+{
+    query.shape = query.shape == static_cast<std::uint32_t>(CuttingToolShape::Blade)
+                      ? static_cast<std::uint32_t>(CuttingToolShape::Blade)
+                      : static_cast<std::uint32_t>(CuttingToolShape::Capsule);
+    query.enabled            = query.enabled != 0u ? 1u : 0u;
+    query.radius             = std::max(query.radius, 0.0f);
+    query.bladeHalfLength    = std::max(query.bladeHalfLength, 0.0f);
+    query.bladeHalfDepth     = std::max(query.bladeHalfDepth, 0.0f);
+    query.bladeHalfThickness = std::max(query.bladeHalfThickness, 0.0f);
+
+    query.bladeAxisU =
+        common::runtime_math::safeNormalize(query.bladeAxisU, {1.0f, 0.0f, 0.0f});
+    Diligent::float3 referenceV{0.0f, 1.0f, 0.0f};
+    if (std::abs(Diligent::dot(referenceV, query.bladeAxisU)) > 0.98f)
+    {
+        referenceV = {0.0f, 0.0f, 1.0f};
+    }
+    Diligent::float3 axisV =
+        query.bladeAxisV - query.bladeAxisU * Diligent::dot(query.bladeAxisV, query.bladeAxisU);
+    if (Diligent::dot(axisV, axisV) <= 1.0e-8f)
+    {
+        axisV = referenceV - query.bladeAxisU * Diligent::dot(referenceV, query.bladeAxisU);
+    }
+    query.bladeAxisV = common::runtime_math::safeNormalize(axisV, referenceV);
+    Diligent::float3 normal = Diligent::cross(query.bladeAxisU, query.bladeAxisV);
+    query.bladeNormal =
+        common::runtime_math::safeNormalize(normal, {0.0f, 0.0f, 1.0f});
+}
+
 std::uint32_t findOrAppendParticleContactMaterial(std::vector<Diligent::float4> &materials,
                                                   const Diligent::float4 &material) noexcept
 {
@@ -1041,6 +1082,7 @@ struct PhysicsWorld::Impl
     ShapeMatchingDataHost mShapeMatchingData{};
     CurveRenderDataHost mCurveRenderData{};
     CuttingToolGPU mCuttingTool{};
+    ElectrocauteryToolGPU mElectrocauteryTool{};
     std::vector<std::uint32_t> mRigidBodyDirtyIndices{};
     std::vector<std::uint32_t> mColliderDirtyIndices{};
     std::vector<std::uint8_t> mRigidBodyDirtyBits{};
@@ -1207,6 +1249,7 @@ void PhysicsWorld::clear()
     mImpl->mSoftRenderData.clear();
     mImpl->mCurveRenderData.clear();
     mImpl->mCuttingTool = CuttingToolGPU{};
+    mImpl->mElectrocauteryTool = ElectrocauteryToolGPU{};
     mImpl->mRigidBodyDirtyIndices.clear();
     mImpl->mColliderDirtyIndices.clear();
     mImpl->mRigidBodyDirtyBits.clear();
@@ -3327,6 +3370,50 @@ void PhysicsWorld::setCuttingTool(const CuttingToolGPU &tool) noexcept
     Diligent::float3 normal = Diligent::cross(mImpl->mCuttingTool.bladeAxisU, mImpl->mCuttingTool.bladeAxisV);
     mImpl->mCuttingTool.bladeNormal =
         common::runtime_math::safeNormalize(normal, {0.0f, 0.0f, 1.0f});
+}
+
+const ElectrocauteryToolGPU &PhysicsWorld::electrocauteryTool() const noexcept
+{
+    return mImpl->mElectrocauteryTool;
+}
+
+void PhysicsWorld::setElectrocauteryTool(const ElectrocauteryToolGPU &tool) noexcept
+{
+    ElectrocauteryToolGPU normalized = tool;
+    normalizeToolQueryShape(normalized.query);
+    normalized.mode =
+        normalized.mode == static_cast<std::uint32_t>(ElectrocauteryToolMode::ElectrosurgicalCut) ||
+                normalized.mode == static_cast<std::uint32_t>(
+                                       ElectrocauteryToolMode::ElectrosurgicalCoagulation) ||
+                normalized.mode ==
+                    static_cast<std::uint32_t>(ElectrocauteryToolMode::ElectrosurgicalBlend)
+            ? normalized.mode
+            : static_cast<std::uint32_t>(ElectrocauteryToolMode::Disabled);
+    normalized.activeTipLength = std::max(normalized.activeTipLength, 1.0e-5f);
+    normalized.heatRadius = std::max(normalized.heatRadius, normalized.activeTipLength);
+    normalized.ablationRadius =
+        std::clamp(normalized.ablationRadius, 0.0f, normalized.heatRadius);
+    normalized.heatingRateCPerSecond = std::max(normalized.heatingRateCPerSecond, 0.0f);
+    if (normalized.mode == static_cast<std::uint32_t>(ElectrocauteryToolMode::Disabled))
+    {
+        normalized.query.enabled = 0u;
+    }
+
+    if (normalized.query.enabled != 0u && !hasPreviousToolTipPose(normalized.query))
+    {
+        if (mImpl->mElectrocauteryTool.query.enabled != 0u)
+        {
+            normalized.query.previousTipA = mImpl->mElectrocauteryTool.query.tipA;
+            normalized.query.previousTipB = mImpl->mElectrocauteryTool.query.tipB;
+        }
+        else
+        {
+            normalized.query.previousTipA = normalized.query.tipA;
+            normalized.query.previousTipB = normalized.query.tipB;
+        }
+    }
+
+    mImpl->mElectrocauteryTool = normalized;
 }
 
 const std::vector<SoftBend> &PhysicsWorld::softBends() const noexcept

@@ -84,14 +84,16 @@ struct RenderFrameOptions
         bool showCutEdges             = false;
         bool showStrain               = false;
         bool showDamage               = false;
+        bool showThermalHeatmap       = false;
         std::uint32_t shapeMatchingModes = 0u;
         std::uint32_t shapeMaxMembershipCount = 1u;
-        float fallbackRadius          = 0.15f;
-        float highStrainThreshold     = 0.35f;
-        float damageDisplayThreshold  = 0.01f;
-        float shapeCenterRadius       = 0.055f;
-        float shapeAxisLength         = 0.09f;
-        float shapeCorrectionScale    = 40.0f;
+        float fallbackRadius             = 0.15f;
+        float highStrainThreshold        = 0.35f;
+        float damageDisplayThreshold     = 0.01f;
+        float heatmapMaximumTemperatureC = 250.0f;
+        float shapeCenterRadius          = 0.055f;
+        float shapeAxisLength            = 0.09f;
+        float shapeCorrectionScale       = 40.0f;
     };
 
     struct DebugRoutedCableOptions

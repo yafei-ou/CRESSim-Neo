@@ -519,6 +519,19 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.reserved0                        = substep;
         particleConstants.reserved1                        = substeps;
         particleConstants.cuttingTool                      = world.cuttingTool();
+        particleConstants.electrocauteryTool               = world.electrocauteryTool();
+        const bool electrocauteryActive =
+            particleConstants.electrocauteryTool.query.enabled != 0u &&
+            particleConstants.electrocauteryTool.mode !=
+                static_cast<std::uint32_t>(ElectrocauteryToolMode::Disabled);
+        if (electrocauteryActive)
+        {
+            particleConstants.cuttingTool.enabled = 0u;
+        }
+        const bool mechanicalBladeActive =
+            !electrocauteryActive && particleConstants.cuttingTool.enabled != 0u &&
+            particleConstants.cuttingTool.shape ==
+                static_cast<std::uint32_t>(CuttingToolShape::Blade);
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
@@ -640,7 +653,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
-        if (softEdgeCount > 0u &&
+        if (electrocauteryActive &&
+            !mImpl->passDispatcher.applyElectrocauteryTool(
+                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ApplyElectrocauteryTool dispatch.");
+            return false;
+        }
+
+        if (mechanicalBladeActive && softEdgeCount > 0u &&
             !mImpl->passDispatcher.applySoftCuttingTool(
                 computeBackend.computeContext, mImpl->sceneState, softEdgeCount,
                 particleConstants))

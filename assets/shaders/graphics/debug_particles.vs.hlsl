@@ -13,6 +13,7 @@ cbuffer GraphicsDebugParticles
     uint4 g_DebugParticleParams;
     uint4 g_DebugShapeParams;
     float4 g_DebugParticleMisc;
+    float4 g_DebugShapeMisc;
 };
 
 #define g_DebugParticleCameraIndex g_DebugParticleParams.x
@@ -22,11 +23,13 @@ cbuffer GraphicsDebugParticles
 #define g_DebugShapeModes g_DebugShapeParams.x
 #define g_DebugShapeMaxMembershipCount g_DebugShapeParams.z
 #define g_DebugParticleFallbackRadius g_DebugParticleMisc.x
-#define g_DebugShapeCorrectionScale g_DebugParticleMisc.w
+#define g_DebugParticleHeatmapMaximumTemperatureC g_DebugParticleMisc.w
+#define g_DebugShapeCorrectionScale g_DebugShapeMisc.x
 #define CRESSIM_DEBUG_PARTICLE_USE_RADII 1u
 #define CRESSIM_DEBUG_PARTICLE_HIGHLIGHT_STATIC 2u
 #define CRESSIM_DEBUG_SHAPE_MEMBERSHIP_COUNT 8u
 #define CRESSIM_DEBUG_SHAPE_CORRECTION_MAGNITUDE 64u
+#define CRESSIM_DEBUG_PARTICLE_THERMAL_HEATMAP 32u
 
 CRESSIM_STRUCTURED_BUFFER(CameraInput, g_CameraInputs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
@@ -34,6 +37,7 @@ CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleEnvironmentIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleShapeMembershipRange, g_ParticleShapeMembershipRanges);
 CRESSIM_STRUCTURED_BUFFER(float, g_ShapeCorrectionMagnitudes);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftParticleThermalState, g_SoftThermalState);
 
 struct VSOutput
 {
@@ -103,6 +107,23 @@ float2 quadCornerForVertex(uint triangleVertexIndex)
     return float2(1.0, 1.0);
 }
 
+float3 heatmapColor(float temperatureC)
+{
+    const float bodyTemperatureC = 37.0;
+    const float maxTemperatureC =
+        max(g_DebugParticleHeatmapMaximumTemperatureC, bodyTemperatureC + 1.0);
+    const float t = saturate((temperatureC - bodyTemperatureC) /
+                             max(maxTemperatureC - bodyTemperatureC, 1.0e-4));
+    const float3 blue = float3(0.02, 0.05, 0.32);
+    const float3 yellow = float3(1.0, 0.86, 0.04);
+    const float3 red = float3(1.0, 0.02, 0.0);
+    if (t < 0.5)
+    {
+        return lerp(blue, yellow, t * 2.0);
+    }
+    return lerp(yellow, red, (t - 0.5) * 2.0);
+}
+
 void main(uint vertexId : SV_VertexID, out VSOutput Out)
 {
     const uint particleIndex = vertexId / 6u;
@@ -167,6 +188,12 @@ void main(uint vertexId : SV_VertexID, out VSOutput Out)
         particlePositionInvMass.w <= 0.0)
     {
         Out.Color = g_DebugParticleStaticColor;
+    }
+    if ((g_DebugParticleFlags & CRESSIM_DEBUG_PARTICLE_THERMAL_HEATMAP) != 0u)
+    {
+        const GpuSoftParticleThermalState thermalState =
+            CRESSIM_SB_LOAD(g_SoftThermalState, particleIndex);
+        Out.Color = float4(heatmapColor(thermalState.temperatureC), g_DebugParticleColor.a);
     }
 #if MANUAL_LAYER_EXPORT
     Out.Layer = g_DebugParticleTargetLayer;

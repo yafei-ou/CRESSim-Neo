@@ -488,6 +488,9 @@ public:
     void setStaticBroadPhaseDirty(bool dirty) noexcept;
     std::uint64_t rigidBindingGeneration() const noexcept;
     std::uint64_t softBindingGeneration() const noexcept;
+    Diligent::IBuffer *softThermalStateReadBuffer() const noexcept;
+    Diligent::IBuffer *softThermalStateWriteBuffer() const noexcept;
+    void advanceSoftThermalStateBuffers() noexcept;
     PhysicsGpuSceneView sceneView() const noexcept;
 
 private:
@@ -674,6 +677,7 @@ private:
     std::uint64_t mLastUploadedSoftTopologyRevision                    = 0;
     std::uint64_t mLastUploadedSoftConstraintAdjacencyRevision         = 0;
     std::uint32_t mLastInitializedSoftThermalParticleCount             = 0;
+    std::uint32_t mSoftThermalReadBufferIndex                          = 0;
     std::uint64_t mLastUploadedRigidParticleAttachmentResolvedRevision = 0;
     std::uint64_t mLastUploadedStrandRigidAttachmentResolvedRevision   = 0;
     std::uint64_t mLastUploadedRigidDistanceConstraintResolvedRevision = 0;

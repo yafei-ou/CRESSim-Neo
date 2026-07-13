@@ -284,6 +284,7 @@ struct GpuParticleDispatchConstants
     std::uint32_t reserved1                          = 0;
     Diligent::float4 gravity{0.0f, -9.81f, 0.0f, 0.0f};
     CuttingToolGPU cuttingTool{};
+    ElectrocauteryToolGPU electrocauteryTool{};
 };
 
 struct GpuSoftRenderDispatchConstants
@@ -819,7 +820,7 @@ static_assert(sizeof(GpuSphericalJoint) == 144u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
-static_assert(sizeof(GpuParticleDispatchConstants) == 240u);
+static_assert(sizeof(GpuParticleDispatchConstants) == 400u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
 static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);

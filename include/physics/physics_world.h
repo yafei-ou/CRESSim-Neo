@@ -170,6 +170,8 @@ public:
     bool setSoftEdgeFlags(std::uint32_t edgeIndex, std::uint32_t flags) noexcept;
     const CuttingToolGPU &cuttingTool() const noexcept;
     void setCuttingTool(const CuttingToolGPU &tool) noexcept;
+    const ElectrocauteryToolGPU &electrocauteryTool() const noexcept;
+    void setElectrocauteryTool(const ElectrocauteryToolGPU &tool) noexcept;
     const std::vector<SoftBend> &softBends() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
     const std::vector<StrandSegmentConstraint> &strandSegments() const noexcept;

@@ -663,6 +663,21 @@ constexpr Diligent::ShaderResourceVariableDesc kApplySoftCuttingToolVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kApplyElectrocauteryToolVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleOwningSoftBodyIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftThermalMaterials",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ThermalStateRead",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ThermalStateWrite",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kEvaluateSoftFractureVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2467,6 +2482,14 @@ const gpu::GpuComputePassDefinition kApplySoftCuttingTool{
     "CRESSimNeo.Physics.ApplySoftCuttingTool.PSO",
     kApplySoftCuttingToolVars,
     std::size(kApplySoftCuttingToolVars),
+};
+
+const gpu::GpuComputePassDefinition kApplyElectrocauteryTool{
+    "physics/soft/solver/physics_soft_apply_electrocautery_tool.cs.hlsl",
+    "CRESSimNeo.Physics.ApplyElectrocauteryTool.CS",
+    "CRESSimNeo.Physics.ApplyElectrocauteryTool.PSO",
+    kApplyElectrocauteryToolVars,
+    std::size(kApplyElectrocauteryToolVars),
 };
 
 const gpu::GpuComputePassDefinition kEvaluateSoftFracture{

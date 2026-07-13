@@ -277,6 +277,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mAssignSuturingInsideParticlesPass, kAssignSuturingInsideParticles) ||
         !initPass(mSolveSuturingNodePathConstraintsPass, kSolveSuturingNodePathConstraints) ||
         !initPass(mApplySoftCuttingToolPass, kApplySoftCuttingTool) ||
+        !initPass(mApplyElectrocauteryToolPass, kApplyElectrocauteryTool) ||
         !initPass(mEvaluateSoftFracturePass, kEvaluateSoftFracture) ||
         !initPass(mValidateShapeClustersPass, kValidateShapeClusters) ||
         !initSolverConfigPass(mSolveSoftEdgeConstraintsPass, kSolveSoftEdgeConstraints) ||
@@ -2144,6 +2145,59 @@ bool PhysicsPassDispatcher::applySoftCuttingTool(
     return writeParticleDispatchConstants(computeContext, constants) &&
            mApplySoftCuttingToolPass.dispatch(computeContext, kDefaultVariant, bindings,
                                               dispatchGroupCount(softEdgeCount));
+}
+
+bool PhysicsPassDispatcher::applyElectrocauteryTool(
+    Diligent::IDeviceContext *computeContext, PhysicsSceneGpuState &sceneState,
+    const GpuParticleDispatchConstants &constants)
+{
+    if (constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const PhysicsGpuSceneView sceneView = sceneState.sceneView();
+    Diligent::IBuffer *thermalStateRead = sceneState.softThermalStateReadBuffer();
+    Diligent::IBuffer *thermalStateWrite = sceneState.softThermalStateWriteBuffer();
+    if (softParticles.positionsInvMassBuffer == nullptr ||
+        softParticles.owningSoftBodyIndicesBuffer == nullptr ||
+        sceneView.soft.thermal.thermalMaterialsBuffer == nullptr ||
+        thermalStateRead == nullptr || thermalStateWrite == nullptr)
+    {
+        return false;
+    }
+
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwningSoftBodyIndices",
+                              softParticles.owningSoftBodyIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftThermalMaterials",
+                              sceneView.soft.thermal.thermalMaterialsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ThermalStateRead", thermalStateRead,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ThermalStateWrite", thermalStateWrite,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    constexpr std::uint32_t kElectrocauteryThreadGroupSize = 256u;
+    const bool dispatched =
+        writeParticleDispatchConstants(computeContext, constants) &&
+        mApplyElectrocauteryToolPass.dispatch(
+            computeContext, kDefaultVariant, bindings,
+            (constants.particleCount + kElectrocauteryThreadGroupSize - 1u) /
+                kElectrocauteryThreadGroupSize);
+    if (dispatched)
+    {
+        sceneState.advanceSoftThermalStateBuffers();
+    }
+    return dispatched;
 }
 
 bool PhysicsPassDispatcher::evaluateSoftFracture(
@@ -5844,6 +5898,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
         mAssignSuturingInsideParticlesPass.forceRecreateAllVariants() &&
         mSolveSuturingNodePathConstraintsPass.forceRecreateAllVariants() &&
         mApplySoftCuttingToolPass.forceRecreateAllVariants() &&
+        mApplyElectrocauteryToolPass.forceRecreateAllVariants() &&
         mEvaluateSoftFracturePass.forceRecreateAllVariants() &&
         mValidateShapeClustersPass.forceRecreateAllVariants() &&
         mSolveSoftEdgeConstraintsPass.forceRecreateAllVariants() &&
@@ -5875,6 +5930,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
         mSolveParticleContactVelocitiesPass.forceRecreateAllVariants() &&
         mSolveParticleRigidContactVelocitiesPass.forceRecreateAllVariants() &&
         mApplyParticleContactVelocitiesPass.forceRecreateAllVariants() &&
+        mSkinSoftRenderVerticesPass.forceRecreateAllVariants() &&
         mUpdateSoftTriangleNormalsPass.forceRecreateAllVariants() &&
         mUpdateSoftRenderNormalsPass.forceRecreateAllVariants() &&
         mUpdateCurveRenderDataPass.forceRecreateAllVariants() &&

@@ -45,6 +45,7 @@ extern const gpu::GpuComputePassDefinition kUpdateSuturingTipPaths;
 extern const gpu::GpuComputePassDefinition kAssignSuturingInsideParticles;
 extern const gpu::GpuComputePassDefinition kSolveSuturingNodePathConstraints;
 extern const gpu::GpuComputePassDefinition kApplySoftCuttingTool;
+extern const gpu::GpuComputePassDefinition kApplyElectrocauteryTool;
 extern const gpu::GpuComputePassDefinition kEvaluateSoftFracture;
 extern const gpu::GpuComputePassDefinition kValidateShapeClusters;
 extern const gpu::GpuComputePassDefinition kSolveSoftEdgeConstraints;

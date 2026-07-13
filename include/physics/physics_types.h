@@ -472,6 +472,46 @@ enum class CuttingToolShape : std::uint32_t
     Blade   = 1u,
 };
 
+enum class ElectrocauteryToolMode : std::uint32_t
+{
+    Disabled                    = 0u,
+    ElectrosurgicalCut          = 1u,
+    ElectrosurgicalCoagulation  = 2u,
+    ElectrosurgicalBlend        = 3u,
+};
+
+struct alignas(16) ToolQueryShapeGPU
+{
+    std::uint32_t shape     = static_cast<std::uint32_t>(CuttingToolShape::Capsule);
+    std::uint32_t enabled   = 0u;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+
+    Diligent::float3 tipA{0.0f, 0.0f, 0.0f};
+    float radius = 0.0f;
+
+    Diligent::float3 tipB{0.0f, 0.0f, 0.0f};
+    float reserved2 = 0.0f;
+
+    Diligent::float3 previousTipA{0.0f, 0.0f, 0.0f};
+    float reserved3 = 0.0f;
+
+    Diligent::float3 previousTipB{0.0f, 0.0f, 0.0f};
+    float reserved4 = 0.0f;
+
+    Diligent::float3 bladeCenter{0.0f, 0.0f, 0.0f};
+    float bladeHalfLength = 0.0f;
+
+    Diligent::float3 bladeAxisU{1.0f, 0.0f, 0.0f};
+    float bladeHalfDepth = 0.0f;
+
+    Diligent::float3 bladeAxisV{0.0f, 1.0f, 0.0f};
+    float bladeHalfThickness = 0.0f;
+
+    Diligent::float3 bladeNormal{0.0f, 0.0f, 1.0f};
+    float reserved5 = 0.0f;
+};
+
 struct CuttingToolGPU
 {
     std::uint32_t shape = static_cast<std::uint32_t>(CuttingToolShape::Capsule);
@@ -498,7 +538,24 @@ struct CuttingToolGPU
     float padding = 0.0f;
 };
 
+struct alignas(16) ElectrocauteryToolGPU
+{
+    ToolQueryShapeGPU query{};
+
+    std::uint32_t mode = static_cast<std::uint32_t>(ElectrocauteryToolMode::Disabled);
+    std::uint32_t reserved0 = 0u;
+    float activeTipLength = 0.02f;
+    float heatRadius = 0.05f;
+
+    float ablationRadius = 0.01f;
+    float heatingRateCPerSecond = 0.0f;
+    float reserved1 = 0.0f;
+    float reserved2 = 0.0f;
+};
+
+static_assert(sizeof(ToolQueryShapeGPU) == 144u);
 static_assert(sizeof(CuttingToolGPU) == 112u);
+static_assert(sizeof(ElectrocauteryToolGPU) == 176u);
 
 struct SoftEdgeToolCounters
 {
