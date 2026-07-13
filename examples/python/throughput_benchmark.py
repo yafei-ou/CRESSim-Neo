@@ -3,13 +3,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 from typing import Any, Callable
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-BUILD_BIN = REPO_ROOT / "build" / "bin"
-if str(BUILD_BIN) not in sys.path:
-    sys.path.insert(0, str(BUILD_BIN))
 
 import cressim_neo as neo
 
@@ -25,6 +19,8 @@ from psm_blood_suction_torch_ppo import _make_base_env as make_blood_suction_bas
 from psm_soft_grasp_torch_ppo import _make_base_env as make_tissue_retract_base_env
 from soft_body_pusher_torch_ppo import make_train_env as make_soft_body_push_env
 from ultrasound_centering_torch_ppo import _make_base_env as make_ultrasound_base_env
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @dataclass(frozen=True)
 class TaskBenchmarkSpec:

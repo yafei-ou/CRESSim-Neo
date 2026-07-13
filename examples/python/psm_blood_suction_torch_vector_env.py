@@ -3,14 +3,9 @@ from __future__ import annotations
 import argparse
 import math
 from pathlib import Path
-import sys
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-BUILD_BIN = REPO_ROOT / "build" / "bin"
-if str(BUILD_BIN) not in sys.path:
-    sys.path.insert(0, str(BUILD_BIN))
 
 import cressim_neo as neo
+
 import torch
 from live_capture_utils import (
     InteractiveImageCapture,
@@ -18,6 +13,8 @@ from live_capture_utils import (
     rgb_tensor_to_numpy,
     update_rgb_grid_figure,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 try:
     import matplotlib.pyplot as plt

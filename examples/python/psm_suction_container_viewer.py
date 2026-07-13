@@ -1,14 +1,8 @@
 import math
 from pathlib import Path
-import sys
-
+import cressim_neo as neo
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BUILD_BIN = REPO_ROOT / "build" / "bin"
-if str(BUILD_BIN) not in sys.path:
-    sys.path.insert(0, str(BUILD_BIN))
-
-import cressim_neo as neo
 
 
 SCENE_SCALE = 2.5

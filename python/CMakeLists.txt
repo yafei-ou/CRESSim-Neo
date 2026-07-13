@@ -248,7 +248,7 @@ if(NOT CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "")
     )
 endif()
 
-add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+add_custom_target(${TARGET_NAME}_package_files ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CRESSIM_NEO_PYTHON_PACKAGE_INIT}"
@@ -259,6 +259,9 @@ add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${PROJECT_SOURCE_DIR}/assets/shaders"
         "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/shaders"
+    DEPENDS
+        "${CRESSIM_NEO_PYTHON_PACKAGE_INIT}"
+        ${CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES}
 )
 
 if(CRESSIM_NEO_HAS_ULTRASOUND AND TARGET cru_interface)
@@ -275,6 +278,10 @@ if(CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH AND EXISTS "${CRESSIM_NEO_PYTHON_D
             "${CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH}"
             "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/${CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME}"
     )
+endif()
+
+if(TARGET ${TARGET_NAME}_stubs)
+    add_dependencies(${TARGET_NAME}_stubs ${TARGET_NAME}_package_files)
 endif()
 
 if(NOT ENGINE_STATIC)
