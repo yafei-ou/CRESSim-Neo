@@ -5,11 +5,6 @@ from pathlib import Path
 
 import cressim_neo as neo
 
-try:
-    import torch  # noqa: F401
-except ImportError:
-    pass
-
 from ppo_common import PPOTrainConfig, run_inference_continuous, train_ppo_continuous
 
 

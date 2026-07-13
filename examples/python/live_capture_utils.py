@@ -10,6 +10,45 @@ def rgb_tensor_to_numpy(rgb_tensor) -> np.ndarray:
     return np.clip(rgb_tensor[..., :3].detach().cpu().numpy(), 0.0, 1.0)
 
 
+def create_rgb_grid_figure(
+    rgb_tensor,
+    *,
+    max_columns: int = 4,
+    title_prefix: str = "Env",
+) -> tuple["plt.Figure", np.ndarray]:
+    rgb_images = rgb_tensor_to_numpy(rgb_tensor)
+    env_count = rgb_images.shape[0]
+    column_count = min(max_columns, env_count)
+    row_count = int(np.ceil(env_count / column_count))
+    figure, axes = plt.subplots(
+        row_count,
+        column_count,
+        figsize=(4 * column_count, 4 * row_count),
+        squeeze=False,
+    )
+    image_artists: list[np.ndarray] = []
+    for env_index in range(env_count):
+        row_index = env_index // column_count
+        column_index = env_index % column_count
+        image_artist = axes[row_index, column_index].imshow(rgb_images[env_index], animated=True)
+        axes[row_index, column_index].set_title(f"{title_prefix} {env_index}")
+        axes[row_index, column_index].axis("off")
+        image_artists.append(image_artist)
+    for env_index in range(env_count, row_count * column_count):
+        row_index = env_index // column_count
+        column_index = env_index % column_count
+        axes[row_index, column_index].axis("off")
+    figure.tight_layout()
+    plt.show(block=False)
+    return figure, np.asarray(image_artists, dtype=object)
+
+
+def update_rgb_grid_figure(image_artists: np.ndarray, rgb_tensor) -> None:
+    rgb_images = rgb_tensor_to_numpy(rgb_tensor)
+    for env_index, image_artist in enumerate(image_artists.tolist()):
+        image_artist.set_data(rgb_images[env_index])
+
+
 class InteractiveImageCapture:
     def __init__(self, figure: "plt.Figure", script_path: str | Path, *, key: str = "c") -> None:
         self.figure = figure

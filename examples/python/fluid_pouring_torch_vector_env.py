@@ -2,36 +2,17 @@ from __future__ import annotations
 
 import cressim_neo as neo
 import torch
-from live_capture_utils import InteractiveImageCapture, rgb_tensor_to_numpy
+from live_capture_utils import (
+    InteractiveImageCapture,
+    create_rgb_grid_figure,
+    rgb_tensor_to_numpy,
+    update_rgb_grid_figure,
+)
 
 try:
     import matplotlib.pyplot as plt
-    import numpy as np
 except ImportError as exc:
-    raise RuntimeError("This example requires matplotlib and numpy to be installed.") from exc
-
-
-def create_live_figure(
-    rgb_tensor: "torch.Tensor",
-) -> tuple["plt.Figure", np.ndarray]:
-    rgb_images = rgb_tensor_to_numpy(rgb_tensor)
-    env_count = min(rgb_images.shape[0], 4)
-    figure, axes = plt.subplots(1, env_count, figsize=(4 * env_count, 4), squeeze=False)
-    image_artists: list[np.ndarray] = []
-    for env_index in range(env_count):
-        image_artist = axes[0, env_index].imshow(rgb_images[env_index], animated=True)
-        axes[0, env_index].set_title(f"Env {env_index}")
-        axes[0, env_index].axis("off")
-        image_artists.append(image_artist)
-    figure.tight_layout()
-    plt.show(block=False)
-    return figure, np.asarray(image_artists, dtype=object)
-
-
-def update_live_figure(image_artists: np.ndarray, rgb_tensor: "torch.Tensor") -> None:
-    rgb_images = rgb_tensor_to_numpy(rgb_tensor)
-    for env_index, image_artist in enumerate(image_artists.tolist()):
-        image_artist.set_data(rgb_images[env_index])
+    raise RuntimeError("This example requires matplotlib to be installed.") from exc
 
 
 def scripted_action(
@@ -76,7 +57,7 @@ def main() -> int:
     try:
         observation = env.reset()
         rgb = env.render()
-        figure, image_artists = create_live_figure(rgb)
+        figure, image_artists = create_rgb_grid_figure(rgb)
         capture = InteractiveImageCapture(figure, __file__)
         capture.update("reset", [("rgb", rgb_tensor_to_numpy(rgb), None)])
         print(f"reset observation shape: {tuple(observation.shape)}")
@@ -94,7 +75,7 @@ def main() -> int:
             print(f"  terminated: {terminated[:4]}")
             print(f"  truncated: {truncated[:4]}")
             if plt.fignum_exists(figure.number):
-                update_live_figure(image_artists, rgb)
+                update_rgb_grid_figure(image_artists, rgb)
                 capture.update(f"step_{step_index:04d}", [("rgb", rgb_tensor_to_numpy(rgb), None)])
                 plt.pause(0.05)
         while plt.fignum_exists(figure.number):
