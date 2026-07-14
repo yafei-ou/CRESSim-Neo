@@ -30,6 +30,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
 option(ENGINE_STATIC "Build the engine as a static library"  ON)
 option(CRESSIM_NEO_BUILD_VIEWER "Build viewer module and supporting executables" ON)
 option(CRESSIM_NEO_BUILD_EXAMPLES "Build standalone example executables" ON)
+option(CRESSIM_NEO_BUILD_DOCS "Enable documentation build targets" OFF)
 option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF)
 option(CRESSIM_NEO_ENABLE_CUDA_INTEROP "Enable optional CUDA interop support in GPU helpers" OFF)
 option(CRESSIM_NEO_ENABLE_ULTRASOUND "Enable optional CRESSim-Ultrasound integration" OFF)
@@ -188,6 +189,10 @@ endif()
 
 if(CRESSIM_NEO_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+if(CRESSIM_NEO_BUILD_DOCS)
+    add_subdirectory(docs)
 endif()
 
 if(BUILD_TESTING)
