@@ -59,6 +59,20 @@ target_link_libraries(${TARGET_NAME} PRIVATE
     ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS}
 )
 
+# An Arch Linux GCC 16 upgrade may resolve -lstdc++ to libstdc++.a.
+# Force the shared runtime so this Python extension remains compatible with
+# native modules such as PyTorch.
+if(UNIX AND NOT APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    execute_process(
+        COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libstdc++.so.6
+        OUTPUT_VARIABLE CRESSIM_NEO_SHARED_LIBSTDCXX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(EXISTS "${CRESSIM_NEO_SHARED_LIBSTDCXX}")
+        target_link_libraries(${TARGET_NAME} PRIVATE "${CRESSIM_NEO_SHARED_LIBSTDCXX}")
+    endif()
+endif()
+
 if(TARGET cressim_neo_viewer)
     target_link_libraries(${TARGET_NAME} PRIVATE cressim_neo_viewer)
     target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_PYTHON_HAS_VIEWER=1)
