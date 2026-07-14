@@ -7,25 +7,25 @@
 #include "engine/export.h"
 #include "engine/joint_layout_mapping.h"
 #include "engine/particle_layout_mapping.h"
-#include "engine/render_scene_uploader.h"
 #include "engine/rigid_layout_mapping.h"
 #include "engine/shared_buffer.h"
-#include "engine/ultrasound_system.h"
 #include "engine/world.h"
 #include "gpu/gpu_device.h"
 #include "graphics/render_resource_manager.h"
 #include "graphics/renderer.h"
 #include "physics/physics_solver.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace cressim::neo::engine
 {
 
-class CustomComputeService;
-class EntitySceneGpuState;
-class SharedBufferService;
+struct UltrasoundProbeComponent;
+struct UltrasoundRendererComponent;
+struct UltrasoundProbeLayout;
 
 struct RuntimeConfig
 {
@@ -50,6 +50,11 @@ class CRESSIM_NEO_ENGINE_API Runtime
 public:
     Runtime();
     ~Runtime();
+
+    Runtime(const Runtime &)            = delete;
+    Runtime &operator=(const Runtime &) = delete;
+    Runtime(Runtime &&)                 = delete;
+    Runtime &operator=(Runtime &&)      = delete;
 
     bool initialize(const RuntimeConfig &config = RuntimeConfig{});
     void shutdown();
@@ -146,30 +151,8 @@ private:
 
     std::shared_ptr<void> retainSharedBuffer(SharedBufferHandle handle) const;
 
-    bool mInitialized = false;
-    std::unique_ptr<gpu::GpuDevice> mGpuDevice;
-    std::unique_ptr<EntitySceneGpuState> mEntitySceneGpuState;
-    std::unique_ptr<RenderSceneUploader> mRenderSceneUploader;
-    std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
-    std::unique_ptr<UltrasoundSystem> mUltrasoundSystem;
-    std::unique_ptr<graphics::Renderer> mRenderer;
-    std::unique_ptr<CustomComputeService> mCustomComputeService;
-    std::unique_ptr<SharedBufferService> mSharedBufferService;
-    graphics::RenderFrameOptions mRenderFrameOptions{};
-    graphics::RenderStats mLastRenderStats{};
-    World mWorld;
-    graphics::RenderResourceManager mResources;
-    common::FrameContext mLastFrameContext{};
-    bool mDeviceFrameActive                                  = false;
-    bool mWorldUploaded                                      = false;
-    bool mPhysicsPosesNeedSync                               = false;
-    std::uint64_t mLastUploadedEntityPoseRevision            = 0u;
-    std::uint64_t mLastUploadedRenderableMetadataRevision    = 0u;
-    std::uint64_t mLastUploadedRenderableQueueInfoRevision   = 0u;
-    std::uint64_t mLastUploadedSoftBodyVertexBindingRevision = 0u;
-    std::uint64_t mLastUploadedCameraInputRevision           = 0u;
-    std::uint64_t mLastUploadedLightInputRevision            = 0u;
-    std::uint64_t mLastUploadedLocalLightSelectionRevision   = 0u;
+    struct Impl;
+    std::unique_ptr<Impl> mImpl;
 };
 
 } // namespace cressim::neo::engine
