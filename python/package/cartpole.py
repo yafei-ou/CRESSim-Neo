@@ -31,6 +31,20 @@ _CARTPOLE_RGB_SHADER = r"""
 Texture2DArray<float4> g_ColorTarget;
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ColorObservation);
 
+float toneMapReinhard(float value)
+{
+    return value / (1.0 + value);
+}
+
+float linearToSrgb(float value)
+{
+    if (value <= 0.0031308)
+    {
+        return value * 12.92;
+    }
+    return 1.055 * pow(abs(value), 1.0 / 2.4) - 0.055;
+}
+
 [numthreads(8, 8, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -48,7 +62,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const uint pixelIndex = envIndex * width * height + y * width + x;
-    const float4 color = saturate(g_ColorTarget.Load(int4(int(x), int(y), int(envIndex), 0)));
+    float4 color = g_ColorTarget.Load(int4(int(x), int(y), int(envIndex), 0));
+    color.rgb = max(color.rgb, 0.0);
+    color.r = linearToSrgb(toneMapReinhard(color.r));
+    color.g = linearToSrgb(toneMapReinhard(color.g));
+    color.b = linearToSrgb(toneMapReinhard(color.b));
+    color = saturate(color);
     CRESSIM_SB_STORE(g_ColorObservation, pixelIndex, color);
 }
 """
@@ -451,7 +470,7 @@ class CartpoleTorchVectorEnv:
         self._create_shared_buffers()
         self._populate_lookup_buffers()
         self._create_custom_passes()
-        self.reset()
+        self.runtime.end_frame(self._frame)
 
     def _initialize_rgb_observation_resources(self) -> None:
         resources = self.runtime.resources()
@@ -462,7 +481,7 @@ class CartpoleTorchVectorEnv:
         target_desc.array_size = self.env_count
         target_desc.color = True
         target_desc.depth = True
-        target_desc.color_format = neo.TextureFormat.RGBA8UnormSrgb
+        target_desc.color_format = neo.TextureFormat.RGBA16Float
         target_desc.layered_rendering = True
         target_desc.shader_readable = True
         target_desc.debug_name = "Cartpole.RgbObservationTarget"
@@ -569,7 +588,7 @@ class CartpoleTorchVectorEnv:
 
         camera_entity = world.create_entity(env_index)
         camera_transform = neo.TransformComponent()
-        camera_transform.world_transform.position = neo.Float3(0.0, 1.35, z_offset - 6.0)
+        camera_transform.world_transform.position = neo.Float3(0.0, 1.35, z_offset - 4.2)
         world.set_transform(camera_entity, camera_transform)
 
         camera = neo.CameraComponent()
@@ -598,7 +617,7 @@ class CartpoleTorchVectorEnv:
             base_entity = world.create_entity(env_index)
             base_transform = neo.TransformComponent()
             base_transform.world_transform.position = neo.Float3(0.0, 0.5, z_offset)
-            base_transform.world_transform.scale = neo.Float3(0.30, 0.30, 0.30)
+            base_transform.world_transform.scale = neo.Float3(5.00, 0.08, 0.08)
             world.set_transform(base_entity, base_transform)
             base_body = neo.RigidBodyComponent()
             base_body.body_type = neo.RigidBodyType.Static
@@ -607,7 +626,7 @@ class CartpoleTorchVectorEnv:
             world.set_rigid_body(base_entity, base_body)
             base_collider = neo.ColliderComponent()
             base_collider.shape_type = neo.ColliderShapeType.Box
-            base_collider.shape_params = neo.Float4(0.15, 0.15, 0.15, 0.0)
+            base_collider.shape_params = neo.Float4(2.50, 0.04, 0.04, 0.0)
             world.add_collider(base_entity, base_collider)
 
             cart_entity = world.create_entity(env_index)
@@ -1046,17 +1065,13 @@ class CartpoleTorchVectorEnv:
         )
         self.reset_state_tensor.index_copy_(0, env_indices, sampled_reset_state)
 
-        if not self.runtime.sync_shared_buffer_from_cuda(self.reset_mask_buffer):
-            raise RuntimeError("Failed to synchronize cartpole reset mask from CUDA.")
-        if not self.runtime.sync_shared_buffer_from_cuda(self.reset_state_buffer):
-            raise RuntimeError("Failed to synchronize cartpole reset state from CUDA.")
+        for handle in (self.reset_mask_buffer, self.reset_state_buffer):
+            if not self.runtime.sync_shared_buffer_from_cuda(handle):
+                raise RuntimeError(f"Failed to synchronize cartpole reset buffer {handle.id} from CUDA.")
         if not self.runtime.execute_custom_compute_pass(self._reset_pass):
             raise RuntimeError("Failed to execute cartpole reset pass.")
         self._sync_outputs_to_cuda()
         self.runtime.end_frame(self._frame)
-        self.reset_mask_tensor.zero_()
-        if not self.runtime.sync_shared_buffer_from_cuda(self.reset_mask_buffer):
-            raise RuntimeError("Failed to clear cartpole reset mask after reset.")
         return self.observation_tensor
 
     def step(self, action_tensor: "torch.Tensor") -> tuple["torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor"]:

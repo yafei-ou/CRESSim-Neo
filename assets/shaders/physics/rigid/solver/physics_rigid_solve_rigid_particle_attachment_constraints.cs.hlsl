@@ -31,6 +31,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const GpuRigidParticleAttachmentConstraint constraint =
         CRESSIM_SB_LOAD(g_RigidParticleAttachments, constraintIndex);
+    if (constraint.enabled == 0u)
+    {
+        CRESSIM_SB_STORE(g_RigidParticleAttachmentLambdas, constraintIndex, float4(0.0, 0.0, 0.0, 0.0));
+        return;
+    }
     if (constraint.particleIndex >= reserved1 || constraint.rigidBodyIndex >= rigidBodyCount)
     {
         return;

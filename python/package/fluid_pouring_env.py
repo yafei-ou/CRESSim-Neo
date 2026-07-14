@@ -170,6 +170,20 @@ _FLUID_POURING_RGB_SHADER = r"""
 Texture2DArray<float4> g_ColorTarget;
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ColorObservation);
 
+float toneMapReinhard(float value)
+{
+    return value / (1.0 + value);
+}
+
+float linearToSrgb(float value)
+{
+    if (value <= 0.0031308)
+    {
+        return value * 12.92;
+    }
+    return 1.055 * pow(abs(value), 1.0 / 2.4) - 0.055;
+}
+
 [numthreads(8, 8, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -187,7 +201,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const uint pixelIndex = envIndex * width * height + y * width + x;
-    const float4 color = saturate(g_ColorTarget.Load(int4(int(x), int(y), int(envIndex), 0)));
+    float4 color = g_ColorTarget.Load(int4(int(x), int(y), int(envIndex), 0));
+    color.rgb = max(color.rgb, 0.0);
+    color.r = linearToSrgb(toneMapReinhard(color.r));
+    color.g = linearToSrgb(toneMapReinhard(color.g));
+    color.b = linearToSrgb(toneMapReinhard(color.b));
+    color = saturate(color);
     CRESSIM_SB_STORE(g_ColorObservation, pixelIndex, color);
 }
 """
@@ -547,7 +566,7 @@ class FluidPouringTorchVectorEnv(TorchStagedVectorEnvBase):
         self._create_shared_buffers()
         self._create_custom_passes()
         self._populate_lookup_buffers()
-        self.reset()
+        self._end_frame(self.runtime, advance=False)
 
     def _initialize_rgb_observation_resources(self) -> None:
         resources = self.runtime.resources()
@@ -557,7 +576,7 @@ class FluidPouringTorchVectorEnv(TorchStagedVectorEnvBase):
         target_desc.array_size = self.env_count
         target_desc.color = True
         target_desc.depth = True
-        target_desc.color_format = neo.TextureFormat.RGBA8UnormSrgb
+        target_desc.color_format = neo.TextureFormat.RGBA16Float
         target_desc.layered_rendering = True
         target_desc.shader_readable = True
         target_desc.debug_name = "FluidPouring.RgbObservationTarget"
@@ -1260,8 +1279,6 @@ class FluidPouringTorchVectorEnv(TorchStagedVectorEnvBase):
             raise RuntimeError("Failed to execute fluid pouring output reset pass.")
         self._sync_outputs_to_cuda()
         self._end_frame(self.runtime, advance=False)
-        self.reset_mask_tensor.zero_()
-        self._sync_from_cuda(self.runtime, [self.reset_mask_buffer])
         return self.observation_tensor
 
     def step(

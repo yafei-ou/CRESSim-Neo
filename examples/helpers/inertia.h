@@ -42,6 +42,23 @@ inline Diligent::float3 computeApproximateCapsuleInverseInertia(float radius,
     return computeBoxInverseInertia({radius, halfHeight + radius, radius}, inverseMass);
 }
 
+inline Diligent::float3 computeCylinderInverseInertia(float radius, float halfHeight,
+                                                      float inverseMass)
+{
+    if (inverseMass <= 0.0f || radius <= 0.0f || halfHeight <= 0.0f)
+    {
+        return {0.0f, 0.0f, 0.0f};
+    }
+
+    const float mass = 1.0f / inverseMass;
+    const float height = 2.0f * halfHeight;
+    const float inertiaRadial = (mass * (3.0f * radius * radius + height * height)) / 12.0f;
+    const float inertiaAxial = 0.5f * mass * radius * radius;
+    return {inertiaRadial > 0.0f ? 1.0f / inertiaRadial : 0.0f,
+            inertiaAxial > 0.0f ? 1.0f / inertiaAxial : 0.0f,
+            inertiaRadial > 0.0f ? 1.0f / inertiaRadial : 0.0f};
+}
+
 inline Diligent::float3 computeInverseInertiaForShape(physics::ColliderShapeType shapeType,
                                                       const Diligent::float4 &shapeParams,
                                                       float inverseMass)

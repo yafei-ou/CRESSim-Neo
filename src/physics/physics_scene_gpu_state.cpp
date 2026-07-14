@@ -1033,23 +1033,26 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 mPersistentJoints.sliderDrivenJointIndicesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidParticleAttachments",
                                 sizeof(GpuRigidParticleAttachmentConstraint),
-                                newRigidParticleAttachmentCapacity, Diligent::BIND_SHADER_RESOURCE,
+                                newRigidParticleAttachmentCapacity,
+                                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRoutedCables.rigidParticleAttachmentsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.StrandRigidAttachments",
                                 sizeof(GpuStrandRigidAttachmentConstraint),
-                                newStrandRigidAttachmentCapacity, Diligent::BIND_SHADER_RESOURCE,
+                                newStrandRigidAttachmentCapacity,
+                                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRoutedCables.strandRigidAttachmentsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidDistanceConstraints",
                                 sizeof(GpuRigidDistanceConstraint),
-                                newRigidDistanceConstraintCapacity, Diligent::BIND_SHADER_RESOURCE,
+                                newRigidDistanceConstraintCapacity,
+                                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRoutedCables.rigidDistanceConstraintsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RoutedCableDescriptors",
                                 sizeof(GpuRoutedCableConstraint), newRoutedCableCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRoutedCables.descriptorsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RoutedCableRoutePoints",
                                 sizeof(GpuRoutedCableRoutePoint), newRoutedCableRoutePointCapacity,
@@ -3578,7 +3581,7 @@ bool PhysicsSceneGpuState::uploadRoutedCableTopology(
         const RoutedCableConstraint &src = constraints[i];
         descriptors[i]                   = GpuRoutedCableConstraint{
             src.routePointStart, src.routePointCount, src.targetLength, src.compliance,
-            src.tensionOnly,     src.reserved0,       src.reserved1,    src.reserved2};
+            src.tensionOnly,     src.enabled,         src.reserved1,    src.reserved2};
     }
 
     std::vector<GpuRoutedCableRoutePoint> gpuRoutePoints(routePoints.size());
@@ -3643,7 +3646,8 @@ bool PhysicsSceneGpuState::uploadRigidDistanceConstraints(
         const RigidDistanceConstraint &constraint = constraints[i];
         gpuConstraints[i]                         = GpuRigidDistanceConstraint{
             constraint.rigidBodyIndexA, constraint.rigidBodyIndexB, constraint.restDistance,
-            constraint.compliance,      constraint.localAnchorA,    constraint.localAnchorB,
+            constraint.compliance,      constraint.enabled,         constraint.reserved0,
+            constraint.localAnchorA,    constraint.localAnchorB,
         };
     }
 
@@ -3667,7 +3671,7 @@ bool PhysicsSceneGpuState::uploadRigidParticleAttachments(
         const RigidParticleAttachmentConstraint &constraint = constraints[i];
         gpuConstraints[i]                                   = GpuRigidParticleAttachmentConstraint{
             constraint.particleIndex, constraint.rigidBodyIndex, constraint.compliance,
-            constraint.reserved0,     constraint.localAnchor,
+            constraint.enabled,       constraint.localAnchor,
         };
     }
 
@@ -3692,7 +3696,7 @@ bool PhysicsSceneGpuState::uploadStrandRigidAttachments(
         gpuConstraints[i]                                 = GpuStrandRigidAttachmentConstraint{
             constraint.segmentIndex,       constraint.rigidBodyIndex,
             constraint.segmentT,           constraint.translationCompliance,
-            constraint.rotationCompliance, constraint.reserved0,
+            constraint.rotationCompliance, constraint.enabled,
             constraint.reserved1,          constraint.reserved2,
             constraint.localAnchor,        constraint.localRotation,
         };
@@ -4322,6 +4326,8 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.rigid.rigidParticleAttachmentsBuffer =
         mPersistentRoutedCables.rigidParticleAttachmentsBuffer;
     view.rigid.rigidParticleAttachmentCount = mRigidParticleAttachmentCount;
+    view.rigid.strandRigidAttachmentsBuffer = mPersistentRoutedCables.strandRigidAttachmentsBuffer;
+    view.rigid.strandRigidAttachmentCount   = mStrandRigidAttachmentCount;
     view.rigid.rigidDistanceConstraintsBuffer =
         mPersistentRoutedCables.rigidDistanceConstraintsBuffer;
     view.rigid.rigidDistanceConstraintCount   = mRigidDistanceConstraintCount;
@@ -4335,6 +4341,7 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.rigid.bindingGeneration              = mRigidBindingGeneration;
     view.rigid.constraintBindingGeneration =
         std::max({mLastUploadedRigidParticleAttachmentResolvedRevision,
+                  mLastUploadedStrandRigidAttachmentResolvedRevision,
                   mLastUploadedRigidDistanceConstraintResolvedRevision,
                   mLastUploadedRoutedCableResolvedRevision});
     view.joints.ballJointsBuffer               = mPersistentJoints.ballJointsBuffer;

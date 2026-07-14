@@ -58,6 +58,6 @@ extern
 
 # Python
 __pycache__
-/artifacts
+*.pt
 
 !**/fixtures/**/*.obj

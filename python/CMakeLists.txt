@@ -19,7 +19,11 @@ set(CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/package/camera_centering_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/ultrasound_centering_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/soft_body_env.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/fluid_env.py")
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/fluid_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/psm_builder.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/psm_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/psm_soft_grasp_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/psm_blood_suction_env.py")
 
 configure_file(
     "${CRESSIM_NEO_PYTHON_PACKAGE_INIT_TEMPLATE}"
@@ -42,6 +46,7 @@ if(NOT ENGINE_STATIC)
         cressim_neo_gpu
     )
 endif()
+set(CRESSIM_NEO_PYTHON_OPTIONAL_RUNTIME_TARGETS "")
 
 target_include_directories(${TARGET_NAME} PRIVATE
     ${PROJECT_SOURCE_DIR}
@@ -53,6 +58,28 @@ target_include_directories(${TARGET_NAME} PRIVATE
 target_link_libraries(${TARGET_NAME} PRIVATE
     ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS}
 )
+
+# An Arch Linux GCC 16 upgrade may resolve -lstdc++ to libstdc++.a.
+# Force the shared runtime so this Python extension remains compatible with
+# native modules such as PyTorch.
+if(UNIX AND NOT APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    execute_process(
+        COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libstdc++.so.6
+        OUTPUT_VARIABLE CRESSIM_NEO_SHARED_LIBSTDCXX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(EXISTS "${CRESSIM_NEO_SHARED_LIBSTDCXX}")
+        target_link_libraries(${TARGET_NAME} PRIVATE "${CRESSIM_NEO_SHARED_LIBSTDCXX}")
+    endif()
+endif()
+
+if(TARGET cressim_neo_viewer)
+    target_link_libraries(${TARGET_NAME} PRIVATE cressim_neo_viewer)
+    target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_PYTHON_HAS_VIEWER=1)
+    if(NOT ENGINE_STATIC)
+        list(APPEND CRESSIM_NEO_PYTHON_OPTIONAL_RUNTIME_TARGETS cressim_neo_viewer)
+    endif()
+endif()
 
 set_target_properties(${TARGET_NAME}
     PROPERTIES
@@ -126,7 +153,7 @@ install(
 
 if(NOT ENGINE_STATIC)
     install(
-        TARGETS ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS}
+        TARGETS ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS} ${CRESSIM_NEO_PYTHON_OPTIONAL_RUNTIME_TARGETS}
         LIBRARY DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
         RUNTIME DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
     )
@@ -235,7 +262,7 @@ if(NOT CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "")
     )
 endif()
 
-add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+add_custom_target(${TARGET_NAME}_package_files ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CRESSIM_NEO_PYTHON_PACKAGE_INIT}"
@@ -246,6 +273,9 @@ add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${PROJECT_SOURCE_DIR}/assets/shaders"
         "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/shaders"
+    DEPENDS
+        "${CRESSIM_NEO_PYTHON_PACKAGE_INIT}"
+        ${CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES}
 )
 
 if(CRESSIM_NEO_HAS_ULTRASOUND AND TARGET cru_interface)
@@ -262,6 +292,10 @@ if(CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH AND EXISTS "${CRESSIM_NEO_PYTHON_D
             "${CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH}"
             "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/${CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME}"
     )
+endif()
+
+if(TARGET ${TARGET_NAME}_stubs)
+    add_dependencies(${TARGET_NAME}_stubs ${TARGET_NAME}_package_files)
 endif()
 
 if(NOT ENGINE_STATIC)

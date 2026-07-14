@@ -56,6 +56,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_rigid_particle_attachment_retarget_viewer
+    SOURCE rigid_particle_attachment_retarget_viewer.cpp
+)
+
+add_cressim_example(
     NAME physics_soft_particles_multi_env
     SOURCE soft_particles_multi_env.cpp
 )

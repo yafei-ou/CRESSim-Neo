@@ -29,6 +29,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const GpuRoutedCableConstraint cable = CRESSIM_SB_LOAD(g_RoutedCableConstraints, cableIndex);
+    if (cable.enabled == 0u)
+    {
+        CRESSIM_SB_STORE(g_RoutedCableLambdas, cableIndex, 0.0);
+        return;
+    }
     if (cable.routePointCount < 2u || cable.routePointCount > kMaxCableRoutePoints)
     {
         return;

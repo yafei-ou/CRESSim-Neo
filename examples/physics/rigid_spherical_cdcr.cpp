@@ -68,6 +68,63 @@ struct DiskVisual
     Diligent::float3 center{};
 };
 
+cressim::neo::graphics::MeshResourceDesc translateMesh(
+    const cressim::neo::graphics::MeshResourceDesc &source, const Diligent::float3 &offset,
+    const std::string &debugName)
+{
+    cressim::neo::graphics::MeshResourceDesc translated = source;
+    translated.debugName                                = debugName;
+    for (auto &vertex : translated.vertices)
+    {
+        vertex.position += offset;
+    }
+    return translated;
+}
+
+void appendMesh(cressim::neo::graphics::MeshResourceDesc &target,
+                const cressim::neo::graphics::MeshResourceDesc &source)
+{
+    const std::uint32_t baseVertex = static_cast<std::uint32_t>(target.vertices.size());
+    target.vertices.insert(target.vertices.end(), source.vertices.begin(), source.vertices.end());
+    target.indices.reserve(target.indices.size() + source.indices.size());
+    for (const std::uint32_t index : source.indices)
+    {
+        target.indices.push_back(baseVertex + index);
+    }
+}
+
+cressim::neo::graphics::MeshResourceDesc makeDiskBackboneMesh(
+    float diskRadius, float diskHalfHeight, float diskSpacing, float backboneRadius,
+    bool includeUpperConnector, bool includeLowerConnector, const std::string &debugName)
+{
+    cressim::neo::graphics::MeshResourceDesc merged =
+        cressim::neo::examples::helpers::makeCylinderMesh(
+        diskRadius, diskHalfHeight, 48u, debugName);
+
+    const float connectorHalfSpan = 0.25f * diskSpacing - 0.5f * diskHalfHeight;
+    const float connectorHalfHeight = std::max(0.01f, connectorHalfSpan - backboneRadius);
+
+    if (includeUpperConnector)
+    {
+        appendMesh(merged, translateMesh(cressim::neo::examples::helpers::makeCapsuleMesh(
+                                             backboneRadius, connectorHalfHeight, 24u, 8u, 1u,
+                                             debugName + ".Upper"),
+                                         {0.0f, 0.25f * diskSpacing + 0.5f * diskHalfHeight, 0.0f},
+                                         debugName + ".UpperTranslated"));
+    }
+
+    if (includeLowerConnector)
+    {
+        appendMesh(merged, translateMesh(cressim::neo::examples::helpers::makeCapsuleMesh(
+                                             backboneRadius, connectorHalfHeight, 24u, 8u, 1u,
+                                             debugName + ".Lower"),
+                                         {0.0f, -0.25f * diskSpacing - 0.5f * diskHalfHeight, 0.0f},
+                                         debugName + ".LowerTranslated"));
+    }
+
+    return merged;
+}
+
 Diligent::QuaternionF quaternionFromBasis(const Diligent::float3 &x, const Diligent::float3 &y,
                                           const Diligent::float3 &z)
 {
@@ -292,6 +349,19 @@ void setVisibleRigidBody(Runtime &runtime, EntityId entityId, cressim::neo::grap
     world.addCollider(entityId, collider);
 }
 
+void setVisibleRigidBody(Runtime &runtime, EntityId entityId, cressim::neo::graphics::MeshHandle mesh,
+                         MaterialHandle material, const Diligent::float3 &position,
+                         const Diligent::float3 &scale, const RigidBodyComponent &body)
+{
+    auto &world = runtime.getWorld();
+    TransformComponent transform{};
+    transform.worldTransform.position = position;
+    transform.worldTransform.scale    = scale;
+    world.setTransform(entityId, transform);
+    world.setMeshRenderer(entityId, MeshRendererComponent{mesh, material, true});
+    world.setRigidBody(entityId, body);
+}
+
 cressim::neo::physics::RigidBodyId requireRigidBodyId(Runtime &runtime, EntityId entityId)
 {
     const auto *body = runtime.getWorld().physicsWorld().tryGetRigidBody(entityId);
@@ -373,8 +443,18 @@ int main(int argc, char **argv)
     auto &world     = runtime.getWorld();
     auto &resources = runtime.getResources();
 
-    const auto cubeMesh = resources.registerMesh(
-        cressim::neo::examples::helpers::makeCubeMesh(1.0f, "PhysicsRigidSphericalCdcr.DiskMesh"));
+    constexpr float kDiskRadius = 0.48f;
+    constexpr float kDiskHalfHeight = 0.06f;
+    constexpr float kBackboneRadius = 0.055f;
+    const auto topDiskMesh = resources.registerMesh(makeDiskBackboneMesh(
+        kDiskRadius, kDiskHalfHeight, sceneOptions.diskSpacing, kBackboneRadius, false, true,
+        "PhysicsRigidSphericalCdcr.TopDiskMesh"));
+    const auto middleDiskMesh = resources.registerMesh(makeDiskBackboneMesh(
+        kDiskRadius, kDiskHalfHeight, sceneOptions.diskSpacing, kBackboneRadius, true, true,
+        "PhysicsRigidSphericalCdcr.MiddleDiskMesh"));
+    const auto bottomDiskMesh = resources.registerMesh(makeDiskBackboneMesh(
+        kDiskRadius, kDiskHalfHeight, sceneOptions.diskSpacing, kBackboneRadius, true, false,
+        "PhysicsRigidSphericalCdcr.BottomDiskMesh"));
     const auto groundMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makePlaneMesh(12.0f, "PhysicsRigidSphericalCdcr.Ground"));
     const auto topMaterial =
@@ -388,7 +468,9 @@ int main(int argc, char **argv)
     TransformComponent cameraTransform{};
     cameraTransform.worldTransform.position = {0.0f, 0.8f, -9.4f};
     world.setTransform(cameraEntity, cameraTransform);
-    world.setCamera(cameraEntity, CameraComponent{});
+    CameraComponent camera{};
+    camera.clearColorValue = {0.87f, 0.91f, 0.97f, 1.0f};
+    world.setCamera(cameraEntity, camera);
 
     const auto lightEntity = world.createEntity();
     DirectionalLightComponent light{};
@@ -415,7 +497,6 @@ int main(int argc, char **argv)
     groundCollider.staticFriction = 0.9f;
     world.addCollider(groundEntity, groundCollider);
 
-    constexpr Diligent::float3 kDiskHalfExtents{0.48f, 0.06f, 0.48f};
     constexpr float kTopY = 4.75f;
 
     std::vector<DiskVisual> disks;
@@ -437,21 +518,15 @@ int main(int argc, char **argv)
             body.bodyType            = RigidBodyType::Dynamic;
             body.inverseMass         = 0.95f;
             body.inverseInertiaLocal =
-                cressim::neo::examples::helpers::computeBoxInverseInertia(kDiskHalfExtents,
-                                                                           body.inverseMass);
+                cressim::neo::examples::helpers::computeCylinderInverseInertia(
+                    kDiskRadius, kDiskHalfHeight, body.inverseMass);
         }
 
-        ColliderComponent collider{};
-        collider.shapeType      = ColliderShapeType::Box;
-        collider.shapeParams    = {kDiskHalfExtents.x, kDiskHalfExtents.y, kDiskHalfExtents.z, 0.0f};
-        collider.collisionLayer = kDiskLayer;
-        collider.collisionMask =
-            sceneOptions.selfCollideDisks ? (kDiskLayer | kGroundLayer) : kGroundLayer;
-        collider.friction       = 0.52f;
-        collider.staticFriction = 0.6f;
-
-        setVisibleRigidBody(runtime, entity, cubeMesh, i == 0u ? topMaterial : diskMaterial,
-                            {0.0f, y, 0.0f}, kDiskHalfExtents, body, collider);
+        const auto diskMesh = i == 0u ? topDiskMesh
+                                      : (i + 1u == sceneOptions.diskCount ? bottomDiskMesh
+                                                                           : middleDiskMesh);
+        setVisibleRigidBody(runtime, entity, diskMesh, i == 0u ? topMaterial : diskMaterial,
+                            {0.0f, y, 0.0f}, {1.0f, 1.0f, 1.0f}, body);
         disks.push_back(DiskVisual{entity, {0.0f, y, 0.0f}});
     }
 

@@ -81,7 +81,7 @@ struct GpuRoutedCableConstraint
     float targetLength            = 0.0f;
     float compliance              = 0.0f;
     std::uint32_t tensionOnly     = 1u;
-    std::uint32_t reserved0       = 0u;
+    std::uint32_t enabled         = 1u;
     std::uint32_t reserved1       = 0u;
     std::uint32_t reserved2       = 0u;
 };
@@ -109,6 +109,8 @@ struct GpuRigidDistanceConstraint
     std::uint32_t rigidBodyIndexB = 0u;
     float restDistance            = 0.0f;
     float compliance              = 0.0f;
+    std::uint32_t enabled         = 1u;
+    std::uint32_t reserved0       = 0u;
     Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
 };
@@ -118,7 +120,7 @@ struct GpuRigidParticleAttachmentConstraint
     std::uint32_t particleIndex  = 0u;
     std::uint32_t rigidBodyIndex = 0u;
     float compliance             = 0.0f;
-    std::uint32_t reserved0      = 0u;
+    std::uint32_t enabled        = 1u;
     Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
@@ -129,7 +131,7 @@ struct GpuStrandRigidAttachmentConstraint
     float segmentT               = 0.0f;
     float translationCompliance  = 0.0f;
     float rotationCompliance     = 0.0f;
-    std::uint32_t reserved0      = 0u;
+    std::uint32_t enabled        = 1u;
     std::uint32_t reserved1      = 0u;
     std::uint32_t reserved2      = 0u;
     Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
@@ -787,7 +789,7 @@ static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuRoutedCableConstraint) == 32u);
 static_assert(sizeof(GpuRoutedCableRoutePoint) == 32u);
 static_assert(sizeof(GpuRoutedCableDebugSegment) == 16u);
-static_assert(sizeof(GpuRigidDistanceConstraint) == 48u);
+static_assert(sizeof(GpuRigidDistanceConstraint) == 56u);
 static_assert(sizeof(GpuRigidParticleAttachmentConstraint) == 32u);
 static_assert(sizeof(GpuStrandRigidAttachmentConstraint) == 64u);
 static_assert(sizeof(GpuSphericalJoint) == 144u);

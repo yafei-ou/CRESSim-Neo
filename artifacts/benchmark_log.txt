@@ -1,0 +1,148 @@
+mode  task      env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  --------  ---------  ------  --------  ---------  ---------------
+step  cartpole  1          64      256       0.407753   627.831        
+step  cartpole  8          64      256       0.428959   4774.344       
+step  cartpole  32         64      256       0.475331   17234.314      
+step  cartpole  64         64      256       0.571171   28684.947      
+step  cartpole  128        64      256       0.599297   54677.424      
+step  cartpole  256        64      256       0.616203   106354.536     
+step  cartpole  512        64      256       0.630459   207899.241     
+step  cartpole  1024       64      256       0.654980   400231.988     
+step  cartpole  2048       64      256       0.703213   745561.028     
+step  cartpole  4096       64      256       0.858043   1222054.768    
+step  cartpole  8192       64      256       1.107499   1893592.922    
+
+
+mode  task            env_count  warmup  measured  elapsed_s   env_steps_per_s
+----  --------------  ---------  ------  --------  ----------  ---------------
+step  soft_body_push  1          64      256       3.706782    69.063         
+step  soft_body_push  8          64      256       3.896736    525.568        
+step  soft_body_push  32         64      256       4.265829    1920.377       
+step  soft_body_push  64         64      256       4.589786    3569.666       
+step  soft_body_push  128        64      256       5.602040    5849.297       
+step  soft_body_push  256        64      256       8.385720    7815.191       
+step  soft_body_push  512        64      256       14.285213   9175.362       
+step  soft_body_push  1024       64      256       35.886695   7304.769       
+
+
+mode  task        env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  ----------  ---------  ------  --------  ---------  ---------------
+step  fluid_pour  1          64      256       1.777146   144.051        
+step  fluid_pour  8          64      256       1.969511   1039.852       
+step  fluid_pour  32         64      256       2.422466   3381.678       
+step  fluid_pour  64         64      256       2.956758   5541.204       
+step  fluid_pour  128        64      256       5.257622   6232.476       
+step  fluid_pour  256        64      256       13.664438  4796.099       
+
+
+mode  task           env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  -------------  ---------  ------  --------  ---------  ---------------
+step  target_center  1          64      256       0.126757   2019.615       
+step  target_center  8          64      256       0.133907   15294.221      
+step  target_center  32         64      256       0.235270   34819.578      
+step  target_center  64         64      256       0.580980   28200.649      
+step  target_center  128        64      256       1.135560   28856.249      
+step  target_center  256        64      256       3.069945   21347.614      
+
+
+mode  task            env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  --------------  ---------  ------  --------  ---------  ---------------
+step  tissue_retract  1          64      256       4.185751   61.160         
+step  tissue_retract  8          64      256       4.466493   458.525        
+step  tissue_retract  32         64      256       4.847808   1689.836       
+step  tissue_retract  64         64      256       5.146486   3183.532       
+step  tissue_retract  128        64      256       5.846208   5605.001       
+step  tissue_retract  256        64      256       7.411845   8842.063       
+
+
+mode  task           env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  -------------  ---------  ------  --------  ---------  ---------------
+step  blood_suction  1          64      256       9.607777   26.645         
+step  blood_suction  8          64      256       12.002132  170.636        
+step  blood_suction  32         64      256       16.336650  501.449        
+step  blood_suction  64         64      256       23.312029  702.813        
+step  blood_suction  128        64      256       39.555007  828.416        
+step  blood_suction  256        64      256       78.885152  830.777        
+
+
+mode  task             env_count  warmup  measured  elapsed_s   env_steps_per_s
+----  ---------------  ---------  ------  --------  ----------  ---------------
+step  ultrasound_scan  1          64      256       3.951479    64.786         
+step  ultrasound_scan  8          64      256       11.318032   180.950        
+step  ultrasound_scan  32         64      256       39.054694   209.757        
+step  ultrasound_scan  64         64      256       100.870602  162.426        
+
+
+
+mode  task      env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  --------  ---------  ------  --------  ---------  ---------------
+ppo   cartpole  1          5       10        2.379298   537.974        
+ppo   cartpole  8          5       10        2.571591   3981.971       
+ppo   cartpole  32         5       10        2.911698   14067.395      
+ppo   cartpole  64         5       10        3.374032   24279.555      
+ppo   cartpole  128        5       10        3.616334   45305.549      
+ppo   cartpole  256        5       10        3.874150   84581.140      
+ppo   cartpole  512        5       10        4.605700   142293.254     
+ppo   cartpole  1024       5       10        6.060850   216260.110     
+ppo   cartpole  2048       5       10        8.431659   310904.413     
+ppo   cartpole  4096       5       10        13.841962  378767.112     
+ppo   cartpole  8192       5       10        24.226837  432815.884     
+
+
+mode  task            env_count  warmup  measured  elapsed_s   env_steps_per_s
+----  --------------  ---------  ------  --------  ----------  ---------------
+ppo   soft_body_push  1          5       10        18.581850   68.884         
+ppo   soft_body_push  8          5       10        19.792689   517.363        
+ppo   soft_body_push  32         5       10        21.900681   1870.261       
+ppo   soft_body_push  64         5       10        23.549114   3478.687       
+ppo   soft_body_push  128        5       10        28.995887   5650.457       
+ppo   soft_body_push  256        5       10        43.169567   7590.532       
+ppo   soft_body_push  512        5       10        74.882689   8751.822       
+ppo   soft_body_push  1024       5       10        184.167630  7116.994       
+
+
+mode  task        env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  ----------  ---------  ------  --------  ---------  ---------------
+ppo   fluid_pour  1          5       10        9.406400   136.078        
+ppo   fluid_pour  8          5       10        10.593092  966.668        
+ppo   fluid_pour  32         5       10        12.995465  3151.869       
+ppo   fluid_pour  64         5       10        16.554234  4948.583       
+ppo   fluid_pour  128        5       10        29.210435  5608.955       
+ppo   fluid_pour  256        5       10        75.092530  4363.683       
+
+
+mode  task           env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  -------------  ---------  ------  --------  ---------  ---------------
+ppo   target_center  1          5       10        1.025661   1247.976       
+ppo   target_center  8          5       10        1.336899   7659.516       
+ppo   target_center  32         5       10        2.802251   14616.819      
+ppo   target_center  64         5       10        6.080751   13472.021      
+ppo   target_center  128        5       10        13.038405  12565.955      
+ppo   target_center  256        5       10        36.346480  9015.453       
+
+
+mode  task            env_count  warmup  measured  elapsed_s  env_steps_per_s
+----  --------------  ---------  ------  --------  ---------  ---------------
+ppo   tissue_retract  1          5       10        21.582646  59.307         
+ppo   tissue_retract  8          5       10        23.167868  441.991        
+ppo   tissue_retract  32         5       10        25.300095  1618.966       
+ppo   tissue_retract  64         5       10        27.349422  2995.310       
+ppo   tissue_retract  128        5       10        31.369638  5222.885       
+ppo   tissue_retract  256        5       10        39.224709  8353.918       
+
+
+mode  task           env_count  warmup  measured  elapsed_s   env_steps_per_s
+----  -------------  ---------  ------  --------  ----------  ---------------
+ppo   blood_suction  1          5       10        47.518248   26.937         
+ppo   blood_suction  8          5       10        59.833628   171.141        
+ppo   blood_suction  32         5       10        83.175873   492.450        
+ppo   blood_suction  64         5       10        117.565368  696.804        
+ppo   blood_suction  128        5       10        200.641241  816.582        
+ppo   blood_suction  256        5       10        395.381019  828.770        
+
+mode  task             env_count  warmup  measured  elapsed_s   env_steps_per_s
+----  ---------------  ---------  ------  --------  ----------  ---------------
+ppo   ultrasound_scan  1          5       10        20.232947   63.263         
+ppo   ultrasound_scan  8          5       10        63.094454   162.296        
+ppo   ultrasound_scan  32         5       10        271.147559  151.062        
+ppo   ultrasound_scan  64         5       10        781.913127  104.769        

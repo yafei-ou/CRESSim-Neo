@@ -5871,11 +5871,6 @@ void PhysicsWorld::rebuildResolvedRigidParticleAttachments() noexcept
     for (const AuthoredRigidParticleAttachmentConstraintState &constraint :
          mRigidParticleAttachmentConstraintSnapshot)
     {
-        if (!constraint.enabled)
-        {
-            continue;
-        }
-
         const auto particleIndex = resolveParticleReference(constraint.particle);
         const auto rigidBodyIt   = mEntityToRigidBodyIndex.find(constraint.rigidBodyEntityId);
         if (!particleIndex.has_value() || rigidBodyIt == mEntityToRigidBodyIndex.end() ||
@@ -5895,7 +5890,7 @@ void PhysicsWorld::rebuildResolvedRigidParticleAttachments() noexcept
             *particleIndex,
             rigidBodyIt->second,
             constraint.compliance,
-            0u,
+            constraint.enabled ? 1u : 0u,
             Diligent::float4{constraint.localAnchor.x, constraint.localAnchor.y,
                              constraint.localAnchor.z, 0.0f},
         });
@@ -5921,11 +5916,6 @@ void PhysicsWorld::rebuildResolvedStrandRigidAttachments() noexcept
     for (const AuthoredStrandRigidAttachmentConstraintState &constraint :
          mStrandRigidAttachmentConstraintSnapshot)
     {
-        if (!constraint.enabled)
-        {
-            continue;
-        }
-
         const StrandState *strand = tryGetStrand(constraint.strandEntityId);
         const auto rigidBodyIt    = mEntityToRigidBodyIndex.find(constraint.rigidBodyEntityId);
         if (strand == nullptr || rigidBodyIt == mEntityToRigidBodyIndex.end() ||
@@ -5957,7 +5947,7 @@ void PhysicsWorld::rebuildResolvedStrandRigidAttachments() noexcept
             std::clamp(constraint.segmentT, 0.0f, 1.0f),
             constraint.translationCompliance,
             constraint.rotationCompliance,
-            0u,
+            constraint.enabled ? 1u : 0u,
             0u,
             0u,
             Diligent::float4{constraint.localAnchor.x, constraint.localAnchor.y,
@@ -5998,11 +5988,6 @@ void PhysicsWorld::rebuildResolvedRigidDistanceConstraints() noexcept
 
     for (const AuthoredRigidDistanceConstraintState &constraint : mRigidDistanceConstraintSnapshot)
     {
-        if (!constraint.enabled)
-        {
-            continue;
-        }
-
         const auto rigidBodyIndexA = mEntityToRigidBodyIndex.find(constraint.entityA);
         const auto rigidBodyIndexB = mEntityToRigidBodyIndex.find(constraint.entityB);
         if (rigidBodyIndexA == mEntityToRigidBodyIndex.end() ||
@@ -6026,6 +6011,8 @@ void PhysicsWorld::rebuildResolvedRigidDistanceConstraints() noexcept
             rigidBodyIndexB->second,
             constraint.restDistance,
             constraint.compliance,
+            constraint.enabled ? 1u : 0u,
+            0u,
             Diligent::float4{constraint.localAnchorA.x, constraint.localAnchorA.y,
                              constraint.localAnchorA.z, 0.0f},
             Diligent::float4{constraint.localAnchorB.x, constraint.localAnchorB.y,
@@ -6052,7 +6039,7 @@ void PhysicsWorld::rebuildResolvedRoutedCables() noexcept
 
     for (const AuthoredRoutedCableConstraintState &constraint : mRoutedCableConstraintSnapshot)
     {
-        if (!constraint.enabled || constraint.routePoints.size() < 2u)
+        if (constraint.routePoints.size() < 2u)
         {
             continue;
         }
@@ -6104,8 +6091,8 @@ void PhysicsWorld::rebuildResolvedRoutedCables() noexcept
 
         rebuiltConstraints.push_back(RoutedCableConstraint{
             routePointStart, static_cast<std::uint32_t>(constraint.routePoints.size()),
-            constraint.targetLength, constraint.compliance, constraint.tensionOnly ? 1u : 0u, 0u,
-            0u});
+            constraint.targetLength, constraint.compliance, constraint.tensionOnly ? 1u : 0u,
+            constraint.enabled ? 1u : 0u, 0u, 0u});
     }
 
     const bool constraintsChanged =

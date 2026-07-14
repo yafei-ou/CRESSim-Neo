@@ -60,6 +60,18 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const GpuStrandRigidAttachmentConstraint constraint =
         CRESSIM_SB_LOAD(g_StrandRigidAttachments, constraintIndex);
+    if (constraint.enabled == 0u)
+    {
+        GpuStrandRigidAttachmentLambda lambdaState;
+        lambdaState.translation = float4(0.0, 0.0, 0.0, 0.0);
+        lambdaState.rotation = float4(0.0, 0.0, 0.0, 0.0);
+        CRESSIM_SB_STORE(g_StrandRigidAttachmentLambdas, constraintIndex, lambdaState);
+
+        GpuStrandRigidAttachmentCorrection correction;
+        correction.segmentRotation = float4(0.0, 0.0, 0.0, 0.0);
+        CRESSIM_SB_STORE(g_StrandRigidAttachmentCorrections, constraintIndex, correction);
+        return;
+    }
     if (constraint.rigidBodyIndex >= rigidBodyCount)
     {
         return;

@@ -11,6 +11,9 @@
 #include "gpu/gpu_types.h"
 #include "graphics/render_resource_manager.h"
 #include "physics/physics_types.h"
+#ifdef CRESSIM_NEO_PYTHON_HAS_VIEWER
+#include "viewer/debug_viewer_app.h"
+#endif
 
 #include <pybind11/functional.h>
 #include <pybind11/operators.h>
@@ -209,6 +212,12 @@ using cressim::neo::physics::SoftBodyTetGenSource;
 using cressim::neo::physics::SoftBodyTetMeshSource;
 using cressim::neo::physics::SphericalJointState;
 using cressim::neo::physics::StrandMaterialDesc;
+#ifdef CRESSIM_NEO_PYTHON_HAS_VIEWER
+using cressim::neo::viewer::DebugViewerApp;
+using cressim::neo::viewer::DebugViewerAppDesc;
+using cressim::neo::viewer::DebugViewerCallbacks;
+using cressim::neo::viewer::DebugViewerCameraBinding;
+#endif
 
 py::object tryGetRenderTargetReadback(Runtime &runtime,
                                       const GpuRenderTargetReadbackRequest request)
@@ -986,6 +995,118 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("scene_layout", &RuntimeConfig::sceneLayout)
         .def_readwrite("renderer_desc", &RuntimeConfig::rendererDesc)
         .def_readwrite("physics_desc", &RuntimeConfig::physicsDesc);
+
+#ifdef CRESSIM_NEO_PYTHON_HAS_VIEWER
+    py::class_<DebugViewerAppDesc>(m, "DebugViewerAppDesc")
+        .def(py::init<>())
+        .def_readwrite("window_title", &DebugViewerAppDesc::windowTitle)
+        .def_readwrite("width", &DebugViewerAppDesc::width)
+        .def_readwrite("height", &DebugViewerAppDesc::height)
+        .def_readwrite("window_enabled", &DebugViewerAppDesc::windowEnabled)
+        .def_readwrite("window_visible", &DebugViewerAppDesc::windowVisible)
+        .def_readwrite("start_fullscreen", &DebugViewerAppDesc::startFullscreen)
+        .def_readwrite("start_fullscreen_windowed", &DebugViewerAppDesc::startFullscreenWindowed)
+        .def_readwrite("v_sync", &DebugViewerAppDesc::vSync)
+        .def_readwrite("input_sensitivity", &DebugViewerAppDesc::inputSensitivity)
+        .def_readwrite("move_speed", &DebugViewerAppDesc::moveSpeed)
+        .def_readwrite("speed_boost_scale", &DebugViewerAppDesc::speedBoostScale)
+        .def_readwrite("speed_slow_scale", &DebugViewerAppDesc::speedSlowScale)
+        .def_readwrite("wheel_speed_scale", &DebugViewerAppDesc::wheelSpeedScale)
+        .def_readwrite("min_move_speed", &DebugViewerAppDesc::minMoveSpeed)
+        .def_readwrite("max_move_speed", &DebugViewerAppDesc::maxMoveSpeed)
+        .def_readwrite("fixed_delta_seconds", &DebugViewerAppDesc::fixedDeltaSeconds)
+        .def_readwrite("use_fixed_timestep", &DebugViewerAppDesc::useFixedTimestep)
+        .def_readwrite("step_simulation", &DebugViewerAppDesc::stepSimulation)
+        .def_readwrite("max_frames", &DebugViewerAppDesc::maxFrames)
+        .def_readwrite("show_stats", &DebugViewerAppDesc::showStats)
+        .def_readwrite("enable_debug_particles", &DebugViewerAppDesc::enableDebugParticles)
+        .def_readwrite("stats_interval_frames", &DebugViewerAppDesc::statsIntervalFrames);
+
+    py::class_<DebugViewerCameraBinding>(m, "DebugViewerCameraBinding")
+        .def(py::init<>())
+        .def_readwrite("camera_entity", &DebugViewerCameraBinding::cameraEntity)
+        .def_readwrite("move_speed", &DebugViewerCameraBinding::moveSpeed)
+        .def_readwrite("input_sensitivity", &DebugViewerCameraBinding::inputSensitivity)
+        .def_readwrite("speed_boost_scale", &DebugViewerCameraBinding::speedBoostScale)
+        .def_readwrite("speed_slow_scale", &DebugViewerCameraBinding::speedSlowScale);
+
+    py::class_<DebugViewerCallbacks>(m, "DebugViewerCallbacks", py::dynamic_attr())
+        .def(py::init<>())
+        .def_property(
+            "before_tick",
+            [](py::object self) -> py::object
+            {
+                return py::hasattr(self, "_before_tick_py") ? self.attr("_before_tick_py")
+                                                            : py::none();
+            },
+            [](py::object self, py::object value)
+            {
+                DebugViewerCallbacks &callbacks = self.cast<DebugViewerCallbacks &>();
+                if (value.is_none())
+                {
+                    callbacks.beforeTick         = {};
+                    self.attr("_before_tick_py") = py::none();
+                    return;
+                }
+
+                py::function fn              = value.cast<py::function>();
+                self.attr("_before_tick_py") = fn;
+                callbacks.beforeTick         = [fn](const FrameContext &frame, Runtime &runtime)
+                {
+                    py::gil_scoped_acquire gil;
+                    fn(frame, py::cast(&runtime, py::return_value_policy::reference));
+                };
+            })
+        .def_property(
+            "after_tick",
+            [](py::object self) -> py::object
+            {
+                return py::hasattr(self, "_after_tick_py") ? self.attr("_after_tick_py")
+                                                           : py::none();
+            },
+            [](py::object self, py::object value)
+            {
+                DebugViewerCallbacks &callbacks = self.cast<DebugViewerCallbacks &>();
+                if (value.is_none())
+                {
+                    callbacks.afterTick         = {};
+                    self.attr("_after_tick_py") = py::none();
+                    return;
+                }
+
+                py::function fn             = value.cast<py::function>();
+                self.attr("_after_tick_py") = fn;
+                callbacks.afterTick         = [fn](const FrameContext &frame, Runtime &runtime)
+                {
+                    py::gil_scoped_acquire gil;
+                    fn(frame, py::cast(&runtime, py::return_value_policy::reference));
+                };
+            });
+
+    py::class_<DebugViewerApp>(m, "DebugViewerApp")
+        .def(py::init<>())
+        .def("initialize", [](DebugViewerApp &viewer, const DebugViewerAppDesc &desc,
+                              RuntimeConfig &config) { return viewer.initialize(desc, config); })
+        .def(
+            "run",
+            [](DebugViewerApp &viewer, py::object runtime_obj, py::object binding_obj,
+               py::object callbacks_obj) -> bool
+            {
+                Runtime &runtime = runtime_obj.cast<Runtime &>();
+                const DebugViewerCameraBinding &binding =
+                    binding_obj.cast<const DebugViewerCameraBinding &>();
+                if (callbacks_obj.is_none())
+                {
+                    return viewer.run(runtime, binding);
+                }
+                const DebugViewerCallbacks &callbacks =
+                    callbacks_obj.cast<const DebugViewerCallbacks &>();
+                return viewer.run(runtime, binding, callbacks);
+            },
+            py::arg("runtime"), py::arg("binding"), py::arg("callbacks") = py::none())
+        .def("request_exit", &DebugViewerApp::requestExit)
+        .def("shutdown", &DebugViewerApp::shutdown);
+#endif
 
     py::class_<RuntimeInfo>(m, "RuntimeInfo")
         .def(py::init<>())

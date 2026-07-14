@@ -224,6 +224,13 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE engine
+    NAME runtime_constraint_gpu_toggle
+    SOURCE runtime_constraint_gpu_toggle.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
     NAME runtime_particle_layout_mapping
     SOURCE runtime_particle_layout_mapping.cpp
     LIBS cressim_neo_engine
