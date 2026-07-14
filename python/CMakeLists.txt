@@ -105,14 +105,19 @@ endif()
 
 execute_process(
     COMMAND ${Python3_EXECUTABLE} -c
-        "import sysconfig; print(sysconfig.get_path('platlib'))"
-    OUTPUT_VARIABLE CRESSIM_NEO_PYTHON_INSTALL_DIR
+        "import sysconfig; print(sysconfig.get_path('platlib', vars={'base': '', 'platbase': ''}).lstrip('/\\\\'))"
+    OUTPUT_VARIABLE CRESSIM_NEO_PYTHON_DEFAULT_INSTALL_DIR
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-if(CRESSIM_NEO_PYTHON_INSTALL_DIR STREQUAL "")
-    set(CRESSIM_NEO_PYTHON_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}")
+if(CRESSIM_NEO_PYTHON_DEFAULT_INSTALL_DIR STREQUAL "")
+    set(CRESSIM_NEO_PYTHON_DEFAULT_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}")
 endif()
+
+set(CRESSIM_NEO_PYTHON_INSTALL_DIR
+    "${CRESSIM_NEO_PYTHON_DEFAULT_INSTALL_DIR}"
+    CACHE PATH "Python package install directory (relative to CMAKE_INSTALL_PREFIX or absolute)"
+)
 
 set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME "")
 set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH "")
