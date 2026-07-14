@@ -31,8 +31,13 @@ Configure the standalone documentation build from the repository root. Using
 dependencies and does not compile the engine, examples, or tests:
 
 ```bash
-cmake -S docs -B build/docs-site
+cmake -S docs -B build/docs-site \
+  -DCRESSIM_NEO_PYTHON_PACKAGE_DIR="$PWD/build/linux-debug/bin"
 ```
+
+The package directory must contain a `cressim_neo` package built for the active
+system Python. Sphinx imports it to obtain native extension signatures and
+docstrings.
 
 Build the complete HTML website:
 
@@ -45,6 +50,8 @@ the public headers under `include/` and writes XML inside the selected CMake
 build directory. Sphinx and Breathe then consume that XML. Doxygen does not
 produce a separate HTML website. The generated C++ reference is organized by
 the `common`, `engine`, `physics`, `gpu`, `graphics`, and `viewer` namespaces.
+The Python API reference is generated in the same site from the compiled
+package.
 
 The generated site starts at `build/docs-site/html/index.html`. All generated
 documentation remains under the ignored `build/` directory and must not be

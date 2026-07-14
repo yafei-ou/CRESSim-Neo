@@ -6,6 +6,21 @@ endif()
 find_package(Doxygen REQUIRED)
 find_program(SPHINX_BUILD_EXECUTABLE NAMES sphinx-build REQUIRED)
 
+set(CRESSIM_NEO_PYTHON_PACKAGE_DIR "" CACHE PATH
+    "Directory containing the built cressim_neo Python package")
+if(NOT CRESSIM_NEO_PYTHON_PACKAGE_DIR)
+    message(FATAL_ERROR
+        "CRESSIM_NEO_PYTHON_PACKAGE_DIR is required and must name the directory "
+        "containing the built cressim_neo package")
+endif()
+get_filename_component(CRESSIM_NEO_PYTHON_PACKAGE_DIR
+    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}" ABSOLUTE)
+if(NOT EXISTS "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/cressim_neo/__init__.py")
+    message(FATAL_ERROR
+        "CRESSIM_NEO_PYTHON_PACKAGE_DIR must contain cressim_neo/__init__.py: "
+        "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}")
+endif()
+
 get_filename_component(CRESSIM_NEO_REPOSITORY_DIR
     "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 set(CRESSIM_NEO_DOCS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
@@ -42,6 +57,7 @@ add_custom_target(docs-html
     COMMAND
         "${CMAKE_COMMAND}" -E env
         "CRESSIM_NEO_DOXYGEN_XML=${CRESSIM_NEO_DOCS_DOXYGEN_XML_DIR}"
+        "CRESSIM_NEO_PYTHON_PACKAGE_DIR=${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
         "${SPHINX_BUILD_EXECUTABLE}"
         --fail-on-warning
         --keep-going
