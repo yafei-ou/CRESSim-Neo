@@ -50,8 +50,7 @@ std::uint32_t buildUniqueQueueFamilyIndices(const Diligent::IDeviceContext *firs
 
 bool uploadRenderScene(cressim::neo::engine::RenderSceneUploader &uploader,
                        cressim::neo::engine::World &world,
-                       const cressim::neo::graphics::RenderResourceManager &resources,
-                       cressim::neo::gpu::GpuDevice &device)
+                       const cressim::neo::graphics::RenderResourceManager &resources)
 {
     world.ensureRenderStateUpToDate(resources);
     if (!uploader.uploadEntityPoseData(world.renderObjectPositions(),
@@ -62,8 +61,7 @@ bool uploadRenderScene(cressim::neo::engine::RenderSceneUploader &uploader,
         !uploader.uploadSoftBodyVertexBindings(world.softBodyVertexBindings()) ||
         !uploader.uploadCameraInputs(world.cameraInputs()) ||
         !uploader.uploadLightInputs(world.lightInputs()) ||
-        !uploader.uploadLocalLightSelections(world.localLightSelections()) ||
-        !device.waitForPhysicsOnGraphics())
+        !uploader.uploadLocalLightSelections(world.localLightSelections()))
     {
         return false;
     }
@@ -259,7 +257,7 @@ int main()
                                       resources.registerMaterial(softSurfaceMaterial), true});
 
     physics::PhysicsSceneGpuState physicsSceneState;
-    if (!uploadRenderScene(uploader, world, resources, *device) ||
+    if (!uploadRenderScene(uploader, world, resources) ||
         !uploadPhysicsScene(physicsSceneState, world, *device) ||
         !device->waitForPhysicsOnGraphics())
     {

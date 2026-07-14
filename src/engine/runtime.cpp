@@ -43,7 +43,7 @@ void ensureDeviceFrameActive(gpu::GpuDevice *device, const common::FrameContext 
     inOutDeviceFrameActive = true;
 }
 
-bool syncGpuScene(World &world, gpu::GpuDevice *device, EntitySceneGpuState *entitySceneState,
+bool syncGpuScene(World &world, EntitySceneGpuState *entitySceneState,
                   RenderSceneUploader *uploader, physics::PhysicsSolver *physicsSolver,
                   bool usePhysicsPoses, std::uint64_t &lastEntityPoseRevision,
                   std::uint64_t &lastRenderableMetadataRevision,
@@ -118,7 +118,7 @@ bool syncGpuScene(World &world, gpu::GpuDevice *device, EntitySceneGpuState *ent
         gpuSceneReady = uploader->uploadLocalLightSelections(world.localLightSelections());
     }
 
-    if (gpuSceneReady && (!device || device->waitForPhysicsOnGraphics()))
+    if (gpuSceneReady)
     {
         world.setGpuEntityScene(
             uploader->sceneView(entitySceneState->poseView(), entitySceneState->entityCount()));
@@ -300,7 +300,7 @@ void Runtime::shutdown()
     mLastFrameContext                          = {};
     mDeviceFrameActive                         = false;
     mWorldUploaded                             = false;
-    mHasPhysicsState                           = false;
+    mPhysicsPosesNeedSync                      = false;
     mInitialized                               = false;
     mLastUploadedEntityPoseRevision            = 0u;
     mLastUploadedRenderableMetadataRevision    = 0u;
@@ -326,8 +326,8 @@ void Runtime::prepare()
             CRESSIM_LOG_WARNING("Runtime: ultrasound prepare failed.");
         }
     }
-    mWorldUploaded   = false;
-    mHasPhysicsState = false;
+    mWorldUploaded        = false;
+    mPhysicsPosesNeedSync = false;
 }
 
 bool Runtime::uploadWorld()
@@ -345,9 +345,9 @@ bool Runtime::uploadWorld()
     }
 
     if (uploaded && mEntitySceneGpuState && mRenderSceneUploader &&
-        !syncGpuScene(mWorld, mGpuDevice.get(), mEntitySceneGpuState.get(),
-                      mRenderSceneUploader.get(), mPhysicsSolver.get(), false,
-                      mLastUploadedEntityPoseRevision, mLastUploadedRenderableMetadataRevision,
+        !syncGpuScene(mWorld, mEntitySceneGpuState.get(), mRenderSceneUploader.get(),
+                      mPhysicsSolver.get(), false, mLastUploadedEntityPoseRevision,
+                      mLastUploadedRenderableMetadataRevision,
                       mLastUploadedRenderableQueueInfoRevision,
                       mLastUploadedSoftBodyVertexBindingRevision, mLastUploadedCameraInputRevision,
                       mLastUploadedLightInputRevision, mLastUploadedLocalLightSelectionRevision))
@@ -355,8 +355,8 @@ bool Runtime::uploadWorld()
         uploaded = false;
     }
 
-    mWorldUploaded   = uploaded;
-    mHasPhysicsState = false;
+    mWorldUploaded        = uploaded;
+    mPhysicsPosesNeedSync = false;
     return uploaded;
 }
 
@@ -388,7 +388,7 @@ bool Runtime::stepPhysics(const common::FrameContext &frameContext)
     }
     if (physicsStepSucceeded)
     {
-        mHasPhysicsState = true;
+        mPhysicsPosesNeedSync = true;
     }
     return physicsStepSucceeded;
 }
@@ -400,12 +400,15 @@ bool Runtime::stepSimulationSensors(const common::FrameContext &frameContext)
         return false;
     }
 
-    (void)syncGpuScene(mWorld, mGpuDevice.get(), mEntitySceneGpuState.get(),
-                       mRenderSceneUploader.get(), mPhysicsSolver.get(), mHasPhysicsState,
-                       mLastUploadedEntityPoseRevision, mLastUploadedRenderableMetadataRevision,
-                       mLastUploadedRenderableQueueInfoRevision,
-                       mLastUploadedSoftBodyVertexBindingRevision, mLastUploadedCameraInputRevision,
-                       mLastUploadedLightInputRevision, mLastUploadedLocalLightSelectionRevision);
+    if (syncGpuScene(mWorld, mEntitySceneGpuState.get(), mRenderSceneUploader.get(),
+                     mPhysicsSolver.get(), mPhysicsPosesNeedSync, mLastUploadedEntityPoseRevision,
+                     mLastUploadedRenderableMetadataRevision,
+                     mLastUploadedRenderableQueueInfoRevision,
+                     mLastUploadedSoftBodyVertexBindingRevision, mLastUploadedCameraInputRevision,
+                     mLastUploadedLightInputRevision, mLastUploadedLocalLightSelectionRevision))
+    {
+        mPhysicsPosesNeedSync = false;
+    }
 
     mLastFrameContext = frameContext;
 
@@ -432,12 +435,24 @@ void Runtime::stepVisualSensors(const common::FrameContext &frameContext)
         return;
     }
 
-    (void)syncGpuScene(mWorld, mGpuDevice.get(), mEntitySceneGpuState.get(),
-                       mRenderSceneUploader.get(), mPhysicsSolver.get(), mHasPhysicsState,
-                       mLastUploadedEntityPoseRevision, mLastUploadedRenderableMetadataRevision,
-                       mLastUploadedRenderableQueueInfoRevision,
-                       mLastUploadedSoftBodyVertexBindingRevision, mLastUploadedCameraInputRevision,
-                       mLastUploadedLightInputRevision, mLastUploadedLocalLightSelectionRevision);
+    const bool gpuSceneReady = syncGpuScene(
+        mWorld, mEntitySceneGpuState.get(), mRenderSceneUploader.get(), mPhysicsSolver.get(),
+        mPhysicsPosesNeedSync, mLastUploadedEntityPoseRevision,
+        mLastUploadedRenderableMetadataRevision, mLastUploadedRenderableQueueInfoRevision,
+        mLastUploadedSoftBodyVertexBindingRevision, mLastUploadedCameraInputRevision,
+        mLastUploadedLightInputRevision, mLastUploadedLocalLightSelectionRevision);
+
+    if (gpuSceneReady)
+    {
+        mPhysicsPosesNeedSync = false;
+    }
+
+    // Wait once at the graphics consumer. Whichever sensor path runs first has already updated
+    // the shared scene poses, so a later simulation-sensor call does not rewrite them.
+    if (gpuSceneReady && mGpuDevice && !mGpuDevice->waitForPhysicsOnGraphics())
+    {
+        CRESSIM_LOG_WARNING("Runtime: failed to synchronize GPU scene for visual sensors.");
+    }
 
     mLastFrameContext = frameContext;
 

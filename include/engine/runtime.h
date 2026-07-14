@@ -162,7 +162,7 @@ private:
     common::FrameContext mLastFrameContext{};
     bool mDeviceFrameActive                                  = false;
     bool mWorldUploaded                                      = false;
-    bool mHasPhysicsState                                    = false;
+    bool mPhysicsPosesNeedSync                               = false;
     std::uint64_t mLastUploadedEntityPoseRevision            = 0u;
     std::uint64_t mLastUploadedRenderableMetadataRevision    = 0u;
     std::uint64_t mLastUploadedRenderableQueueInfoRevision   = 0u;

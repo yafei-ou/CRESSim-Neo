@@ -249,11 +249,15 @@ int runSmoke(cressim::neo::gpu::GpuBackend backend)
         frame.timeSeconds = static_cast<double>(i) * static_cast<double>(frame.deltaSeconds);
         runtime.prepare();
         const bool physicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
-        if (physicsStepSucceeded)
+        if (physicsStepSucceeded && (i % 2u) == 0u)
         {
             (void)runtime.stepSimulationSensors(frame);
         }
         runtime.stepVisualSensors(frame);
+        if (physicsStepSucceeded && (i % 2u) != 0u)
+        {
+            (void)runtime.stepSimulationSensors(frame);
+        }
         runtime.endFrame(frame);
     }
 
@@ -308,7 +312,6 @@ int runSmoke(cressim::neo::gpu::GpuBackend backend)
                       payloadEvents, '\n');
     return 0;
 }
-
 int main()
 {
     const cressim::neo::gpu::GpuBackend graphicsBackends[] = {
