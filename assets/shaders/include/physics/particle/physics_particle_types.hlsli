@@ -149,7 +149,7 @@ struct GpuSoftThermalMaterial
     float damageStartTemperatureC;
     float damageFullTemperatureC;
     float damageRate;
-    float reserved0;
+    uint damageModel;
 
     float evaporationStartTemperatureC;
     float evaporationRate;
@@ -166,6 +166,9 @@ struct GpuSoftThermalMaterial
     float maximumComplianceMultiplier;
     float reserved1;
 };
+
+static const uint kThermalDamageModelThresholdRate = 0u;
+static const uint kThermalDamageModelArrhenius = 1u;
 
 struct GpuSoftTet
 {

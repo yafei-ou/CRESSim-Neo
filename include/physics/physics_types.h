@@ -345,6 +345,12 @@ struct ParticleContactMaterialDesc
     float staticFriction = -1.0f;
 };
 
+enum class ThermalDamageModel : std::uint32_t
+{
+    ThresholdRate = 0u,
+    Arrhenius     = 1u,
+};
+
 struct SoftThermalMaterialDesc
 {
     float bodyTemperatureC              = 37.0f;
@@ -354,6 +360,7 @@ struct SoftThermalMaterialDesc
     float damageStartTemperatureC       = 45.0f;
     float damageFullTemperatureC        = 100.0f;
     float damageRate                    = 1.0f;
+    ThermalDamageModel damageModel      = ThermalDamageModel::ThresholdRate;
     float evaporationStartTemperatureC  = 100.0f;
     float evaporationRate               = 0.5f;
     float charStartTemperatureC         = 180.0f;
@@ -385,7 +392,7 @@ struct alignas(16) SoftThermalMaterialGPU
     float damageStartTemperatureC;
     float damageFullTemperatureC;
     float damageRate;
-    float reserved0;
+    std::uint32_t damageModel;
 
     float evaporationStartTemperatureC;
     float evaporationRate;

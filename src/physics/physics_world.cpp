@@ -331,6 +331,10 @@ void normalizeSoftThermalMaterial(SoftThermalMaterialDesc &material) noexcept
     material.damageFullTemperatureC =
         std::max(material.damageFullTemperatureC, material.damageStartTemperatureC);
     material.damageRate                   = std::max(material.damageRate, 0.0f);
+    material.damageModel =
+        material.damageModel == ThermalDamageModel::Arrhenius
+            ? ThermalDamageModel::Arrhenius
+            : ThermalDamageModel::ThresholdRate;
     material.evaporationStartTemperatureC = std::max(material.evaporationStartTemperatureC,
                                                      material.bodyTemperatureC);
     material.evaporationRate              = std::max(material.evaporationRate, 0.0f);

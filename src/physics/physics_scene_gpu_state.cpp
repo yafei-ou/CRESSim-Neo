@@ -59,7 +59,7 @@ SoftThermalMaterialGPU toSoftThermalMaterialGpu(
         material.damageStartTemperatureC,
         material.damageFullTemperatureC,
         material.damageRate,
-        0.0f,
+        static_cast<std::uint32_t>(material.damageModel),
         material.evaporationStartTemperatureC,
         material.evaporationRate,
         material.charStartTemperatureC,
