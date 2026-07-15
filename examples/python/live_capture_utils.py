@@ -6,6 +6,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+def _cache_blit_background(event) -> None:
+    canvas = event.canvas
+    if canvas.supports_blit:
+        canvas.figure._cressim_blit_background = canvas.copy_from_bbox(canvas.figure.bbox)
+
+
 def rgb_tensor_to_numpy(rgb_tensor) -> np.ndarray:
     return np.clip(rgb_tensor[..., :3].detach().cpu().numpy(), 0.0, 1.0)
 
@@ -39,14 +45,38 @@ def create_rgb_grid_figure(
         column_index = env_index % column_count
         axes[row_index, column_index].axis("off")
     figure.tight_layout()
+    figure.canvas.mpl_connect("draw_event", _cache_blit_background)
     plt.show(block=False)
+    figure.canvas.draw()
     return figure, np.asarray(image_artists, dtype=object)
 
 
 def update_rgb_grid_figure(image_artists: np.ndarray, rgb_tensor) -> None:
     rgb_images = rgb_tensor_to_numpy(rgb_tensor)
+    if image_artists.size == 0:
+        return
+
+    figure = image_artists.flat[0].figure
+    canvas = figure.canvas
     for env_index, image_artist in enumerate(image_artists.tolist()):
         image_artist.set_data(rgb_images[env_index])
+
+    if not canvas.supports_blit:
+        canvas.draw_idle()
+        return
+
+    background = getattr(figure, "_cressim_blit_background", None)
+    if background is None:
+        canvas.draw()
+        background = getattr(figure, "_cressim_blit_background", None)
+    if background is None:
+        return
+
+    canvas.restore_region(background)
+    for image_artist in image_artists.flat:
+        image_artist.axes.draw_artist(image_artist)
+    canvas.blit(figure.bbox)
+    canvas.flush_events()
 
 
 class InteractiveImageCapture:
