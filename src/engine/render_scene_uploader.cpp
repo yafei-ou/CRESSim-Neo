@@ -2,9 +2,11 @@
 
 #include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_compute_pass.h"
+#include "gpu/gpu_device.h"
 #include "gpu/shader_library.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
+#include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h"
 
 #include <array>
@@ -84,17 +86,85 @@ const gpu::GpuComputePassDefinition kEntityPoseSyncPassDefinition = {
 
 } // namespace
 
-RenderSceneUploader::RenderSceneUploader(gpu::GpuDevice &device) : mDevice(device) {}
+struct RenderSceneUploader::Impl
+{
+    explicit Impl(gpu::GpuDevice &device) : mDevice(device) {}
+
+    bool ensureSharedPoseCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t entityCount);
+    bool ensurePhysicsSyncCapacity(Diligent::IRenderDevice *renderDevice,
+                                   std::uint32_t mappingCount);
+    bool ensureRenderableCapacity(Diligent::IRenderDevice *renderDevice,
+                                  std::uint32_t renderableCount);
+    bool ensureCameraCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t cameraCount);
+    bool ensureLightCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t lightCount);
+    bool ensureLocalLightSelectionCapacity(Diligent::IRenderDevice *renderDevice,
+                                           std::uint32_t selectionCount);
+    bool writeBuffer(Diligent::IDeviceContext *computeContext, Diligent::IBuffer *buffer,
+                     const void *data, std::size_t sizeBytes);
+
+    gpu::GpuDevice &mDevice;
+    common::SceneLayoutDesc mLayout{};
+    bool mInitialized                            = false;
+    std::uint32_t mPoseCapacity                  = 0;
+    std::uint32_t mPhysicsSyncCapacity           = 0;
+    std::uint32_t mEntityCount                   = 0;
+    std::uint32_t mRenderableCapacity            = 0;
+    std::uint32_t mRenderableCount               = 0;
+    std::uint32_t mSoftBodyVertexBindingCapacity = 0;
+    std::uint32_t mSoftBodyVertexBindingCount    = 0;
+    std::uint32_t mCameraCapacity                = 0;
+    std::uint32_t mCameraCount                   = 0;
+    std::uint32_t mLightCapacity                 = 0;
+    std::uint32_t mLightCount                    = 0;
+    std::uint32_t mLocalLightSelectionCapacity   = 0;
+    Diligent::Uint64 mGraphicsContextMask        = 0;
+    Diligent::Uint64 mPhysicsContextMask         = 0;
+    Diligent::Uint64 mSharedPoseContextMask      = 0;
+
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mMappingBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityPositionsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityOrientationsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityScalesBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableMetadataBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableQueueInfoBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableVisibilityFlagsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableShadowCascadeMasksBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftBodyVertexBindingBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mCameraInputsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mPreparedCamerasBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mLightInputsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mLocalLightSelectionBuffer;
+    gpu::GpuComputePass mEntityPoseSyncPass;
+    std::uint64_t mPoseBindingGeneration                  = 1u;
+    std::uint64_t mPhysicsSyncBindingGeneration           = 1u;
+    std::uint64_t mSceneBindingGeneration                 = 1u;
+    std::uint64_t mLastMappedSourcePoseBindingGeneration  = 0u;
+    std::uint64_t mLastMappedOutputPoseBindingGeneration  = 0u;
+    std::uint64_t mLastMappedPhysicsSyncBindingGeneration = 0u;
+};
+
+RenderSceneUploader::RenderSceneUploader(gpu::GpuDevice &device)
+    : mImpl(std::make_unique<Impl>(device))
+{
+}
+
+RenderSceneUploader::~RenderSceneUploader() = default;
+
+const common::SceneLayoutDesc &RenderSceneUploader::layout() const noexcept
+{
+    return mImpl->mLayout;
+}
 
 bool RenderSceneUploader::initialize(const common::SceneLayoutDesc &layout)
 {
     shutdown();
-    mLayout = layout;
+    mImpl->mLayout = layout;
 
     gpu::GpuGraphicsBackendContext graphicsContext{};
     gpu::GpuComputeBackendContext physicsContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
-        !mDevice.tryGetPhysicsBackendContext(physicsContext) ||
+    if (!mImpl->mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
+        !mImpl->mDevice.tryGetPhysicsBackendContext(physicsContext) ||
         graphicsContext.renderDevice == nullptr || physicsContext.renderDevice == nullptr)
     {
         return false;
@@ -104,19 +174,20 @@ bool RenderSceneUploader::initialize(const common::SceneLayoutDesc &layout)
         return false;
     }
 
-    mGraphicsContextMask   = gpu::contextMaskForId(graphicsContext.contextId);
-    mPhysicsContextMask    = gpu::contextMaskForId(physicsContext.contextId);
-    mSharedPoseContextMask = mGraphicsContextMask | mPhysicsContextMask;
+    mImpl->mGraphicsContextMask   = gpu::contextMaskForId(graphicsContext.contextId);
+    mImpl->mPhysicsContextMask    = gpu::contextMaskForId(physicsContext.contextId);
+    mImpl->mSharedPoseContextMask = mImpl->mGraphicsContextMask | mImpl->mPhysicsContextMask;
 
-    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
+    gpu::ShaderLibrary shaderLibrary(mImpl->mDevice.shaderSourceDirectory());
     Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
     if (streamFactory == nullptr)
     {
         return false;
     }
 
-    if (!mEntityPoseSyncPass.initialize(mDevice, streamFactory, mPhysicsContextMask,
-                                        kEntityPoseSyncPassDefinition))
+    if (!mImpl->mEntityPoseSyncPass.initialize(mImpl->mDevice, streamFactory,
+                                               mImpl->mPhysicsContextMask,
+                                               kEntityPoseSyncPassDefinition))
     {
         return false;
     }
@@ -127,61 +198,61 @@ bool RenderSceneUploader::initialize(const common::SceneLayoutDesc &layout)
     constantsDesc.Usage                = Diligent::USAGE_DYNAMIC;
     constantsDesc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
     constantsDesc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
-    constantsDesc.ImmediateContextMask = mPhysicsContextMask;
-    physicsContext.renderDevice->CreateBuffer(constantsDesc, nullptr, &mConstantsBuffer);
-    if (mConstantsBuffer == nullptr)
+    constantsDesc.ImmediateContextMask = mImpl->mPhysicsContextMask;
+    physicsContext.renderDevice->CreateBuffer(constantsDesc, nullptr, &mImpl->mConstantsBuffer);
+    if (mImpl->mConstantsBuffer == nullptr)
     {
         return false;
     }
 
-    mInitialized = true;
+    mImpl->mInitialized = true;
     return true;
 }
 
 void RenderSceneUploader::shutdown()
 {
-    mLayout                                 = {};
-    mInitialized                            = false;
-    mPoseCapacity                           = 0;
-    mPhysicsSyncCapacity                    = 0;
-    mEntityCount                            = 0;
-    mRenderableCapacity                     = 0;
-    mRenderableCount                        = 0;
-    mSoftBodyVertexBindingCapacity          = 0;
-    mSoftBodyVertexBindingCount             = 0;
-    mCameraCapacity                         = 0;
-    mCameraCount                            = 0;
-    mLightCapacity                          = 0;
-    mLightCount                             = 0;
-    mLocalLightSelectionCapacity            = 0;
-    mGraphicsContextMask                    = 0;
-    mPhysicsContextMask                     = 0;
-    mSharedPoseContextMask                  = 0;
-    mMappingBuffer                          = nullptr;
-    mConstantsBuffer                        = nullptr;
-    mEntityPositionsBuffer                  = nullptr;
-    mEntityOrientationsBuffer               = nullptr;
-    mEntityScalesBuffer                     = nullptr;
-    mRenderableMetadataBuffer               = nullptr;
-    mRenderableQueueInfoBuffer              = nullptr;
-    mRenderableVisibilityFlagsBuffer        = nullptr;
-    mRenderableShadowCascadeMasksBuffer     = nullptr;
-    mSoftBodyVertexBindingBuffer            = nullptr;
-    mCameraInputsBuffer                     = nullptr;
-    mPreparedCamerasBuffer                  = nullptr;
-    mLightInputsBuffer                      = nullptr;
-    mLocalLightSelectionBuffer              = nullptr;
-    mEntityPoseSyncPass                     = {};
-    mPoseBindingGeneration                  = 1u;
-    mPhysicsSyncBindingGeneration           = 1u;
-    mSceneBindingGeneration                 = 1u;
-    mLastMappedSourcePoseBindingGeneration  = 0u;
-    mLastMappedOutputPoseBindingGeneration  = 0u;
-    mLastMappedPhysicsSyncBindingGeneration = 0u;
+    mImpl->mLayout                                 = {};
+    mImpl->mInitialized                            = false;
+    mImpl->mPoseCapacity                           = 0;
+    mImpl->mPhysicsSyncCapacity                    = 0;
+    mImpl->mEntityCount                            = 0;
+    mImpl->mRenderableCapacity                     = 0;
+    mImpl->mRenderableCount                        = 0;
+    mImpl->mSoftBodyVertexBindingCapacity          = 0;
+    mImpl->mSoftBodyVertexBindingCount             = 0;
+    mImpl->mCameraCapacity                         = 0;
+    mImpl->mCameraCount                            = 0;
+    mImpl->mLightCapacity                          = 0;
+    mImpl->mLightCount                             = 0;
+    mImpl->mLocalLightSelectionCapacity            = 0;
+    mImpl->mGraphicsContextMask                    = 0;
+    mImpl->mPhysicsContextMask                     = 0;
+    mImpl->mSharedPoseContextMask                  = 0;
+    mImpl->mMappingBuffer                          = nullptr;
+    mImpl->mConstantsBuffer                        = nullptr;
+    mImpl->mEntityPositionsBuffer                  = nullptr;
+    mImpl->mEntityOrientationsBuffer               = nullptr;
+    mImpl->mEntityScalesBuffer                     = nullptr;
+    mImpl->mRenderableMetadataBuffer               = nullptr;
+    mImpl->mRenderableQueueInfoBuffer              = nullptr;
+    mImpl->mRenderableVisibilityFlagsBuffer        = nullptr;
+    mImpl->mRenderableShadowCascadeMasksBuffer     = nullptr;
+    mImpl->mSoftBodyVertexBindingBuffer            = nullptr;
+    mImpl->mCameraInputsBuffer                     = nullptr;
+    mImpl->mPreparedCamerasBuffer                  = nullptr;
+    mImpl->mLightInputsBuffer                      = nullptr;
+    mImpl->mLocalLightSelectionBuffer              = nullptr;
+    mImpl->mEntityPoseSyncPass                     = {};
+    mImpl->mPoseBindingGeneration                  = 1u;
+    mImpl->mPhysicsSyncBindingGeneration           = 1u;
+    mImpl->mSceneBindingGeneration                 = 1u;
+    mImpl->mLastMappedSourcePoseBindingGeneration  = 0u;
+    mImpl->mLastMappedOutputPoseBindingGeneration  = 0u;
+    mImpl->mLastMappedPhysicsSyncBindingGeneration = 0u;
 }
 
-bool RenderSceneUploader::ensureSharedPoseCapacity(Diligent::IRenderDevice *renderDevice,
-                                                   std::uint32_t entityCount)
+bool RenderSceneUploader::Impl::ensureSharedPoseCapacity(Diligent::IRenderDevice *renderDevice,
+                                                         std::uint32_t entityCount)
 {
     if (renderDevice == nullptr || mSharedPoseContextMask == 0)
     {
@@ -228,8 +299,8 @@ bool RenderSceneUploader::ensureSharedPoseCapacity(Diligent::IRenderDevice *rend
     return true;
 }
 
-bool RenderSceneUploader::ensurePhysicsSyncCapacity(Diligent::IRenderDevice *renderDevice,
-                                                    std::uint32_t mappingCount)
+bool RenderSceneUploader::Impl::ensurePhysicsSyncCapacity(Diligent::IRenderDevice *renderDevice,
+                                                          std::uint32_t mappingCount)
 {
     if (renderDevice == nullptr || mPhysicsContextMask == 0)
     {
@@ -259,8 +330,8 @@ bool RenderSceneUploader::ensurePhysicsSyncCapacity(Diligent::IRenderDevice *ren
     return true;
 }
 
-bool RenderSceneUploader::ensureRenderableCapacity(Diligent::IRenderDevice *renderDevice,
-                                                   std::uint32_t renderableCount)
+bool RenderSceneUploader::Impl::ensureRenderableCapacity(Diligent::IRenderDevice *renderDevice,
+                                                         std::uint32_t renderableCount)
 {
     if (renderDevice == nullptr || mGraphicsContextMask == 0)
     {
@@ -316,8 +387,8 @@ bool RenderSceneUploader::ensureRenderableCapacity(Diligent::IRenderDevice *rend
     return true;
 }
 
-bool RenderSceneUploader::ensureCameraCapacity(Diligent::IRenderDevice *renderDevice,
-                                               std::uint32_t cameraCount)
+bool RenderSceneUploader::Impl::ensureCameraCapacity(Diligent::IRenderDevice *renderDevice,
+                                                     std::uint32_t cameraCount)
 {
     if (renderDevice == nullptr || mGraphicsContextMask == 0)
     {
@@ -355,8 +426,8 @@ bool RenderSceneUploader::ensureCameraCapacity(Diligent::IRenderDevice *renderDe
     return true;
 }
 
-bool RenderSceneUploader::ensureLightCapacity(Diligent::IRenderDevice *renderDevice,
-                                              std::uint32_t lightCount)
+bool RenderSceneUploader::Impl::ensureLightCapacity(Diligent::IRenderDevice *renderDevice,
+                                                    std::uint32_t lightCount)
 {
     if (renderDevice == nullptr || mGraphicsContextMask == 0)
     {
@@ -385,8 +456,8 @@ bool RenderSceneUploader::ensureLightCapacity(Diligent::IRenderDevice *renderDev
     return true;
 }
 
-bool RenderSceneUploader::ensureLocalLightSelectionCapacity(Diligent::IRenderDevice *renderDevice,
-                                                            std::uint32_t selectionCount)
+bool RenderSceneUploader::Impl::ensureLocalLightSelectionCapacity(
+    Diligent::IRenderDevice *renderDevice, std::uint32_t selectionCount)
 {
     if (renderDevice == nullptr || mGraphicsContextMask == 0)
     {
@@ -445,52 +516,52 @@ bool ensureSoftBodyBufferCapacity(Diligent::IRenderDevice *renderDevice,
 bool RenderSceneUploader::uploadRenderableMetadata(
     const std::vector<graphics::GpuRenderableMetadata> &renderables)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
 
     gpu::GpuGraphicsBackendContext graphicsContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
+    if (!mImpl->mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
         graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
 
-    mRenderableCount = static_cast<std::uint32_t>(renderables.size());
-    if (!ensureRenderableCapacity(graphicsContext.renderDevice, mRenderableCount))
+    mImpl->mRenderableCount = static_cast<std::uint32_t>(renderables.size());
+    if (!mImpl->ensureRenderableCapacity(graphicsContext.renderDevice, mImpl->mRenderableCount))
     {
         return false;
     }
 
-    if (mRenderableCount == 0u)
+    if (mImpl->mRenderableCount == 0u)
     {
         return true;
     }
 
-    return writeBuffer(graphicsContext.graphicsContext, mRenderableMetadataBuffer,
-                       renderables.data(),
-                       renderables.size() * sizeof(graphics::GpuRenderableMetadata));
+    return mImpl->writeBuffer(graphicsContext.graphicsContext, mImpl->mRenderableMetadataBuffer,
+                              renderables.data(),
+                              renderables.size() * sizeof(graphics::GpuRenderableMetadata));
 }
 
 bool RenderSceneUploader::uploadRenderableQueueInfo(
     const std::vector<graphics::GpuRenderableQueueInfo> &queueInfo)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
 
     gpu::GpuGraphicsBackendContext graphicsContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
+    if (!mImpl->mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
         graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
 
-    if (!ensureRenderableCapacity(
+    if (!mImpl->ensureRenderableCapacity(
             graphicsContext.renderDevice,
-            std::max(mRenderableCount, static_cast<std::uint32_t>(queueInfo.size()))))
+            std::max(mImpl->mRenderableCount, static_cast<std::uint32_t>(queueInfo.size()))))
     {
         return false;
     }
@@ -500,39 +571,39 @@ bool RenderSceneUploader::uploadRenderableQueueInfo(
         return true;
     }
 
-    return writeBuffer(graphicsContext.graphicsContext, mRenderableQueueInfoBuffer,
-                       queueInfo.data(),
-                       queueInfo.size() * sizeof(graphics::GpuRenderableQueueInfo));
+    return mImpl->writeBuffer(graphicsContext.graphicsContext, mImpl->mRenderableQueueInfoBuffer,
+                              queueInfo.data(),
+                              queueInfo.size() * sizeof(graphics::GpuRenderableQueueInfo));
 }
 
 bool RenderSceneUploader::uploadSoftBodyVertexBindings(
     const std::vector<graphics::GpuSoftBodyVertexBinding> &bindings)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
 
     gpu::GpuGraphicsBackendContext graphicsContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
+    if (!mImpl->mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
         graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
 
-    mSoftBodyVertexBindingCount                       = static_cast<std::uint32_t>(bindings.size());
-    Diligent::IBuffer *oldSoftBodyVertexBindingBuffer = mSoftBodyVertexBindingBuffer;
-    if (!ensureSoftBodyBufferCapacity(graphicsContext.renderDevice, mGraphicsContextMask,
-                                      "CRESSimNeo.Gpu.SoftBodyVertexBindings",
-                                      sizeof(graphics::GpuSoftBodyVertexBinding),
-                                      mSoftBodyVertexBindingCount, mSoftBodyVertexBindingBuffer,
-                                      mSoftBodyVertexBindingCapacity))
+    mImpl->mSoftBodyVertexBindingCount                = static_cast<std::uint32_t>(bindings.size());
+    Diligent::IBuffer *oldSoftBodyVertexBindingBuffer = mImpl->mSoftBodyVertexBindingBuffer;
+    if (!ensureSoftBodyBufferCapacity(
+            graphicsContext.renderDevice, mImpl->mGraphicsContextMask,
+            "CRESSimNeo.Gpu.SoftBodyVertexBindings", sizeof(graphics::GpuSoftBodyVertexBinding),
+            mImpl->mSoftBodyVertexBindingCount, mImpl->mSoftBodyVertexBindingBuffer,
+            mImpl->mSoftBodyVertexBindingCapacity))
     {
         return false;
     }
-    if (oldSoftBodyVertexBindingBuffer != mSoftBodyVertexBindingBuffer)
+    if (oldSoftBodyVertexBindingBuffer != mImpl->mSoftBodyVertexBindingBuffer)
     {
-        bumpGeneration(mSceneBindingGeneration);
+        bumpGeneration(mImpl->mSceneBindingGeneration);
     }
 
     if (bindings.empty())
@@ -540,86 +611,86 @@ bool RenderSceneUploader::uploadSoftBodyVertexBindings(
         return true;
     }
 
-    return writeBuffer(graphicsContext.graphicsContext, mSoftBodyVertexBindingBuffer,
-                       bindings.data(),
-                       bindings.size() * sizeof(graphics::GpuSoftBodyVertexBinding));
+    return mImpl->writeBuffer(graphicsContext.graphicsContext, mImpl->mSoftBodyVertexBindingBuffer,
+                              bindings.data(),
+                              bindings.size() * sizeof(graphics::GpuSoftBodyVertexBinding));
 }
 
 bool RenderSceneUploader::uploadCameraInputs(const std::vector<graphics::GpuCameraInput> &cameras)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
 
     gpu::GpuGraphicsBackendContext graphicsContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
+    if (!mImpl->mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
         graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
 
-    mCameraCount = static_cast<std::uint32_t>(cameras.size());
-    if (!ensureCameraCapacity(graphicsContext.renderDevice, mCameraCount))
+    mImpl->mCameraCount = static_cast<std::uint32_t>(cameras.size());
+    if (!mImpl->ensureCameraCapacity(graphicsContext.renderDevice, mImpl->mCameraCount))
     {
         return false;
     }
 
-    if (mCameraCount == 0u)
+    if (mImpl->mCameraCount == 0u)
     {
         return true;
     }
 
-    return writeBuffer(graphicsContext.graphicsContext, mCameraInputsBuffer, cameras.data(),
-                       cameras.size() * sizeof(graphics::GpuCameraInput));
+    return mImpl->writeBuffer(graphicsContext.graphicsContext, mImpl->mCameraInputsBuffer,
+                              cameras.data(), cameras.size() * sizeof(graphics::GpuCameraInput));
 }
 
 bool RenderSceneUploader::uploadLightInputs(const std::vector<graphics::GpuLightInput> &lights)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
 
     gpu::GpuGraphicsBackendContext graphicsContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
+    if (!mImpl->mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
         graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
 
-    mLightCount = static_cast<std::uint32_t>(lights.size());
-    if (!ensureLightCapacity(graphicsContext.renderDevice, mLightCount))
+    mImpl->mLightCount = static_cast<std::uint32_t>(lights.size());
+    if (!mImpl->ensureLightCapacity(graphicsContext.renderDevice, mImpl->mLightCount))
     {
         return false;
     }
 
-    if (mLightCount == 0u)
+    if (mImpl->mLightCount == 0u)
     {
         return true;
     }
 
-    return writeBuffer(graphicsContext.graphicsContext, mLightInputsBuffer, lights.data(),
-                       lights.size() * sizeof(graphics::GpuLightInput));
+    return mImpl->writeBuffer(graphicsContext.graphicsContext, mImpl->mLightInputsBuffer,
+                              lights.data(), lights.size() * sizeof(graphics::GpuLightInput));
 }
 
 bool RenderSceneUploader::uploadLocalLightSelections(
     const std::vector<graphics::GpuLocalLightSelection> &selections)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
 
     gpu::GpuGraphicsBackendContext graphicsContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
+    if (!mImpl->mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
         graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
 
     const std::uint32_t selectionCount = static_cast<std::uint32_t>(selections.size());
-    if (!ensureLocalLightSelectionCapacity(graphicsContext.renderDevice, selectionCount))
+    if (!mImpl->ensureLocalLightSelectionCapacity(graphicsContext.renderDevice, selectionCount))
     {
         return false;
     }
@@ -629,14 +700,14 @@ bool RenderSceneUploader::uploadLocalLightSelections(
         return true;
     }
 
-    return writeBuffer(graphicsContext.graphicsContext, mLocalLightSelectionBuffer,
-                       selections.data(),
-                       selections.size() * sizeof(graphics::GpuLocalLightSelection));
+    return mImpl->writeBuffer(graphicsContext.graphicsContext, mImpl->mLocalLightSelectionBuffer,
+                              selections.data(),
+                              selections.size() * sizeof(graphics::GpuLocalLightSelection));
 }
 
-bool RenderSceneUploader::writeBuffer(Diligent::IDeviceContext *computeContext,
-                                      Diligent::IBuffer *buffer, const void *data,
-                                      std::size_t sizeBytes)
+bool RenderSceneUploader::Impl::writeBuffer(Diligent::IDeviceContext *computeContext,
+                                            Diligent::IBuffer *buffer, const void *data,
+                                            std::size_t sizeBytes)
 {
     if (computeContext == nullptr || buffer == nullptr || data == nullptr || sizeBytes == 0u)
     {
@@ -667,7 +738,7 @@ bool RenderSceneUploader::uploadEntityPoseData(const std::vector<Diligent::float
                                                const std::vector<Diligent::float4> &orientations,
                                                const std::vector<Diligent::float4> &scales)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
@@ -677,44 +748,45 @@ bool RenderSceneUploader::uploadEntityPoseData(const std::vector<Diligent::float
     }
 
     gpu::GpuComputeBackendContext physicsContext{};
-    if (!mDevice.tryGetPhysicsBackendContext(physicsContext) ||
+    if (!mImpl->mDevice.tryGetPhysicsBackendContext(physicsContext) ||
         physicsContext.renderDevice == nullptr || physicsContext.computeContext == nullptr)
     {
         return false;
     }
-    if (!mDevice.waitForGraphicsOnPhysics())
+    if (!mImpl->mDevice.waitForGraphicsOnPhysics())
     {
         return false;
     }
 
-    mEntityCount = static_cast<std::uint32_t>(positions.size());
-    if (mEntityCount == 0u)
+    mImpl->mEntityCount = static_cast<std::uint32_t>(positions.size());
+    if (mImpl->mEntityCount == 0u)
     {
-        return ensureSharedPoseCapacity(physicsContext.renderDevice, 1u);
+        return mImpl->ensureSharedPoseCapacity(physicsContext.renderDevice, 1u);
     }
-    if (!ensureSharedPoseCapacity(physicsContext.renderDevice, mEntityCount))
+    if (!mImpl->ensureSharedPoseCapacity(physicsContext.renderDevice, mImpl->mEntityCount))
     {
         return false;
     }
 
-    return writeBuffer(physicsContext.computeContext, mEntityPositionsBuffer, positions.data(),
-                       positions.size() * sizeof(Diligent::float4)) &&
-           writeBuffer(physicsContext.computeContext, mEntityOrientationsBuffer,
-                       orientations.data(), orientations.size() * sizeof(Diligent::float4)) &&
-           writeBuffer(physicsContext.computeContext, mEntityScalesBuffer, scales.data(),
-                       scales.size() * sizeof(Diligent::float4));
+    return mImpl->writeBuffer(physicsContext.computeContext, mImpl->mEntityPositionsBuffer,
+                              positions.data(), positions.size() * sizeof(Diligent::float4)) &&
+           mImpl->writeBuffer(physicsContext.computeContext, mImpl->mEntityOrientationsBuffer,
+                              orientations.data(),
+                              orientations.size() * sizeof(Diligent::float4)) &&
+           mImpl->writeBuffer(physicsContext.computeContext, mImpl->mEntityScalesBuffer,
+                              scales.data(), scales.size() * sizeof(Diligent::float4));
 }
 
 bool RenderSceneUploader::applyMappedEntityPoses(
     const common::PoseBufferView &sourcePoses, const std::vector<EntityPoseMappingEntry> &mappings)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
 
     gpu::GpuComputeBackendContext computeContext{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
+    if (!mImpl->mDevice.tryGetPhysicsBackendContext(computeContext) ||
         computeContext.renderDevice == nullptr || computeContext.computeContext == nullptr)
     {
         return false;
@@ -730,28 +802,28 @@ bool RenderSceneUploader::applyMappedEntityPoses(
     {
         return false;
     }
-    if (!ensureSharedPoseCapacity(computeContext.renderDevice,
-                                  std::max(mEntityCount, mappingCount)) ||
-        !ensurePhysicsSyncCapacity(computeContext.renderDevice, mappingCount))
+    if (!mImpl->ensureSharedPoseCapacity(computeContext.renderDevice,
+                                         std::max(mImpl->mEntityCount, mappingCount)) ||
+        !mImpl->ensurePhysicsSyncCapacity(computeContext.renderDevice, mappingCount))
     {
         return false;
     }
 
-    if (!writeBuffer(computeContext.computeContext, mMappingBuffer, mappings.data(),
-                     mappings.size() * sizeof(EntityPoseMappingEntry)))
+    if (!mImpl->writeBuffer(computeContext.computeContext, mImpl->mMappingBuffer, mappings.data(),
+                            mappings.size() * sizeof(EntityPoseMappingEntry)))
     {
         return false;
     }
 
     const GpuEntityPoseSyncConstants constants{mappingCount, 0u, 0u, 0u};
-    if (!writeBuffer(computeContext.computeContext, mConstantsBuffer, &constants,
-                     sizeof(constants)))
+    if (!mImpl->writeBuffer(computeContext.computeContext, mImpl->mConstantsBuffer, &constants,
+                            sizeof(constants)))
     {
         return false;
     }
 
     const std::array bindings{
-        gpu::GpuBufferBinding{"GpuEntityPoseSyncConstantsBuffer", mConstantsBuffer,
+        gpu::GpuBufferBinding{"GpuEntityPoseSyncConstantsBuffer", mImpl->mConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SourcePositions", sourcePoses.positionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -759,63 +831,65 @@ bool RenderSceneUploader::applyMappedEntityPoses(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SourceScales", sourcePoses.scalesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_Mappings", mMappingBuffer, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_EntityPositions", mEntityPositionsBuffer,
+        gpu::GpuBufferBinding{"g_Mappings", mImpl->mMappingBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_EntityPositions", mImpl->mEntityPositionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        gpu::GpuBufferBinding{"g_EntityOrientations", mEntityOrientationsBuffer,
+        gpu::GpuBufferBinding{"g_EntityOrientations", mImpl->mEntityOrientationsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        gpu::GpuBufferBinding{"g_EntityScales", mEntityScalesBuffer,
+        gpu::GpuBufferBinding{"g_EntityScales", mImpl->mEntityScalesBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     const bool syncBindingsChanged =
-        mLastMappedSourcePoseBindingGeneration != sourcePoses.bindingGeneration ||
-        mLastMappedOutputPoseBindingGeneration != mPoseBindingGeneration ||
-        mLastMappedPhysicsSyncBindingGeneration != mPhysicsSyncBindingGeneration;
-    if (syncBindingsChanged && !mEntityPoseSyncPass.forceRecreateAllVariants())
+        mImpl->mLastMappedSourcePoseBindingGeneration != sourcePoses.bindingGeneration ||
+        mImpl->mLastMappedOutputPoseBindingGeneration != mImpl->mPoseBindingGeneration ||
+        mImpl->mLastMappedPhysicsSyncBindingGeneration != mImpl->mPhysicsSyncBindingGeneration;
+    if (syncBindingsChanged && !mImpl->mEntityPoseSyncPass.forceRecreateAllVariants())
     {
         return false;
     }
 
-    mLastMappedSourcePoseBindingGeneration  = sourcePoses.bindingGeneration;
-    mLastMappedOutputPoseBindingGeneration  = mPoseBindingGeneration;
-    mLastMappedPhysicsSyncBindingGeneration = mPhysicsSyncBindingGeneration;
+    mImpl->mLastMappedSourcePoseBindingGeneration  = sourcePoses.bindingGeneration;
+    mImpl->mLastMappedOutputPoseBindingGeneration  = mImpl->mPoseBindingGeneration;
+    mImpl->mLastMappedPhysicsSyncBindingGeneration = mImpl->mPhysicsSyncBindingGeneration;
 
-    return mEntityPoseSyncPass.dispatch(computeContext.computeContext, 0u, bindings,
-                                        dispatchGroupCount(mappingCount));
+    return mImpl->mEntityPoseSyncPass.dispatch(computeContext.computeContext, 0u, bindings,
+                                               dispatchGroupCount(mappingCount));
 }
 
 graphics::GpuEntitySceneView RenderSceneUploader::sceneView() const noexcept
 {
     common::PoseBufferView poses{};
-    poses.positionsBuffer    = mEntityPositionsBuffer;
-    poses.orientationsBuffer = mEntityOrientationsBuffer;
-    poses.scalesBuffer       = mEntityScalesBuffer;
-    poses.count              = mEntityCount;
-    poses.bindingGeneration  = mPoseBindingGeneration;
-    return sceneView(poses, mEntityCount);
+    poses.positionsBuffer    = mImpl->mEntityPositionsBuffer;
+    poses.orientationsBuffer = mImpl->mEntityOrientationsBuffer;
+    poses.scalesBuffer       = mImpl->mEntityScalesBuffer;
+    poses.count              = mImpl->mEntityCount;
+    poses.bindingGeneration  = mImpl->mPoseBindingGeneration;
+    return sceneView(poses, mImpl->mEntityCount);
 }
 
 graphics::GpuEntitySceneView RenderSceneUploader::sceneView(
     const common::PoseBufferView &poses, std::uint32_t entityCount) const noexcept
 {
     graphics::GpuEntitySceneView view{};
-    view.layout                             = mLayout;
+    view.layout                             = mImpl->mLayout;
     view.poses                              = poses;
-    view.renderableMetadataBuffer           = mRenderableMetadataBuffer;
-    view.renderableQueueInfoBuffer          = mRenderableQueueInfoBuffer;
-    view.renderableVisibilityFlagsBuffer    = mRenderableVisibilityFlagsBuffer;
-    view.renderableShadowCascadeMasksBuffer = mRenderableShadowCascadeMasksBuffer;
-    view.cameraInputsBuffer                 = mCameraInputsBuffer;
-    view.preparedCamerasBuffer              = mPreparedCamerasBuffer;
-    view.lightInputsBuffer                  = mLightInputsBuffer;
-    view.localLightSelectionBuffer          = mLocalLightSelectionBuffer;
-    view.softBodyVertexBindingBuffer        = mSoftBodyVertexBindingBuffer;
+    view.renderableMetadataBuffer           = mImpl->mRenderableMetadataBuffer;
+    view.renderableQueueInfoBuffer          = mImpl->mRenderableQueueInfoBuffer;
+    view.renderableVisibilityFlagsBuffer    = mImpl->mRenderableVisibilityFlagsBuffer;
+    view.renderableShadowCascadeMasksBuffer = mImpl->mRenderableShadowCascadeMasksBuffer;
+    view.cameraInputsBuffer                 = mImpl->mCameraInputsBuffer;
+    view.preparedCamerasBuffer              = mImpl->mPreparedCamerasBuffer;
+    view.lightInputsBuffer                  = mImpl->mLightInputsBuffer;
+    view.localLightSelectionBuffer          = mImpl->mLocalLightSelectionBuffer;
+    view.softBodyVertexBindingBuffer        = mImpl->mSoftBodyVertexBindingBuffer;
     view.entityCount                        = entityCount;
-    view.renderableCount                    = mRenderableCount;
-    view.cameraCount                        = mCameraCount;
-    view.lightCount                         = mLightCount;
-    view.bindingGeneration = combineGenerations(mSceneBindingGeneration, poses.bindingGeneration);
+    view.renderableCount                    = mImpl->mRenderableCount;
+    view.cameraCount                        = mImpl->mCameraCount;
+    view.lightCount                         = mImpl->mLightCount;
+    view.bindingGeneration =
+        combineGenerations(mImpl->mSceneBindingGeneration, poses.bindingGeneration);
     return view;
 }
 

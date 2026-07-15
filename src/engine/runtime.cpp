@@ -3,8 +3,11 @@
 #include "common/logger.h"
 #include "engine/custom_compute_service.h"
 #include "engine/entity_scene_gpu_state.h"
+#include "engine/render_scene_uploader.h"
 #include "engine/runtime_internal.h"
 #include "engine/shared_buffer_service.h"
+#include "engine/ultrasound_system.h"
+#include "engine/world.h"
 #include "gpu/cuda_interop.h"
 #include "version.h"
 
@@ -139,7 +142,35 @@ bool syncGpuScene(World &world, EntitySceneGpuState *entitySceneState,
 
 } // namespace
 
-Runtime::Runtime() = default;
+struct Runtime::Impl
+{
+    bool mInitialized = false;
+    std::unique_ptr<gpu::GpuDevice> mGpuDevice;
+    std::unique_ptr<EntitySceneGpuState> mEntitySceneGpuState;
+    std::unique_ptr<RenderSceneUploader> mRenderSceneUploader;
+    std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
+    std::unique_ptr<UltrasoundSystem> mUltrasoundSystem;
+    std::unique_ptr<graphics::Renderer> mRenderer;
+    std::unique_ptr<CustomComputeService> mCustomComputeService;
+    std::unique_ptr<SharedBufferService> mSharedBufferService;
+    graphics::RenderFrameOptions mRenderFrameOptions{};
+    graphics::RenderStats mLastRenderStats{};
+    World mWorld;
+    graphics::RenderResourceManager mResources;
+    common::FrameContext mLastFrameContext{};
+    bool mDeviceFrameActive                                  = false;
+    bool mWorldUploaded                                      = false;
+    bool mPhysicsPosesNeedSync                               = false;
+    std::uint64_t mLastUploadedEntityPoseRevision            = 0u;
+    std::uint64_t mLastUploadedRenderableMetadataRevision    = 0u;
+    std::uint64_t mLastUploadedRenderableQueueInfoRevision   = 0u;
+    std::uint64_t mLastUploadedSoftBodyVertexBindingRevision = 0u;
+    std::uint64_t mLastUploadedCameraInputRevision           = 0u;
+    std::uint64_t mLastUploadedLightInputRevision            = 0u;
+    std::uint64_t mLastUploadedLocalLightSelectionRevision   = 0u;
+};
+
+Runtime::Runtime() : mImpl(std::make_unique<Impl>()) {}
 
 Runtime::~Runtime()
 {
@@ -148,238 +179,247 @@ Runtime::~Runtime()
 
 bool Runtime::initialize(const RuntimeConfig &config)
 {
-    if (mInitialized)
+    if (mImpl->mInitialized)
     {
         return true;
     }
 
-    mGpuDevice = gpu::createGpuDevice();
-    if (!mGpuDevice)
+    mImpl->mGpuDevice = gpu::createGpuDevice();
+    if (!mImpl->mGpuDevice)
     {
         return false;
     }
 
-    if (!mGpuDevice->initialize(config.gpuDeviceDesc))
+    if (!mImpl->mGpuDevice->initialize(config.gpuDeviceDesc))
     {
-        mGpuDevice.reset();
+        mImpl->mGpuDevice.reset();
         return false;
     }
 
-    mPhysicsSolver = std::make_unique<physics::PhysicsSolver>(*mGpuDevice, config.physicsDesc);
-    if (!mPhysicsSolver || !mPhysicsSolver->initialize())
+    mImpl->mPhysicsSolver =
+        std::make_unique<physics::PhysicsSolver>(*mImpl->mGpuDevice, config.physicsDesc);
+    if (!mImpl->mPhysicsSolver || !mImpl->mPhysicsSolver->initialize())
     {
-        mPhysicsSolver.reset();
-        mGpuDevice->shutdown();
-        mGpuDevice.reset();
+        mImpl->mPhysicsSolver.reset();
+        mImpl->mGpuDevice->shutdown();
+        mImpl->mGpuDevice.reset();
         return false;
     }
 
-    mUltrasoundSystem = std::make_unique<UltrasoundSystem>(*mGpuDevice, *mPhysicsSolver);
-    if (!mUltrasoundSystem || !mUltrasoundSystem->initialize())
+    mImpl->mUltrasoundSystem =
+        std::make_unique<UltrasoundSystem>(*mImpl->mGpuDevice, *mImpl->mPhysicsSolver);
+    if (!mImpl->mUltrasoundSystem || !mImpl->mUltrasoundSystem->initialize())
     {
-        mUltrasoundSystem.reset();
-        mPhysicsSolver->shutdown();
-        mPhysicsSolver.reset();
-        mGpuDevice->shutdown();
-        mGpuDevice.reset();
+        mImpl->mUltrasoundSystem.reset();
+        mImpl->mPhysicsSolver->shutdown();
+        mImpl->mPhysicsSolver.reset();
+        mImpl->mGpuDevice->shutdown();
+        mImpl->mGpuDevice.reset();
         return false;
     }
 
-    mWorld.setSceneLayout(config.sceneLayout);
+    mImpl->mWorld.setSceneLayout(config.sceneLayout);
 
-    if (hasGraphicsBackendContext(*mGpuDevice) && hasPhysicsBackendContext(*mGpuDevice))
+    if (hasGraphicsBackendContext(*mImpl->mGpuDevice) &&
+        hasPhysicsBackendContext(*mImpl->mGpuDevice))
     {
-        mEntitySceneGpuState = std::make_unique<EntitySceneGpuState>(*mGpuDevice);
-        mRenderSceneUploader = std::make_unique<RenderSceneUploader>(*mGpuDevice);
-        if (!mEntitySceneGpuState || !mEntitySceneGpuState->initialize() || !mRenderSceneUploader ||
-            !mRenderSceneUploader->initialize(config.sceneLayout))
+        mImpl->mEntitySceneGpuState = std::make_unique<EntitySceneGpuState>(*mImpl->mGpuDevice);
+        mImpl->mRenderSceneUploader = std::make_unique<RenderSceneUploader>(*mImpl->mGpuDevice);
+        if (!mImpl->mEntitySceneGpuState || !mImpl->mEntitySceneGpuState->initialize() ||
+            !mImpl->mRenderSceneUploader ||
+            !mImpl->mRenderSceneUploader->initialize(config.sceneLayout))
         {
-            if (mEntitySceneGpuState)
+            if (mImpl->mEntitySceneGpuState)
             {
-                mEntitySceneGpuState->shutdown();
-                mEntitySceneGpuState.reset();
+                mImpl->mEntitySceneGpuState->shutdown();
+                mImpl->mEntitySceneGpuState.reset();
             }
-            mRenderSceneUploader.reset();
-            mUltrasoundSystem->shutdown();
-            mUltrasoundSystem.reset();
-            mPhysicsSolver->shutdown();
-            mPhysicsSolver.reset();
-            mGpuDevice->shutdown();
-            mGpuDevice.reset();
+            mImpl->mRenderSceneUploader.reset();
+            mImpl->mUltrasoundSystem->shutdown();
+            mImpl->mUltrasoundSystem.reset();
+            mImpl->mPhysicsSolver->shutdown();
+            mImpl->mPhysicsSolver.reset();
+            mImpl->mGpuDevice->shutdown();
+            mImpl->mGpuDevice.reset();
             return false;
         }
     }
 
-    mRenderer = std::make_unique<graphics::Renderer>(*mGpuDevice, mResources, config.rendererDesc);
-    if (!mRenderer->initialize())
+    mImpl->mRenderer = std::make_unique<graphics::Renderer>(*mImpl->mGpuDevice, mImpl->mResources,
+                                                            config.rendererDesc);
+    if (!mImpl->mRenderer->initialize())
     {
-        mRenderer.reset();
-        if (mRenderSceneUploader)
+        mImpl->mRenderer.reset();
+        if (mImpl->mRenderSceneUploader)
         {
-            mRenderSceneUploader->shutdown();
-            mRenderSceneUploader.reset();
+            mImpl->mRenderSceneUploader->shutdown();
+            mImpl->mRenderSceneUploader.reset();
         }
-        if (mEntitySceneGpuState)
+        if (mImpl->mEntitySceneGpuState)
         {
-            mEntitySceneGpuState->shutdown();
-            mEntitySceneGpuState.reset();
+            mImpl->mEntitySceneGpuState->shutdown();
+            mImpl->mEntitySceneGpuState.reset();
         }
-        if (mUltrasoundSystem)
+        if (mImpl->mUltrasoundSystem)
         {
-            mUltrasoundSystem->shutdown();
-            mUltrasoundSystem.reset();
+            mImpl->mUltrasoundSystem->shutdown();
+            mImpl->mUltrasoundSystem.reset();
         }
-        mPhysicsSolver->shutdown();
-        mPhysicsSolver.reset();
-        mGpuDevice->shutdown();
-        mGpuDevice.reset();
+        mImpl->mPhysicsSolver->shutdown();
+        mImpl->mPhysicsSolver.reset();
+        mImpl->mGpuDevice->shutdown();
+        mImpl->mGpuDevice.reset();
         return false;
     }
 
-    mCustomComputeService = std::make_unique<CustomComputeService>(*mGpuDevice);
-    mSharedBufferService  = std::make_unique<SharedBufferService>(*mGpuDevice);
-    mInitialized          = true;
+    mImpl->mCustomComputeService = std::make_unique<CustomComputeService>(*mImpl->mGpuDevice);
+    mImpl->mSharedBufferService  = std::make_unique<SharedBufferService>(*mImpl->mGpuDevice);
+    mImpl->mInitialized          = true;
     return true;
 }
 
 void Runtime::shutdown()
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return;
     }
 
-    if (mDeviceFrameActive && mGpuDevice)
+    if (mImpl->mDeviceFrameActive && mImpl->mGpuDevice)
     {
-        mGpuDevice->endFrame(mLastFrameContext);
-        mDeviceFrameActive = false;
+        mImpl->mGpuDevice->endFrame(mImpl->mLastFrameContext);
+        mImpl->mDeviceFrameActive = false;
     }
 
-    mRenderer.reset();
-    if (mCustomComputeService)
+    mImpl->mRenderer.reset();
+    if (mImpl->mCustomComputeService)
     {
-        mCustomComputeService->clear();
-        mCustomComputeService.reset();
+        mImpl->mCustomComputeService->clear();
+        mImpl->mCustomComputeService.reset();
     }
-    if (mSharedBufferService)
+    if (mImpl->mSharedBufferService)
     {
-        mSharedBufferService->clear();
-        mSharedBufferService.reset();
-    }
-
-    if (mRenderSceneUploader)
-    {
-        mRenderSceneUploader->shutdown();
-        mRenderSceneUploader.reset();
-    }
-    if (mEntitySceneGpuState)
-    {
-        mEntitySceneGpuState->shutdown();
-        mEntitySceneGpuState.reset();
-    }
-    if (mUltrasoundSystem)
-    {
-        mUltrasoundSystem->shutdown();
-        mUltrasoundSystem.reset();
+        mImpl->mSharedBufferService->clear();
+        mImpl->mSharedBufferService.reset();
     }
 
-    if (mPhysicsSolver)
+    if (mImpl->mRenderSceneUploader)
     {
-        mPhysicsSolver->shutdown();
-        mPhysicsSolver.reset();
+        mImpl->mRenderSceneUploader->shutdown();
+        mImpl->mRenderSceneUploader.reset();
+    }
+    if (mImpl->mEntitySceneGpuState)
+    {
+        mImpl->mEntitySceneGpuState->shutdown();
+        mImpl->mEntitySceneGpuState.reset();
+    }
+    if (mImpl->mUltrasoundSystem)
+    {
+        mImpl->mUltrasoundSystem->shutdown();
+        mImpl->mUltrasoundSystem.reset();
     }
 
-    if (mGpuDevice)
+    if (mImpl->mPhysicsSolver)
     {
-        mGpuDevice->shutdown();
-        mGpuDevice.reset();
+        mImpl->mPhysicsSolver->shutdown();
+        mImpl->mPhysicsSolver.reset();
     }
 
-    mLastRenderStats                           = {};
-    mRenderFrameOptions                        = {};
-    mLastFrameContext                          = {};
-    mDeviceFrameActive                         = false;
-    mWorldUploaded                             = false;
-    mPhysicsPosesNeedSync                      = false;
-    mInitialized                               = false;
-    mLastUploadedEntityPoseRevision            = 0u;
-    mLastUploadedRenderableMetadataRevision    = 0u;
-    mLastUploadedRenderableQueueInfoRevision   = 0u;
-    mLastUploadedSoftBodyVertexBindingRevision = 0u;
-    mLastUploadedCameraInputRevision           = 0u;
-    mLastUploadedLightInputRevision            = 0u;
-    mLastUploadedLocalLightSelectionRevision   = 0u;
+    if (mImpl->mGpuDevice)
+    {
+        mImpl->mGpuDevice->shutdown();
+        mImpl->mGpuDevice.reset();
+    }
+
+    mImpl->mLastRenderStats                           = {};
+    mImpl->mRenderFrameOptions                        = {};
+    mImpl->mLastFrameContext                          = {};
+    mImpl->mDeviceFrameActive                         = false;
+    mImpl->mWorldUploaded                             = false;
+    mImpl->mPhysicsPosesNeedSync                      = false;
+    mImpl->mInitialized                               = false;
+    mImpl->mLastUploadedEntityPoseRevision            = 0u;
+    mImpl->mLastUploadedRenderableMetadataRevision    = 0u;
+    mImpl->mLastUploadedRenderableQueueInfoRevision   = 0u;
+    mImpl->mLastUploadedSoftBodyVertexBindingRevision = 0u;
+    mImpl->mLastUploadedCameraInputRevision           = 0u;
+    mImpl->mLastUploadedLightInputRevision            = 0u;
+    mImpl->mLastUploadedLocalLightSelectionRevision   = 0u;
 }
 
 void Runtime::prepare()
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return;
     }
 
-    mWorld.ensureRenderStateUpToDate(mResources);
-    if (mUltrasoundSystem)
+    mImpl->mWorld.ensureRenderStateUpToDate(mImpl->mResources);
+    if (mImpl->mUltrasoundSystem)
     {
-        if (!mUltrasoundSystem->prepare(mWorld))
+        if (!mImpl->mUltrasoundSystem->prepare(mImpl->mWorld))
         {
             CRESSIM_LOG_WARNING("Runtime: ultrasound prepare failed.");
         }
     }
-    mWorldUploaded        = false;
-    mPhysicsPosesNeedSync = false;
+    mImpl->mWorldUploaded        = false;
+    mImpl->mPhysicsPosesNeedSync = false;
 }
 
 bool Runtime::uploadWorld()
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
 
     bool uploaded = true;
-    if (mPhysicsSolver && !mPhysicsSolver->syncWorldState(mWorld.physicsWorld()))
+    if (mImpl->mPhysicsSolver &&
+        !mImpl->mPhysicsSolver->syncWorldState(mImpl->mWorld.physicsWorld()))
     {
         CRESSIM_LOG_ERROR("Runtime: physics world upload failed.");
         uploaded = false;
     }
 
-    if (uploaded && mEntitySceneGpuState && mRenderSceneUploader &&
-        !syncGpuScene(mWorld, mEntitySceneGpuState.get(), mRenderSceneUploader.get(),
-                      mPhysicsSolver.get(), false, mLastUploadedEntityPoseRevision,
-                      mLastUploadedRenderableMetadataRevision,
-                      mLastUploadedRenderableQueueInfoRevision,
-                      mLastUploadedSoftBodyVertexBindingRevision, mLastUploadedCameraInputRevision,
-                      mLastUploadedLightInputRevision, mLastUploadedLocalLightSelectionRevision))
+    if (uploaded && mImpl->mEntitySceneGpuState && mImpl->mRenderSceneUploader &&
+        !syncGpuScene(
+            mImpl->mWorld, mImpl->mEntitySceneGpuState.get(), mImpl->mRenderSceneUploader.get(),
+            mImpl->mPhysicsSolver.get(), false, mImpl->mLastUploadedEntityPoseRevision,
+            mImpl->mLastUploadedRenderableMetadataRevision,
+            mImpl->mLastUploadedRenderableQueueInfoRevision,
+            mImpl->mLastUploadedSoftBodyVertexBindingRevision,
+            mImpl->mLastUploadedCameraInputRevision, mImpl->mLastUploadedLightInputRevision,
+            mImpl->mLastUploadedLocalLightSelectionRevision))
     {
         uploaded = false;
     }
 
-    mWorldUploaded        = uploaded;
-    mPhysicsPosesNeedSync = false;
+    mImpl->mWorldUploaded        = uploaded;
+    mImpl->mPhysicsPosesNeedSync = false;
     return uploaded;
 }
 
 bool Runtime::stepPhysics(const common::FrameContext &frameContext)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
-    if (!mWorldUploaded)
+    if (!mImpl->mWorldUploaded)
     {
         CRESSIM_LOG_ERROR("Runtime: stepPhysics() requires uploadWorld() after prepare() and "
                           "before execution.");
         return false;
     }
 
-    mLastFrameContext = frameContext;
-    ensureDeviceFrameActive(mGpuDevice.get(), frameContext, mDeviceFrameActive);
+    mImpl->mLastFrameContext = frameContext;
+    ensureDeviceFrameActive(mImpl->mGpuDevice.get(), frameContext, mImpl->mDeviceFrameActive);
 
     bool physicsStepSucceeded = true;
-    if (mPhysicsSolver)
+    if (mImpl->mPhysicsSolver)
     {
-        physicsStepSucceeded = mPhysicsSolver->step(frameContext, mWorld.physicsWorld());
+        physicsStepSucceeded =
+            mImpl->mPhysicsSolver->step(frameContext, mImpl->mWorld.physicsWorld());
         if (!physicsStepSucceeded)
         {
             CRESSIM_LOG_ERROR("Runtime: physics step failed at frame ", frameContext.frameIndex,
@@ -388,38 +428,40 @@ bool Runtime::stepPhysics(const common::FrameContext &frameContext)
     }
     if (physicsStepSucceeded)
     {
-        mPhysicsPosesNeedSync = true;
+        mImpl->mPhysicsPosesNeedSync = true;
     }
     return physicsStepSucceeded;
 }
 
 bool Runtime::stepSimulationSensors(const common::FrameContext &frameContext)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
 
-    if (syncGpuScene(mWorld, mEntitySceneGpuState.get(), mRenderSceneUploader.get(),
-                     mPhysicsSolver.get(), mPhysicsPosesNeedSync, mLastUploadedEntityPoseRevision,
-                     mLastUploadedRenderableMetadataRevision,
-                     mLastUploadedRenderableQueueInfoRevision,
-                     mLastUploadedSoftBodyVertexBindingRevision, mLastUploadedCameraInputRevision,
-                     mLastUploadedLightInputRevision, mLastUploadedLocalLightSelectionRevision))
+    if (syncGpuScene(
+            mImpl->mWorld, mImpl->mEntitySceneGpuState.get(), mImpl->mRenderSceneUploader.get(),
+            mImpl->mPhysicsSolver.get(), mImpl->mPhysicsPosesNeedSync,
+            mImpl->mLastUploadedEntityPoseRevision, mImpl->mLastUploadedRenderableMetadataRevision,
+            mImpl->mLastUploadedRenderableQueueInfoRevision,
+            mImpl->mLastUploadedSoftBodyVertexBindingRevision,
+            mImpl->mLastUploadedCameraInputRevision, mImpl->mLastUploadedLightInputRevision,
+            mImpl->mLastUploadedLocalLightSelectionRevision))
     {
-        mPhysicsPosesNeedSync = false;
+        mImpl->mPhysicsPosesNeedSync = false;
     }
 
-    mLastFrameContext = frameContext;
+    mImpl->mLastFrameContext = frameContext;
 
-    if (!mUltrasoundSystem)
+    if (!mImpl->mUltrasoundSystem)
     {
         return true;
     }
 
-    ensureDeviceFrameActive(mGpuDevice.get(), frameContext, mDeviceFrameActive);
+    ensureDeviceFrameActive(mImpl->mGpuDevice.get(), frameContext, mImpl->mDeviceFrameActive);
 
-    const bool succeeded = mUltrasoundSystem->execute(frameContext, mWorld);
+    const bool succeeded = mImpl->mUltrasoundSystem->execute(frameContext, mImpl->mWorld);
     if (!succeeded)
     {
         CRESSIM_LOG_WARNING("Runtime: ultrasound step failed at frame ", frameContext.frameIndex,
@@ -430,116 +472,117 @@ bool Runtime::stepSimulationSensors(const common::FrameContext &frameContext)
 
 void Runtime::stepVisualSensors(const common::FrameContext &frameContext)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return;
     }
 
     const bool gpuSceneReady = syncGpuScene(
-        mWorld, mEntitySceneGpuState.get(), mRenderSceneUploader.get(), mPhysicsSolver.get(),
-        mPhysicsPosesNeedSync, mLastUploadedEntityPoseRevision,
-        mLastUploadedRenderableMetadataRevision, mLastUploadedRenderableQueueInfoRevision,
-        mLastUploadedSoftBodyVertexBindingRevision, mLastUploadedCameraInputRevision,
-        mLastUploadedLightInputRevision, mLastUploadedLocalLightSelectionRevision);
+        mImpl->mWorld, mImpl->mEntitySceneGpuState.get(), mImpl->mRenderSceneUploader.get(),
+        mImpl->mPhysicsSolver.get(), mImpl->mPhysicsPosesNeedSync,
+        mImpl->mLastUploadedEntityPoseRevision, mImpl->mLastUploadedRenderableMetadataRevision,
+        mImpl->mLastUploadedRenderableQueueInfoRevision,
+        mImpl->mLastUploadedSoftBodyVertexBindingRevision, mImpl->mLastUploadedCameraInputRevision,
+        mImpl->mLastUploadedLightInputRevision, mImpl->mLastUploadedLocalLightSelectionRevision);
 
     if (gpuSceneReady)
     {
-        mPhysicsPosesNeedSync = false;
+        mImpl->mPhysicsPosesNeedSync = false;
     }
 
     // Wait once at the graphics consumer. Whichever sensor path runs first has already updated
     // the shared scene poses, so a later simulation-sensor call does not rewrite them.
-    if (gpuSceneReady && mGpuDevice && !mGpuDevice->waitForPhysicsOnGraphics())
+    if (gpuSceneReady && mImpl->mGpuDevice && !mImpl->mGpuDevice->waitForPhysicsOnGraphics())
     {
         CRESSIM_LOG_WARNING("Runtime: failed to synchronize GPU scene for visual sensors.");
     }
 
-    mLastFrameContext = frameContext;
+    mImpl->mLastFrameContext = frameContext;
 
-    ensureDeviceFrameActive(mGpuDevice.get(), frameContext, mDeviceFrameActive);
+    ensureDeviceFrameActive(mImpl->mGpuDevice.get(), frameContext, mImpl->mDeviceFrameActive);
 
     physics::PhysicsGpuSceneView physicsSceneView{};
     const physics::PhysicsGpuSceneView *physicsScenePtr = nullptr;
-    if (mPhysicsSolver)
+    if (mImpl->mPhysicsSolver)
     {
-        physicsSceneView = mPhysicsSolver->gpuSceneView();
+        physicsSceneView = mImpl->mPhysicsSolver->gpuSceneView();
         physicsScenePtr  = &physicsSceneView;
     }
 
-    mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView(), physicsScenePtr,
-                                         mRenderFrameOptions);
+    mImpl->mLastRenderStats = mImpl->mRenderer->render(frameContext, mImpl->mWorld.hostSceneView(),
+                                                       physicsScenePtr, mImpl->mRenderFrameOptions);
 }
 
 void Runtime::endFrame(const common::FrameContext &frameContext)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return;
     }
 
-    mLastFrameContext = frameContext;
-    if (!mDeviceFrameActive || !mGpuDevice)
+    mImpl->mLastFrameContext = frameContext;
+    if (!mImpl->mDeviceFrameActive || !mImpl->mGpuDevice)
     {
         return;
     }
 
-    mGpuDevice->endFrame(frameContext);
-    mDeviceFrameActive = false;
+    mImpl->mGpuDevice->endFrame(frameContext);
+    mImpl->mDeviceFrameActive = false;
 }
 
 World &Runtime::getWorld() noexcept
 {
-    return mWorld;
+    return mImpl->mWorld;
 }
 
 const World &Runtime::getWorld() const noexcept
 {
-    return mWorld;
+    return mImpl->mWorld;
 }
 
 gpu::GpuDevice *Runtime::getGpuDevice() noexcept
 {
-    return mGpuDevice.get();
+    return mImpl->mGpuDevice.get();
 }
 
 const gpu::GpuDevice *Runtime::getGpuDevice() const noexcept
 {
-    return mGpuDevice.get();
+    return mImpl->mGpuDevice.get();
 }
 
 physics::PhysicsSolver *Runtime::getPhysicsSolver() noexcept
 {
-    return mPhysicsSolver.get();
+    return mImpl->mPhysicsSolver.get();
 }
 
 const physics::PhysicsSolver *Runtime::getPhysicsSolver() const noexcept
 {
-    return mPhysicsSolver.get();
+    return mImpl->mPhysicsSolver.get();
 }
 
 const graphics::RenderStats &Runtime::lastRenderStats() const noexcept
 {
-    return mLastRenderStats;
+    return mImpl->mLastRenderStats;
 }
 
 void Runtime::setRenderFrameOptions(const graphics::RenderFrameOptions &options) noexcept
 {
-    mRenderFrameOptions = options;
+    mImpl->mRenderFrameOptions = options;
 }
 
 const graphics::RenderFrameOptions &Runtime::renderFrameOptions() const noexcept
 {
-    return mRenderFrameOptions;
+    return mImpl->mRenderFrameOptions;
 }
 
 graphics::RenderResourceManager &Runtime::getResources() noexcept
 {
-    return mResources;
+    return mImpl->mResources;
 }
 
 const graphics::RenderResourceManager &Runtime::getResources() const noexcept
 {
-    return mResources;
+    return mImpl->mResources;
 }
 
 RuntimeInfo Runtime::getInfo() const noexcept
@@ -560,41 +603,42 @@ RuntimeInfo Runtime::getInfo() const noexcept
 
 SharedBufferHandle Runtime::createSharedBuffer(const SharedBufferDesc &desc)
 {
-    return mInitialized && mSharedBufferService != nullptr
-               ? mSharedBufferService->createBuffer(desc)
+    return mImpl->mInitialized && mImpl->mSharedBufferService != nullptr
+               ? mImpl->mSharedBufferService->createBuffer(desc)
                : SharedBufferHandle{};
 }
 
 bool Runtime::destroySharedBuffer(const SharedBufferHandle handle)
 {
-    return mInitialized && mSharedBufferService != nullptr &&
-           mSharedBufferService->destroyBuffer(handle);
+    return mImpl->mInitialized && mImpl->mSharedBufferService != nullptr &&
+           mImpl->mSharedBufferService->destroyBuffer(handle);
 }
 
 std::vector<SharedBufferInfo> Runtime::listSharedBuffers() const
 {
-    return mInitialized && mSharedBufferService != nullptr ? mSharedBufferService->listBuffers()
-                                                           : std::vector<SharedBufferInfo>{};
+    return mImpl->mInitialized && mImpl->mSharedBufferService != nullptr
+               ? mImpl->mSharedBufferService->listBuffers()
+               : std::vector<SharedBufferInfo>{};
 }
 
 bool Runtime::tryGetSharedBufferInfo(const SharedBufferHandle handle,
                                      SharedBufferInfo &outInfo) const
 {
-    return mInitialized && mSharedBufferService != nullptr &&
-           mSharedBufferService->tryGetBufferInfo(handle, outInfo);
+    return mImpl->mInitialized && mImpl->mSharedBufferService != nullptr &&
+           mImpl->mSharedBufferService->tryGetBufferInfo(handle, outInfo);
 }
 
 bool Runtime::tryGetSharedBufferCudaView(const SharedBufferHandle handle,
                                          SharedBufferCudaView &outView) const
 {
-    return mInitialized && mSharedBufferService != nullptr &&
-           mSharedBufferService->tryGetCudaView(handle, outView);
+    return mImpl->mInitialized && mImpl->mSharedBufferService != nullptr &&
+           mImpl->mSharedBufferService->tryGetCudaView(handle, outView);
 }
 
 std::shared_ptr<void> Runtime::retainSharedBuffer(const SharedBufferHandle handle) const
 {
-    return mInitialized && mSharedBufferService != nullptr
-               ? mSharedBufferService->retainBuffer(handle)
+    return mImpl->mInitialized && mImpl->mSharedBufferService != nullptr
+               ? mImpl->mSharedBufferService->retainBuffer(handle)
                : std::shared_ptr<void>{};
 }
 
@@ -606,47 +650,49 @@ std::shared_ptr<void> RuntimeInternalAccess::retainSharedBufferLease(
 
 bool Runtime::syncSharedBufferToCuda(const SharedBufferHandle handle)
 {
-    if (!mInitialized || mSharedBufferService == nullptr || mGpuDevice == nullptr)
+    if (!mImpl->mInitialized || mImpl->mSharedBufferService == nullptr ||
+        mImpl->mGpuDevice == nullptr)
     {
         return false;
     }
 
     gpu::GpuComputeBackendContext computeBackend{};
-    if (!mGpuDevice->tryGetPhysicsBackendContext(computeBackend) ||
+    if (!mImpl->mGpuDevice->tryGetPhysicsBackendContext(computeBackend) ||
         computeBackend.computeContext == nullptr)
     {
         return false;
     }
 
-    return mSharedBufferService->synchronizeToCuda(handle, computeBackend.computeContext);
+    return mImpl->mSharedBufferService->synchronizeToCuda(handle, computeBackend.computeContext);
 }
 
 bool Runtime::syncSharedBufferFromCuda(const SharedBufferHandle handle)
 {
-    if (!mInitialized || mSharedBufferService == nullptr || mGpuDevice == nullptr)
+    if (!mImpl->mInitialized || mImpl->mSharedBufferService == nullptr ||
+        mImpl->mGpuDevice == nullptr)
     {
         return false;
     }
 
     gpu::GpuComputeBackendContext computeBackend{};
-    if (!mGpuDevice->tryGetPhysicsBackendContext(computeBackend) ||
+    if (!mImpl->mGpuDevice->tryGetPhysicsBackendContext(computeBackend) ||
         computeBackend.computeContext == nullptr)
     {
         return false;
     }
 
-    return mSharedBufferService->synchronizeFromCuda(handle, computeBackend.computeContext);
+    return mImpl->mSharedBufferService->synchronizeFromCuda(handle, computeBackend.computeContext);
 }
 
 bool Runtime::tryGetPreparedRigidLayoutMapping(RigidLayoutMapping &outMapping) const
 {
     outMapping = {};
-    if (!mInitialized || mPhysicsSolver == nullptr)
+    if (!mImpl->mInitialized || mImpl->mPhysicsSolver == nullptr)
     {
         return false;
     }
 
-    const physics::PhysicsWorld &physicsWorld    = mWorld.physicsWorld();
+    const physics::PhysicsWorld &physicsWorld    = mImpl->mWorld.physicsWorld();
     const physics::RigidBodySoAHost &rigidBodies = physicsWorld.rigidBodySoA();
     const physics::ColliderSoAHost &colliders    = physicsWorld.colliderSoA();
     const physics::BodyColliderMappingHost &bodyColliderMapping =
@@ -687,12 +733,12 @@ bool Runtime::tryGetPreparedRigidLayoutMapping(RigidLayoutMapping &outMapping) c
 bool Runtime::tryGetPreparedConstraintLayoutMapping(ConstraintLayoutMapping &outMapping) const
 {
     outMapping = {};
-    if (!mInitialized || mPhysicsSolver == nullptr)
+    if (!mImpl->mInitialized || mImpl->mPhysicsSolver == nullptr)
     {
         return false;
     }
 
-    const physics::PhysicsWorld &physicsWorld    = mWorld.physicsWorld();
+    const physics::PhysicsWorld &physicsWorld    = mImpl->mWorld.physicsWorld();
     const physics::RigidBodySoAHost &rigidBodies = physicsWorld.rigidBodySoA();
     const auto &rigidParticleAttachments = physicsWorld.rigidParticleAttachmentConstraintSnapshot();
     const auto &rigidDistanceConstraints = physicsWorld.rigidDistanceConstraintSnapshot();
@@ -817,12 +863,12 @@ bool Runtime::tryGetPreparedConstraintLayoutMapping(ConstraintLayoutMapping &out
 bool Runtime::tryGetPreparedParticleLayoutMapping(ParticleLayoutMapping &outMapping) const
 {
     outMapping = {};
-    if (!mInitialized || mPhysicsSolver == nullptr)
+    if (!mImpl->mInitialized || mImpl->mPhysicsSolver == nullptr)
     {
         return false;
     }
 
-    const physics::PhysicsWorld &physicsWorld = mWorld.physicsWorld();
+    const physics::PhysicsWorld &physicsWorld = mImpl->mWorld.physicsWorld();
     physicsWorld.ensureDerivedStateUpToDate();
 
     const physics::ParticleSoAHost &particles = physicsWorld.particles();
@@ -892,12 +938,12 @@ bool Runtime::tryGetPreparedParticleLayoutMapping(ParticleLayoutMapping &outMapp
 bool Runtime::tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) const
 {
     outMapping = {};
-    if (!mInitialized || mPhysicsSolver == nullptr)
+    if (!mImpl->mInitialized || mImpl->mPhysicsSolver == nullptr)
     {
         return false;
     }
 
-    const physics::PhysicsWorld &physicsWorld           = mWorld.physicsWorld();
+    const physics::PhysicsWorld &physicsWorld           = mImpl->mWorld.physicsWorld();
     const physics::RigidBodySoAHost &rigidBodies        = physicsWorld.rigidBodySoA();
     const std::vector<physics::BallJointState> &balls   = physicsWorld.ballJointSnapshot();
     const std::vector<physics::HingeJointState> &hinges = physicsWorld.hingeJointSnapshot();
@@ -1004,77 +1050,84 @@ bool Runtime::computeUltrasoundProbeLayout(const UltrasoundProbeComponent &probe
                                            UltrasoundProbeLayout &outLayout) const
 {
     outLayout = {};
-    return mInitialized && mUltrasoundSystem != nullptr &&
-           mUltrasoundSystem->computeProbeLayout(probeComponent, rendererComponent, outLayout);
+    return mImpl->mInitialized && mImpl->mUltrasoundSystem != nullptr &&
+           mImpl->mUltrasoundSystem->computeProbeLayout(probeComponent, rendererComponent,
+                                                        outLayout);
 }
 
 std::vector<CustomComputeResourceDesc> Runtime::listCustomComputeResources()
 {
-    if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)
+    if (!mImpl->mInitialized || mImpl->mCustomComputeService == nullptr ||
+        mImpl->mPhysicsSolver == nullptr)
     {
         return {};
     }
-    if (!mWorldUploaded)
+    if (!mImpl->mWorldUploaded)
     {
         CRESSIM_LOG_ERROR("Runtime: listCustomComputeResources() requires uploadWorld() after "
                           "prepare() and before execution.");
         return {};
     }
-    return mCustomComputeService->listResources(*mPhysicsSolver, mWorld.physicsWorld(),
-                                                mWorld.gpuEntityScene());
+    return mImpl->mCustomComputeService->listResources(
+        *mImpl->mPhysicsSolver, mImpl->mWorld.physicsWorld(), mImpl->mWorld.gpuEntityScene());
 }
 
 CustomComputePassHandle Runtime::createCustomComputePass(const CustomComputePassDesc &desc)
 {
-    if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)
+    if (!mImpl->mInitialized || mImpl->mCustomComputeService == nullptr ||
+        mImpl->mPhysicsSolver == nullptr)
     {
         return {};
     }
-    if (!mWorldUploaded)
+    if (!mImpl->mWorldUploaded)
     {
         CRESSIM_LOG_ERROR("Runtime: createCustomComputePass() requires uploadWorld() after "
                           "prepare() and before execution.");
         return {};
     }
-    ensureDeviceFrameActive(mGpuDevice.get(), mLastFrameContext, mDeviceFrameActive);
-    return mCustomComputeService->createPass(*mPhysicsSolver, mWorld.physicsWorld(),
-                                             mWorld.gpuEntityScene(), mSharedBufferService.get(),
-                                             desc);
+    ensureDeviceFrameActive(mImpl->mGpuDevice.get(), mImpl->mLastFrameContext,
+                            mImpl->mDeviceFrameActive);
+    return mImpl->mCustomComputeService->createPass(
+        *mImpl->mPhysicsSolver, mImpl->mWorld.physicsWorld(), mImpl->mWorld.gpuEntityScene(),
+        mImpl->mSharedBufferService.get(), desc);
 }
 
 bool Runtime::updateCustomComputePassConstants(CustomComputePassHandle handle,
                                                const std::vector<std::uint8_t> &data)
 {
-    if (!mInitialized || mCustomComputeService == nullptr)
+    if (!mImpl->mInitialized || mImpl->mCustomComputeService == nullptr)
     {
         return false;
     }
-    ensureDeviceFrameActive(mGpuDevice.get(), mLastFrameContext, mDeviceFrameActive);
-    return mCustomComputeService->updatePassConstants(handle, data);
+    ensureDeviceFrameActive(mImpl->mGpuDevice.get(), mImpl->mLastFrameContext,
+                            mImpl->mDeviceFrameActive);
+    return mImpl->mCustomComputeService->updatePassConstants(handle, data);
 }
 
 bool Runtime::executeCustomComputePass(CustomComputePassHandle handle)
 {
-    if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)
+    if (!mImpl->mInitialized || mImpl->mCustomComputeService == nullptr ||
+        mImpl->mPhysicsSolver == nullptr)
     {
         return false;
     }
-    if (!mWorldUploaded)
+    if (!mImpl->mWorldUploaded)
     {
         CRESSIM_LOG_ERROR("Runtime: executeCustomComputePass() requires uploadWorld() after "
                           "prepare() and before execution.");
         return false;
     }
-    ensureDeviceFrameActive(mGpuDevice.get(), mLastFrameContext, mDeviceFrameActive);
-    return mCustomComputeService->executePass(*mPhysicsSolver, mWorld.physicsWorld(),
-                                              mWorld.gpuEntityScene(), mSharedBufferService.get(),
-                                              handle);
+    ensureDeviceFrameActive(mImpl->mGpuDevice.get(), mImpl->mLastFrameContext,
+                            mImpl->mDeviceFrameActive);
+    return mImpl->mCustomComputeService->executePass(
+        *mImpl->mPhysicsSolver, mImpl->mWorld.physicsWorld(), mImpl->mWorld.gpuEntityScene(),
+        mImpl->mSharedBufferService.get(), handle);
 }
 
 bool Runtime::destroyCustomComputePass(CustomComputePassHandle handle)
 {
-    return mInitialized && mCustomComputeService != nullptr &&
-           mCustomComputeService->destroyPass(handle);
+    return mImpl->mInitialized && mImpl->mCustomComputeService != nullptr &&
+           mImpl->mCustomComputeService->destroyPass(handle);
 }
 
 } // namespace cressim::neo::engine

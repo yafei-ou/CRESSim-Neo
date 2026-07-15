@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
 #include <utility>
 
 namespace cressim::neo::graphics
@@ -171,10 +172,52 @@ TextureResourceDesc normalizeTextureDesc(const TextureResourceDesc &desc)
 
 } // namespace
 
+struct RenderResourceManager::Impl
+{
+    struct MeshResource
+    {
+        MeshResourceDesc desc{};
+        std::uint64_t version = 1;
+        Diligent::float3 localBoundsMin{};
+        Diligent::float3 localBoundsMax{};
+        bool hasLocalBounds = false;
+    };
+
+    common::ResourceId mNextMeshId     = 1;
+    common::ResourceId mNextMaterialId = 1;
+    common::ResourceId mNextTextureId  = 1;
+    std::unordered_map<common::ResourceId, MeshResource> mMeshes;
+    std::unordered_map<common::ResourceId, MaterialResourceDesc> mMaterials;
+    std::unordered_map<common::ResourceId, TextureResourceDesc> mTextures;
+};
+
+RenderResourceManager::RenderResourceManager() : mImpl(std::make_unique<Impl>()) {}
+
+RenderResourceManager::~RenderResourceManager() = default;
+
+RenderResourceManager::RenderResourceManager(const RenderResourceManager &other)
+    : mImpl(std::make_unique<Impl>(*other.mImpl))
+{
+}
+
+RenderResourceManager &RenderResourceManager::operator=(const RenderResourceManager &other)
+{
+    if (this != &other)
+    {
+        mImpl = std::make_unique<Impl>(*other.mImpl);
+    }
+    return *this;
+}
+
+RenderResourceManager::RenderResourceManager(RenderResourceManager &&other) noexcept = default;
+
+RenderResourceManager &RenderResourceManager::operator=(RenderResourceManager &&other) noexcept =
+    default;
+
 MeshHandle RenderResourceManager::registerMesh(const MeshResourceDesc &desc)
 {
-    const common::ResourceId id = mNextMeshId++;
-    MeshResource resource{};
+    const common::ResourceId id = mImpl->mNextMeshId++;
+    Impl::MeshResource resource{};
     resource.desc = desc;
     generateTangents(resource.desc);
     if (!desc.vertices.empty())
@@ -192,43 +235,43 @@ MeshHandle RenderResourceManager::registerMesh(const MeshResourceDesc &desc)
         }
         resource.hasLocalBounds = true;
     }
-    mMeshes.emplace(id, std::move(resource));
+    mImpl->mMeshes.emplace(id, std::move(resource));
     return MeshHandle{id};
 }
 
 MaterialHandle RenderResourceManager::registerMaterial(const MaterialResourceDesc &desc)
 {
-    const common::ResourceId id = mNextMaterialId++;
-    mMaterials.emplace(id, normalizeMaterialDesc(desc));
+    const common::ResourceId id = mImpl->mNextMaterialId++;
+    mImpl->mMaterials.emplace(id, normalizeMaterialDesc(desc));
     return MaterialHandle{id};
 }
 
 TextureHandle RenderResourceManager::registerTexture(const TextureResourceDesc &desc)
 {
-    const common::ResourceId id = mNextTextureId++;
-    mTextures.emplace(id, normalizeTextureDesc(desc));
+    const common::ResourceId id = mImpl->mNextTextureId++;
+    mImpl->mTextures.emplace(id, normalizeTextureDesc(desc));
     return TextureHandle{id};
 }
 
 bool RenderResourceManager::isValid(MeshHandle mesh) const
 {
-    return mMeshes.find(mesh.id) != mMeshes.end();
+    return mImpl->mMeshes.find(mesh.id) != mImpl->mMeshes.end();
 }
 
 bool RenderResourceManager::isValid(MaterialHandle material) const
 {
-    return mMaterials.find(material.id) != mMaterials.end();
+    return mImpl->mMaterials.find(material.id) != mImpl->mMaterials.end();
 }
 
 bool RenderResourceManager::isValid(TextureHandle texture) const
 {
-    return mTextures.find(texture.id) != mTextures.end();
+    return mImpl->mTextures.find(texture.id) != mImpl->mTextures.end();
 }
 
 const MeshResourceDesc *RenderResourceManager::tryGetMesh(MeshHandle mesh) const noexcept
 {
-    const auto it = mMeshes.find(mesh.id);
-    if (it == mMeshes.end())
+    const auto it = mImpl->mMeshes.find(mesh.id);
+    if (it == mImpl->mMeshes.end())
     {
         return nullptr;
     }
@@ -238,8 +281,8 @@ const MeshResourceDesc *RenderResourceManager::tryGetMesh(MeshHandle mesh) const
 const MaterialResourceDesc *RenderResourceManager::tryGetMaterial(
     MaterialHandle material) const noexcept
 {
-    const auto it = mMaterials.find(material.id);
-    if (it == mMaterials.end())
+    const auto it = mImpl->mMaterials.find(material.id);
+    if (it == mImpl->mMaterials.end())
     {
         return nullptr;
     }
@@ -249,8 +292,8 @@ const MaterialResourceDesc *RenderResourceManager::tryGetMaterial(
 const TextureResourceDesc *RenderResourceManager::tryGetTexture(
     TextureHandle texture) const noexcept
 {
-    const auto it = mTextures.find(texture.id);
-    if (it == mTextures.end())
+    const auto it = mImpl->mTextures.find(texture.id);
+    if (it == mImpl->mTextures.end())
     {
         return nullptr;
     }
@@ -260,8 +303,8 @@ const TextureResourceDesc *RenderResourceManager::tryGetTexture(
 bool RenderResourceManager::tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3 &outMin,
                                                   Diligent::float3 &outMax) const noexcept
 {
-    const auto it = mMeshes.find(mesh.id);
-    if (it == mMeshes.end() || !it->second.hasLocalBounds)
+    const auto it = mImpl->mMeshes.find(mesh.id);
+    if (it == mImpl->mMeshes.end() || !it->second.hasLocalBounds)
     {
         outMin = {};
         outMax = {};
@@ -275,8 +318,8 @@ bool RenderResourceManager::tryGetMeshLocalBounds(MeshHandle mesh, Diligent::flo
 
 std::uint64_t RenderResourceManager::meshVersion(MeshHandle mesh) const noexcept
 {
-    const auto it = mMeshes.find(mesh.id);
-    if (it == mMeshes.end())
+    const auto it = mImpl->mMeshes.find(mesh.id);
+    if (it == mImpl->mMeshes.end())
     {
         return 0;
     }

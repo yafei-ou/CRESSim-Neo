@@ -12,6 +12,11 @@ namespace cressim::neo::gpu
 struct SharedExportBuffer::Impl
 {
     interop::SharedBufferState nativeSharedState;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer;
+    std::uint32_t capacity          = 0u;
+    std::uint32_t elementStride     = 0u;
+    bool exportable                 = false;
+    bool usesNativeSharedAllocation = false;
 };
 
 SharedExportBuffer::SharedExportBuffer() : mImpl{std::make_unique<Impl>()} {}
@@ -35,7 +40,8 @@ bool SharedExportBuffer::ensureStructuredBuffer(
 
     const std::uint32_t requiredCapacity =
         std::max(requiredElementCount, std::max(minimumCapacity, 1u));
-    if (mBuffer != nullptr && mCapacity >= requiredCapacity && mElementStride == elementStride)
+    if (mImpl->buffer != nullptr && mImpl->capacity >= requiredCapacity &&
+        mImpl->elementStride == elementStride)
     {
         return true;
     }
@@ -48,12 +54,12 @@ bool SharedExportBuffer::ensureStructuredBuffer(
         interop::createExportableStructuredBuffer(
             renderDevice, name, elementStride, requiredCapacity, bindFlags, usage, cpuAccess,
             immediateContextMask, queueFamilyIndices, queueFamilyIndexCount,
-            mImpl->nativeSharedState, mBuffer))
+            mImpl->nativeSharedState, mImpl->buffer))
     {
-        mCapacity                   = requiredCapacity;
-        mElementStride              = elementStride;
-        mExportable                 = true;
-        mUsesNativeSharedAllocation = true;
+        mImpl->capacity                   = requiredCapacity;
+        mImpl->elementStride              = elementStride;
+        mImpl->exportable                 = true;
+        mImpl->usesNativeSharedAllocation = true;
         return true;
     }
 
@@ -67,31 +73,66 @@ bool SharedExportBuffer::ensureStructuredBuffer(
     std::uint32_t capacity = 0u;
     if (!detail::ensureStructuredBufferCapacity(renderDevice, name, elementStride, requiredCapacity,
                                                 requiredCapacity, bindFlags, usage, cpuAccess,
-                                                immediateContextMask, mBuffer, capacity) ||
-        mBuffer == nullptr)
+                                                immediateContextMask, mImpl->buffer, capacity) ||
+        mImpl->buffer == nullptr)
     {
         reset();
         return false;
     }
 
-    mCapacity                   = capacity;
-    mElementStride              = elementStride;
-    mExportable                 = false;
-    mUsesNativeSharedAllocation = false;
+    mImpl->capacity                   = capacity;
+    mImpl->elementStride              = elementStride;
+    mImpl->exportable                 = false;
+    mImpl->usesNativeSharedAllocation = false;
     return true;
 }
 
 void SharedExportBuffer::reset()
 {
-    mBuffer = nullptr;
+    mImpl->buffer = nullptr;
     if (mImpl != nullptr)
     {
         interop::resetExportableStructuredBuffer(mImpl->nativeSharedState);
     }
-    mCapacity                   = 0u;
-    mElementStride              = 0u;
-    mExportable                 = false;
-    mUsesNativeSharedAllocation = false;
+    mImpl->capacity                   = 0u;
+    mImpl->elementStride              = 0u;
+    mImpl->exportable                 = false;
+    mImpl->usesNativeSharedAllocation = false;
+}
+
+Diligent::IBuffer *SharedExportBuffer::buffer() const noexcept
+{
+    return mImpl->buffer.RawPtr();
+}
+
+const Diligent::RefCntAutoPtr<Diligent::IBuffer> &SharedExportBuffer::bufferRef() const noexcept
+{
+    return mImpl->buffer;
+}
+
+std::uint32_t SharedExportBuffer::capacity() const noexcept
+{
+    return mImpl->capacity;
+}
+
+std::uint32_t SharedExportBuffer::elementStride() const noexcept
+{
+    return mImpl->elementStride;
+}
+
+std::uint64_t SharedExportBuffer::sizeBytes() const noexcept
+{
+    return static_cast<std::uint64_t>(mImpl->capacity) * mImpl->elementStride;
+}
+
+bool SharedExportBuffer::isExportable() const noexcept
+{
+    return mImpl->exportable;
+}
+
+bool SharedExportBuffer::usesNativeSharedAllocation() const noexcept
+{
+    return mImpl->usesNativeSharedAllocation;
 }
 
 bool SharedExportBuffer::exportNativeHandle(interop::NativeHandle &outHandle) const noexcept

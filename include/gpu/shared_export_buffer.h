@@ -40,40 +40,13 @@ public:
 
     void reset();
 
-    Diligent::IBuffer *buffer() const noexcept
-    {
-        return mBuffer.RawPtr();
-    }
-
-    const Diligent::RefCntAutoPtr<Diligent::IBuffer> &bufferRef() const noexcept
-    {
-        return mBuffer;
-    }
-
-    std::uint32_t capacity() const noexcept
-    {
-        return mCapacity;
-    }
-
-    std::uint32_t elementStride() const noexcept
-    {
-        return mElementStride;
-    }
-
-    std::uint64_t sizeBytes() const noexcept
-    {
-        return static_cast<std::uint64_t>(mCapacity) * mElementStride;
-    }
-
-    bool isExportable() const noexcept
-    {
-        return mExportable;
-    }
-
-    bool usesNativeSharedAllocation() const noexcept
-    {
-        return mUsesNativeSharedAllocation;
-    }
+    Diligent::IBuffer *buffer() const noexcept;
+    const Diligent::RefCntAutoPtr<Diligent::IBuffer> &bufferRef() const noexcept;
+    std::uint32_t capacity() const noexcept;
+    std::uint32_t elementStride() const noexcept;
+    std::uint64_t sizeBytes() const noexcept;
+    bool isExportable() const noexcept;
+    bool usesNativeSharedAllocation() const noexcept;
 
     Diligent::RENDER_DEVICE_TYPE nativeRenderDeviceType() const noexcept;
 
@@ -84,11 +57,6 @@ private:
 
     struct Impl;
     std::unique_ptr<Impl> mImpl;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mBuffer;
-    std::uint32_t mCapacity          = 0u;
-    std::uint32_t mElementStride     = 0u;
-    bool mExportable                 = false;
-    bool mUsesNativeSharedAllocation = false;
 };
 
 } // namespace cressim::neo::gpu

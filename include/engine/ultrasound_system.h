@@ -42,11 +42,7 @@ public:
 
 private:
     struct Impl;
-
-    gpu::GpuDevice &mDevice;
-    physics::PhysicsSolver &mPhysicsSolver;
     std::unique_ptr<Impl> mImpl;
-    bool mInitialized = false;
 };
 
 } // namespace cressim::neo::engine
