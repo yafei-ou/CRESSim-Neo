@@ -22,6 +22,7 @@ if(ENGINE_STATIC)
     add_library(${TARGET_NAME} STATIC ${TARGET_SOURCE})
 else()
     add_library(${TARGET_NAME} SHARED ${TARGET_SOURCE})
+    cressim_neo_configure_shared_library(${TARGET_NAME})
     target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_GPU_EXPORT)
     set_target_properties(${TARGET_NAME} PROPERTIES
         VERSION ${PROJECT_VERSION}

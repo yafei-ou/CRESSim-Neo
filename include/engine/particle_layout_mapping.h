@@ -2,15 +2,13 @@
 #define CRESSIM_NEO_ENGINE_PARTICLE_LAYOUT_MAPPING_H
 
 #include "common/id.h"
-#include "engine/export.h"
-
 #include <cstdint>
 #include <vector>
 
 namespace cressim::neo::engine
 {
 
-struct CRESSIM_NEO_ENGINE_API ParticleLayoutMapping
+struct ParticleLayoutMapping
 {
     std::uint32_t particleCount  = 0u;
     std::uint32_t softBodyCount  = 0u;

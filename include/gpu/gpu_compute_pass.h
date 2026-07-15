@@ -1,6 +1,7 @@
 #ifndef CRESSIM_NEO_GPU_GPU_COMPUTE_PASS_H
 #define CRESSIM_NEO_GPU_GPU_COMPUTE_PASS_H
 
+#include "gpu/export.h"
 #include "gpu/gpu_device.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
@@ -44,7 +45,7 @@ struct GpuComputePassDefinition
     const char *shaderSource                              = nullptr;
 };
 
-class GpuComputePass
+class CRESSIM_NEO_GPU_API GpuComputePass
 {
 public:
     bool initialize(GpuDevice &device, Diligent::IShaderSourceInputStreamFactory *streamFactory,

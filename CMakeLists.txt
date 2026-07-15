@@ -89,6 +89,15 @@ if(ENGINE_STATIC)
     add_compile_definitions(CRESSIM_NEO_STATIC)
 endif()
 
+function(cressim_neo_configure_shared_library target_name)
+    if(NOT WIN32)
+        set_target_properties(${target_name} PROPERTIES
+            CXX_VISIBILITY_PRESET hidden
+            VISIBILITY_INLINES_HIDDEN YES
+        )
+    endif()
+endfunction()
+
 # Keep the embedded Diligent build lean for engine integration.
 set(DILIGENT_BUILD_TOOLS OFF CACHE BOOL "Build DiligentTools module" FORCE)
 set(DILIGENT_BUILD_FX OFF CACHE BOOL "Build DiligentFX module" FORCE)

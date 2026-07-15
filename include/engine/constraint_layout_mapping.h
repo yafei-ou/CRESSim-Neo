@@ -2,7 +2,6 @@
 #define CRESSIM_NEO_ENGINE_CONSTRAINT_LAYOUT_MAPPING_H
 
 #include "common/id.h"
-#include "engine/export.h"
 #include "physics/physics_types.h"
 
 #include <cstdint>
@@ -11,7 +10,7 @@
 namespace cressim::neo::engine
 {
 
-struct CRESSIM_NEO_ENGINE_API RigidParticleAttachmentConstraintLayoutMapping
+struct RigidParticleAttachmentConstraintLayoutMapping
 {
     std::uint32_t count = 0u;
 
@@ -29,7 +28,7 @@ struct CRESSIM_NEO_ENGINE_API RigidParticleAttachmentConstraintLayoutMapping
     std::vector<std::uint32_t> enabledFlags;
 };
 
-struct CRESSIM_NEO_ENGINE_API RigidDistanceConstraintLayoutMapping
+struct RigidDistanceConstraintLayoutMapping
 {
     std::uint32_t count = 0u;
 
@@ -42,7 +41,7 @@ struct CRESSIM_NEO_ENGINE_API RigidDistanceConstraintLayoutMapping
     std::vector<std::uint32_t> enabledFlags;
 };
 
-struct CRESSIM_NEO_ENGINE_API RoutedCableConstraintLayoutMapping
+struct RoutedCableConstraintLayoutMapping
 {
     std::uint32_t count = 0u;
 
@@ -56,7 +55,7 @@ struct CRESSIM_NEO_ENGINE_API RoutedCableConstraintLayoutMapping
     std::vector<Diligent::float3> routePointLocalGuideOffsets;
 };
 
-struct CRESSIM_NEO_ENGINE_API ConstraintLayoutMapping
+struct ConstraintLayoutMapping
 {
     // Prepared host-side constraint-layout invalidation key produced by prepare().
     // This describes when authored slot interpretation changes and is not the same as the live

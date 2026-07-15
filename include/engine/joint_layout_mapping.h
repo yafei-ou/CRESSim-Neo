@@ -1,7 +1,6 @@
 #ifndef CRESSIM_NEO_ENGINE_JOINT_LAYOUT_MAPPING_H
 #define CRESSIM_NEO_ENGINE_JOINT_LAYOUT_MAPPING_H
 
-#include "engine/export.h"
 #include "physics/physics_types.h"
 
 #include <cstdint>
@@ -10,7 +9,7 @@
 namespace cressim::neo::engine
 {
 
-struct CRESSIM_NEO_ENGINE_API JointLayoutMapping
+struct JointLayoutMapping
 {
     std::uint32_t ballJointCount      = 0u;
     std::uint32_t hingeJointCount     = 0u;
