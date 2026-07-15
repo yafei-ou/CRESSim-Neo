@@ -55,6 +55,10 @@ cbuffer GraphicsFluidComposite
 #define g_RefractionViewThickness g_FluidCompositeMisc.z
 #define g_NormalReconstructionDepthThreshold g_FluidCompositeMisc2.x
 
+#ifndef CRESSIM_FLUID_SCENE_INPUTS_ARRAY
+#    define CRESSIM_FLUID_SCENE_INPUTS_ARRAY 1
+#endif
+
 float2 localUvToFullUv(float2 localUv)
 {
     return g_FluidViewportRect.xy + localUv * g_FluidViewportRect.zw;
@@ -74,10 +78,18 @@ SamplerState g_FilteredFluidDepth_sampler;
 Texture2DArray<float4> g_FluidSurfaceColor;
 SamplerState g_FluidSurfaceColor_sampler;
 #if CRESSIM_FLUID_ENABLE_BACKGROUND_REFRACTION
+#    if CRESSIM_FLUID_SCENE_INPUTS_ARRAY
 Texture2DArray<float4> g_SceneColor;
+#    else
+Texture2D<float4> g_SceneColor;
+#    endif
 SamplerState g_SceneColor_sampler;
 #endif
+#if CRESSIM_FLUID_SCENE_INPUTS_ARRAY
 Texture2DArray<float> g_SceneDepth;
+#else
+Texture2D<float> g_SceneDepth;
+#endif
 SamplerState g_SceneDepth_sampler;
 
 struct PSInput
@@ -289,8 +301,12 @@ PSOutput main(PSInput In)
 
     const float nearClip = max(cameraInput.projectionParams.y, 1.0e-4);
     const float farClip = max(cameraInput.projectionParams.z, nearClip + 1.0e-4);
+#if CRESSIM_FLUID_SCENE_INPUTS_ARRAY
     const float sceneDepth = g_SceneDepth.SampleLevel(g_SceneDepth_sampler,
                                                       float3(fullUv, g_SceneDepthLayer), 0.0);
+#else
+    const float sceneDepth = g_SceneDepth.SampleLevel(g_SceneDepth_sampler, fullUv, 0.0);
+#endif
     const float linearSceneDepth = linearizeDepth(sceneDepth, nearClip, farClip);
     if (depth >= linearSceneDepth)
     {
@@ -386,8 +402,13 @@ PSOutput main(PSInput In)
             centerPos + refractedDir * max(g_RefractionViewThickness, 0.0);
         const float2 offsetLocalUv = saturate(projectViewPosToUv(refractedSamplePos, cameraInput));
         const float2 offsetUv = saturate(localUvToFullUv(offsetLocalUv));
+#if CRESSIM_FLUID_SCENE_INPUTS_ARRAY
         const float3 refractedBackgroundColor =
             g_SceneColor.SampleLevel(g_SceneColor_sampler, float3(offsetUv, g_SceneDepthLayer), 0.0).rgb;
+#else
+        const float3 refractedBackgroundColor =
+            g_SceneColor.SampleLevel(g_SceneColor_sampler, offsetUv, 0.0).rgb;
+#endif
         const float3 transmissionTint =
             lerp(float3(1.0, 1.0, 1.0), fluidColor, 0.35 * fluidOpacity);
         transmissionColor = refractedBackgroundColor * transmissionTint * transmissionStrength;

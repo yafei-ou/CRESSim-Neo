@@ -47,15 +47,17 @@ private:
         float depthEdgeThreshold      = 0.2f;
         float padding0                = 0.0f;
         float padding2                = 0.0f;
+        float padding3                = 0.0f;
     };
 
     struct PipelineKey
     {
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        bool sceneInputsAreArray             = true;
 
         bool operator==(const PipelineKey &rhs) const noexcept
         {
-            return colorFormat == rhs.colorFormat;
+            return colorFormat == rhs.colorFormat && sceneInputsAreArray == rhs.sceneInputsAreArray;
         }
     };
 

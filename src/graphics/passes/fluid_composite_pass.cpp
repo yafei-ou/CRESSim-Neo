@@ -19,7 +19,8 @@ std::size_t FluidCompositePass::PipelineKeyHasher::operator()(const PipelineKey 
     const std::size_t depthHash =
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat));
     const std::size_t refractionHash = std::hash<bool>{}(key.enableBackgroundRefraction);
-    return colorHash ^ (depthHash << 1u) ^ (refractionHash << 2u);
+    const std::size_t arrayHash      = std::hash<bool>{}(key.sceneInputsAreArray);
+    return colorHash ^ (depthHash << 1u) ^ (refractionHash << 2u) ^ (arrayHash << 3u);
 }
 
 bool FluidCompositePass::initialize()
@@ -106,9 +107,10 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
     shaderCreateInfo.FilePath                = "graphics/fluid_composite.ps.hlsl";
     Diligent::ShaderMacro refractionMacros[] = {
         {"CRESSIM_FLUID_ENABLE_BACKGROUND_REFRACTION", key.enableBackgroundRefraction ? "1" : "0"},
+        {"CRESSIM_FLUID_SCENE_INPUTS_ARRAY", key.sceneInputsAreArray ? "1" : "0"},
     };
-    shaderCreateInfo.Macros =
-        Diligent::ShaderMacroArray{refractionMacros, static_cast<Diligent::Uint32>(1u)};
+    shaderCreateInfo.Macros = Diligent::ShaderMacroArray{
+        refractionMacros, static_cast<Diligent::Uint32>(std::size(refractionMacros))};
     if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
     {
         return nullptr;
@@ -244,9 +246,25 @@ bool FluidCompositePass::composite(
         return false;
     }
 
+    Diligent::ITexture *sceneDepthTexture = sceneDepthSrv->GetTexture();
+    if (sceneDepthTexture == nullptr)
+    {
+        return false;
+    }
+    const bool sceneInputsAreArray =
+        sceneDepthTexture->GetDesc().Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
+    if (environmentFluid.enableBackgroundRefraction &&
+        (sceneColorSrv->GetTexture() == nullptr ||
+         (sceneColorSrv->GetTexture()->GetDesc().Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY) !=
+             sceneInputsAreArray))
+    {
+        return false;
+    }
+
     Diligent::IPipelineState *pipeline = getOrCreatePipeline(
-        backendContext.renderDevice, PipelineKey{targetDesc.colorFormat, targetDesc.depthFormat,
-                                                 environmentFluid.enableBackgroundRefraction});
+        backendContext.renderDevice,
+        PipelineKey{targetDesc.colorFormat, targetDesc.depthFormat,
+                    environmentFluid.enableBackgroundRefraction, sceneInputsAreArray});
     if (pipeline == nullptr)
     {
         return false;

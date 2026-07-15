@@ -13,7 +13,9 @@ FluidDepthPass::FluidDepthPass(gpu::GpuDevice &device) : mDevice(device) {}
 
 std::size_t FluidDepthPass::PipelineKeyHasher::operator()(const PipelineKey &key) const noexcept
 {
-    return std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat));
+    const std::size_t colorHash =
+        std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat));
+    return colorHash ^ (std::hash<bool>{}(key.sceneInputsAreArray) << 1u);
 }
 
 bool FluidDepthPass::initialize()
@@ -93,9 +95,14 @@ Diligent::IPipelineState *FluidDepthPass::getOrCreatePipeline(Diligent::IRenderD
     }
 
     Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
-    shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-    shaderCreateInfo.Desc.Name       = "CRESSimNeo.FluidDepthPass.PS";
-    shaderCreateInfo.FilePath        = "graphics/fluid_depth.ps.hlsl";
+    shaderCreateInfo.Desc.ShaderType          = Diligent::SHADER_TYPE_PIXEL;
+    shaderCreateInfo.Desc.Name                = "CRESSimNeo.FluidDepthPass.PS";
+    shaderCreateInfo.FilePath                 = "graphics/fluid_depth.ps.hlsl";
+    Diligent::ShaderMacro pixelShaderMacros[] = {
+        {"CRESSIM_FLUID_SCENE_INPUTS_ARRAY", key.sceneInputsAreArray ? "1" : "0"},
+    };
+    shaderCreateInfo.Macros = Diligent::ShaderMacroArray{
+        pixelShaderMacros, static_cast<Diligent::Uint32>(std::size(pixelShaderMacros))};
     if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
     {
         return nullptr;
@@ -223,8 +230,16 @@ bool FluidDepthPass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
         return false;
     }
 
-    Diligent::IPipelineState *pipeline =
-        getOrCreatePipeline(backendContext.renderDevice, PipelineKey{targetDesc.colorFormat});
+    Diligent::ITexture *sceneDepthTexture = sceneDepthSrv->GetTexture();
+    if (sceneDepthTexture == nullptr)
+    {
+        return false;
+    }
+    const bool sceneInputsAreArray =
+        sceneDepthTexture->GetDesc().Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
+
+    Diligent::IPipelineState *pipeline = getOrCreatePipeline(
+        backendContext.renderDevice, PipelineKey{targetDesc.colorFormat, sceneInputsAreArray});
     if (pipeline == nullptr)
     {
         return false;

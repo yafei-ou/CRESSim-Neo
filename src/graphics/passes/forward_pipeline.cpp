@@ -1864,24 +1864,46 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             return false;
         }
 
-        Diligent::RefCntAutoPtr<Diligent::ITextureView> sceneDepthSrv;
+        // Fluid passes sample depth while the composite pass binds the original scene depth as
+        // a depth attachment. Use a snapshot to avoid sampling a resource that is later rebound
+        // as a DSV in the same frame.
+        gpu::GpuRenderTargetDesc sceneDepthSnapshotDesc = batchView.renderTargetDesc;
+        sceneDepthSnapshotDesc.color                    = false;
+        sceneDepthSnapshotDesc.depth                    = true;
+        sceneDepthSnapshotDesc.shaderReadable           = true;
+        sceneDepthSnapshotDesc.unorderedAccess          = false;
+        sceneDepthSnapshotDesc.debugName                = "CRESSimNeo.Fluid.SceneDepthSnapshot";
+        const gpu::GpuRenderTargetHandle sceneDepthSnapshotTarget =
+            acquireCachedTarget(sceneDepthSnapshotDesc);
+        if (!mDevice.renderTargetSystem().isValidRenderTarget(sceneDepthSnapshotTarget))
         {
-            Diligent::TextureViewDesc viewDesc{};
-            viewDesc.ViewType        = Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
-            viewDesc.TextureDim      = sceneDepthTexture->GetDesc().Type;
-            viewDesc.MostDetailedMip = 0u;
-            viewDesc.NumMipLevels    = 1u;
-            viewDesc.FirstArraySlice = 0u;
-            viewDesc.NumArraySlices =
-                sceneDepthTexture->GetDesc().Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY
-                    ? sceneDepthTexture->GetDesc().ArraySize
-                    : 1u;
-            sceneDepthTexture->CreateView(viewDesc, &sceneDepthSrv);
+            return false;
         }
+
+        Diligent::ITexture *sceneDepthSnapshotTexture = nullptr;
+        if (!mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(
+                sceneDepthSnapshotTarget, sceneDepthSnapshotTexture) ||
+            sceneDepthSnapshotTexture == nullptr)
+        {
+            return false;
+        }
+
+        for (std::uint32_t layer = 0u; layer < batchView.renderTargetDesc.arraySize; ++layer)
+        {
+            Diligent::CopyTextureAttribs copyAttribs{
+                sceneDepthTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                sceneDepthSnapshotTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+            copyAttribs.SrcSlice = layer;
+            copyAttribs.DstSlice = layer;
+            backendContext.graphicsContext->CopyTexture(copyAttribs);
+        }
+
+        Diligent::RefCntAutoPtr<Diligent::ITextureView> sceneDepthSrv = createTextureArrayView(
+            sceneDepthSnapshotTexture, Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
         if (sceneDepthSrv == nullptr)
         {
             sceneDepthSrv =
-                sceneDepthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+                sceneDepthSnapshotTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
         }
         if (sceneDepthSrv == nullptr)
         {

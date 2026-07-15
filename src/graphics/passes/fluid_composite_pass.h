@@ -58,11 +58,13 @@ private:
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
         bool enableBackgroundRefraction      = false;
+        bool sceneInputsAreArray             = true;
 
         bool operator==(const PipelineKey &rhs) const noexcept
         {
             return colorFormat == rhs.colorFormat && depthFormat == rhs.depthFormat &&
-                   enableBackgroundRefraction == rhs.enableBackgroundRefraction;
+                   enableBackgroundRefraction == rhs.enableBackgroundRefraction &&
+                   sceneInputsAreArray == rhs.sceneInputsAreArray;
         }
     };
 
