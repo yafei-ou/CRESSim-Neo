@@ -26,6 +26,17 @@ enables generated inheritance or collaboration diagrams.
 
 ## Build the website
 
+For the usual Linux build directories, an interactive setup helper is
+available from the repository root:
+
+```bash
+scripts/configure_builds.sh
+```
+
+Choose build directories and native options. The documentation choice
+configures `build/docs-site` only when the selected Debug or Release Python
+package is already configured and built.
+
 Configure the standalone documentation build from the repository root. Using
 `docs/` as the CMake source keeps documentation setup independent from engine
 dependencies and does not compile the engine, examples, or tests:
