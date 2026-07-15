@@ -1,6 +1,8 @@
 #ifndef CRESSIM_NEO_COMMON_EXPORT_H
 #define CRESSIM_NEO_COMMON_EXPORT_H
 
+#include "cressim_neo/visibility.h"
+
 #if defined(CRESSIM_NEO_STATIC)
 #define CRESSIM_NEO_COMMON_API
 #elif defined(_WIN32)

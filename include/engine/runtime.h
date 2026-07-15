@@ -151,7 +151,7 @@ private:
 
     std::shared_ptr<void> retainSharedBuffer(SharedBufferHandle handle) const;
 
-    struct Impl;
+    struct CRESSIM_NEO_LOCAL Impl;
     std::unique_ptr<Impl> mImpl;
 };
 

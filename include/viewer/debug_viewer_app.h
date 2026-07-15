@@ -104,7 +104,7 @@ public:
     void shutdown();
 
 private:
-    class Impl;
+    class CRESSIM_NEO_LOCAL Impl;
     std::unique_ptr<Impl> mImpl;
 };
 

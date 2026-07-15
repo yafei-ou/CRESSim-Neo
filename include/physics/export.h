@@ -1,6 +1,8 @@
 #ifndef CRESSIM_NEO_PHYSICS_EXPORT_H
 #define CRESSIM_NEO_PHYSICS_EXPORT_H
 
+#include "cressim_neo/visibility.h"
+
 #if defined(CRESSIM_NEO_STATIC)
 #define CRESSIM_NEO_PHYSICS_API
 #elif defined(_WIN32)
