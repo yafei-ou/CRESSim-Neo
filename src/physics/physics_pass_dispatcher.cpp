@@ -158,10 +158,11 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         return false;
     }
 
-    mShaderSourceProvider      = gpu::ShaderSourceProvider(device.shaderSourceDirectory());
-    mPhysicsContextMask = gpu::contextMaskForId(physicsContextId);
+    mShaderSourceProvider = gpu::ShaderSourceProvider(device.shaderSourceDirectory());
+    mPhysicsContextMask   = gpu::contextMaskForId(physicsContextId);
 
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderSourceProvider.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory =
+        mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         CRESSIM_LOG_ERROR("PhysicsPassDispatcher: shader stream factory is null.");

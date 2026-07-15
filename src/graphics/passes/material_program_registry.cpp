@@ -262,7 +262,8 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
         return false;
     }
 
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderSourceProvider.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory =
+        mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to get stream factory for pass=",

@@ -2,8 +2,8 @@
 
 #include "common/logger.h"
 
-#include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/ObjectBase.hpp"
+#include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCountedObjectImpl.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/include/DefaultShaderSourceStreamFactory.h"
 
@@ -327,8 +327,7 @@ bool ShaderSourceProvider::Impl::ensureStreamFactory()
     }
 
     Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> baseFactory;
-    Diligent::CreateDefaultShaderSourceStreamFactory(resolvedShaderDirectory.c_str(),
-                                                     &baseFactory);
+    Diligent::CreateDefaultShaderSourceStreamFactory(resolvedShaderDirectory.c_str(), &baseFactory);
     if (baseFactory == nullptr)
     {
         CRESSIM_LOG_ERROR("Failed to create shader source stream factory for directory '",

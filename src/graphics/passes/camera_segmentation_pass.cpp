@@ -19,7 +19,7 @@ CameraSegmentationPass::CameraSegmentationPass(gpu::GpuDevice &device,
 bool CameraSegmentationPass::initialize()
 {
     mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
-    mInitialized   = true;
+    mInitialized          = true;
     return true;
 }
 
@@ -103,7 +103,8 @@ Diligent::IPipelineState *CameraSegmentationPass::getOrCreatePipeline(
         return nullptr;
     }
 
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderSourceProvider.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory =
+        mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return nullptr;

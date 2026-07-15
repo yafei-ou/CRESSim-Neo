@@ -18,7 +18,7 @@ ShadowPass::ShadowPass(gpu::GpuDevice &device, RenderResourceManager &resourceMa
 bool ShadowPass::initialize()
 {
     mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
-    mInitialized   = true;
+    mInitialized          = true;
     return true;
 }
 
@@ -398,7 +398,8 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
         return false;
     }
 
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderSourceProvider.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory =
+        mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         CRESSIM_LOG_ERROR("ShadowPass could not acquire shader source stream factory.");

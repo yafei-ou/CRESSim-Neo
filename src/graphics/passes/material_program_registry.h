@@ -56,7 +56,8 @@ public:
     };
 
 public:
-    MaterialProgramRegistry(gpu::GpuDevice &device, gpu::ShaderSourceProvider &shaderSourceProvider);
+    MaterialProgramRegistry(gpu::GpuDevice &device,
+                            gpu::ShaderSourceProvider &shaderSourceProvider);
 
     ProgramResources *getOrCreateProgram(const ProgramKey &key);
 

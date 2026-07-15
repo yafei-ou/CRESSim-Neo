@@ -18,7 +18,7 @@ CameraDepthPass::CameraDepthPass(gpu::GpuDevice &device, RenderResourceManager &
 bool CameraDepthPass::initialize()
 {
     mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
-    mInitialized   = true;
+    mInitialized          = true;
     return true;
 }
 
@@ -97,7 +97,8 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
         return nullptr;
     }
 
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderSourceProvider.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory =
+        mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return nullptr;
