@@ -6,6 +6,7 @@
 #include <cstring>
 #include <limits>
 #include <map>
+#include <unordered_set>
 
 namespace cressim::neo::engine
 {
@@ -386,28 +387,218 @@ std::uint32_t dominantParticleIndex(const graphics::GpuSoftBodyVertexBinding &bi
 
 } // namespace
 
+struct World::Impl
+{
+    static constexpr std::uint32_t kInvalidIndex = 0xffffffffu;
+
+    explicit Impl(World &owner) : mOwner(&owner) {}
+
+    // Some implementation helpers reuse the facade's public query semantics.
+    World *mOwner = nullptr;
+
+    [[nodiscard]] bool requireAliveEntity(common::EntityId entityId,
+                                          const char *operation) const noexcept;
+    void ensureHostSceneStorage();
+    std::uint32_t ensureEntityPoseSlot(common::EntityId entityId);
+    void releaseEntityPoseSlot(common::EntityId entityId) noexcept;
+    void markEntityPoseDirty(common::EntityId entityId);
+    void refreshEntityPoseSlot(std::uint32_t entityPoseSlot);
+    void refreshRenderablePose(std::uint32_t objectIndex);
+    void refreshCameraEntry(std::uint32_t cameraIndex);
+    void refreshLightEntry(std::uint32_t lightIndex);
+    void rebuildLocalLightSelections();
+    void rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager &resources);
+    void rebuildCurveRenderBindings(const graphics::RenderResourceManager &resources);
+    void refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources);
+    void rebuildDrawRegistries(const graphics::RenderResourceManager &resources);
+    void clearDirtyIndexSet(std::vector<std::uint32_t> &dirtyIndices,
+                            std::vector<std::uint8_t> &dirtyBits);
+    void markRenderablePoseDirty(std::uint32_t objectIndex);
+    void markCameraDirty(std::uint32_t cameraIndex);
+    void markLightDirty(std::uint32_t lightIndex);
+    void markRenderableMetadataDirty(std::uint32_t objectIndex);
+    [[nodiscard]] bool moveRenderableToEnvironment(common::EntityId entityId,
+                                                   std::uint32_t envIndex);
+    [[nodiscard]] bool moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    [[nodiscard]] bool moveLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    void clearColliderLinks(common::EntityId entityId) noexcept;
+    [[nodiscard]] bool tryGetLightIndexForType(common::EntityId entityId,
+                                               graphics::GpuLightType type, const char *operation,
+                                               std::uint32_t &lightIndex) const noexcept;
+    [[nodiscard]] bool removeLight(common::EntityId entityId);
+    [[nodiscard]] bool isLightSlotOccupied(std::uint32_t envIndex,
+                                           std::uint32_t slot) const noexcept;
+    [[nodiscard]] std::uint32_t allocateLightSlot(std::uint32_t envIndex,
+                                                  bool reserveMainDirectionalSlot);
+
+    struct PhysicsLink
+    {
+        bool hasRigidBody = false;
+        bool hasSoftBody  = false;
+        bool hasStrand    = false;
+        bool hasFluid     = false;
+        std::vector<ColliderHandle> colliders;
+    };
+
+    struct TransformStorage
+    {
+        std::vector<common::EntityId> entityIds;
+        std::vector<TransformComponent> components;
+    };
+
+    common::EntityId mNextEntityId = 1;
+    std::uint32_t mNextColliderId  = 1;
+    std::vector<common::EntityId> mEntities;
+    std::unordered_set<common::EntityId> mAlive;
+    TransformStorage mTransforms{};
+    std::unordered_map<common::EntityId, std::uint32_t> mTransformIndex{};
+    std::vector<common::EntityId> mEntityPoseEntities{};
+    std::unordered_map<common::EntityId, std::uint32_t> mEntityPoseSlotByEntity{};
+    std::vector<std::uint32_t> mFreeEntityPoseSlots{};
+    std::unordered_map<common::EntityId, PhysicsLink> mPhysicsLinks{};
+    std::unordered_map<std::uint32_t, common::EntityId> mColliderOwnerEntity{};
+    std::unordered_map<common::EntityId, UltrasoundProbeComponent> mUltrasoundProbes{};
+    std::unordered_map<common::EntityId, UltrasoundRendererComponent> mUltrasoundRenderers{};
+    std::unordered_map<common::EntityId, ProceduralDeformableCurveRenderComponent>
+        mProceduralDeformableCurveRenders{};
+    std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent>
+        mUltrasoundScattererSources{};
+    std::unordered_map<common::EntityId, std::vector<UltrasoundAmplitudeRange>>
+        mUltrasoundScattererAmplitudeRanges{};
+    std::unordered_map<common::EntityId, UltrasoundProbeResult> mUltrasoundProbeResults{};
+    std::uint64_t mUltrasoundScattererAmplitudeRevision = 0u;
+    physics::PhysicsWorld mPhysicsWorld{};
+    common::SceneLayoutDesc mSceneLayout{};
+    bool mWorldSceneAuthored = false;
+    std::unordered_map<common::EntityId, std::uint32_t> mEntityEnvironments{};
+    std::vector<graphics::RenderableInstance> mRenderables{};
+    std::vector<graphics::CameraData> mRenderCameras{};
+    std::vector<graphics::LightData> mRenderLights{};
+    std::vector<Diligent::float4> mEntityPosePositionsHost{};
+    std::vector<Diligent::float4> mEntityPoseOrientationsHost{};
+    std::vector<Diligent::float4> mEntityPoseScalesHost{};
+    std::vector<Diligent::float4> mRenderObjectPositions{};
+    std::vector<Diligent::float4> mRenderObjectOrientations{};
+    std::vector<Diligent::float4> mRenderObjectScales{};
+    std::vector<graphics::GpuRenderableMetadata> mRenderableMetadataHost{};
+    std::vector<graphics::GpuRenderableQueueInfo> mRenderableQueueInfoHost{};
+    std::vector<graphics::GpuCameraInput> mCameraInputsHost{};
+    std::vector<graphics::GpuLightInput> mLightInputsHost{};
+    std::vector<graphics::GpuLocalLightSelection> mLocalLightSelectionsHost{};
+    std::vector<graphics::GpuSoftBodyVertexBinding> mSoftBodyVertexBindingsHost{};
+    std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
+    std::vector<graphics::EnvironmentFluidDesc> mEnvironmentFluids{};
+    std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
+    std::vector<graphics::TransparentDrawEntry> mTransparentDrawRegistryHost{};
+    std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};
+    std::vector<graphics::IndirectCommandRegistryEntry> mLocalShadowDrawRegistryHost{};
+    graphics::GpuEntitySceneView mGpuEntityScene{};
+    std::vector<EntityPoseMappingEntry> mPhysicsRenderableMappingsCache{};
+    std::unordered_map<common::EntityId, std::size_t> mRenderableIndices{};
+    std::unordered_map<common::EntityId, std::size_t> mRenderCameraIndices{};
+    std::unordered_map<common::EntityId, std::size_t> mRenderLightIndices{};
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextRenderableSlotByEnv{};
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextCameraSlotByEnv{};
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextLightSlotByEnv{};
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeRenderableSlotsByEnv{};
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeCameraSlotsByEnv{};
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeLightSlotsByEnv{};
+    std::vector<std::uint32_t> mDirtyEntityPoseSlots{};
+    std::vector<std::uint8_t> mDirtyEntityPoseBits{};
+    std::vector<std::uint32_t> mDirtyRenderablePoseIndices{};
+    std::vector<std::uint8_t> mDirtyRenderablePoseBits{};
+    std::vector<std::uint32_t> mDirtyRenderableMetadataIndices{};
+    std::vector<std::uint8_t> mDirtyRenderableMetadataBits{};
+    std::vector<std::uint32_t> mDirtyCameraIndices{};
+    std::vector<std::uint8_t> mDirtyCameraBits{};
+    std::vector<std::uint32_t> mDirtyLightIndices{};
+    std::vector<std::uint8_t> mDirtyLightBits{};
+    bool mDrawRegistryDirty              = true;
+    bool mPhysicsRenderableMappingsDirty = true;
+    bool mSoftBodyRenderBindingsDirty    = true;
+    bool mCurveRenderBindingsDirty       = true;
+    std::vector<std::uint32_t> mSoftBodyVertexBindingBaseByObject{};
+    std::vector<std::uint32_t> mSoftBodyVertexNormalBaseByObject{};
+    std::vector<std::uint32_t> mSoftBodyVertexCountByObject{};
+    std::vector<std::uint32_t> mCurveRenderVertexBaseByObject{};
+    std::vector<std::uint32_t> mCurveRenderVertexNormalBaseByObject{};
+    std::vector<std::uint32_t> mCurveRenderIndexByObject{};
+    std::vector<std::uint32_t> mCurveRenderVertexCountByObject{};
+    std::uint64_t mCachedPhysicsRenderableMappingsBodyTopologyRevision = ~0ull;
+    std::uint64_t mCachedSoftBodyRenderTopologyRevision                = ~0ull;
+    std::uint64_t mCachedSoftBodyPhysicsRevision                       = ~0ull;
+    std::uint64_t mCachedCurveRenderPhysicsRevision                    = ~0ull;
+    std::uint64_t mEntityPoseRevision                                  = 1u;
+    std::uint64_t mRenderableMetadataRevision                          = 1u;
+    std::uint64_t mRenderableQueueInfoRevision                         = 1u;
+    std::uint64_t mSoftBodyVertexBindingRevision                       = 1u;
+    std::uint64_t mCameraInputRevision                                 = 1u;
+    std::uint64_t mLightInputRevision                                  = 1u;
+    std::uint64_t mLocalLightSelectionRevision                         = 1u;
+};
+
+World::World() : mImpl(std::make_unique<Impl>(*this)) {}
+
+World::~World() = default;
+
+World::World(const World &other) : mImpl(std::make_unique<Impl>(*other.mImpl))
+{
+    mImpl->mOwner = this;
+}
+
+World &World::operator=(const World &other)
+{
+    if (this != &other)
+    {
+        mImpl         = std::make_unique<Impl>(*other.mImpl);
+        mImpl->mOwner = this;
+    }
+    return *this;
+}
+
+World::World(World &&other) noexcept : mImpl(std::move(other.mImpl))
+{
+    if (mImpl)
+    {
+        mImpl->mOwner = this;
+    }
+}
+
+World &World::operator=(World &&other) noexcept
+{
+    if (this != &other)
+    {
+        mImpl = std::move(other.mImpl);
+        if (mImpl)
+        {
+            mImpl->mOwner = this;
+        }
+    }
+    return *this;
+}
+
 common::EntityId World::createEntity(std::uint32_t envIndex)
 {
     // A globally unique EntityId within this World.
 
-    if (envIndex >= mSceneLayout.envCount)
+    if (envIndex >= mImpl->mSceneLayout.envCount)
     {
         CRESSIM_LOG_ERROR("createEntity envIndex exceeds configured environment count.");
         return common::kInvalidEntityId;
     }
-    ensureHostSceneStorage();
-    mWorldSceneAuthored = true;
+    mImpl->ensureHostSceneStorage();
+    mImpl->mWorldSceneAuthored = true;
 
-    const common::EntityId entityId = mNextEntityId++;
-    mAlive.insert(entityId);
-    mEntities.push_back(entityId);
-    mEntityEnvironments[entityId] = envIndex;
+    const common::EntityId entityId = mImpl->mNextEntityId++;
+    mImpl->mAlive.insert(entityId);
+    mImpl->mEntities.push_back(entityId);
+    mImpl->mEntityEnvironments[entityId] = envIndex;
     return entityId;
 }
 
 bool World::destroyEntity(common::EntityId entityId)
 {
-    if (mAlive.erase(entityId) == 0)
+    if (mImpl->mAlive.erase(entityId) == 0)
     {
         return false;
     }
@@ -427,38 +618,39 @@ bool World::destroyEntity(common::EntityId entityId)
     removeUltrasoundRenderer(entityId);
     removeUltrasoundScattererSource(entityId);
 
-    auto physIt = mPhysicsLinks.find(entityId);
-    if (physIt != mPhysicsLinks.end())
+    auto physIt = mImpl->mPhysicsLinks.find(entityId);
+    if (physIt != mImpl->mPhysicsLinks.end())
     {
         const auto colliders = physIt->second.colliders;
         for (const ColliderHandle h : colliders)
         {
             removeCollider(h);
         }
-        mPhysicsLinks.erase(physIt);
+        mImpl->mPhysicsLinks.erase(physIt);
     }
 
-    mEntities.erase(std::remove(mEntities.begin(), mEntities.end(), entityId), mEntities.end());
-    releaseEntityPoseSlot(entityId);
-    mEntityEnvironments.erase(entityId);
+    mImpl->mEntities.erase(std::remove(mImpl->mEntities.begin(), mImpl->mEntities.end(), entityId),
+                           mImpl->mEntities.end());
+    mImpl->releaseEntityPoseSlot(entityId);
+    mImpl->mEntityEnvironments.erase(entityId);
     return true;
 }
 
 void World::setSceneLayout(const common::SceneLayoutDesc &layout)
 {
-    if (mWorldSceneAuthored)
+    if (mImpl->mWorldSceneAuthored)
     {
         CRESSIM_LOG_ERROR("cannot re-configure scene layout after authoring.");
         return;
     }
 
-    mSceneLayout = layout;
-    ensureHostSceneStorage();
+    mImpl->mSceneLayout = layout;
+    mImpl->ensureHostSceneStorage();
 }
 
 const common::SceneLayoutDesc &World::sceneLayout() const noexcept
 {
-    return mSceneLayout;
+    return mImpl->mSceneLayout;
 }
 
 bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envIndex)
@@ -467,7 +659,7 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
     {
         return false;
     }
-    if (envIndex >= mSceneLayout.envCount)
+    if (envIndex >= mImpl->mSceneLayout.envCount)
     {
         CRESSIM_LOG_ERROR("setEntityEnvironment envIndex exceeds configured environment count.");
         return false;
@@ -479,25 +671,25 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
         return true;
     }
 
-    const auto physIt = mPhysicsLinks.find(entityId);
-    if (physIt != mPhysicsLinks.end())
+    const auto physIt = mImpl->mPhysicsLinks.find(entityId);
+    if (physIt != mImpl->mPhysicsLinks.end())
     {
         if (physIt->second.hasRigidBody)
         {
-            if (physics::RigidBodyState *rigidBody = mPhysicsWorld.tryGetRigidBody(entityId))
+            if (physics::RigidBodyState *rigidBody = mImpl->mPhysicsWorld.tryGetRigidBody(entityId))
             {
                 physics::RigidBodyState updated = *rigidBody;
                 updated.environmentIndex        = envIndex;
-                mPhysicsWorld.upsertRigidBody(updated);
+                mImpl->mPhysicsWorld.upsertRigidBody(updated);
             }
         }
         if (physIt->second.hasSoftBody)
         {
-            if (physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId))
+            if (physics::SoftBodyState *softBody = mImpl->mPhysicsWorld.tryGetSoftBody(entityId))
             {
                 physics::SoftBodyState updated = *softBody;
                 updated.environmentIndex       = envIndex;
-                if (!mPhysicsWorld.upsertSoftBody(updated))
+                if (!mImpl->mPhysicsWorld.upsertSoftBody(updated))
                 {
                     return false;
                 }
@@ -505,11 +697,11 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
         }
         if (physIt->second.hasStrand)
         {
-            if (physics::StrandState *strand = mPhysicsWorld.tryGetStrand(entityId))
+            if (physics::StrandState *strand = mImpl->mPhysicsWorld.tryGetStrand(entityId))
             {
                 physics::StrandState updated = *strand;
                 updated.environmentIndex     = envIndex;
-                if (!mPhysicsWorld.upsertStrand(updated))
+                if (!mImpl->mPhysicsWorld.upsertStrand(updated))
                 {
                     return false;
                 }
@@ -517,40 +709,43 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
         }
         if (physIt->second.hasFluid)
         {
-            if (physics::FluidState *fluid = mPhysicsWorld.tryGetFluid(entityId))
+            if (physics::FluidState *fluid = mImpl->mPhysicsWorld.tryGetFluid(entityId))
             {
                 physics::FluidState updated = *fluid;
                 updated.environmentIndex    = envIndex;
-                if (!mPhysicsWorld.upsertFluid(updated))
+                if (!mImpl->mPhysicsWorld.upsertFluid(updated))
                 {
                     return false;
                 }
             }
         }
     }
-    mEntityEnvironments[entityId] = envIndex;
-    if (!moveRenderableToEnvironment(entityId, envIndex) ||
-        !moveCameraToEnvironment(entityId, envIndex) || !moveLightToEnvironment(entityId, envIndex))
+    mImpl->mEntityEnvironments[entityId] = envIndex;
+    if (!mImpl->moveRenderableToEnvironment(entityId, envIndex) ||
+        !mImpl->moveCameraToEnvironment(entityId, envIndex) ||
+        !mImpl->moveLightToEnvironment(entityId, envIndex))
     {
-        mEntityEnvironments[entityId] = previousEnv;
-        if (physIt != mPhysicsLinks.end())
+        mImpl->mEntityEnvironments[entityId] = previousEnv;
+        if (physIt != mImpl->mPhysicsLinks.end())
         {
             if (physIt->second.hasRigidBody)
             {
-                if (physics::RigidBodyState *rigidBody = mPhysicsWorld.tryGetRigidBody(entityId))
+                if (physics::RigidBodyState *rigidBody =
+                        mImpl->mPhysicsWorld.tryGetRigidBody(entityId))
                 {
                     physics::RigidBodyState reverted = *rigidBody;
                     reverted.environmentIndex        = previousEnv;
-                    mPhysicsWorld.upsertRigidBody(reverted);
+                    mImpl->mPhysicsWorld.upsertRigidBody(reverted);
                 }
             }
             if (physIt->second.hasSoftBody)
             {
-                if (physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId))
+                if (physics::SoftBodyState *softBody =
+                        mImpl->mPhysicsWorld.tryGetSoftBody(entityId))
                 {
                     physics::SoftBodyState reverted = *softBody;
                     reverted.environmentIndex       = previousEnv;
-                    if (!mPhysicsWorld.upsertSoftBody(reverted))
+                    if (!mImpl->mPhysicsWorld.upsertSoftBody(reverted))
                     {
                         CRESSIM_LOG_ERROR("setEntityEnvironment failed to restore previous "
                                           "soft-body environment for entity ",
@@ -560,11 +755,11 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
             }
             if (physIt->second.hasStrand)
             {
-                if (physics::StrandState *strand = mPhysicsWorld.tryGetStrand(entityId))
+                if (physics::StrandState *strand = mImpl->mPhysicsWorld.tryGetStrand(entityId))
                 {
                     physics::StrandState reverted = *strand;
                     reverted.environmentIndex     = previousEnv;
-                    if (!mPhysicsWorld.upsertStrand(reverted))
+                    if (!mImpl->mPhysicsWorld.upsertStrand(reverted))
                     {
                         CRESSIM_LOG_ERROR("setEntityEnvironment failed to restore previous "
                                           "strand environment for entity ",
@@ -574,11 +769,11 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
             }
             if (physIt->second.hasFluid)
             {
-                if (physics::FluidState *fluid = mPhysicsWorld.tryGetFluid(entityId))
+                if (physics::FluidState *fluid = mImpl->mPhysicsWorld.tryGetFluid(entityId))
                 {
                     physics::FluidState reverted = *fluid;
                     reverted.environmentIndex    = previousEnv;
-                    if (!mPhysicsWorld.upsertFluid(reverted))
+                    if (!mImpl->mPhysicsWorld.upsertFluid(reverted))
                     {
                         CRESSIM_LOG_ERROR("setEntityEnvironment failed to restore previous fluid "
                                           "environment for entity ",
@@ -589,78 +784,79 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
         }
         return false;
     }
-    mDrawRegistryDirty              = true;
-    mPhysicsRenderableMappingsDirty = true;
+    mImpl->mDrawRegistryDirty              = true;
+    mImpl->mPhysicsRenderableMappingsDirty = true;
     return true;
 }
 
 std::uint32_t World::entityEnvironment(common::EntityId entityId) const noexcept
 {
-    const auto it = mEntityEnvironments.find(entityId);
-    return it != mEntityEnvironments.end() ? it->second : 0u;
+    const auto it = mImpl->mEntityEnvironments.find(entityId);
+    return it != mImpl->mEntityEnvironments.end() ? it->second : 0u;
 }
 
 bool World::setEnvironmentIbl(std::uint32_t envIndex, const graphics::EnvironmentIblDesc &desc)
 {
-    if (envIndex >= mSceneLayout.envCount)
+    if (envIndex >= mImpl->mSceneLayout.envCount)
     {
         return false;
     }
 
     // In case user did not explicitly set the layout.
-    ensureHostSceneStorage();
+    mImpl->ensureHostSceneStorage();
 
     // Setting authoring status to true prevents scene layout change after this.
-    mWorldSceneAuthored = true;
+    mImpl->mWorldSceneAuthored = true;
 
-    mEnvironmentIbls[envIndex] = desc;
+    mImpl->mEnvironmentIbls[envIndex] = desc;
     return true;
 }
 
 const graphics::EnvironmentIblDesc *World::tryGetEnvironmentIbl(
     std::uint32_t envIndex) const noexcept
 {
-    if (envIndex >= mEnvironmentIbls.size())
+    if (envIndex >= mImpl->mEnvironmentIbls.size())
     {
         return nullptr;
     }
-    return &mEnvironmentIbls[envIndex];
+    return &mImpl->mEnvironmentIbls[envIndex];
 }
 
 bool World::setEnvironmentFluid(std::uint32_t envIndex, const graphics::EnvironmentFluidDesc &desc)
 {
-    if (envIndex >= mSceneLayout.envCount)
+    if (envIndex >= mImpl->mSceneLayout.envCount)
     {
         return false;
     }
 
-    ensureHostSceneStorage();
-    mWorldSceneAuthored          = true;
-    mEnvironmentFluids[envIndex] = desc;
+    mImpl->ensureHostSceneStorage();
+    mImpl->mWorldSceneAuthored          = true;
+    mImpl->mEnvironmentFluids[envIndex] = desc;
     return true;
 }
 
 const graphics::EnvironmentFluidDesc *World::tryGetEnvironmentFluid(
     std::uint32_t envIndex) const noexcept
 {
-    if (envIndex >= mEnvironmentFluids.size())
+    if (envIndex >= mImpl->mEnvironmentFluids.size())
     {
         return nullptr;
     }
-    return &mEnvironmentFluids[envIndex];
+    return &mImpl->mEnvironmentFluids[envIndex];
 }
 
 bool World::isAlive(common::EntityId entityId) const
 {
-    return mAlive.find(entityId) != mAlive.end();
+    return mImpl->mAlive.find(entityId) != mImpl->mAlive.end();
 }
 
 const std::vector<common::EntityId> &World::entities() const noexcept
 {
-    return mEntities;
+    return mImpl->mEntities;
 }
 
-bool World::requireAliveEntity(common::EntityId entityId, const char *operation) const noexcept
+bool World::Impl::requireAliveEntity(common::EntityId entityId,
+                                     const char *operation) const noexcept
 {
     if (mAlive.find(entityId) != mAlive.end())
     {
@@ -671,7 +867,7 @@ bool World::requireAliveEntity(common::EntityId entityId, const char *operation)
     return false;
 }
 
-void World::ensureHostSceneStorage()
+void World::Impl::ensureHostSceneStorage()
 {
     const std::size_t objectCapacity = mSceneLayout.totalRenderableObjectCapacity();
     if (mRenderables.size() != objectCapacity)
@@ -761,7 +957,7 @@ void World::ensureHostSceneStorage()
     }
 }
 
-std::uint32_t World::ensureEntityPoseSlot(common::EntityId entityId)
+std::uint32_t World::Impl::ensureEntityPoseSlot(common::EntityId entityId)
 {
     const auto existing = mEntityPoseSlotByEntity.find(entityId);
     if (existing != mEntityPoseSlotByEntity.end())
@@ -792,7 +988,7 @@ std::uint32_t World::ensureEntityPoseSlot(common::EntityId entityId)
     return slot;
 }
 
-void World::releaseEntityPoseSlot(common::EntityId entityId) noexcept
+void World::Impl::releaseEntityPoseSlot(common::EntityId entityId) noexcept
 {
     const auto it = mEntityPoseSlotByEntity.find(entityId);
     if (it == mEntityPoseSlotByEntity.end())
@@ -827,7 +1023,7 @@ void World::releaseEntityPoseSlot(common::EntityId entityId) noexcept
     bumpGeneration(mEntityPoseRevision);
 }
 
-void World::markEntityPoseDirty(common::EntityId entityId)
+void World::Impl::markEntityPoseDirty(common::EntityId entityId)
 {
     const auto it = mEntityPoseSlotByEntity.find(entityId);
     if (it == mEntityPoseSlotByEntity.end())
@@ -843,7 +1039,7 @@ void World::markEntityPoseDirty(common::EntityId entityId)
     enqueueDenseDirtyIndex(slot, mDirtyEntityPoseSlots, mDirtyEntityPoseBits);
 }
 
-void World::refreshEntityPoseSlot(std::uint32_t entityPoseSlot)
+void World::Impl::refreshEntityPoseSlot(std::uint32_t entityPoseSlot)
 {
     if (entityPoseSlot >= mEntityPoseEntities.size() ||
         entityPoseSlot >= mEntityPosePositionsHost.size() ||
@@ -857,7 +1053,7 @@ void World::refreshEntityPoseSlot(std::uint32_t entityPoseSlot)
     common::Transform transform{};
     if (entityId != common::kInvalidEntityId)
     {
-        transform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+        transform = mOwner->tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
     }
 
     const Diligent::float4 position{transform.position.x, transform.position.y,
@@ -889,29 +1085,29 @@ void World::refreshEntityPoseSlot(std::uint32_t entityPoseSlot)
     mEntityPoseScalesHost[entityPoseSlot]       = scale;
 }
 
-void World::markRenderableMetadataDirty(std::uint32_t objectIndex)
+void World::Impl::markRenderableMetadataDirty(std::uint32_t objectIndex)
 {
     enqueueDenseDirtyIndex(objectIndex, mDirtyRenderableMetadataIndices,
                            mDirtyRenderableMetadataBits);
 }
 
-void World::markRenderablePoseDirty(std::uint32_t objectIndex)
+void World::Impl::markRenderablePoseDirty(std::uint32_t objectIndex)
 {
     enqueueDenseDirtyIndex(objectIndex, mDirtyRenderablePoseIndices, mDirtyRenderablePoseBits);
 }
 
-void World::markCameraDirty(std::uint32_t cameraIndex)
+void World::Impl::markCameraDirty(std::uint32_t cameraIndex)
 {
     enqueueDenseDirtyIndex(cameraIndex, mDirtyCameraIndices, mDirtyCameraBits);
 }
 
-void World::markLightDirty(std::uint32_t lightIndex)
+void World::Impl::markLightDirty(std::uint32_t lightIndex)
 {
     enqueueDenseDirtyIndex(lightIndex, mDirtyLightIndices, mDirtyLightBits);
 }
 
-void World::clearDirtyIndexSet(std::vector<std::uint32_t> &dirtyIndices,
-                               std::vector<std::uint8_t> &dirtyBits)
+void World::Impl::clearDirtyIndexSet(std::vector<std::uint32_t> &dirtyIndices,
+                                     std::vector<std::uint8_t> &dirtyBits)
 {
     for (const std::uint32_t index : dirtyIndices)
     {
@@ -931,67 +1127,71 @@ void World::setTransform(common::EntityId entityId, const TransformComponent &co
         return;
     }
 
-    if (!requireAliveEntity(entityId, "setTransform"))
+    if (!mImpl->requireAliveEntity(entityId, "setTransform"))
     {
         return;
     }
 
-    const auto it = mTransformIndex.find(entityId);
-    if (it == mTransformIndex.end())
+    const auto it = mImpl->mTransformIndex.find(entityId);
+    if (it == mImpl->mTransformIndex.end())
     {
-        const std::uint32_t newIndex = static_cast<std::uint32_t>(mTransforms.entityIds.size());
-        mTransforms.entityIds.push_back(entityId);
-        mTransforms.components.push_back(component);
-        mTransformIndex.emplace(entityId, newIndex);
+        const std::uint32_t newIndex =
+            static_cast<std::uint32_t>(mImpl->mTransforms.entityIds.size());
+        mImpl->mTransforms.entityIds.push_back(entityId);
+        mImpl->mTransforms.components.push_back(component);
+        mImpl->mTransformIndex.emplace(entityId, newIndex);
     }
     else
     {
-        mTransforms.components[it->second] = component;
+        mImpl->mTransforms.components[it->second] = component;
     }
 
-    ensureEntityPoseSlot(entityId);
-    markEntityPoseDirty(entityId);
+    mImpl->ensureEntityPoseSlot(entityId);
+    mImpl->markEntityPoseDirty(entityId);
 
     // Forcefully set rigid body transform from world transform. This teleports the body (no physics
     // integration). Users should not set the transform direction on an entity with a kinematic
     // rigid body.
-    if (auto *rb = mPhysicsWorld.tryGetRigidBody(entityId))
+    if (auto *rb = mImpl->mPhysicsWorld.tryGetRigidBody(entityId))
     {
         rb->position = component.worldTransform.position;
         rb->rotation = component.worldTransform.rotation;
         rb->scale    = component.worldTransform.scale;
-        mPhysicsWorld.upsertRigidBody(*rb);
+        mImpl->mPhysicsWorld.upsertRigidBody(*rb);
     }
-    if (auto *softBody = mPhysicsWorld.tryGetSoftBody(entityId))
+    if (auto *softBody = mImpl->mPhysicsWorld.tryGetSoftBody(entityId))
     {
         physics::SoftBodyState updated = *softBody;
         updated.restTransform          = component.worldTransform;
-        if (!mPhysicsWorld.upsertSoftBody(updated))
+        if (!mImpl->mPhysicsWorld.upsertSoftBody(updated))
         {
             CRESSIM_LOG_ERROR("setTransform failed to rebuild soft body for entity ", entityId,
                               ".");
         }
     }
-    if (auto *fluid = mPhysicsWorld.tryGetFluid(entityId))
+    if (auto *fluid = mImpl->mPhysicsWorld.tryGetFluid(entityId))
     {
         physics::FluidState updated = *fluid;
         updated.restTransform       = component.worldTransform;
-        if (!mPhysicsWorld.upsertFluid(updated))
+        if (!mImpl->mPhysicsWorld.upsertFluid(updated))
         {
             CRESSIM_LOG_ERROR("setTransform failed to rebuild fluid for entity ", entityId, ".");
         }
     }
-    if (const auto it = mRenderableIndices.find(entityId); it != mRenderableIndices.end())
+    if (const auto it = mImpl->mRenderableIndices.find(entityId);
+        it != mImpl->mRenderableIndices.end())
     {
-        markRenderablePoseDirty(static_cast<std::uint32_t>(it->second));
+        mImpl->markRenderablePoseDirty(static_cast<std::uint32_t>(it->second));
     }
-    if (const auto it = mRenderCameraIndices.find(entityId); it != mRenderCameraIndices.end())
+    if (const auto it = mImpl->mRenderCameraIndices.find(entityId);
+        it != mImpl->mRenderCameraIndices.end())
     {
-        markCameraDirty(static_cast<std::uint32_t>(it->second));
+        mImpl->markCameraDirty(static_cast<std::uint32_t>(it->second));
     }
-    if (const auto it = mRenderLightIndices.find(entityId); it != mRenderLightIndices.end())
+    if (const auto it = mImpl->mRenderLightIndices.find(entityId);
+        it != mImpl->mRenderLightIndices.end())
     {
-        markLightDirty(static_cast<std::uint32_t>(it->second));
+        mImpl->markLightDirty(static_cast<std::uint32_t>(it->second));
     }
 }
 
@@ -1003,47 +1203,47 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
         return;
     }
 
-    if (!requireAliveEntity(entityId, "setMeshRenderer"))
+    if (!mImpl->requireAliveEntity(entityId, "setMeshRenderer"))
     {
         return;
     }
 
-    ensureEntityPoseSlot(entityId);
+    mImpl->ensureEntityPoseSlot(entityId);
 
-    const auto indexIt        = mRenderableIndices.find(entityId);
+    const auto indexIt        = mImpl->mRenderableIndices.find(entityId);
     std::uint32_t objectIndex = 0u;
-    if (indexIt == mRenderableIndices.end())
+    if (indexIt == mImpl->mRenderableIndices.end())
     {
-        const std::uint32_t envIndex = entityEnvironment(entityId);
-        const std::uint32_t objectSlot =
-            allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv, envIndex,
-                              mSceneLayout.maxRenderableObjectsPerEnv, "renderable");
+        const std::uint32_t envIndex   = entityEnvironment(entityId);
+        const std::uint32_t objectSlot = allocateDenseSlot(
+            mImpl->mFreeRenderableSlotsByEnv, mImpl->mNextRenderableSlotByEnv, envIndex,
+            mImpl->mSceneLayout.maxRenderableObjectsPerEnv, "renderable");
         if (objectSlot == kInvalidSlot)
         {
             return;
         }
-        objectIndex = envIndex * mSceneLayout.maxRenderableObjectsPerEnv + objectSlot;
-        mRenderableIndices[entityId]         = objectIndex;
-        mRenderables[objectIndex].entityId   = entityId;
-        mRenderables[objectIndex].envIndex   = envIndex;
-        mRenderables[objectIndex].objectSlot = objectSlot;
+        objectIndex = envIndex * mImpl->mSceneLayout.maxRenderableObjectsPerEnv + objectSlot;
+        mImpl->mRenderableIndices[entityId]         = objectIndex;
+        mImpl->mRenderables[objectIndex].entityId   = entityId;
+        mImpl->mRenderables[objectIndex].envIndex   = envIndex;
+        mImpl->mRenderables[objectIndex].objectSlot = objectSlot;
     }
     else
     {
         objectIndex = static_cast<std::uint32_t>(indexIt->second);
     }
 
-    graphics::RenderableInstance &renderable = mRenderables[objectIndex];
+    graphics::RenderableInstance &renderable = mImpl->mRenderables[objectIndex];
     renderable.mesh                          = component.mesh;
     renderable.material                      = component.material;
     renderable.segmentationId                = component.segmentationId;
     renderable.visible                       = component.visible;
-    markRenderableMetadataDirty(objectIndex);
-    markRenderablePoseDirty(objectIndex);
-    mDrawRegistryDirty              = true;
-    mPhysicsRenderableMappingsDirty = true;
-    mSoftBodyRenderBindingsDirty    = true;
-    mCurveRenderBindingsDirty       = true;
+    mImpl->markRenderableMetadataDirty(objectIndex);
+    mImpl->markRenderablePoseDirty(objectIndex);
+    mImpl->mDrawRegistryDirty              = true;
+    mImpl->mPhysicsRenderableMappingsDirty = true;
+    mImpl->mSoftBodyRenderBindingsDirty    = true;
+    mImpl->mCurveRenderBindingsDirty       = true;
 }
 
 void World::setCamera(common::EntityId entityId, const CameraComponent &component)
@@ -1054,37 +1254,37 @@ void World::setCamera(common::EntityId entityId, const CameraComponent &componen
         return;
     }
 
-    if (!requireAliveEntity(entityId, "setCamera"))
+    if (!mImpl->requireAliveEntity(entityId, "setCamera"))
     {
         return;
     }
 
-    ensureEntityPoseSlot(entityId);
+    mImpl->ensureEntityPoseSlot(entityId);
 
-    const auto indexIt        = mRenderCameraIndices.find(entityId);
+    const auto indexIt        = mImpl->mRenderCameraIndices.find(entityId);
     std::uint32_t cameraIndex = 0u;
-    if (indexIt == mRenderCameraIndices.end())
+    if (indexIt == mImpl->mRenderCameraIndices.end())
     {
         const std::uint32_t envIndex = entityEnvironment(entityId);
         const std::uint32_t cameraSlot =
-            allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv, envIndex,
-                              mSceneLayout.maxCamerasPerEnv, "camera");
+            allocateDenseSlot(mImpl->mFreeCameraSlotsByEnv, mImpl->mNextCameraSlotByEnv, envIndex,
+                              mImpl->mSceneLayout.maxCamerasPerEnv, "camera");
         if (cameraSlot == kInvalidSlot)
         {
             return;
         }
-        cameraIndex                    = envIndex * mSceneLayout.maxCamerasPerEnv + cameraSlot;
-        mRenderCameraIndices[entityId] = cameraIndex;
-        mRenderCameras[cameraIndex].entityId   = entityId;
-        mRenderCameras[cameraIndex].envIndex   = envIndex;
-        mRenderCameras[cameraIndex].cameraSlot = cameraSlot;
+        cameraIndex = envIndex * mImpl->mSceneLayout.maxCamerasPerEnv + cameraSlot;
+        mImpl->mRenderCameraIndices[entityId]         = cameraIndex;
+        mImpl->mRenderCameras[cameraIndex].entityId   = entityId;
+        mImpl->mRenderCameras[cameraIndex].envIndex   = envIndex;
+        mImpl->mRenderCameras[cameraIndex].cameraSlot = cameraSlot;
     }
     else
     {
         cameraIndex = static_cast<std::uint32_t>(indexIt->second);
     }
 
-    graphics::CameraData &cameraData = mRenderCameras[cameraIndex];
+    graphics::CameraData &cameraData = mImpl->mRenderCameras[cameraIndex];
     cameraData.worldTransform =
         tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
     cameraData.verticalFovDegrees = component.verticalFovDegrees;
@@ -1116,7 +1316,7 @@ void World::setCamera(common::EntityId entityId, const CameraComponent &componen
             ? graphics::CameraBackgroundMode::EnvironmentCubemap
             : graphics::CameraBackgroundMode::ClearColor;
     cameraData.renderOrder = component.renderOrder;
-    markCameraDirty(cameraIndex);
+    mImpl->markCameraDirty(cameraIndex);
 }
 
 void World::setDirectionalLight(common::EntityId entityId,
@@ -1128,14 +1328,14 @@ void World::setDirectionalLight(common::EntityId entityId,
         return;
     }
 
-    if (!requireAliveEntity(entityId, "setDirectionalLight"))
+    if (!mImpl->requireAliveEntity(entityId, "setDirectionalLight"))
     {
         return;
     }
 
     std::uint32_t lightIndex = 0u;
-    if (!tryGetLightIndexForType(entityId, graphics::GpuLightType::Directional,
-                                 "setDirectionalLight", lightIndex))
+    if (!mImpl->tryGetLightIndexForType(entityId, graphics::GpuLightType::Directional,
+                                        "setDirectionalLight", lightIndex))
     {
         return;
     }
@@ -1143,19 +1343,19 @@ void World::setDirectionalLight(common::EntityId entityId,
     if (lightIndex == kInvalidSlot)
     {
         const std::uint32_t envIndex  = entityEnvironment(entityId);
-        const std::uint32_t lightSlot = allocateLightSlot(envIndex, true);
+        const std::uint32_t lightSlot = mImpl->allocateLightSlot(envIndex, true);
         if (lightSlot == kInvalidSlot)
         {
             return;
         }
-        lightIndex                          = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
-        mRenderLightIndices[entityId]       = lightIndex;
-        mRenderLights[lightIndex].entityId  = entityId;
-        mRenderLights[lightIndex].envIndex  = envIndex;
-        mRenderLights[lightIndex].lightSlot = lightSlot;
+        lightIndex = envIndex * mImpl->mSceneLayout.maxLightsPerEnv + lightSlot;
+        mImpl->mRenderLightIndices[entityId]       = lightIndex;
+        mImpl->mRenderLights[lightIndex].entityId  = entityId;
+        mImpl->mRenderLights[lightIndex].envIndex  = envIndex;
+        mImpl->mRenderLights[lightIndex].lightSlot = lightSlot;
     }
 
-    graphics::LightData &lightData     = mRenderLights[lightIndex];
+    graphics::LightData &lightData     = mImpl->mRenderLights[lightIndex];
     const TransformComponent transform = tryGetTransform(entityId).value_or(TransformComponent{});
     lightData.type                     = graphics::GpuLightType::Directional;
     lightData.position                 = transform.worldTransform.position;
@@ -1169,7 +1369,7 @@ void World::setDirectionalLight(common::EntityId entityId,
     lightData.shadowFadeDistance       = component.shadowFadeDistance;
     lightData.shadowBias               = component.shadowBias;
     lightData.castsShadows             = component.castsShadows;
-    markLightDirty(lightIndex);
+    mImpl->markLightDirty(lightIndex);
 }
 
 void World::setPointLight(common::EntityId entityId, const PointLightComponent &component)
@@ -1180,14 +1380,14 @@ void World::setPointLight(common::EntityId entityId, const PointLightComponent &
         return;
     }
 
-    if (!requireAliveEntity(entityId, "setPointLight"))
+    if (!mImpl->requireAliveEntity(entityId, "setPointLight"))
     {
         return;
     }
 
     std::uint32_t lightIndex = 0u;
-    if (!tryGetLightIndexForType(entityId, graphics::GpuLightType::Point, "setPointLight",
-                                 lightIndex))
+    if (!mImpl->tryGetLightIndexForType(entityId, graphics::GpuLightType::Point, "setPointLight",
+                                        lightIndex))
     {
         return;
     }
@@ -1195,20 +1395,20 @@ void World::setPointLight(common::EntityId entityId, const PointLightComponent &
     if (lightIndex == kInvalidSlot)
     {
         const std::uint32_t envIndex  = entityEnvironment(entityId);
-        const std::uint32_t lightSlot = allocateLightSlot(envIndex, false);
+        const std::uint32_t lightSlot = mImpl->allocateLightSlot(envIndex, false);
         if (lightSlot == kInvalidSlot)
         {
             return;
         }
-        lightIndex                          = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
-        mRenderLightIndices[entityId]       = lightIndex;
-        mRenderLights[lightIndex].entityId  = entityId;
-        mRenderLights[lightIndex].envIndex  = envIndex;
-        mRenderLights[lightIndex].lightSlot = lightSlot;
+        lightIndex = envIndex * mImpl->mSceneLayout.maxLightsPerEnv + lightSlot;
+        mImpl->mRenderLightIndices[entityId]       = lightIndex;
+        mImpl->mRenderLights[lightIndex].entityId  = entityId;
+        mImpl->mRenderLights[lightIndex].envIndex  = envIndex;
+        mImpl->mRenderLights[lightIndex].lightSlot = lightSlot;
     }
 
     const TransformComponent transform = tryGetTransform(entityId).value_or(TransformComponent{});
-    graphics::LightData &lightData     = mRenderLights[lightIndex];
+    graphics::LightData &lightData     = mImpl->mRenderLights[lightIndex];
     lightData.type                     = graphics::GpuLightType::Point;
     lightData.position                 = transform.worldTransform.position;
     lightData.direction                = Diligent::float3{0.0f, -1.0f, 0.0f};
@@ -1221,7 +1421,7 @@ void World::setPointLight(common::EntityId entityId, const PointLightComponent &
     lightData.shadowFadeDistance       = 0.0f;
     lightData.shadowBias               = component.shadowBias;
     lightData.castsShadows             = component.castsShadows;
-    markLightDirty(lightIndex);
+    mImpl->markLightDirty(lightIndex);
 }
 
 void World::setSpotLight(common::EntityId entityId, const SpotLightComponent &component)
@@ -1232,14 +1432,14 @@ void World::setSpotLight(common::EntityId entityId, const SpotLightComponent &co
         return;
     }
 
-    if (!requireAliveEntity(entityId, "setSpotLight"))
+    if (!mImpl->requireAliveEntity(entityId, "setSpotLight"))
     {
         return;
     }
 
     std::uint32_t lightIndex = 0u;
-    if (!tryGetLightIndexForType(entityId, graphics::GpuLightType::Spot, "setSpotLight",
-                                 lightIndex))
+    if (!mImpl->tryGetLightIndexForType(entityId, graphics::GpuLightType::Spot, "setSpotLight",
+                                        lightIndex))
     {
         return;
     }
@@ -1247,20 +1447,20 @@ void World::setSpotLight(common::EntityId entityId, const SpotLightComponent &co
     if (lightIndex == kInvalidSlot)
     {
         const std::uint32_t envIndex  = entityEnvironment(entityId);
-        const std::uint32_t lightSlot = allocateLightSlot(envIndex, false);
+        const std::uint32_t lightSlot = mImpl->allocateLightSlot(envIndex, false);
         if (lightSlot == kInvalidSlot)
         {
             return;
         }
-        lightIndex                          = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
-        mRenderLightIndices[entityId]       = lightIndex;
-        mRenderLights[lightIndex].entityId  = entityId;
-        mRenderLights[lightIndex].envIndex  = envIndex;
-        mRenderLights[lightIndex].lightSlot = lightSlot;
+        lightIndex = envIndex * mImpl->mSceneLayout.maxLightsPerEnv + lightSlot;
+        mImpl->mRenderLightIndices[entityId]       = lightIndex;
+        mImpl->mRenderLights[lightIndex].entityId  = entityId;
+        mImpl->mRenderLights[lightIndex].envIndex  = envIndex;
+        mImpl->mRenderLights[lightIndex].lightSlot = lightSlot;
     }
 
     const TransformComponent transform = tryGetTransform(entityId).value_or(TransformComponent{});
-    graphics::LightData &lightData     = mRenderLights[lightIndex];
+    graphics::LightData &lightData     = mImpl->mRenderLights[lightIndex];
     lightData.type                     = graphics::GpuLightType::Spot;
     lightData.position                 = transform.worldTransform.position;
     lightData.direction                = component.direction;
@@ -1273,7 +1473,7 @@ void World::setSpotLight(common::EntityId entityId, const SpotLightComponent &co
     lightData.shadowFadeDistance       = 0.0f;
     lightData.shadowBias               = component.shadowBias;
     lightData.castsShadows             = component.castsShadows;
-    markLightDirty(lightIndex);
+    mImpl->markLightDirty(lightIndex);
 }
 
 void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &component)
@@ -1284,23 +1484,23 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
         return;
     }
 
-    if (!requireAliveEntity(entityId, "setRigidBody"))
+    if (!mImpl->requireAliveEntity(entityId, "setRigidBody"))
     {
         return;
     }
 
     if (!component.simulated)
     {
-        if (mPhysicsWorld.removeRigidBody(entityId))
+        if (mImpl->mPhysicsWorld.removeRigidBody(entityId))
         {
-            clearColliderLinks(entityId);
-            mPhysicsRenderableMappingsDirty = true;
+            mImpl->clearColliderLinks(entityId);
+            mImpl->mPhysicsRenderableMappingsDirty = true;
         }
-        mPhysicsLinks[entityId].hasRigidBody = false;
+        mImpl->mPhysicsLinks[entityId].hasRigidBody = false;
         return;
     }
 
-    ensureEntityPoseSlot(entityId);
+    mImpl->ensureEntityPoseSlot(entityId);
 
     TransformComponent transform{};
     if (const std::optional<TransformComponent> t = tryGetTransform(entityId))
@@ -1330,24 +1530,24 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
     state.kinematicTargetRotation     = component.kinematicTargetRotation;
     state.kinematicTargetEnabled      = component.kinematicTargetEnabled;
 
-    mPhysicsWorld.upsertRigidBody(state);
-    mPhysicsLinks[entityId].hasRigidBody = true;
-    mPhysicsRenderableMappingsDirty      = true;
+    mImpl->mPhysicsWorld.upsertRigidBody(state);
+    mImpl->mPhysicsLinks[entityId].hasRigidBody = true;
+    mImpl->mPhysicsRenderableMappingsDirty      = true;
 }
 
 bool World::removeRigidBody(common::EntityId entityId)
 {
-    auto it = mPhysicsLinks.find(entityId);
-    if (it != mPhysicsLinks.end())
+    auto it = mImpl->mPhysicsLinks.find(entityId);
+    if (it != mImpl->mPhysicsLinks.end())
     {
         it->second.hasRigidBody = false;
     }
 
-    const bool removed = mPhysicsWorld.removeRigidBody(entityId);
+    const bool removed = mImpl->mPhysicsWorld.removeRigidBody(entityId);
     if (removed)
     {
-        clearColliderLinks(entityId);
-        mPhysicsRenderableMappingsDirty = true;
+        mImpl->clearColliderLinks(entityId);
+        mImpl->mPhysicsRenderableMappingsDirty = true;
     }
     return removed;
 }
@@ -1360,7 +1560,7 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
         return false;
     }
 
-    if (!requireAliveEntity(entityId, "setSoftBody"))
+    if (!mImpl->requireAliveEntity(entityId, "setSoftBody"))
     {
         return false;
     }
@@ -1398,14 +1598,14 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     state.collisionLayer       = component.collisionLayer;
     state.collisionMask        = component.collisionMask;
 
-    if (!mPhysicsWorld.upsertSoftBody(state))
+    if (!mImpl->mPhysicsWorld.upsertSoftBody(state))
     {
         return false;
     }
     (void)clearUltrasoundScattererAmplitudeRanges(entityId);
-    mPhysicsLinks[entityId].hasSoftBody = true;
-    mDrawRegistryDirty                  = true;
-    mSoftBodyRenderBindingsDirty        = true;
+    mImpl->mPhysicsLinks[entityId].hasSoftBody = true;
+    mImpl->mDrawRegistryDirty                  = true;
+    mImpl->mSoftBodyRenderBindingsDirty        = true;
     return true;
 }
 
@@ -1418,7 +1618,7 @@ bool World::setMeshfreeSoftBody(common::EntityId entityId,
         return false;
     }
 
-    if (!requireAliveEntity(entityId, "setMeshfreeSoftBody"))
+    if (!mImpl->requireAliveEntity(entityId, "setMeshfreeSoftBody"))
     {
         return false;
     }
@@ -1456,33 +1656,33 @@ bool World::setMeshfreeSoftBody(common::EntityId entityId,
     state.collisionLayer                                 = component.collisionLayer;
     state.collisionMask                                  = component.collisionMask;
 
-    if (!mPhysicsWorld.upsertSoftBody(state))
+    if (!mImpl->mPhysicsWorld.upsertSoftBody(state))
     {
         return false;
     }
-    mPhysicsLinks[entityId].hasSoftBody = true;
-    mDrawRegistryDirty                  = true;
-    mSoftBodyRenderBindingsDirty        = true;
+    mImpl->mPhysicsLinks[entityId].hasSoftBody = true;
+    mImpl->mDrawRegistryDirty                  = true;
+    mImpl->mSoftBodyRenderBindingsDirty        = true;
     return true;
 }
 
 bool World::removeSoftBody(common::EntityId entityId)
 {
     const bool clearedAmplitudeRanges = clearUltrasoundScattererAmplitudeRanges(entityId);
-    auto it                           = mPhysicsLinks.find(entityId);
-    if (it != mPhysicsLinks.end())
+    auto it                           = mImpl->mPhysicsLinks.find(entityId);
+    if (it != mImpl->mPhysicsLinks.end())
     {
         it->second.hasSoftBody = false;
     }
-    if (const auto renderIt = mRenderableIndices.find(entityId);
-        renderIt != mRenderableIndices.end())
+    if (const auto renderIt = mImpl->mRenderableIndices.find(entityId);
+        renderIt != mImpl->mRenderableIndices.end())
     {
-        markRenderablePoseDirty(static_cast<std::uint32_t>(renderIt->second));
-        markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
+        mImpl->markRenderablePoseDirty(static_cast<std::uint32_t>(renderIt->second));
+        mImpl->markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
     }
-    mDrawRegistryDirty           = true;
-    mSoftBodyRenderBindingsDirty = true;
-    return mPhysicsWorld.removeSoftBody(entityId) || clearedAmplitudeRanges;
+    mImpl->mDrawRegistryDirty           = true;
+    mImpl->mSoftBodyRenderBindingsDirty = true;
+    return mImpl->mPhysicsWorld.removeSoftBody(entityId) || clearedAmplitudeRanges;
 }
 
 bool World::setStrand(common::EntityId entityId, const StrandComponent &component)
@@ -1493,7 +1693,7 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
         return false;
     }
 
-    if (!requireAliveEntity(entityId, "setStrand"))
+    if (!mImpl->requireAliveEntity(entityId, "setStrand"))
     {
         return false;
     }
@@ -1524,55 +1724,55 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
     state.collisionLayer         = component.collisionLayer;
     state.collisionMask          = component.collisionMask;
 
-    if (!mPhysicsWorld.upsertStrand(state))
+    if (!mImpl->mPhysicsWorld.upsertStrand(state))
     {
         return false;
     }
 
-    mPhysicsLinks[entityId].hasStrand = true;
+    mImpl->mPhysicsLinks[entityId].hasStrand = true;
     return true;
 }
 
 bool World::removeStrand(common::EntityId entityId)
 {
-    auto it = mPhysicsLinks.find(entityId);
-    if (it != mPhysicsLinks.end())
+    auto it = mImpl->mPhysicsLinks.find(entityId);
+    if (it != mImpl->mPhysicsLinks.end())
     {
         it->second.hasStrand = false;
     }
-    return mPhysicsWorld.removeStrand(entityId);
+    return mImpl->mPhysicsWorld.removeStrand(entityId);
 }
 
 void World::setProceduralDeformableCurveRender(
     common::EntityId entityId, const ProceduralDeformableCurveRenderComponent &component)
 {
-    if (!requireAliveEntity(entityId, "setProceduralDeformableCurveRender"))
+    if (!mImpl->requireAliveEntity(entityId, "setProceduralDeformableCurveRender"))
     {
         return;
     }
 
-    mProceduralDeformableCurveRenders[entityId] = component;
-    if (const auto renderIt = mRenderableIndices.find(entityId);
-        renderIt != mRenderableIndices.end())
+    mImpl->mProceduralDeformableCurveRenders[entityId] = component;
+    if (const auto renderIt = mImpl->mRenderableIndices.find(entityId);
+        renderIt != mImpl->mRenderableIndices.end())
     {
-        markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
+        mImpl->markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
     }
-    mCurveRenderBindingsDirty = true;
-    mDrawRegistryDirty        = true;
+    mImpl->mCurveRenderBindingsDirty = true;
+    mImpl->mDrawRegistryDirty        = true;
 }
 
 bool World::removeProceduralDeformableCurveRender(common::EntityId entityId)
 {
-    const bool removed = mProceduralDeformableCurveRenders.erase(entityId) > 0u;
+    const bool removed = mImpl->mProceduralDeformableCurveRenders.erase(entityId) > 0u;
     if (removed)
     {
-        if (const auto renderIt = mRenderableIndices.find(entityId);
-            renderIt != mRenderableIndices.end())
+        if (const auto renderIt = mImpl->mRenderableIndices.find(entityId);
+            renderIt != mImpl->mRenderableIndices.end())
         {
-            markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
+            mImpl->markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
         }
-        mCurveRenderBindingsDirty = true;
-        mDrawRegistryDirty        = true;
+        mImpl->mCurveRenderBindingsDirty = true;
+        mImpl->mDrawRegistryDirty        = true;
     }
     return removed;
 }
@@ -1580,53 +1780,53 @@ bool World::removeProceduralDeformableCurveRender(common::EntityId entityId)
 physics::AuthoredParticleSequenceState &World::upsertParticleSequence(
     const physics::AuthoredParticleSequenceState &state)
 {
-    mCurveRenderBindingsDirty = true;
-    mDrawRegistryDirty        = true;
-    return mPhysicsWorld.upsertParticleSequence(state);
+    mImpl->mCurveRenderBindingsDirty = true;
+    mImpl->mDrawRegistryDirty        = true;
+    return mImpl->mPhysicsWorld.upsertParticleSequence(state);
 }
 
 physics::AuthoredParticleDistanceConstraintState &World::upsertParticleDistanceConstraint(
     const physics::AuthoredParticleDistanceConstraintState &state)
 {
-    return mPhysicsWorld.upsertParticleDistanceConstraint(state);
+    return mImpl->mPhysicsWorld.upsertParticleDistanceConstraint(state);
 }
 
 bool World::upsertRigidParticleAttachmentConstraint(
     const physics::AuthoredRigidParticleAttachmentConstraintState &state,
     physics::AuthoredRigidParticleAttachmentConstraintState *outAuthored)
 {
-    return mPhysicsWorld.upsertRigidParticleAttachmentConstraint(state, outAuthored);
+    return mImpl->mPhysicsWorld.upsertRigidParticleAttachmentConstraint(state, outAuthored);
 }
 
 bool World::upsertStrandRigidAttachmentConstraint(
     const physics::AuthoredStrandRigidAttachmentConstraintState &state,
     physics::AuthoredStrandRigidAttachmentConstraintState *outAuthored)
 {
-    return mPhysicsWorld.upsertStrandRigidAttachmentConstraint(state, outAuthored);
+    return mImpl->mPhysicsWorld.upsertStrandRigidAttachmentConstraint(state, outAuthored);
 }
 
 bool World::upsertRigidDistanceConstraint(
     const physics::AuthoredRigidDistanceConstraintState &state,
     physics::AuthoredRigidDistanceConstraintState *outAuthored)
 {
-    return mPhysicsWorld.upsertRigidDistanceConstraint(state, outAuthored);
+    return mImpl->mPhysicsWorld.upsertRigidDistanceConstraint(state, outAuthored);
 }
 
 bool World::upsertRoutedCableConstraint(const physics::AuthoredRoutedCableConstraintState &state,
                                         physics::AuthoredRoutedCableConstraintState *outAuthored)
 {
-    return mPhysicsWorld.upsertRoutedCableConstraint(state, outAuthored);
+    return mImpl->mPhysicsWorld.upsertRoutedCableConstraint(state, outAuthored);
 }
 
 bool World::upsertBallJoint(const physics::BallJointState &state)
 {
-    if (!requireAliveEntity(state.bodyA, "upsertBallJoint") ||
-        !requireAliveEntity(state.bodyB, "upsertBallJoint"))
+    if (!mImpl->requireAliveEntity(state.bodyA, "upsertBallJoint") ||
+        !mImpl->requireAliveEntity(state.bodyB, "upsertBallJoint"))
     {
         return false;
     }
-    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
-    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    const physics::RigidBodyState *bodyA = mImpl->mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mImpl->mPhysicsWorld.tryGetRigidBody(state.bodyB);
     if (bodyA == nullptr || bodyB == nullptr)
     {
         CRESSIM_LOG_ERROR("upsertBallJoint requires rigid bodies on both connected entities.");
@@ -1641,18 +1841,18 @@ bool World::upsertBallJoint(const physics::BallJointState &state)
     physics::BallJointState resolved = state;
     resolved.bodyA                   = bodyA->rigidBodyId;
     resolved.bodyB                   = bodyB->rigidBodyId;
-    return mPhysicsWorld.upsertBallJoint(resolved);
+    return mImpl->mPhysicsWorld.upsertBallJoint(resolved);
 }
 
 bool World::upsertHingeJoint(const physics::HingeJointState &state)
 {
-    if (!requireAliveEntity(state.bodyA, "upsertHingeJoint") ||
-        !requireAliveEntity(state.bodyB, "upsertHingeJoint"))
+    if (!mImpl->requireAliveEntity(state.bodyA, "upsertHingeJoint") ||
+        !mImpl->requireAliveEntity(state.bodyB, "upsertHingeJoint"))
     {
         return false;
     }
-    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
-    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    const physics::RigidBodyState *bodyA = mImpl->mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mImpl->mPhysicsWorld.tryGetRigidBody(state.bodyB);
     if (bodyA == nullptr || bodyB == nullptr)
     {
         CRESSIM_LOG_ERROR("upsertHingeJoint requires rigid bodies on both connected entities.");
@@ -1667,18 +1867,18 @@ bool World::upsertHingeJoint(const physics::HingeJointState &state)
     physics::HingeJointState resolved = state;
     resolved.bodyA                    = bodyA->rigidBodyId;
     resolved.bodyB                    = bodyB->rigidBodyId;
-    return mPhysicsWorld.upsertHingeJoint(resolved);
+    return mImpl->mPhysicsWorld.upsertHingeJoint(resolved);
 }
 
 bool World::upsertSphericalJoint(const physics::SphericalJointState &state)
 {
-    if (!requireAliveEntity(state.bodyA, "upsertSphericalJoint") ||
-        !requireAliveEntity(state.bodyB, "upsertSphericalJoint"))
+    if (!mImpl->requireAliveEntity(state.bodyA, "upsertSphericalJoint") ||
+        !mImpl->requireAliveEntity(state.bodyB, "upsertSphericalJoint"))
     {
         return false;
     }
-    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
-    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    const physics::RigidBodyState *bodyA = mImpl->mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mImpl->mPhysicsWorld.tryGetRigidBody(state.bodyB);
     if (bodyA == nullptr || bodyB == nullptr)
     {
         CRESSIM_LOG_ERROR("upsertSphericalJoint requires rigid bodies on both connected entities.");
@@ -1693,18 +1893,18 @@ bool World::upsertSphericalJoint(const physics::SphericalJointState &state)
     physics::SphericalJointState resolved = state;
     resolved.bodyA                        = bodyA->rigidBodyId;
     resolved.bodyB                        = bodyB->rigidBodyId;
-    return mPhysicsWorld.upsertSphericalJoint(resolved);
+    return mImpl->mPhysicsWorld.upsertSphericalJoint(resolved);
 }
 
 bool World::upsertSliderJoint(const physics::SliderJointState &state)
 {
-    if (!requireAliveEntity(state.bodyA, "upsertSliderJoint") ||
-        !requireAliveEntity(state.bodyB, "upsertSliderJoint"))
+    if (!mImpl->requireAliveEntity(state.bodyA, "upsertSliderJoint") ||
+        !mImpl->requireAliveEntity(state.bodyB, "upsertSliderJoint"))
     {
         return false;
     }
-    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
-    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    const physics::RigidBodyState *bodyA = mImpl->mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mImpl->mPhysicsWorld.tryGetRigidBody(state.bodyB);
     if (bodyA == nullptr || bodyB == nullptr)
     {
         CRESSIM_LOG_ERROR("upsertSliderJoint requires rigid bodies on both connected entities.");
@@ -1719,87 +1919,87 @@ bool World::upsertSliderJoint(const physics::SliderJointState &state)
     physics::SliderJointState resolved = state;
     resolved.bodyA                     = bodyA->rigidBodyId;
     resolved.bodyB                     = bodyB->rigidBodyId;
-    return mPhysicsWorld.upsertSliderJoint(resolved);
+    return mImpl->mPhysicsWorld.upsertSliderJoint(resolved);
 }
 
 physics::AuthoredParticleCollisionFilterState &World::upsertParticleCollisionFilter(
     const physics::AuthoredParticleCollisionFilterState &state)
 {
-    return mPhysicsWorld.upsertParticleCollisionFilter(state);
+    return mImpl->mPhysicsWorld.upsertParticleCollisionFilter(state);
 }
 
 physics::AuthoredSuturingSequenceState &World::upsertSuturingSequence(
     const physics::AuthoredSuturingSequenceState &state)
 {
-    return mPhysicsWorld.upsertSuturingSequence(state);
+    return mImpl->mPhysicsWorld.upsertSuturingSequence(state);
 }
 
 bool World::removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId)
 {
-    return mPhysicsWorld.removeParticleDistanceConstraint(constraintId);
+    return mImpl->mPhysicsWorld.removeParticleDistanceConstraint(constraintId);
 }
 
 bool World::removeRigidParticleAttachmentConstraint(
     physics::RigidParticleAttachmentConstraintId constraintId)
 {
-    return mPhysicsWorld.removeRigidParticleAttachmentConstraint(constraintId);
+    return mImpl->mPhysicsWorld.removeRigidParticleAttachmentConstraint(constraintId);
 }
 
 bool World::removeStrandRigidAttachmentConstraint(
     physics::StrandRigidAttachmentConstraintId constraintId)
 {
-    return mPhysicsWorld.removeStrandRigidAttachmentConstraint(constraintId);
+    return mImpl->mPhysicsWorld.removeStrandRigidAttachmentConstraint(constraintId);
 }
 
 bool World::removeRigidDistanceConstraint(physics::RigidDistanceConstraintId constraintId)
 {
-    return mPhysicsWorld.removeRigidDistanceConstraint(constraintId);
+    return mImpl->mPhysicsWorld.removeRigidDistanceConstraint(constraintId);
 }
 
 bool World::removeRoutedCableConstraint(physics::RoutedCableConstraintId constraintId)
 {
-    return mPhysicsWorld.removeRoutedCableConstraint(constraintId);
+    return mImpl->mPhysicsWorld.removeRoutedCableConstraint(constraintId);
 }
 
 bool World::removeBallJoint(const physics::BallJointId jointId)
 {
-    return mPhysicsWorld.removeBallJoint(jointId);
+    return mImpl->mPhysicsWorld.removeBallJoint(jointId);
 }
 
 bool World::removeHingeJoint(const physics::HingeJointId jointId)
 {
-    return mPhysicsWorld.removeHingeJoint(jointId);
+    return mImpl->mPhysicsWorld.removeHingeJoint(jointId);
 }
 
 bool World::removeSphericalJoint(const physics::SphericalJointId jointId)
 {
-    return mPhysicsWorld.removeSphericalJoint(jointId);
+    return mImpl->mPhysicsWorld.removeSphericalJoint(jointId);
 }
 
 bool World::removeSliderJoint(const physics::SliderJointId jointId)
 {
-    return mPhysicsWorld.removeSliderJoint(jointId);
+    return mImpl->mPhysicsWorld.removeSliderJoint(jointId);
 }
 
 bool World::removeParticleCollisionFilter(physics::ParticleCollisionFilterId filterId)
 {
-    return mPhysicsWorld.removeParticleCollisionFilter(filterId);
+    return mImpl->mPhysicsWorld.removeParticleCollisionFilter(filterId);
 }
 
 bool World::removeParticleSequence(physics::ParticleSequenceId sequenceId)
 {
-    const bool removed = mPhysicsWorld.removeParticleSequence(sequenceId);
+    const bool removed = mImpl->mPhysicsWorld.removeParticleSequence(sequenceId);
     if (removed)
     {
-        mCurveRenderBindingsDirty = true;
-        mDrawRegistryDirty        = true;
+        mImpl->mCurveRenderBindingsDirty = true;
+        mImpl->mDrawRegistryDirty        = true;
     }
     return removed;
 }
 
 bool World::removeSuturingSequence(physics::SuturingSequenceId sequenceId)
 {
-    return mPhysicsWorld.removeSuturingSequence(sequenceId);
+    return mImpl->mPhysicsWorld.removeSuturingSequence(sequenceId);
 }
 
 bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
@@ -1810,7 +2010,7 @@ bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
         return false;
     }
 
-    if (!requireAliveEntity(entityId, "setFluid"))
+    if (!mImpl->requireAliveEntity(entityId, "setFluid"))
     {
         return false;
     }
@@ -1840,24 +2040,24 @@ bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
     state.collisionLayer   = component.collisionLayer;
     state.collisionMask    = component.collisionMask;
 
-    if (!mPhysicsWorld.upsertFluid(state))
+    if (!mImpl->mPhysicsWorld.upsertFluid(state))
     {
         return false;
     }
-    mPhysicsLinks[entityId].hasFluid = true;
-    mDrawRegistryDirty               = true;
+    mImpl->mPhysicsLinks[entityId].hasFluid = true;
+    mImpl->mDrawRegistryDirty               = true;
     return true;
 }
 
 bool World::removeFluid(common::EntityId entityId)
 {
-    auto it = mPhysicsLinks.find(entityId);
-    if (it != mPhysicsLinks.end())
+    auto it = mImpl->mPhysicsLinks.find(entityId);
+    if (it != mImpl->mPhysicsLinks.end())
     {
         it->second.hasFluid = false;
     }
-    mDrawRegistryDirty = true;
-    return mPhysicsWorld.removeFluid(entityId);
+    mImpl->mDrawRegistryDirty = true;
+    return mImpl->mPhysicsWorld.removeFluid(entityId);
 }
 
 void World::setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component)
@@ -1867,7 +2067,7 @@ void World::setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeC
         CRESSIM_LOG_ERROR("setUltrasoundProbe requires valid entity id.");
         return;
     }
-    if (!requireAliveEntity(entityId, "setUltrasoundProbe"))
+    if (!mImpl->requireAliveEntity(entityId, "setUltrasoundProbe"))
     {
         return;
     }
@@ -1878,13 +2078,13 @@ void World::setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeC
         return;
     }
 
-    mUltrasoundProbes[entityId] = component;
+    mImpl->mUltrasoundProbes[entityId] = component;
 }
 
 bool World::removeUltrasoundProbe(common::EntityId entityId)
 {
     clearUltrasoundProbeResult(entityId);
-    return mUltrasoundProbes.erase(entityId) > 0u;
+    return mImpl->mUltrasoundProbes.erase(entityId) > 0u;
 }
 
 void World::setUltrasoundRenderer(common::EntityId entityId,
@@ -1895,18 +2095,18 @@ void World::setUltrasoundRenderer(common::EntityId entityId,
         CRESSIM_LOG_ERROR("setUltrasoundRenderer requires valid entity id.");
         return;
     }
-    if (!requireAliveEntity(entityId, "setUltrasoundRenderer"))
+    if (!mImpl->requireAliveEntity(entityId, "setUltrasoundRenderer"))
     {
         return;
     }
 
-    mUltrasoundRenderers[entityId] = component;
+    mImpl->mUltrasoundRenderers[entityId] = component;
 }
 
 bool World::removeUltrasoundRenderer(common::EntityId entityId)
 {
     clearUltrasoundProbeResult(entityId);
-    return mUltrasoundRenderers.erase(entityId) > 0u;
+    return mImpl->mUltrasoundRenderers.erase(entityId) > 0u;
 }
 
 void World::setUltrasoundScattererSource(common::EntityId entityId,
@@ -1917,7 +2117,7 @@ void World::setUltrasoundScattererSource(common::EntityId entityId,
         CRESSIM_LOG_ERROR("setUltrasoundScattererSource requires valid entity id.");
         return;
     }
-    if (!requireAliveEntity(entityId, "setUltrasoundScattererSource"))
+    if (!mImpl->requireAliveEntity(entityId, "setUltrasoundScattererSource"))
     {
         return;
     }
@@ -1928,12 +2128,12 @@ void World::setUltrasoundScattererSource(common::EntityId entityId,
         return;
     }
 
-    mUltrasoundScattererSources[entityId] = component;
+    mImpl->mUltrasoundScattererSources[entityId] = component;
 }
 
 bool World::removeUltrasoundScattererSource(common::EntityId entityId)
 {
-    const bool removedSource = mUltrasoundScattererSources.erase(entityId) > 0u;
+    const bool removedSource = mImpl->mUltrasoundScattererSources.erase(entityId) > 0u;
     const bool removedRanges = clearUltrasoundScattererAmplitudeRanges(entityId);
     return removedSource || removedRanges;
 }
@@ -1946,13 +2146,13 @@ void World::setUltrasoundScattererAmplitudeRanges(
         CRESSIM_LOG_ERROR("setUltrasoundScattererAmplitudeRanges requires valid entity id.");
         return;
     }
-    if (!requireAliveEntity(entityId, "setUltrasoundScattererAmplitudeRanges"))
+    if (!mImpl->requireAliveEntity(entityId, "setUltrasoundScattererAmplitudeRanges"))
     {
         return;
     }
 
     std::vector<Diligent::float3> authoredRestPositions;
-    if (!mPhysicsWorld.tryGetSoftBodyAuthoringRestPositions(entityId, authoredRestPositions))
+    if (!mImpl->mPhysicsWorld.tryGetSoftBodyAuthoringRestPositions(entityId, authoredRestPositions))
     {
         CRESSIM_LOG_ERROR("setUltrasoundScattererAmplitudeRanges requires a soft body on entity ",
                           entityId, ".");
@@ -1966,17 +2166,17 @@ void World::setUltrasoundScattererAmplitudeRanges(
         return;
     }
 
-    mUltrasoundScattererAmplitudeRanges[entityId] = ranges;
-    ++mUltrasoundScattererAmplitudeRevision;
+    mImpl->mUltrasoundScattererAmplitudeRanges[entityId] = ranges;
+    ++mImpl->mUltrasoundScattererAmplitudeRevision;
 }
 
 bool World::clearUltrasoundScattererAmplitudeRanges(common::EntityId entityId)
 {
-    if (mUltrasoundScattererAmplitudeRanges.erase(entityId) == 0u)
+    if (mImpl->mUltrasoundScattererAmplitudeRanges.erase(entityId) == 0u)
     {
         return false;
     }
-    ++mUltrasoundScattererAmplitudeRevision;
+    ++mImpl->mUltrasoundScattererAmplitudeRevision;
     return true;
 }
 
@@ -1989,22 +2189,22 @@ World::ColliderHandle World::addCollider(common::EntityId entityId,
         return {};
     }
 
-    if (!requireAliveEntity(entityId, "addCollider"))
+    if (!mImpl->requireAliveEntity(entityId, "addCollider"))
     {
         return {};
     }
 
-    auto body = mPhysicsLinks.find(entityId);
-    if (body == mPhysicsLinks.end() || !body->second.hasRigidBody)
+    auto body = mImpl->mPhysicsLinks.find(entityId);
+    if (body == mImpl->mPhysicsLinks.end() || !body->second.hasRigidBody)
     {
         CRESSIM_LOG_ERROR("addCollider requires a rigid body on the entity.");
         return {};
     }
 
-    ColliderHandle handle{mNextColliderId++};
-    mPhysicsWorld.upsertCollider(makeColliderState(entityId, handle.id, component));
-    mPhysicsLinks[entityId].colliders.push_back(handle);
-    mColliderOwnerEntity[handle.id] = entityId;
+    ColliderHandle handle{mImpl->mNextColliderId++};
+    mImpl->mPhysicsWorld.upsertCollider(makeColliderState(entityId, handle.id, component));
+    mImpl->mPhysicsLinks[entityId].colliders.push_back(handle);
+    mImpl->mColliderOwnerEntity[handle.id] = entityId;
     return handle;
 }
 
@@ -2016,15 +2216,15 @@ void World::updateCollider(ColliderHandle handle, const ColliderComponent &compo
         return;
     }
 
-    const auto ownerIt = mColliderOwnerEntity.find(handle.id);
-    if (ownerIt == mColliderOwnerEntity.end())
+    const auto ownerIt = mImpl->mColliderOwnerEntity.find(handle.id);
+    if (ownerIt == mImpl->mColliderOwnerEntity.end())
     {
         CRESSIM_LOG_ERROR("updateCollider received an unknown collider handle.");
         return;
     }
 
     const common::EntityId entityId = ownerIt->second;
-    mPhysicsWorld.upsertCollider(makeColliderState(entityId, handle.id, component));
+    mImpl->mPhysicsWorld.upsertCollider(makeColliderState(entityId, handle.id, component));
 }
 
 bool World::removeCollider(ColliderHandle handle)
@@ -2034,15 +2234,15 @@ bool World::removeCollider(ColliderHandle handle)
         return false;
     }
 
-    const auto ownerIt = mColliderOwnerEntity.find(handle.id);
-    if (ownerIt == mColliderOwnerEntity.end())
+    const auto ownerIt = mImpl->mColliderOwnerEntity.find(handle.id);
+    if (ownerIt == mImpl->mColliderOwnerEntity.end())
     {
         return false;
     }
 
     const common::EntityId entityId = ownerIt->second;
-    auto physIt                     = mPhysicsLinks.find(entityId);
-    if (physIt != mPhysicsLinks.end())
+    auto physIt                     = mImpl->mPhysicsLinks.find(entityId);
+    if (physIt != mImpl->mPhysicsLinks.end())
     {
         auto &handles = physIt->second.colliders;
         handles.erase(std::remove_if(handles.begin(), handles.end(),
@@ -2050,8 +2250,8 @@ bool World::removeCollider(ColliderHandle handle)
                       handles.end());
     }
 
-    mColliderOwnerEntity.erase(ownerIt);
-    return mPhysicsWorld.removeCollider(handle.id);
+    mImpl->mColliderOwnerEntity.erase(ownerIt);
+    return mImpl->mPhysicsWorld.removeCollider(handle.id);
 }
 
 bool World::replaceColliders(common::EntityId entityId,
@@ -2062,13 +2262,13 @@ bool World::replaceColliders(common::EntityId entityId,
         CRESSIM_LOG_ERROR("replaceColliders requires valid entity id.");
         return false;
     }
-    if (!requireAliveEntity(entityId, "replaceColliders"))
+    if (!mImpl->requireAliveEntity(entityId, "replaceColliders"))
     {
         return false;
     }
 
-    auto body = mPhysicsLinks.find(entityId);
-    if (body == mPhysicsLinks.end() || !body->second.hasRigidBody)
+    auto body = mImpl->mPhysicsLinks.find(entityId);
+    if (body == mImpl->mPhysicsLinks.end() || !body->second.hasRigidBody)
     {
         CRESSIM_LOG_ERROR("replaceColliders requires a rigid body on the entity.");
         return false;
@@ -2080,92 +2280,94 @@ bool World::replaceColliders(common::EntityId entityId,
     handles.reserve(components.size());
     for (const ColliderComponent &component : components)
     {
-        const ColliderHandle handle{mNextColliderId++};
+        const ColliderHandle handle{mImpl->mNextColliderId++};
         states.push_back(makeColliderState(entityId, handle.id, component));
         handles.push_back(handle);
     }
 
-    mPhysicsWorld.replaceColliders(entityId, states);
-    clearColliderLinks(entityId);
+    mImpl->mPhysicsWorld.replaceColliders(entityId, states);
+    mImpl->clearColliderLinks(entityId);
     body->second.colliders = handles;
     for (const ColliderHandle handle : handles)
     {
-        mColliderOwnerEntity[handle.id] = entityId;
+        mImpl->mColliderOwnerEntity[handle.id] = entityId;
     }
     return true;
 }
 
 bool World::removeTransform(common::EntityId entityId)
 {
-    const auto it = mTransformIndex.find(entityId);
-    if (it == mTransformIndex.end())
+    const auto it = mImpl->mTransformIndex.find(entityId);
+    if (it == mImpl->mTransformIndex.end())
     {
         return false;
     }
 
     const std::uint32_t index = it->second;
-    const std::uint32_t last  = static_cast<std::uint32_t>(mTransforms.entityIds.size() - 1u);
-    const common::EntityId movedEntity = mTransforms.entityIds[last];
+    const std::uint32_t last = static_cast<std::uint32_t>(mImpl->mTransforms.entityIds.size() - 1u);
+    const common::EntityId movedEntity = mImpl->mTransforms.entityIds[last];
 
     if (index != last)
     {
-        mTransforms.entityIds[index]  = mTransforms.entityIds[last];
-        mTransforms.components[index] = mTransforms.components[last];
-        mTransformIndex[movedEntity]  = index;
+        mImpl->mTransforms.entityIds[index]  = mImpl->mTransforms.entityIds[last];
+        mImpl->mTransforms.components[index] = mImpl->mTransforms.components[last];
+        mImpl->mTransformIndex[movedEntity]  = index;
     }
 
-    mTransforms.entityIds.pop_back();
-    mTransforms.components.pop_back();
-    mTransformIndex.erase(it);
+    mImpl->mTransforms.entityIds.pop_back();
+    mImpl->mTransforms.components.pop_back();
+    mImpl->mTransformIndex.erase(it);
 
-    if (const auto it = mRenderableIndices.find(entityId); it != mRenderableIndices.end())
+    if (const auto it = mImpl->mRenderableIndices.find(entityId);
+        it != mImpl->mRenderableIndices.end())
     {
-        markRenderablePoseDirty(static_cast<std::uint32_t>(it->second));
+        mImpl->markRenderablePoseDirty(static_cast<std::uint32_t>(it->second));
     }
-    if (const auto it = mRenderCameraIndices.find(entityId); it != mRenderCameraIndices.end())
+    if (const auto it = mImpl->mRenderCameraIndices.find(entityId);
+        it != mImpl->mRenderCameraIndices.end())
     {
-        markCameraDirty(static_cast<std::uint32_t>(it->second));
+        mImpl->markCameraDirty(static_cast<std::uint32_t>(it->second));
     }
-    markEntityPoseDirty(entityId);
+    mImpl->markEntityPoseDirty(entityId);
     return true;
 }
 
 bool World::removeMeshRenderer(common::EntityId entityId)
 {
-    const auto it = mRenderableIndices.find(entityId);
-    if (it == mRenderableIndices.end())
+    const auto it = mImpl->mRenderableIndices.find(entityId);
+    if (it == mImpl->mRenderableIndices.end())
     {
         return false;
     }
 
     const std::uint32_t objectIndex              = static_cast<std::uint32_t>(it->second);
-    const graphics::RenderableInstance &instance = mRenderables[objectIndex];
-    reclaimDenseSlot(mFreeRenderableSlotsByEnv, instance.envIndex, instance.objectSlot);
-    mRenderables[objectIndex] = {};
-    markRenderablePoseDirty(objectIndex);
-    markRenderableMetadataDirty(objectIndex);
-    mRenderableIndices.erase(it);
-    mDrawRegistryDirty              = true;
-    mPhysicsRenderableMappingsDirty = true;
-    mSoftBodyRenderBindingsDirty    = true;
-    mCurveRenderBindingsDirty       = true;
+    const graphics::RenderableInstance &instance = mImpl->mRenderables[objectIndex];
+    reclaimDenseSlot(mImpl->mFreeRenderableSlotsByEnv, instance.envIndex, instance.objectSlot);
+    mImpl->mRenderables[objectIndex] = {};
+    mImpl->markRenderablePoseDirty(objectIndex);
+    mImpl->markRenderableMetadataDirty(objectIndex);
+    mImpl->mRenderableIndices.erase(it);
+    mImpl->mDrawRegistryDirty              = true;
+    mImpl->mPhysicsRenderableMappingsDirty = true;
+    mImpl->mSoftBodyRenderBindingsDirty    = true;
+    mImpl->mCurveRenderBindingsDirty       = true;
     return true;
 }
 
 bool World::removeCamera(common::EntityId entityId)
 {
-    const auto it = mRenderCameraIndices.find(entityId);
-    if (it == mRenderCameraIndices.end())
+    const auto it = mImpl->mRenderCameraIndices.find(entityId);
+    if (it == mImpl->mRenderCameraIndices.end())
     {
         return false;
     }
 
     const std::uint32_t cameraIndex    = static_cast<std::uint32_t>(it->second);
-    const graphics::CameraData &camera = mRenderCameras[cameraIndex];
-    reclaimDenseSlot(mFreeCameraSlotsByEnv, camera.envIndex, camera.cameraSlot);
-    mRenderCameras[cameraIndex] = {};
-    mRenderCameraIndices.erase(it);
-    markCameraDirty(cameraIndex);
+    const graphics::CameraData &camera = mImpl->mRenderCameras[cameraIndex];
+    reclaimDenseSlot(mImpl->mFreeCameraSlotsByEnv, camera.envIndex, camera.cameraSlot);
+    mImpl->mRenderCameras[cameraIndex] = {};
+    mImpl->mRenderCameraIndices.erase(it);
+    mImpl->markCameraDirty(cameraIndex);
     return true;
 }
 
@@ -2176,7 +2378,7 @@ bool World::removeDirectionalLight(common::EntityId entityId)
     {
         return false;
     }
-    return removeLight(entityId);
+    return mImpl->removeLight(entityId);
 }
 
 bool World::removePointLight(common::EntityId entityId)
@@ -2186,7 +2388,7 @@ bool World::removePointLight(common::EntityId entityId)
     {
         return false;
     }
-    return removeLight(entityId);
+    return mImpl->removeLight(entityId);
 }
 
 bool World::removeSpotLight(common::EntityId entityId)
@@ -2196,47 +2398,48 @@ bool World::removeSpotLight(common::EntityId entityId)
     {
         return false;
     }
-    return removeLight(entityId);
+    return mImpl->removeLight(entityId);
 }
 
 std::optional<TransformComponent> World::tryGetTransform(common::EntityId entityId) const
 {
-    const auto it = mTransformIndex.find(entityId);
-    if (it == mTransformIndex.end())
+    const auto it = mImpl->mTransformIndex.find(entityId);
+    if (it == mImpl->mTransformIndex.end())
     {
         return std::nullopt;
     }
 
     const std::uint32_t index = it->second;
-    return mTransforms.components[index];
+    return mImpl->mTransforms.components[index];
 }
 
 std::optional<MeshRendererComponent> World::tryGetMeshRenderer(common::EntityId entityId) const
 {
-    const auto it = mRenderableIndices.find(entityId);
-    if (it == mRenderableIndices.end())
+    const auto it = mImpl->mRenderableIndices.find(entityId);
+    if (it == mImpl->mRenderableIndices.end())
     {
         return std::nullopt;
     }
 
     const std::uint32_t index = static_cast<std::uint32_t>(it->second);
     MeshRendererComponent component{};
-    component.mesh           = mRenderables[index].mesh;
-    component.material       = mRenderables[index].material;
-    component.segmentationId = mRenderables[index].segmentationId;
-    component.visible        = mRenderables[index].visible;
+    component.mesh           = mImpl->mRenderables[index].mesh;
+    component.material       = mImpl->mRenderables[index].material;
+    component.segmentationId = mImpl->mRenderables[index].segmentationId;
+    component.visible        = mImpl->mRenderables[index].visible;
     return component;
 }
 
 std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) const
 {
-    const auto it = mRenderCameraIndices.find(entityId);
-    if (it == mRenderCameraIndices.end())
+    const auto it = mImpl->mRenderCameraIndices.find(entityId);
+    if (it == mImpl->mRenderCameraIndices.end())
     {
         return std::nullopt;
     }
 
-    const graphics::CameraData &camera = mRenderCameras[static_cast<std::uint32_t>(it->second)];
+    const graphics::CameraData &camera =
+        mImpl->mRenderCameras[static_cast<std::uint32_t>(it->second)];
     CameraComponent component{};
     component.verticalFovDegrees = camera.verticalFovDegrees;
     component.nearClip           = camera.nearClip;
@@ -2273,13 +2476,13 @@ std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) co
 std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
     common::EntityId entityId) const
 {
-    const auto it = mRenderLightIndices.find(entityId);
-    if (it == mRenderLightIndices.end())
+    const auto it = mImpl->mRenderLightIndices.find(entityId);
+    if (it == mImpl->mRenderLightIndices.end())
     {
         return std::nullopt;
     }
 
-    const graphics::LightData &light = mRenderLights[static_cast<std::uint32_t>(it->second)];
+    const graphics::LightData &light = mImpl->mRenderLights[static_cast<std::uint32_t>(it->second)];
     if (light.type != graphics::GpuLightType::Directional)
     {
         return std::nullopt;
@@ -2297,13 +2500,13 @@ std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
 
 std::optional<PointLightComponent> World::tryGetPointLight(common::EntityId entityId) const
 {
-    const auto it = mRenderLightIndices.find(entityId);
-    if (it == mRenderLightIndices.end())
+    const auto it = mImpl->mRenderLightIndices.find(entityId);
+    if (it == mImpl->mRenderLightIndices.end())
     {
         return std::nullopt;
     }
 
-    const graphics::LightData &light = mRenderLights[static_cast<std::uint32_t>(it->second)];
+    const graphics::LightData &light = mImpl->mRenderLights[static_cast<std::uint32_t>(it->second)];
     if (light.type != graphics::GpuLightType::Point)
     {
         return std::nullopt;
@@ -2320,13 +2523,13 @@ std::optional<PointLightComponent> World::tryGetPointLight(common::EntityId enti
 
 std::optional<SpotLightComponent> World::tryGetSpotLight(common::EntityId entityId) const
 {
-    const auto it = mRenderLightIndices.find(entityId);
-    if (it == mRenderLightIndices.end())
+    const auto it = mImpl->mRenderLightIndices.find(entityId);
+    if (it == mImpl->mRenderLightIndices.end())
     {
         return std::nullopt;
     }
 
-    const graphics::LightData &light = mRenderLights[static_cast<std::uint32_t>(it->second)];
+    const graphics::LightData &light = mImpl->mRenderLights[static_cast<std::uint32_t>(it->second)];
     if (light.type != graphics::GpuLightType::Spot)
     {
         return std::nullopt;
@@ -2346,7 +2549,7 @@ std::optional<SpotLightComponent> World::tryGetSpotLight(common::EntityId entity
 
 std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entityId) const
 {
-    const physics::RigidBodyState *rb = mPhysicsWorld.tryGetRigidBody(entityId);
+    const physics::RigidBodyState *rb = mImpl->mPhysicsWorld.tryGetRigidBody(entityId);
     if (!rb)
     {
         return std::nullopt;
@@ -2374,7 +2577,7 @@ std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entity
 
 std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId) const
 {
-    const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId);
+    const physics::SoftBodyState *softBody = mImpl->mPhysicsWorld.tryGetSoftBody(entityId);
     if (!softBody)
     {
         return std::nullopt;
@@ -2397,7 +2600,7 @@ std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId
 
 std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) const
 {
-    const physics::StrandState *strand = mPhysicsWorld.tryGetStrand(entityId);
+    const physics::StrandState *strand = mImpl->mPhysicsWorld.tryGetStrand(entityId);
     if (!strand)
     {
         return std::nullopt;
@@ -2426,15 +2629,15 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
 std::optional<ProceduralDeformableCurveRenderComponent> World::
     tryGetProceduralDeformableCurveRender(common::EntityId entityId) const
 {
-    const auto it = mProceduralDeformableCurveRenders.find(entityId);
-    return it != mProceduralDeformableCurveRenders.end()
+    const auto it = mImpl->mProceduralDeformableCurveRenders.find(entityId);
+    return it != mImpl->mProceduralDeformableCurveRenders.end()
                ? std::optional<ProceduralDeformableCurveRenderComponent>{it->second}
                : std::nullopt;
 }
 
 std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) const
 {
-    const physics::FluidState *fluid = mPhysicsWorld.tryGetFluid(entityId);
+    const physics::FluidState *fluid = mImpl->mPhysicsWorld.tryGetFluid(entityId);
     if (!fluid)
     {
         return std::nullopt;
@@ -2455,98 +2658,100 @@ std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) cons
 const physics::AuthoredParticleDistanceConstraintState *World::tryGetParticleDistanceConstraint(
     physics::ParticleConstraintId constraintId) const noexcept
 {
-    return mPhysicsWorld.tryGetParticleDistanceConstraint(constraintId);
+    return mImpl->mPhysicsWorld.tryGetParticleDistanceConstraint(constraintId);
 }
 
 const physics::AuthoredRigidParticleAttachmentConstraintState *World::
     tryGetRigidParticleAttachmentConstraint(
         physics::RigidParticleAttachmentConstraintId constraintId) const noexcept
 {
-    return mPhysicsWorld.tryGetRigidParticleAttachmentConstraint(constraintId);
+    return mImpl->mPhysicsWorld.tryGetRigidParticleAttachmentConstraint(constraintId);
 }
 
 const physics::AuthoredStrandRigidAttachmentConstraintState *World::
     tryGetStrandRigidAttachmentConstraint(
         physics::StrandRigidAttachmentConstraintId constraintId) const noexcept
 {
-    return mPhysicsWorld.tryGetStrandRigidAttachmentConstraint(constraintId);
+    return mImpl->mPhysicsWorld.tryGetStrandRigidAttachmentConstraint(constraintId);
 }
 
 const physics::AuthoredRigidDistanceConstraintState *World::tryGetRigidDistanceConstraint(
     physics::RigidDistanceConstraintId constraintId) const noexcept
 {
-    return mPhysicsWorld.tryGetRigidDistanceConstraint(constraintId);
+    return mImpl->mPhysicsWorld.tryGetRigidDistanceConstraint(constraintId);
 }
 
 const physics::AuthoredRoutedCableConstraintState *World::tryGetRoutedCableConstraint(
     physics::RoutedCableConstraintId constraintId) const noexcept
 {
-    return mPhysicsWorld.tryGetRoutedCableConstraint(constraintId);
+    return mImpl->mPhysicsWorld.tryGetRoutedCableConstraint(constraintId);
 }
 
 const physics::BallJointState *World::tryGetBallJoint(
     const physics::BallJointId jointId) const noexcept
 {
-    return mPhysicsWorld.tryGetBallJoint(jointId);
+    return mImpl->mPhysicsWorld.tryGetBallJoint(jointId);
 }
 
 const physics::HingeJointState *World::tryGetHingeJoint(
     const physics::HingeJointId jointId) const noexcept
 {
-    return mPhysicsWorld.tryGetHingeJoint(jointId);
+    return mImpl->mPhysicsWorld.tryGetHingeJoint(jointId);
 }
 
 const physics::SphericalJointState *World::tryGetSphericalJoint(
     const physics::SphericalJointId jointId) const noexcept
 {
-    return mPhysicsWorld.tryGetSphericalJoint(jointId);
+    return mImpl->mPhysicsWorld.tryGetSphericalJoint(jointId);
 }
 
 const physics::SliderJointState *World::tryGetSliderJoint(
     const physics::SliderJointId jointId) const noexcept
 {
-    return mPhysicsWorld.tryGetSliderJoint(jointId);
+    return mImpl->mPhysicsWorld.tryGetSliderJoint(jointId);
 }
 
 const physics::AuthoredParticleCollisionFilterState *World::tryGetParticleCollisionFilter(
     physics::ParticleCollisionFilterId filterId) const noexcept
 {
-    return mPhysicsWorld.tryGetParticleCollisionFilter(filterId);
+    return mImpl->mPhysicsWorld.tryGetParticleCollisionFilter(filterId);
 }
 
 const physics::AuthoredParticleSequenceState *World::tryGetParticleSequence(
     physics::ParticleSequenceId sequenceId) const noexcept
 {
-    return mPhysicsWorld.tryGetParticleSequence(sequenceId);
+    return mImpl->mPhysicsWorld.tryGetParticleSequence(sequenceId);
 }
 
 const physics::AuthoredSuturingSequenceState *World::tryGetSuturingSequence(
     physics::SuturingSequenceId sequenceId) const noexcept
 {
-    return mPhysicsWorld.tryGetSuturingSequence(sequenceId);
+    return mImpl->mPhysicsWorld.tryGetSuturingSequence(sequenceId);
 }
 
 std::optional<UltrasoundProbeComponent> World::tryGetUltrasoundProbe(
     common::EntityId entityId) const
 {
-    const auto it = mUltrasoundProbes.find(entityId);
-    return it != mUltrasoundProbes.end() ? std::optional<UltrasoundProbeComponent>{it->second}
-                                         : std::nullopt;
+    const auto it = mImpl->mUltrasoundProbes.find(entityId);
+    return it != mImpl->mUltrasoundProbes.end()
+               ? std::optional<UltrasoundProbeComponent>{it->second}
+               : std::nullopt;
 }
 
 std::optional<UltrasoundRendererComponent> World::tryGetUltrasoundRenderer(
     common::EntityId entityId) const
 {
-    const auto it = mUltrasoundRenderers.find(entityId);
-    return it != mUltrasoundRenderers.end() ? std::optional<UltrasoundRendererComponent>{it->second}
-                                            : std::nullopt;
+    const auto it = mImpl->mUltrasoundRenderers.find(entityId);
+    return it != mImpl->mUltrasoundRenderers.end()
+               ? std::optional<UltrasoundRendererComponent>{it->second}
+               : std::nullopt;
 }
 
 std::optional<UltrasoundScattererSourceComponent> World::tryGetUltrasoundScattererSource(
     common::EntityId entityId) const
 {
-    const auto it = mUltrasoundScattererSources.find(entityId);
-    return it != mUltrasoundScattererSources.end()
+    const auto it = mImpl->mUltrasoundScattererSources.find(entityId);
+    return it != mImpl->mUltrasoundScattererSources.end()
                ? std::optional<UltrasoundScattererSourceComponent>{it->second}
                : std::nullopt;
 }
@@ -2554,14 +2759,15 @@ std::optional<UltrasoundScattererSourceComponent> World::tryGetUltrasoundScatter
 std::optional<SoftBodyAuthoringParticles> World::tryGetSoftBodyAuthoringParticles(
     common::EntityId entityId) const
 {
-    const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId);
+    const physics::SoftBodyState *softBody = mImpl->mPhysicsWorld.tryGetSoftBody(entityId);
     if (softBody == nullptr)
     {
         return std::nullopt;
     }
 
     SoftBodyAuthoringParticles particles{};
-    if (!mPhysicsWorld.tryGetSoftBodyAuthoringRestPositions(entityId, particles.restPositions))
+    if (!mImpl->mPhysicsWorld.tryGetSoftBodyAuthoringRestPositions(entityId,
+                                                                   particles.restPositions))
     {
         return std::nullopt;
     }
@@ -2572,15 +2778,15 @@ std::optional<SoftBodyAuthoringParticles> World::tryGetSoftBodyAuthoringParticle
 const std::vector<UltrasoundAmplitudeRange> *World::tryGetUltrasoundScattererAmplitudeRanges(
     common::EntityId entityId) const noexcept
 {
-    const auto it = mUltrasoundScattererAmplitudeRanges.find(entityId);
-    return it != mUltrasoundScattererAmplitudeRanges.end() ? &it->second : nullptr;
+    const auto it = mImpl->mUltrasoundScattererAmplitudeRanges.find(entityId);
+    return it != mImpl->mUltrasoundScattererAmplitudeRanges.end() ? &it->second : nullptr;
 }
 
 const UltrasoundProbeResult *World::tryGetUltrasoundProbeResult(
     common::EntityId entityId) const noexcept
 {
-    const auto it = mUltrasoundProbeResults.find(entityId);
-    return it != mUltrasoundProbeResults.end() ? &it->second : nullptr;
+    const auto it = mImpl->mUltrasoundProbeResults.find(entityId);
+    return it != mImpl->mUltrasoundProbeResults.end() ? &it->second : nullptr;
 }
 
 std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) const
@@ -2589,12 +2795,12 @@ std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) co
     {
         return std::nullopt;
     }
-    if (mColliderOwnerEntity.find(handle.id) == mColliderOwnerEntity.end())
+    if (mImpl->mColliderOwnerEntity.find(handle.id) == mImpl->mColliderOwnerEntity.end())
     {
         return std::nullopt;
     }
 
-    const physics::ColliderState *c = mPhysicsWorld.tryGetCollider(handle.id);
+    const physics::ColliderState *c = mImpl->mPhysicsWorld.tryGetCollider(handle.id);
     if (!c)
     {
         return std::nullopt;
@@ -2616,149 +2822,150 @@ std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) co
 
 const std::vector<World::ColliderHandle> &World::colliderHandles(common::EntityId entityId) const
 {
-    const auto it = mPhysicsLinks.find(entityId);
-    return it != mPhysicsLinks.end() ? it->second.colliders : emptyColliderHandleList();
+    const auto it = mImpl->mPhysicsLinks.find(entityId);
+    return it != mImpl->mPhysicsLinks.end() ? it->second.colliders : emptyColliderHandleList();
 }
 
 physics::PhysicsWorld &World::physicsWorld() noexcept
 {
-    return mPhysicsWorld;
+    return mImpl->mPhysicsWorld;
 }
 
 const physics::PhysicsWorld &World::physicsWorld() const noexcept
 {
-    return mPhysicsWorld;
+    return mImpl->mPhysicsWorld;
 }
 
 void World::setGpuEntityScene(const graphics::GpuEntitySceneView &sceneView) noexcept
 {
-    mGpuEntityScene = sceneView;
+    mImpl->mGpuEntityScene = sceneView;
 }
 
 const std::vector<graphics::RenderableInstance> &World::renderables() const noexcept
 {
-    return mRenderables;
+    return mImpl->mRenderables;
 }
 
 const std::vector<graphics::CameraData> &World::cameras() const noexcept
 {
-    return mRenderCameras;
+    return mImpl->mRenderCameras;
 }
 
 const std::vector<graphics::LightData> &World::lights() const noexcept
 {
-    return mRenderLights;
+    return mImpl->mRenderLights;
 }
 
 std::uint32_t World::entityPoseSlot(common::EntityId entityId) const noexcept
 {
-    const auto it = mEntityPoseSlotByEntity.find(entityId);
-    return it != mEntityPoseSlotByEntity.end() ? it->second : kInvalidSlot;
+    const auto it = mImpl->mEntityPoseSlotByEntity.find(entityId);
+    return it != mImpl->mEntityPoseSlotByEntity.end() ? it->second : kInvalidSlot;
 }
 
 const std::vector<Diligent::float4> &World::entityPosePositions() const noexcept
 {
-    return mEntityPosePositionsHost;
+    return mImpl->mEntityPosePositionsHost;
 }
 
 const std::vector<Diligent::float4> &World::entityPoseOrientations() const noexcept
 {
-    return mEntityPoseOrientationsHost;
+    return mImpl->mEntityPoseOrientationsHost;
 }
 
 const std::vector<Diligent::float4> &World::entityPoseScales() const noexcept
 {
-    return mEntityPoseScalesHost;
+    return mImpl->mEntityPoseScalesHost;
 }
 
 const std::vector<Diligent::float4> &World::renderObjectPositions() const noexcept
 {
-    return mRenderObjectPositions;
+    return mImpl->mRenderObjectPositions;
 }
 
 const std::vector<Diligent::float4> &World::renderObjectOrientations() const noexcept
 {
-    return mRenderObjectOrientations;
+    return mImpl->mRenderObjectOrientations;
 }
 
 const std::vector<Diligent::float4> &World::renderObjectScales() const noexcept
 {
-    return mRenderObjectScales;
+    return mImpl->mRenderObjectScales;
 }
 
 const std::vector<graphics::GpuRenderableMetadata> &World::renderableMetadata() const noexcept
 {
-    return mRenderableMetadataHost;
+    return mImpl->mRenderableMetadataHost;
 }
 
 const std::vector<graphics::GpuRenderableQueueInfo> &World::renderableQueueInfo() const noexcept
 {
-    return mRenderableQueueInfoHost;
+    return mImpl->mRenderableQueueInfoHost;
 }
 
 const std::vector<graphics::GpuCameraInput> &World::cameraInputs() const noexcept
 {
-    return mCameraInputsHost;
+    return mImpl->mCameraInputsHost;
 }
 
 const std::vector<graphics::GpuLightInput> &World::lightInputs() const noexcept
 {
-    return mLightInputsHost;
+    return mImpl->mLightInputsHost;
 }
 
 const std::vector<graphics::GpuLocalLightSelection> &World::localLightSelections() const noexcept
 {
-    return mLocalLightSelectionsHost;
+    return mImpl->mLocalLightSelectionsHost;
 }
 
 const std::vector<graphics::GpuSoftBodyVertexBinding> &World::softBodyVertexBindings()
     const noexcept
 {
-    return mSoftBodyVertexBindingsHost;
+    return mImpl->mSoftBodyVertexBindingsHost;
 }
 
 const std::vector<graphics::IndirectCommandRegistryEntry> &World::opaqueDrawRegistry()
     const noexcept
 {
-    return mOpaqueDrawRegistryHost;
+    return mImpl->mOpaqueDrawRegistryHost;
 }
 
 const std::vector<graphics::TransparentDrawEntry> &World::transparentDrawRegistry() const noexcept
 {
-    return mTransparentDrawRegistryHost;
+    return mImpl->mTransparentDrawRegistryHost;
 }
 
 const std::vector<graphics::IndirectCommandRegistryEntry> &World::shadowDrawRegistry()
     const noexcept
 {
-    return mShadowDrawRegistryHost;
+    return mImpl->mShadowDrawRegistryHost;
 }
 
 const std::vector<graphics::IndirectCommandRegistryEntry> &World::localShadowDrawRegistry()
     const noexcept
 {
-    return mLocalShadowDrawRegistryHost;
+    return mImpl->mLocalShadowDrawRegistryHost;
 }
 
 const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
 {
-    const std::uint64_t rigidBodyTopologyRevision = mPhysicsWorld.rigidBodyTopologyRevision();
-    if (!mPhysicsRenderableMappingsDirty &&
-        mCachedPhysicsRenderableMappingsBodyTopologyRevision == rigidBodyTopologyRevision)
+    const std::uint64_t rigidBodyTopologyRevision =
+        mImpl->mPhysicsWorld.rigidBodyTopologyRevision();
+    if (!mImpl->mPhysicsRenderableMappingsDirty &&
+        mImpl->mCachedPhysicsRenderableMappingsBodyTopologyRevision == rigidBodyTopologyRevision)
     {
-        return mPhysicsRenderableMappingsCache;
+        return mImpl->mPhysicsRenderableMappingsCache;
     }
 
-    mPhysicsRenderableMappingsCache.clear();
+    mImpl->mPhysicsRenderableMappingsCache.clear();
 
-    const auto &rigidBodies = mPhysicsWorld.rigidBodySoA();
+    const auto &rigidBodies = mImpl->mPhysicsWorld.rigidBodySoA();
     if (!rigidBodies.entityIds.empty())
     {
         for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(rigidBodies.entityIds.size()); ++i)
         {
             const common::EntityId entityId = rigidBodies.entityIds[i];
-            const auto poseSlotIt           = mEntityPoseSlotByEntity.find(entityId);
-            if (poseSlotIt == mEntityPoseSlotByEntity.end())
+            const auto poseSlotIt           = mImpl->mEntityPoseSlotByEntity.find(entityId);
+            if (poseSlotIt == mImpl->mEntityPoseSlotByEntity.end())
             {
                 continue;
             }
@@ -2766,192 +2973,193 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
             EntityPoseMappingEntry entry{};
             entry.sourcePoseIndex = i;
             entry.entityPoseIndex = poseSlotIt->second;
-            mPhysicsRenderableMappingsCache.push_back(entry);
+            mImpl->mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
 
-    mPhysicsRenderableMappingsDirty                      = false;
-    mCachedPhysicsRenderableMappingsBodyTopologyRevision = rigidBodyTopologyRevision;
-    return mPhysicsRenderableMappingsCache;
+    mImpl->mPhysicsRenderableMappingsDirty                      = false;
+    mImpl->mCachedPhysicsRenderableMappingsBodyTopologyRevision = rigidBodyTopologyRevision;
+    return mImpl->mPhysicsRenderableMappingsCache;
 }
 
 std::uint64_t World::entityPoseRevision() const noexcept
 {
-    return mEntityPoseRevision;
+    return mImpl->mEntityPoseRevision;
 }
 
 std::uint64_t World::renderableMetadataRevision() const noexcept
 {
-    return mRenderableMetadataRevision;
+    return mImpl->mRenderableMetadataRevision;
 }
 
 std::uint64_t World::renderableQueueInfoRevision() const noexcept
 {
-    return mRenderableQueueInfoRevision;
+    return mImpl->mRenderableQueueInfoRevision;
 }
 
 std::uint64_t World::softBodyVertexBindingRevision() const noexcept
 {
-    return mSoftBodyVertexBindingRevision;
+    return mImpl->mSoftBodyVertexBindingRevision;
 }
 
 std::uint64_t World::cameraInputRevision() const noexcept
 {
-    return mCameraInputRevision;
+    return mImpl->mCameraInputRevision;
 }
 
 std::uint64_t World::lightInputRevision() const noexcept
 {
-    return mLightInputRevision;
+    return mImpl->mLightInputRevision;
 }
 
 std::uint64_t World::localLightSelectionRevision() const noexcept
 {
-    return mLocalLightSelectionRevision;
+    return mImpl->mLocalLightSelectionRevision;
 }
 
 const graphics::GpuEntitySceneView &World::gpuEntityScene() const noexcept
 {
-    return mGpuEntityScene;
+    return mImpl->mGpuEntityScene;
 }
 
 graphics::HostSceneView World::hostSceneView() const noexcept
 {
     return graphics::HostSceneView{
-        &mRenderables,
-        &mRenderableMetadataHost,
-        &mRenderCameras,
-        &mRenderLights,
-        &mEnvironmentIbls,
-        &mEnvironmentFluids,
-        &mOpaqueDrawRegistryHost,
-        &mTransparentDrawRegistryHost,
-        &mShadowDrawRegistryHost,
-        &mLocalShadowDrawRegistryHost,
-        &mGpuEntityScene,
+        &mImpl->mRenderables,
+        &mImpl->mRenderableMetadataHost,
+        &mImpl->mRenderCameras,
+        &mImpl->mRenderLights,
+        &mImpl->mEnvironmentIbls,
+        &mImpl->mEnvironmentFluids,
+        &mImpl->mOpaqueDrawRegistryHost,
+        &mImpl->mTransparentDrawRegistryHost,
+        &mImpl->mShadowDrawRegistryHost,
+        &mImpl->mLocalShadowDrawRegistryHost,
+        &mImpl->mGpuEntityScene,
     };
 }
 
 void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources)
 {
-    const std::uint64_t softBodyTopologyRevision = mPhysicsWorld.softBodyTopologyRevision();
-    if (mCachedSoftBodyRenderTopologyRevision != softBodyTopologyRevision)
+    const std::uint64_t softBodyTopologyRevision = mImpl->mPhysicsWorld.softBodyTopologyRevision();
+    if (mImpl->mCachedSoftBodyRenderTopologyRevision != softBodyTopologyRevision)
     {
-        mSoftBodyRenderBindingsDirty          = true;
-        mCachedSoftBodyRenderTopologyRevision = softBodyTopologyRevision;
+        mImpl->mSoftBodyRenderBindingsDirty          = true;
+        mImpl->mCachedSoftBodyRenderTopologyRevision = softBodyTopologyRevision;
     }
 
-    const std::uint64_t physicsRevision = mPhysicsWorld.authoredRevision();
-    if (mCachedSoftBodyPhysicsRevision != physicsRevision)
+    const std::uint64_t physicsRevision = mImpl->mPhysicsWorld.authoredRevision();
+    if (mImpl->mCachedSoftBodyPhysicsRevision != physicsRevision)
     {
         for (std::uint32_t objectIndex = 0u;
-             objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
+             objectIndex < static_cast<std::uint32_t>(mImpl->mRenderables.size()); ++objectIndex)
         {
-            const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
+            const graphics::RenderableInstance &renderable = mImpl->mRenderables[objectIndex];
             if (renderable.entityId == common::kInvalidEntityId ||
                 renderable.objectSlot == kInvalidSlot)
             {
                 continue;
             }
-            const auto physIt = mPhysicsLinks.find(renderable.entityId);
-            if (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+            const auto physIt = mImpl->mPhysicsLinks.find(renderable.entityId);
+            if (physIt != mImpl->mPhysicsLinks.end() && physIt->second.hasSoftBody)
             {
-                markRenderablePoseDirty(objectIndex);
-                markRenderableMetadataDirty(objectIndex);
+                mImpl->markRenderablePoseDirty(objectIndex);
+                mImpl->markRenderableMetadataDirty(objectIndex);
             }
         }
-        mCachedSoftBodyPhysicsRevision = physicsRevision;
+        mImpl->mCachedSoftBodyPhysicsRevision = physicsRevision;
     }
-    if (mCachedCurveRenderPhysicsRevision != physicsRevision)
+    if (mImpl->mCachedCurveRenderPhysicsRevision != physicsRevision)
     {
-        mCurveRenderBindingsDirty         = true;
-        mCachedCurveRenderPhysicsRevision = physicsRevision;
+        mImpl->mCurveRenderBindingsDirty         = true;
+        mImpl->mCachedCurveRenderPhysicsRevision = physicsRevision;
     }
 
-    if (mSoftBodyRenderBindingsDirty)
+    if (mImpl->mSoftBodyRenderBindingsDirty)
     {
-        mPhysicsWorld.ensureSoftBodyDerivedStateUpToDate();
-        rebuildSoftBodyRenderBindings(resources);
+        mImpl->mPhysicsWorld.ensureSoftBodyDerivedStateUpToDate();
+        mImpl->rebuildSoftBodyRenderBindings(resources);
     }
-    if (mCurveRenderBindingsDirty)
+    if (mImpl->mCurveRenderBindingsDirty)
     {
-        mPhysicsWorld.ensureSoftBodyDerivedStateUpToDate();
-        rebuildCurveRenderBindings(resources);
-    }
-
-    for (const std::uint32_t entityPoseSlot : mDirtyEntityPoseSlots)
-    {
-        refreshEntityPoseSlot(entityPoseSlot);
+        mImpl->mPhysicsWorld.ensureSoftBodyDerivedStateUpToDate();
+        mImpl->rebuildCurveRenderBindings(resources);
     }
 
-    for (const std::uint32_t objectIndex : mDirtyRenderablePoseIndices)
+    for (const std::uint32_t entityPoseSlot : mImpl->mDirtyEntityPoseSlots)
     {
-        refreshRenderablePose(objectIndex);
+        mImpl->refreshEntityPoseSlot(entityPoseSlot);
     }
 
-    for (const std::uint32_t cameraIndex : mDirtyCameraIndices)
+    for (const std::uint32_t objectIndex : mImpl->mDirtyRenderablePoseIndices)
     {
-        refreshCameraEntry(cameraIndex);
+        mImpl->refreshRenderablePose(objectIndex);
     }
 
-    for (const std::uint32_t lightIndex : mDirtyLightIndices)
+    for (const std::uint32_t cameraIndex : mImpl->mDirtyCameraIndices)
     {
-        refreshLightEntry(lightIndex);
+        mImpl->refreshCameraEntry(cameraIndex);
     }
 
-    if (!mDirtyLightIndices.empty())
+    for (const std::uint32_t lightIndex : mImpl->mDirtyLightIndices)
     {
-        rebuildLocalLightSelections();
+        mImpl->refreshLightEntry(lightIndex);
     }
 
-    refreshDirtyRenderableMetadata(resources);
-    if (mDrawRegistryDirty)
+    if (!mImpl->mDirtyLightIndices.empty())
     {
-        rebuildDrawRegistries(resources);
-        mDrawRegistryDirty = false;
+        mImpl->rebuildLocalLightSelections();
     }
 
-    clearDirtyIndexSet(mDirtyEntityPoseSlots, mDirtyEntityPoseBits);
-    clearDirtyIndexSet(mDirtyRenderablePoseIndices, mDirtyRenderablePoseBits);
-    clearDirtyIndexSet(mDirtyRenderableMetadataIndices, mDirtyRenderableMetadataBits);
-    clearDirtyIndexSet(mDirtyCameraIndices, mDirtyCameraBits);
-    clearDirtyIndexSet(mDirtyLightIndices, mDirtyLightBits);
+    mImpl->refreshDirtyRenderableMetadata(resources);
+    if (mImpl->mDrawRegistryDirty)
+    {
+        mImpl->rebuildDrawRegistries(resources);
+        mImpl->mDrawRegistryDirty = false;
+    }
+
+    mImpl->clearDirtyIndexSet(mImpl->mDirtyEntityPoseSlots, mImpl->mDirtyEntityPoseBits);
+    mImpl->clearDirtyIndexSet(mImpl->mDirtyRenderablePoseIndices, mImpl->mDirtyRenderablePoseBits);
+    mImpl->clearDirtyIndexSet(mImpl->mDirtyRenderableMetadataIndices,
+                              mImpl->mDirtyRenderableMetadataBits);
+    mImpl->clearDirtyIndexSet(mImpl->mDirtyCameraIndices, mImpl->mDirtyCameraBits);
+    mImpl->clearDirtyIndexSet(mImpl->mDirtyLightIndices, mImpl->mDirtyLightBits);
 }
 
 const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &World::
     ultrasoundProbeComponents() const noexcept
 {
-    return mUltrasoundProbes;
+    return mImpl->mUltrasoundProbes;
 }
 
 const std::unordered_map<common::EntityId, UltrasoundRendererComponent> &World::
     ultrasoundRendererComponents() const noexcept
 {
-    return mUltrasoundRenderers;
+    return mImpl->mUltrasoundRenderers;
 }
 
 const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &World::
     ultrasoundScattererSourceComponents() const noexcept
 {
-    return mUltrasoundScattererSources;
+    return mImpl->mUltrasoundScattererSources;
 }
 
 std::uint64_t World::ultrasoundScattererAmplitudeRevision() const noexcept
 {
-    return mUltrasoundScattererAmplitudeRevision;
+    return mImpl->mUltrasoundScattererAmplitudeRevision;
 }
 
 void World::setUltrasoundProbeResult(common::EntityId entityId, const UltrasoundProbeResult &result)
 {
-    mUltrasoundProbeResults[entityId] = result;
+    mImpl->mUltrasoundProbeResults[entityId] = result;
 }
 
 void World::clearUltrasoundProbeResult(common::EntityId entityId)
 {
-    mUltrasoundProbeResults.erase(entityId);
+    mImpl->mUltrasoundProbeResults.erase(entityId);
 }
 
-void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager &resources)
+void World::Impl::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager &resources)
 {
     std::fill(mSoftBodyVertexBindingBaseByObject.begin(), mSoftBodyVertexBindingBaseByObject.end(),
               kInvalidSlot);
@@ -3132,7 +3340,7 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
     bumpGeneration(mSoftBodyVertexBindingRevision);
 }
 
-void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &resources)
+void World::Impl::rebuildCurveRenderBindings(const graphics::RenderResourceManager &resources)
 {
     std::fill(mCurveRenderVertexBaseByObject.begin(), mCurveRenderVertexBaseByObject.end(),
               kInvalidSlot);
@@ -3292,7 +3500,7 @@ void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &re
     mPhysicsWorld.setCurveRenderData(curveRenderData);
 }
 
-void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources)
+void World::Impl::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources)
 {
     // TODO: some metadata depends on resources too, not just world state:
     // if a mesh or material changes later inside RenderResourceManager, World does
@@ -3318,7 +3526,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         entry.deformableType =
             static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::None);
         entry.segmentationId = renderable.segmentationId;
-        entry.entityPoseSlot = entityPoseSlot(renderable.entityId);
+        entry.entityPoseSlot = mOwner->entityPoseSlot(renderable.entityId);
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
@@ -3422,7 +3630,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
     }
 }
 
-void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resources)
+void World::Impl::rebuildDrawRegistries(const graphics::RenderResourceManager &resources)
 {
     // TODO: mesh/material resources still authored on CPU.
     // I don't know if we can let GPU do this part completely.
@@ -3588,7 +3796,7 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
     bumpGeneration(mRenderableQueueInfoRevision);
 }
 
-void World::refreshRenderablePose(std::uint32_t objectIndex)
+void World::Impl::refreshRenderablePose(std::uint32_t objectIndex)
 {
     if (objectIndex >= mRenderables.size())
     {
@@ -3607,8 +3815,9 @@ void World::refreshRenderablePose(std::uint32_t objectIndex)
     const auto physIt = mPhysicsLinks.find(renderable.entityId);
     if (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
     {
-        renderable.worldTransform =
-            tryGetTransform(renderable.entityId).value_or(TransformComponent{}).worldTransform;
+        renderable.worldTransform           = mOwner->tryGetTransform(renderable.entityId)
+                                                  .value_or(TransformComponent{})
+                                                  .worldTransform;
         mRenderObjectPositions[objectIndex] = Diligent::float4{
             renderable.worldTransform.position.x, renderable.worldTransform.position.y,
             renderable.worldTransform.position.z, 1.0f};
@@ -3622,7 +3831,7 @@ void World::refreshRenderablePose(std::uint32_t objectIndex)
     }
 
     renderable.worldTransform =
-        tryGetTransform(renderable.entityId).value_or(TransformComponent{}).worldTransform;
+        mOwner->tryGetTransform(renderable.entityId).value_or(TransformComponent{}).worldTransform;
     mRenderObjectPositions[objectIndex] =
         Diligent::float4{renderable.worldTransform.position.x, renderable.worldTransform.position.y,
                          renderable.worldTransform.position.z, 1.0f};
@@ -3634,7 +3843,7 @@ void World::refreshRenderablePose(std::uint32_t objectIndex)
                          renderable.worldTransform.scale.z, 0.0f};
 }
 
-void World::refreshCameraEntry(std::uint32_t cameraIndex)
+void World::Impl::refreshCameraEntry(std::uint32_t cameraIndex)
 {
     if (cameraIndex >= mRenderCameras.size())
     {
@@ -3656,7 +3865,7 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     }
 
     cameraData.worldTransform =
-        tryGetTransform(cameraData.entityId).value_or(TransformComponent{}).worldTransform;
+        mOwner->tryGetTransform(cameraData.entityId).value_or(TransformComponent{}).worldTransform;
 
     graphics::GpuCameraInput input{};
     input.position =
@@ -3665,7 +3874,7 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     input.orientation = Diligent::float4{
         cameraData.worldTransform.rotation.q.x, cameraData.worldTransform.rotation.q.y,
         cameraData.worldTransform.rotation.q.z, cameraData.worldTransform.rotation.q.w};
-    const std::uint32_t poseSlot = entityPoseSlot(cameraData.entityId);
+    const std::uint32_t poseSlot = mOwner->entityPoseSlot(cameraData.entityId);
     input.projectionParams = Diligent::float4{cameraData.verticalFovDegrees, cameraData.nearClip,
                                               cameraData.farClip, 0.0f};
     input.viewportAndOutputSize = Diligent::float4{
@@ -3684,7 +3893,7 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     mCameraInputsHost[cameraIndex] = input;
 }
 
-void World::refreshLightEntry(std::uint32_t lightIndex)
+void World::Impl::refreshLightEntry(std::uint32_t lightIndex)
 {
     if (lightIndex >= mRenderLights.size())
     {
@@ -3706,7 +3915,7 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
     }
 
     const TransformComponent transform =
-        tryGetTransform(lightData.entityId).value_or(TransformComponent{});
+        mOwner->tryGetTransform(lightData.entityId).value_or(TransformComponent{});
     refreshTransformDerivedLightState(lightData, transform);
 
     graphics::GpuLightInput input{};
@@ -3736,7 +3945,7 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
     mLightInputsHost[lightIndex] = input;
 }
 
-void World::rebuildLocalLightSelections()
+void World::Impl::rebuildLocalLightSelections()
 {
     mLocalLightSelectionsHost.assign(mSceneLayout.envCount, graphics::GpuLocalLightSelection{});
     for (std::uint32_t lightIndex = 0u;
@@ -3788,7 +3997,7 @@ void World::rebuildLocalLightSelections()
     bumpGeneration(mLocalLightSelectionRevision);
 }
 
-bool World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
+bool World::Impl::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
 {
     const auto indexIt = mRenderableIndices.find(entityId);
     if (indexIt == mRenderableIndices.end())
@@ -3824,7 +4033,7 @@ bool World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t
     return true;
 }
 
-bool World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
+bool World::Impl::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
 {
     const auto indexIt = mRenderCameraIndices.find(entityId);
     if (indexIt == mRenderCameraIndices.end())
@@ -3856,7 +4065,7 @@ bool World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t env
     return true;
 }
 
-bool World::moveLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
+bool World::Impl::moveLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
 {
     const auto indexIt = mRenderLightIndices.find(entityId);
     if (indexIt == mRenderLightIndices.end())
@@ -3887,7 +4096,7 @@ bool World::moveLightToEnvironment(common::EntityId entityId, std::uint32_t envI
     return true;
 }
 
-bool World::isLightSlotOccupied(std::uint32_t envIndex, std::uint32_t slot) const noexcept
+bool World::Impl::isLightSlotOccupied(std::uint32_t envIndex, std::uint32_t slot) const noexcept
 {
     if (slot >= mSceneLayout.maxLightsPerEnv)
     {
@@ -3898,7 +4107,8 @@ bool World::isLightSlotOccupied(std::uint32_t envIndex, std::uint32_t slot) cons
     return lightIndex < mRenderLights.size() && isValidLight(mRenderLights[lightIndex]);
 }
 
-std::uint32_t World::allocateLightSlot(std::uint32_t envIndex, bool reserveMainDirectionalSlot)
+std::uint32_t World::Impl::allocateLightSlot(std::uint32_t envIndex,
+                                             bool reserveMainDirectionalSlot)
 {
     if (mSceneLayout.maxLightsPerEnv == 0u)
     {
@@ -3946,8 +4156,9 @@ std::uint32_t World::allocateLightSlot(std::uint32_t envIndex, bool reserveMainD
     return nextSlot++;
 }
 
-bool World::tryGetLightIndexForType(common::EntityId entityId, graphics::GpuLightType type,
-                                    const char *operation, std::uint32_t &lightIndex) const noexcept
+bool World::Impl::tryGetLightIndexForType(common::EntityId entityId, graphics::GpuLightType type,
+                                          const char *operation,
+                                          std::uint32_t &lightIndex) const noexcept
 {
     const auto indexIt = mRenderLightIndices.find(entityId);
     if (indexIt == mRenderLightIndices.end())
@@ -3981,7 +4192,7 @@ bool World::tryGetLightIndexForType(common::EntityId entityId, graphics::GpuLigh
     return true;
 }
 
-bool World::removeLight(common::EntityId entityId)
+bool World::Impl::removeLight(common::EntityId entityId)
 {
     const auto it = mRenderLightIndices.find(entityId);
     if (it == mRenderLightIndices.end())
@@ -3998,7 +4209,7 @@ bool World::removeLight(common::EntityId entityId)
     return true;
 }
 
-void World::clearColliderLinks(common::EntityId entityId) noexcept
+void World::Impl::clearColliderLinks(common::EntityId entityId) noexcept
 {
     const auto physIt = mPhysicsLinks.find(entityId);
     if (physIt == mPhysicsLinks.end())
