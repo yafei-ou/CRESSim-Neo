@@ -248,47 +248,69 @@ std::optional<DisplayResolveRequest> buildExplicitDisplayResolveRequest(
 
 } // namespace
 
-struct Renderer::GpuScenePrepareState
+struct Renderer::Impl
 {
-    gpu::GpuComputePass cameraPreparePass;
-    gpu::GpuComputePass scenePreparePass;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> cameraPrepareConstantsBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> scenePrepareConstantsBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> fallbackSoftBodyWorldAabbsBuffer;
-    bool initialized = false;
-};
+    struct GpuScenePrepareState
+    {
+        gpu::GpuComputePass cameraPreparePass;
+        gpu::GpuComputePass scenePreparePass;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> cameraPrepareConstantsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> scenePrepareConstantsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> fallbackSoftBodyWorldAabbsBuffer;
+        bool initialized = false;
+    };
 
-struct RendererOutputPlanningState
-{
-    std::unordered_map<detail::RenderTargetFamilyKey, gpu::GpuRenderTargetHandle,
-                       detail::RenderTargetFamilyKeyHasher>
-        managedPrimaryTargets;
+    struct OutputPlanningState
+    {
+        std::unordered_map<detail::RenderTargetFamilyKey, gpu::GpuRenderTargetHandle,
+                           detail::RenderTargetFamilyKeyHasher>
+            managedPrimaryTargets;
+    };
+
+    Impl(gpu::GpuDevice &deviceIn, RenderResourceManager &resourceManagerIn,
+         const RendererDesc &descIn)
+        : mDevice(deviceIn), mResourceManager(resourceManagerIn), mDesc(descIn),
+          mGpuScenePrepare(std::make_unique<GpuScenePrepareState>()),
+          mOutputPlanningState(std::make_unique<OutputPlanningState>())
+    {
+    }
+
+    bool ensureGpuScenePrepareState();
+    bool prepareGpuScene(const HostSceneView &world, const GpuEntitySceneView &sceneView,
+                         const physics::PhysicsGpuSceneView *physicsScene);
+
+    gpu::GpuDevice &mDevice;
+    RenderResourceManager &mResourceManager;
+    RendererDesc mDesc{};
+    std::unique_ptr<detail::ForwardPipeline> mForwardPipeline;
+    std::unique_ptr<detail::DisplayResolvePass> mDisplayResolvePass;
+    std::unique_ptr<GpuScenePrepareState> mGpuScenePrepare;
+    std::unique_ptr<OutputPlanningState> mOutputPlanningState;
+    bool mInitialized = false;
 };
 
 Renderer::Renderer(gpu::GpuDevice &device, RenderResourceManager &resourceManager,
                    const RendererDesc &desc)
-    : mDevice(device), mResourceManager(resourceManager), mDesc(desc),
-      mGpuScenePrepare(std::make_unique<GpuScenePrepareState>()),
-      mOutputPlanningState(std::make_unique<RendererOutputPlanningState>())
+    : mImpl(std::make_unique<Impl>(device, resourceManager, desc))
 {
 }
 
 Renderer::~Renderer()
 {
-    if (mOutputPlanningState != nullptr)
+    if (mImpl->mOutputPlanningState != nullptr)
     {
-        for (const auto &[key, target] : mOutputPlanningState->managedPrimaryTargets)
+        for (const auto &[key, target] : mImpl->mOutputPlanningState->managedPrimaryTargets)
         {
             (void)key;
-            if (mDevice.renderTargetSystem().isValidRenderTarget(target))
+            if (mImpl->mDevice.renderTargetSystem().isValidRenderTarget(target))
             {
-                mDevice.renderTargetSystem().destroyRenderTarget(target);
+                mImpl->mDevice.renderTargetSystem().destroyRenderTarget(target);
             }
         }
     }
 }
 
-bool Renderer::ensureGpuScenePrepareState()
+bool Renderer::Impl::ensureGpuScenePrepareState()
 {
     if (mGpuScenePrepare == nullptr)
     {
@@ -363,8 +385,9 @@ bool Renderer::ensureGpuScenePrepareState()
     return true;
 }
 
-bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneView &sceneView,
-                               const physics::PhysicsGpuSceneView *physicsScene)
+bool Renderer::Impl::prepareGpuScene(const HostSceneView &world,
+                                     const GpuEntitySceneView &sceneView,
+                                     const physics::PhysicsGpuSceneView *physicsScene)
 {
     if (sceneView.renderableCount == 0u || sceneView.cameraCount == 0u)
     {
@@ -497,40 +520,40 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
 bool Renderer::initialize()
 {
     gpu::GpuGraphicsBackendContext backendContext{};
-    const bool hasGraphicsBackend = mDevice.tryGetGraphicsBackendContext(backendContext) &&
+    const bool hasGraphicsBackend = mImpl->mDevice.tryGetGraphicsBackendContext(backendContext) &&
                                     backendContext.renderDevice != nullptr &&
                                     backendContext.graphicsContext != nullptr;
     if (!hasGraphicsBackend)
     {
-        mInitialized = true;
+        mImpl->mInitialized = true;
         return true;
     }
 
-    mForwardPipeline =
-        std::make_unique<detail::ForwardPipeline>(mDevice, mResourceManager, mDesc.iblQualityTier);
-    if (!mForwardPipeline->initialize())
+    mImpl->mForwardPipeline = std::make_unique<detail::ForwardPipeline>(
+        mImpl->mDevice, mImpl->mResourceManager, mImpl->mDesc.iblQualityTier);
+    if (!mImpl->mForwardPipeline->initialize())
     {
-        mForwardPipeline.reset();
+        mImpl->mForwardPipeline.reset();
         return false;
     }
 
-    mDisplayResolvePass = std::make_unique<detail::DisplayResolvePass>(mDevice);
-    if (!mDisplayResolvePass->initialize())
+    mImpl->mDisplayResolvePass = std::make_unique<detail::DisplayResolvePass>(mImpl->mDevice);
+    if (!mImpl->mDisplayResolvePass->initialize())
     {
-        mDisplayResolvePass.reset();
-        mForwardPipeline.reset();
+        mImpl->mDisplayResolvePass.reset();
+        mImpl->mForwardPipeline.reset();
         return false;
     }
 
-    if (!ensureGpuScenePrepareState())
+    if (!mImpl->ensureGpuScenePrepareState())
     {
-        mDisplayResolvePass.reset();
-        mForwardPipeline.reset();
+        mImpl->mDisplayResolvePass.reset();
+        mImpl->mForwardPipeline.reset();
         return false;
     }
 
-    mInitialized = true;
-    return mInitialized;
+    mImpl->mInitialized = true;
+    return mImpl->mInitialized;
 }
 
 RenderStats Renderer::render(const common::FrameContext &frameContext, const HostSceneView &world,
@@ -539,7 +562,7 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
 {
     RenderStats stats{};
 
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return stats;
     }
@@ -563,7 +586,7 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
     }
 
     gpu::GpuGraphicsBackendContext backendContext{};
-    const bool hasGraphicsBackend = mDevice.tryGetGraphicsBackendContext(backendContext) &&
+    const bool hasGraphicsBackend = mImpl->mDevice.tryGetGraphicsBackendContext(backendContext) &&
                                     backendContext.renderDevice != nullptr &&
                                     backendContext.graphicsContext != nullptr;
     if (!hasGraphicsBackend)
@@ -571,26 +594,27 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         return stats;
     }
 
-    if (!prepareGpuScene(world, gpuScene, physicsScene))
+    if (!mImpl->prepareGpuScene(world, gpuScene, physicsScene))
     {
         return stats;
     }
 
-    if (mOutputPlanningState == nullptr)
+    if (mImpl->mOutputPlanningState == nullptr)
     {
-        mOutputPlanningState = std::make_unique<RendererOutputPlanningState>();
+        mImpl->mOutputPlanningState = std::make_unique<Impl::OutputPlanningState>();
     }
 
     gpu::GpuRenderTargetDesc defaultRenderTargetDesc{};
-    if (!mDevice.tryGetDefaultRenderTargetDesc(defaultRenderTargetDesc))
+    if (!mImpl->mDevice.tryGetDefaultRenderTargetDesc(defaultRenderTargetDesc))
     {
         return stats;
     }
 
-    stats.renderedCameraCount                     = 0u;
-    detail::CameraOutputPlanningResult outputPlan = detail::planCameraOutputs(
-        cameras, gpuScene, mDevice.renderTargetSystem(), defaultRenderTargetDesc,
-        options.presentationTarget, options, mOutputPlanningState->managedPrimaryTargets, stats);
+    stats.renderedCameraCount = 0u;
+    detail::CameraOutputPlanningResult outputPlan =
+        detail::planCameraOutputs(cameras, gpuScene, mImpl->mDevice.renderTargetSystem(),
+                                  defaultRenderTargetDesc, options.presentationTarget, options,
+                                  mImpl->mOutputPlanningState->managedPrimaryTargets, stats);
 
     if (const std::optional<DisplayResolveRequest> explicitResolve =
             buildExplicitDisplayResolveRequest(options);
@@ -599,8 +623,8 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         outputPlan.displayResolve = *explicitResolve;
     }
 
-    for (auto it = mOutputPlanningState->managedPrimaryTargets.begin();
-         it != mOutputPlanningState->managedPrimaryTargets.end();)
+    for (auto it = mImpl->mOutputPlanningState->managedPrimaryTargets.begin();
+         it != mImpl->mOutputPlanningState->managedPrimaryTargets.end();)
     {
         if (outputPlan.usedManagedFamilies.find(it->first) != outputPlan.usedManagedFamilies.end())
         {
@@ -608,11 +632,11 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
             continue;
         }
 
-        if (mDevice.renderTargetSystem().isValidRenderTarget(it->second))
+        if (mImpl->mDevice.renderTargetSystem().isValidRenderTarget(it->second))
         {
-            mDevice.renderTargetSystem().destroyRenderTarget(it->second);
+            mImpl->mDevice.renderTargetSystem().destroyRenderTarget(it->second);
         }
-        it = mOutputPlanningState->managedPrimaryTargets.erase(it);
+        it = mImpl->mOutputPlanningState->managedPrimaryTargets.erase(it);
     }
 
     FrameRenderPlan renderPlan = detail::buildFrameRenderPlan(std::move(outputPlan.resolvedCameras),
@@ -622,19 +646,20 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
     for (const CameraBatchView &batch : renderPlan.cameraBatches)
     {
         ForwardPassExecutionStats passStats{};
-        if (mForwardPipeline != nullptr)
+        if (mImpl->mForwardPipeline != nullptr)
         {
-            (void)mForwardPipeline->executeBatch(frameContext, batch, world, physicsScene, options,
-                                                 renderPlan.envMainLights, passStats);
+            (void)mImpl->mForwardPipeline->executeBatch(frameContext, batch, world, physicsScene,
+                                                        options, renderPlan.envMainLights,
+                                                        passStats);
         }
         stats.opaqueDrawCalls += passStats.opaqueDrawCalls;
         stats.transparentDrawCalls += passStats.transparentDrawCalls;
         stats.shadowDrawCalls += passStats.shadowDrawCalls;
     }
 
-    if (renderPlan.displayResolve.has_value() && mDisplayResolvePass != nullptr)
+    if (renderPlan.displayResolve.has_value() && mImpl->mDisplayResolvePass != nullptr)
     {
-        (void)mDisplayResolvePass->resolve(frameContext, *renderPlan.displayResolve);
+        (void)mImpl->mDisplayResolvePass->resolve(frameContext, *renderPlan.displayResolve);
     }
 
     stats.drawCalls = stats.opaqueDrawCalls + stats.transparentDrawCalls + stats.shadowDrawCalls;

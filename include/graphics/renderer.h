@@ -22,12 +22,6 @@ struct PhysicsGpuSceneView;
 namespace cressim::neo::graphics
 {
 
-namespace detail
-{
-class ForwardPipeline;
-class DisplayResolvePass;
-} // namespace detail
-
 enum class ToneMapper : std::uint32_t
 {
     Disabled = 0u,
@@ -153,19 +147,8 @@ public:
                        const RenderFrameOptions &options = RenderFrameOptions{});
 
 private:
-    struct GpuScenePrepareState;
-    bool ensureGpuScenePrepareState();
-    bool prepareGpuScene(const HostSceneView &world, const GpuEntitySceneView &sceneView,
-                         const physics::PhysicsGpuSceneView *physicsScene);
-
-    gpu::GpuDevice &mDevice;
-    RenderResourceManager &mResourceManager;
-    RendererDesc mDesc{};
-    std::unique_ptr<detail::ForwardPipeline> mForwardPipeline;
-    std::unique_ptr<detail::DisplayResolvePass> mDisplayResolvePass;
-    std::unique_ptr<GpuScenePrepareState> mGpuScenePrepare;
-    std::unique_ptr<struct RendererOutputPlanningState> mOutputPlanningState;
-    bool mInitialized = false;
+    struct Impl;
+    std::unique_ptr<Impl> mImpl;
 };
 
 } // namespace cressim::neo::graphics

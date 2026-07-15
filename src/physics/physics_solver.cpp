@@ -81,16 +81,24 @@ bool hasPhysicsGpuBackend(gpu::GpuDevice &device)
 
 struct PhysicsSolver::Impl
 {
+    Impl(gpu::GpuDevice &deviceIn, const PhysicsSolverDesc &descIn)
+        : mDevice(deviceIn), mDesc(descIn)
+    {
+    }
+
+    gpu::GpuDevice &mDevice;
+    PhysicsSolverDesc mDesc{};
     PhysicsSceneGpuState sceneState;
     PhysicsPassDispatcher passDispatcher;
     bool lastStepHadRigidBroadPhaseWork             = false;
     bool lastStepHadSoftPairWork                    = false;
     std::uint64_t lastAppliedRigidBindingGeneration = 0u;
     std::uint64_t lastAppliedSoftBindingGeneration  = 0u;
+    bool mInitialized                               = false;
 };
 
 PhysicsSolver::PhysicsSolver(gpu::GpuDevice &device, const PhysicsSolverDesc &desc)
-    : mDevice(device), mDesc(desc), mImpl(std::make_unique<Impl>())
+    : mImpl(std::make_unique<Impl>(device, desc))
 {
 }
 
@@ -100,53 +108,53 @@ bool PhysicsSolver::initialize()
 {
     shutdown();
 
-    if (!hasPhysicsGpuBackend(mDevice))
+    if (!hasPhysicsGpuBackend(mImpl->mDevice))
     {
-        mInitialized = true;
+        mImpl->mInitialized = true;
         return true;
     }
 
     gpu::GpuComputeBackendContext computeContext{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
+    if (!mImpl->mDevice.tryGetPhysicsBackendContext(computeContext) ||
         computeContext.renderDevice == nullptr)
     {
         CRESSIM_LOG_ERROR("PhysicsSolver: failed to get physics GPU context.");
         return false;
     }
 
-    mImpl = std::make_unique<Impl>();
-    if (!mImpl->passDispatcher.initialize(mDevice, computeContext.contextId))
+    mImpl = std::make_unique<Impl>(mImpl->mDevice, mImpl->mDesc);
+    if (!mImpl->passDispatcher.initialize(mImpl->mDevice, computeContext.contextId))
     {
         CRESSIM_LOG_ERROR("PhysicsSolver: failed to initialize physics pass dispatcher.");
         return false;
     }
 
-    mInitialized = true;
+    mImpl->mInitialized = true;
     return true;
 }
 
 void PhysicsSolver::shutdown()
 {
-    mImpl        = std::make_unique<Impl>();
-    mInitialized = false;
+    mImpl               = std::make_unique<Impl>(mImpl->mDevice, mImpl->mDesc);
+    mImpl->mInitialized = false;
 }
 
 bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
 
-    if (!hasPhysicsGpuBackend(mDevice))
+    if (!hasPhysicsGpuBackend(mImpl->mDevice))
     {
         return true;
     }
 
     gpu::GpuComputeBackendContext computeBackend{};
     gpu::GpuGraphicsBackendContext graphicsBackend{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
-        !mDevice.tryGetGraphicsBackendContext(graphicsBackend) ||
+    if (!mImpl->mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        !mImpl->mDevice.tryGetGraphicsBackendContext(graphicsBackend) ||
         computeBackend.renderDevice == nullptr || computeBackend.computeContext == nullptr)
     {
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: missing physics backend context.");
@@ -258,7 +266,7 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
             gpu::contextMaskForId(computeBackend.contextId) |
                 gpu::contextMaskForId(graphicsBackend.contextId),
             sharedQueueFamilyIndices.data(), sharedQueueFamilyIndexCount,
-            mDevice.supportsNativePhysicsFloatAtomics()))
+            mImpl->mDevice.supportsNativePhysicsFloatAtomics()))
     {
         CRESSIM_LOG_ERROR("PhysicsSolver::syncWorldState failed: ensureCapacity.");
         return false;
@@ -295,7 +303,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     }
 
     gpu::GpuComputeBackendContext computeBackend{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+    if (!mImpl->mDevice.tryGetPhysicsBackendContext(computeBackend) ||
         computeBackend.computeContext == nullptr)
     {
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: missing physics backend context.");
@@ -354,18 +362,19 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::uint32_t suturingParticleCount    = world.suturingParticleCount();
     const float particleGridCellSize             = world.particleGridCellSize();
 
-    const std::uint32_t substeps          = std::max<std::uint32_t>(mDesc.substeps, 1u);
-    const std::uint32_t defaultIterations = std::max<std::uint32_t>(mDesc.defaultIterations, 1u);
+    const std::uint32_t substeps = std::max<std::uint32_t>(mImpl->mDesc.substeps, 1u);
+    const std::uint32_t defaultIterations =
+        std::max<std::uint32_t>(mImpl->mDesc.defaultIterations, 1u);
     const std::uint32_t fluidIterations =
-        resolveIterations(mDesc.fluidIterations, defaultIterations);
+        resolveIterations(mImpl->mDesc.fluidIterations, defaultIterations);
     const std::uint32_t softInternalIterations =
-        resolveIterations(mDesc.softInternalIterations, defaultIterations);
+        resolveIterations(mImpl->mDesc.softInternalIterations, defaultIterations);
     const std::uint32_t softContactIterations =
-        resolveIterations(mDesc.softContactIterations, defaultIterations);
+        resolveIterations(mImpl->mDesc.softContactIterations, defaultIterations);
     const std::uint32_t rigidJointIterations =
-        resolveIterations(mDesc.rigidJointIterations, defaultIterations);
+        resolveIterations(mImpl->mDesc.rigidJointIterations, defaultIterations);
     const std::uint32_t rigidContactIterations =
-        resolveIterations(mDesc.rigidRigidContactIterations, defaultIterations);
+        resolveIterations(mImpl->mDesc.rigidRigidContactIterations, defaultIterations);
     const std::uint32_t maxPositionPhaseIterations =
         std::max(std::max(std::max(fluidIterations, softInternalIterations), softContactIterations),
                  std::max(rigidJointIterations, rigidContactIterations));
@@ -1302,7 +1311,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         }
     }
 
-    if (!mDesc.enableBlockingReadback)
+    if (!mImpl->mDesc.enableBlockingReadback)
     {
         return true;
     }
@@ -1325,13 +1334,13 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
 bool PhysicsSolver::validateGpuMetaBlocking()
 {
-    if (!mInitialized || !hasPhysicsGpuBackend(mDevice))
+    if (!mImpl->mInitialized || !hasPhysicsGpuBackend(mImpl->mDevice))
     {
         return false;
     }
 
     gpu::GpuComputeBackendContext computeBackend{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+    if (!mImpl->mDevice.tryGetPhysicsBackendContext(computeBackend) ||
         computeBackend.computeContext == nullptr)
     {
         CRESSIM_LOG_ERROR(
