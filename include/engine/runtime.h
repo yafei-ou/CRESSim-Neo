@@ -110,6 +110,10 @@ public:
     // Fails when the shared buffer is not imported into CUDA.
     bool syncSharedBufferFromCuda(SharedBufferHandle handle);
 
+    // Retains the storage backing a shared buffer independently of its runtime handle.
+    // Keep the returned lease alive while an external consumer uses an exported buffer view.
+    SharedBufferLease retainSharedBufferLease(SharedBufferHandle handle) const;
+
     // Returns the current prepared rigid-body/collider slot mapping derived from authored state.
     // This is valid after prepare() and does not require uploadWorld().
     // The returned layoutRevision is a prepared host-side slot-layout invalidation key and is
@@ -147,10 +151,6 @@ public:
     bool destroyCustomComputePass(CustomComputePassHandle handle);
 
 private:
-    friend class RuntimeInternalAccess;
-
-    std::shared_ptr<void> retainSharedBuffer(SharedBufferHandle handle) const;
-
     struct CRESSIM_NEO_LOCAL Impl;
     std::unique_ptr<Impl> mImpl;
 };

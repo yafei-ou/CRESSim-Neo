@@ -4,7 +4,6 @@
 #include "engine/custom_compute_service.h"
 #include "engine/entity_scene_gpu_state.h"
 #include "engine/render_scene_uploader.h"
-#include "engine/runtime_internal.h"
 #include "engine/shared_buffer_service.h"
 #include "engine/ultrasound_system.h"
 #include "engine/world.h"
@@ -635,17 +634,11 @@ bool Runtime::tryGetSharedBufferCudaView(const SharedBufferHandle handle,
            mImpl->mSharedBufferService->tryGetCudaView(handle, outView);
 }
 
-std::shared_ptr<void> Runtime::retainSharedBuffer(const SharedBufferHandle handle) const
+SharedBufferLease Runtime::retainSharedBufferLease(const SharedBufferHandle handle) const
 {
-    return mImpl->mInitialized && mImpl->mSharedBufferService != nullptr
-               ? mImpl->mSharedBufferService->retainBuffer(handle)
-               : std::shared_ptr<void>{};
-}
-
-std::shared_ptr<void> RuntimeInternalAccess::retainSharedBufferLease(
-    const Runtime &runtime, const SharedBufferHandle handle)
-{
-    return runtime.retainSharedBuffer(handle);
+    return SharedBufferLease{mImpl->mInitialized && mImpl->mSharedBufferService != nullptr
+                                 ? mImpl->mSharedBufferService->retainBuffer(handle)
+                                 : std::shared_ptr<void>{}};
 }
 
 bool Runtime::syncSharedBufferToCuda(const SharedBufferHandle handle)

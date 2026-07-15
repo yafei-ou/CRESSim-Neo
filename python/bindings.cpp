@@ -6,7 +6,6 @@
 #include "engine/particle_layout_mapping.h"
 #include "engine/rigid_layout_mapping.h"
 #include "engine/runtime.h"
-#include "engine/runtime_internal.h"
 #include "examples/helpers/shape_meshes.h"
 #include "gpu/gpu_types.h"
 #include "graphics/render_resource_manager.h"
@@ -76,7 +75,7 @@ struct DLManagedTensor
 
 struct ExportedSharedBufferTensorContext
 {
-    std::shared_ptr<void> sharedBufferLease;
+    cressim::neo::engine::SharedBufferLease sharedBufferLease;
 };
 
 template <typename JointState>
@@ -286,9 +285,8 @@ py::object exportSharedBufferToDLPack(Runtime &runtime, const SharedBufferHandle
             "Shared buffer CUDA view is unavailable. CUDA interop may be disabled in this build "
             "or this shared buffer may not be imported into CUDA.");
     }
-    std::shared_ptr<void> sharedBufferLease =
-        cressim::neo::engine::RuntimeInternalAccess::retainSharedBufferLease(runtime, handle);
-    if (!sharedBufferLease)
+    auto sharedBufferLease = runtime.retainSharedBufferLease(handle);
+    if (!sharedBufferLease.isValid())
     {
         throw std::runtime_error("Shared buffer lease is unavailable.");
     }
