@@ -24,6 +24,8 @@ function(add_cressim_example)
     target_link_libraries(${target_name} PRIVATE
         cressim_neo_viewer
         ${EXAMPLE_LIBS}
+        Diligent-GraphicsEngine
+        Diligent-TextureLoader
     )
 
     if(EXAMPLE_COMPILE_DEFINITIONS)

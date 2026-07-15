@@ -33,9 +33,10 @@ function(add_cressim_test)
         ${include_dirs}
     )
 
-    if(TEST_LIBS)
-        target_link_libraries(${target_name} PRIVATE ${TEST_LIBS})
-    endif()
+    target_link_libraries(${target_name} PRIVATE
+        ${TEST_LIBS}
+        Diligent-GraphicsEngine
+    )
 
     set_target_properties(${target_name}
         PROPERTIES
