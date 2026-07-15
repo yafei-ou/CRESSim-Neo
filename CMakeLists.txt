@@ -8,6 +8,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
 
+# CTest defaults this option to ON when it creates it.  Define it first so a
+# normal project configure does not build the large test suite unless requested.
+option(BUILD_TESTING "Build the testing tree" OFF)
 include(CTest)
 include(CheckLanguage)
 
@@ -27,7 +30,7 @@ configure_file(
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
 
-option(ENGINE_STATIC "Build the engine as a static library"  ON)
+option(ENGINE_STATIC "Build the engine as a static library" OFF)
 option(CRESSIM_NEO_BUILD_VIEWER "Build viewer module and supporting executables" ON)
 option(CRESSIM_NEO_BUILD_EXAMPLES "Build standalone example executables" ON)
 option(CRESSIM_NEO_BUILD_DOCS "Enable documentation build targets" OFF)
