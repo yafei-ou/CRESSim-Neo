@@ -502,6 +502,15 @@ bool computeUltrasoundProbeLayout(const UltrasoundProbeComponent &probeComponent
 
 struct UltrasoundSystem::Impl
 {
+    Impl(gpu::GpuDevice &device, physics::PhysicsSolver &physicsSolver)
+        : mDevice(device), mPhysicsSolver(physicsSolver)
+    {
+    }
+
+    gpu::GpuDevice &mDevice;
+    physics::PhysicsSolver &mPhysicsSolver;
+    bool mInitialized = false;
+
     struct SourceBinding
     {
 #if CRESSIM_NEO_HAS_ULTRASOUND
@@ -1610,7 +1619,7 @@ struct UltrasoundSystem::Impl
 };
 
 UltrasoundSystem::UltrasoundSystem(gpu::GpuDevice &device, physics::PhysicsSolver &physicsSolver)
-    : mDevice(device), mPhysicsSolver(physicsSolver), mImpl(std::make_unique<Impl>())
+    : mImpl(std::make_unique<Impl>(device, physicsSolver))
 {
 }
 
@@ -1629,8 +1638,8 @@ bool UltrasoundSystem::computeProbeLayout(const UltrasoundProbeComponent &probeC
 bool UltrasoundSystem::initialize()
 {
     shutdown();
-    mImpl        = std::make_unique<Impl>();
-    mInitialized = true;
+    mImpl               = std::make_unique<Impl>(mImpl->mDevice, mImpl->mPhysicsSolver);
+    mImpl->mInitialized = true;
     return true;
 }
 
@@ -1641,18 +1650,18 @@ void UltrasoundSystem::shutdown()
         for (auto &[entityId, runtime] : mImpl->probeRuntimes)
         {
             (void)entityId;
-            mImpl->destroyProbeImageTarget(mDevice.renderTargetSystem(), runtime);
+            mImpl->destroyProbeImageTarget(mImpl->mDevice.renderTargetSystem(), runtime);
         }
         mImpl->probeRuntimes.clear();
         mImpl->environmentRuntimes.clear();
         mImpl->bridge.reset();
     }
-    mInitialized = false;
+    mImpl->mInitialized = false;
 }
 
 bool UltrasoundSystem::prepare(World &world)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
@@ -1668,12 +1677,12 @@ bool UltrasoundSystem::prepare(World &world)
 
     gpu::GpuGraphicsBackendContext graphicsBackend{};
     gpu::GpuComputeBackendContext computeBackend{};
-    if (!mDevice.tryGetGraphicsBackendContext(graphicsBackend) ||
+    if (!mImpl->mDevice.tryGetGraphicsBackendContext(graphicsBackend) ||
         graphicsBackend.renderDevice == nullptr)
     {
         return true;
     }
-    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+    if (!mImpl->mDevice.tryGetPhysicsBackendContext(computeBackend) ||
         computeBackend.renderDevice == nullptr || computeBackend.computeContext == nullptr)
     {
         return true;
@@ -1690,7 +1699,7 @@ bool UltrasoundSystem::prepare(World &world)
             !probeComponents.at(it->first).enabled)
         {
             world.clearUltrasoundProbeResult(it->first);
-            mImpl->destroyProbeImageTarget(mDevice.renderTargetSystem(), it->second);
+            mImpl->destroyProbeImageTarget(mImpl->mDevice.renderTargetSystem(), it->second);
             it = mImpl->probeRuntimes.erase(it);
             continue;
         }
@@ -1735,7 +1744,8 @@ bool UltrasoundSystem::prepare(World &world)
             auto runtimeIt = mImpl->probeRuntimes.find(probeEntityId);
             if (runtimeIt != mImpl->probeRuntimes.end())
             {
-                mImpl->destroyProbeImageTarget(mDevice.renderTargetSystem(), runtimeIt->second);
+                mImpl->destroyProbeImageTarget(mImpl->mDevice.renderTargetSystem(),
+                                               runtimeIt->second);
                 mImpl->probeRuntimes.erase(runtimeIt);
             }
             continue;
@@ -1749,9 +1759,9 @@ bool UltrasoundSystem::prepare(World &world)
         bool rebuild = runtime.engine == nullptr || runtime.envIndex != envIndex ||
                        !equalsProbeComponent(runtime.component, probeComponent) ||
                        !equalsRendererComponent(runtime.renderer, rendererComponent);
-        if (rebuild && !mImpl->rebuildProbeRuntime(mDevice, graphicsBackend, world, computeBackend,
-                                                   probeEntityId, runtime, envIndex, probeComponent,
-                                                   rendererComponent, 0u, false))
+        if (rebuild && !mImpl->rebuildProbeRuntime(mImpl->mDevice, graphicsBackend, world,
+                                                   computeBackend, probeEntityId, runtime, envIndex,
+                                                   probeComponent, rendererComponent, 0u, false))
         {
             continue;
         }
@@ -1769,7 +1779,7 @@ bool UltrasoundSystem::prepare(World &world)
         }
         runtime.rfLayout = refreshedLayout;
 
-        if (!mImpl->ensureProbeImageTarget(mDevice.renderTargetSystem(), runtime))
+        if (!mImpl->ensureProbeImageTarget(mImpl->mDevice.renderTargetSystem(), runtime))
         {
             CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
                                 " could not create image target.");
@@ -1785,7 +1795,7 @@ bool UltrasoundSystem::prepare(World &world)
 
 bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &world)
 {
-    if (!mInitialized)
+    if (!mImpl->mInitialized)
     {
         return false;
     }
@@ -1800,7 +1810,7 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
         return false;
     }
 
-    const auto *sharedBuffer = mPhysicsSolver.softPositionsInvMassSharedBuffer();
+    const auto *sharedBuffer = mImpl->mPhysicsSolver.softPositionsInvMassSharedBuffer();
     if (sharedBuffer == nullptr || !sharedBuffer->usesNativeSharedAllocation())
     {
         return true;
@@ -1808,24 +1818,24 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
 
     gpu::GpuGraphicsBackendContext graphicsBackend{};
     gpu::GpuComputeBackendContext computeBackend{};
-    if (!mDevice.tryGetGraphicsBackendContext(graphicsBackend) ||
+    if (!mImpl->mDevice.tryGetGraphicsBackendContext(graphicsBackend) ||
         graphicsBackend.renderDevice == nullptr || graphicsBackend.graphicsContext == nullptr)
     {
         return true;
     }
-    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+    if (!mImpl->mDevice.tryGetPhysicsBackendContext(computeBackend) ||
         computeBackend.renderDevice == nullptr || computeBackend.computeContext == nullptr)
     {
         return true;
     }
 
-    if (!mImpl->ensureImagePassInitialized(mDevice, graphicsBackend))
+    if (!mImpl->ensureImagePassInitialized(mImpl->mDevice, graphicsBackend))
     {
         CRESSIM_LOG_WARNING("UltrasoundSystem: failed to initialize image compute passes.");
         mImpl->disabled = true;
         return false;
     }
-    if (!mImpl->ensureScanlinePassInitialized(mDevice, computeBackend))
+    if (!mImpl->ensureScanlinePassInitialized(mImpl->mDevice, computeBackend))
     {
         CRESSIM_LOG_WARNING("UltrasoundSystem: failed to initialize scanline compute pass.");
         mImpl->disabled = true;
@@ -2105,7 +2115,7 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
                              !equalsProbeComponent(runtime.component, probeComponent) ||
                              !equalsRendererComponent(runtime.renderer, rendererComponent);
         if (rebuild &&
-            !mImpl->rebuildProbeRuntime(mDevice, graphicsBackend, world, computeBackend,
+            !mImpl->rebuildProbeRuntime(mImpl->mDevice, graphicsBackend, world, computeBackend,
                                         probeEntityId, runtime, envIndex, probeComponent,
                                         rendererComponent, envRuntime.totalScattererCount, true))
         {
@@ -2141,7 +2151,7 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
         }
         runtime.rfLayout = refreshedLayout;
 
-        if (!mImpl->ensureProbeImageTarget(mDevice.renderTargetSystem(), runtime))
+        if (!mImpl->ensureProbeImageTarget(mImpl->mDevice.renderTargetSystem(), runtime))
         {
             CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
                                 " could not create image target.");
@@ -2194,7 +2204,7 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
         bool imageValid = false;
         if (runtime.renderer.enabled)
         {
-            if (mImpl->renderProbeImage(mDevice, graphicsBackend, runtime))
+            if (mImpl->renderProbeImage(mImpl->mDevice, graphicsBackend, runtime))
             {
                 imageValid = true;
             }
