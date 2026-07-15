@@ -2,7 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_PASSES_MATERIAL_PROGRAM_REGISTRY_H
 
 #include "gpu/gpu_device.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include "graphics/passes/render_pass_types.h"
 #include "graphics/render_resource_manager.h"
 
@@ -56,7 +56,8 @@ public:
     };
 
 public:
-    MaterialProgramRegistry(gpu::GpuDevice &device, gpu::ShaderLibrary &shaderSourceProvider);
+    MaterialProgramRegistry(gpu::GpuDevice &device,
+                            gpu::ShaderSourceProvider &shaderSourceProvider);
 
     ProgramResources *getOrCreateProgram(const ProgramKey &key);
 
@@ -74,7 +75,7 @@ private:
 
 private:
     gpu::GpuDevice &mDevice;
-    gpu::ShaderLibrary &mShaderLibrary;
+    gpu::ShaderSourceProvider &mShaderSourceProvider;
     std::unordered_map<ProgramKey, ProgramResources, ProgramKeyHasher> mPrograms;
 };
 

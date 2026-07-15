@@ -2,7 +2,7 @@
 
 #include "common/logger.h"
 #include "gpu/gpu_buffer_utils.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 
 #include <array>
 #include <cstring>
@@ -99,8 +99,8 @@ bool EntitySceneGpuState::initialize()
     mPhysicsContextMask    = gpu::contextMaskForId(physicsContext.contextId);
     mSharedPoseContextMask = mGraphicsContextMask | mPhysicsContextMask;
 
-    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return false;

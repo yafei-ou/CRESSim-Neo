@@ -4,6 +4,7 @@
 #include "engine/export.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -83,6 +84,28 @@ struct SharedBufferCudaView
     {
         return devicePointer != nullptr && sizeBytes > 0u && deviceOrdinal >= 0;
     }
+};
+
+// Keeps a shared buffer's underlying allocation alive after its runtime handle is destroyed.
+// This is primarily useful when exporting the buffer to an external consumer such as DLPack.
+class CRESSIM_NEO_ENGINE_API SharedBufferLease
+{
+public:
+    SharedBufferLease() = default;
+
+    bool isValid() const noexcept
+    {
+        return static_cast<bool>(mKeepAlive);
+    }
+
+private:
+    friend class Runtime;
+
+    explicit SharedBufferLease(std::shared_ptr<void> keepAlive) : mKeepAlive(std::move(keepAlive))
+    {
+    }
+
+    std::shared_ptr<void> mKeepAlive;
 };
 
 enum class SharedBufferTensorDTypeCode

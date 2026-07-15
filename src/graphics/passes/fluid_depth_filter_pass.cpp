@@ -1,7 +1,7 @@
 #include "graphics/passes/fluid_depth_filter_pass.h"
 
 #include "common/math_utils_runtime.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include "graphics/gpu_scene.h"
 
 #include <cstring>
@@ -50,8 +50,8 @@ bool FluidDepthFilterPass::initialize()
     }
     const Diligent::Uint64 graphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
 
-    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr ||
         !mFilterPass.initialize(mDevice, streamFactory, graphicsContextMask, kFilterPassDefinition))
     {

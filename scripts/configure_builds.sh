@@ -86,11 +86,11 @@ ask_cmake_option() {
 if "${configure_release}" || "${configure_debug}"; then
     echo
     echo "Common native CMake options (applied to every Linux build selected):"
-    ask_cmake_option ENGINE_STATIC "Build the engine as a static library?" ON
+    ask_cmake_option ENGINE_STATIC "Build the engine as a static library?" OFF
     ask_cmake_option CRESSIM_NEO_BUILD_VIEWER "Build the viewer?" ON
     ask_cmake_option CRESSIM_NEO_BUILD_EXAMPLES "Build examples?" ON
     ask_cmake_option CRESSIM_NEO_BUILD_PYTHON "Build Python bindings?" OFF
-    ask_cmake_option BUILD_TESTING "Enable tests?" ON
+    ask_cmake_option BUILD_TESTING "Enable tests?" OFF
     ask_cmake_option CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy during builds?" OFF
     ask_cmake_option CRESSIM_NEO_ENABLE_CUDA_INTEROP "Enable CUDA interop?" OFF
     ask_cmake_option CRESSIM_NEO_ENABLE_ULTRASOUND "Enable CRESSim-Ultrasound?" OFF

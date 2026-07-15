@@ -2,7 +2,7 @@
 
 #include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_compute_pass.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include "graphics/passes/camera_depth_pass.h"
 #include "graphics/passes/camera_segmentation_pass.h"
 #include "graphics/passes/debug_particle_pass.h"
@@ -598,8 +598,8 @@ bool ForwardPipeline::initialize()
     }
     const Diligent::Uint64 graphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
 
-    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr || mGpuIndirectState == nullptr)
     {
         return false;

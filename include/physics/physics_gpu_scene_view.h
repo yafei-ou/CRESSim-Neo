@@ -1,8 +1,6 @@
 #ifndef CRESSIM_NEO_PHYSICS_PHYSICS_GPU_SCENE_VIEW_H
 #define CRESSIM_NEO_PHYSICS_PHYSICS_GPU_SCENE_VIEW_H
 
-#include "physics/export.h"
-
 #include "common/scene_primitives.h"
 
 #include <cstdint>
@@ -150,7 +148,7 @@ struct PhysicsGpuCurveSceneView
     std::uint64_t bindingGeneration          = 0;
 };
 
-struct CRESSIM_NEO_PHYSICS_API PhysicsGpuSceneView
+struct PhysicsGpuSceneView
 {
     PhysicsGpuRigidSceneView rigid{};
     PhysicsGpuJointSceneView joints{};

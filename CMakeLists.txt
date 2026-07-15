@@ -8,6 +8,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
 
+# CTest defaults this option to ON when it creates it.  Define it first so a
+# normal project configure does not build the large test suite unless requested.
+option(BUILD_TESTING "Build the testing tree" OFF)
 include(CTest)
 include(CheckLanguage)
 
@@ -27,7 +30,7 @@ configure_file(
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
 
-option(ENGINE_STATIC "Build the engine as a static library"  ON)
+option(ENGINE_STATIC "Build the engine as a static library" OFF)
 option(CRESSIM_NEO_BUILD_VIEWER "Build viewer module and supporting executables" ON)
 option(CRESSIM_NEO_BUILD_EXAMPLES "Build standalone example executables" ON)
 option(CRESSIM_NEO_BUILD_DOCS "Enable documentation build targets" OFF)
@@ -88,6 +91,15 @@ endif()
 if(ENGINE_STATIC)
     add_compile_definitions(CRESSIM_NEO_STATIC)
 endif()
+
+function(cressim_neo_configure_shared_library target_name)
+    if(NOT WIN32)
+        set_target_properties(${target_name} PROPERTIES
+            CXX_VISIBILITY_PRESET hidden
+            VISIBILITY_INLINES_HIDDEN YES
+        )
+    endif()
+endfunction()
 
 # Keep the embedded Diligent build lean for engine integration.
 set(DILIGENT_BUILD_TOOLS OFF CACHE BOOL "Build DiligentTools module" FORCE)

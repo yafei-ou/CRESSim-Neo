@@ -1,8 +1,9 @@
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 
 #include "common/logger.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/ObjectBase.hpp"
+#include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCountedObjectImpl.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/include/DefaultShaderSourceStreamFactory.h"
 
@@ -208,24 +209,45 @@ private:
 
 } // namespace
 
-ShaderLibrary::ShaderLibrary(std::string shaderDirectory)
-    : mShaderDirectory(std::move(shaderDirectory))
+struct ShaderSourceProvider::Impl
+{
+    explicit Impl(std::string shaderDirectoryIn) : shaderDirectory{std::move(shaderDirectoryIn)} {}
+
+    bool resolveShaderDirectory();
+    bool ensureStreamFactory();
+    bool resolveShaderPath(const char *relativePath, std::string &outPath);
+    Diligent::IShaderSourceInputStreamFactory *streamFactory();
+
+    std::string shaderDirectory;
+    bool shaderDirectoryResolved = false;
+    std::string resolvedShaderDirectory;
+    Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> streamFactoryInstance;
+};
+
+ShaderSourceProvider::ShaderSourceProvider(std::string shaderDirectory)
+    : mImpl{std::make_unique<Impl>(std::move(shaderDirectory))}
 {
 }
 
-bool ShaderLibrary::resolveShaderDirectory()
+ShaderSourceProvider::~ShaderSourceProvider() = default;
+
+ShaderSourceProvider::ShaderSourceProvider(ShaderSourceProvider &&) noexcept = default;
+
+ShaderSourceProvider &ShaderSourceProvider::operator=(ShaderSourceProvider &&) noexcept = default;
+
+bool ShaderSourceProvider::Impl::resolveShaderDirectory()
 {
-    if (mShaderDirectoryResolved)
+    if (shaderDirectoryResolved)
     {
-        return !mResolvedShaderDirectory.empty();
+        return !resolvedShaderDirectory.empty();
     }
 
-    mShaderDirectoryResolved = true;
+    shaderDirectoryResolved = true;
 
     std::vector<std::filesystem::path> candidates;
-    if (!mShaderDirectory.empty())
+    if (!shaderDirectory.empty())
     {
-        candidates.emplace_back(mShaderDirectory);
+        candidates.emplace_back(shaderDirectory);
     }
 
 #ifdef CRESSIM_NEO_SHADER_SOURCE_DIR
@@ -246,14 +268,14 @@ bool ShaderLibrary::resolveShaderDirectory()
             continue;
         }
 
-        mResolvedShaderDirectory = candidate.lexically_normal().string();
+        resolvedShaderDirectory = candidate.lexically_normal().string();
         return true;
     }
 
     return false;
 }
 
-bool ShaderLibrary::resolveShaderPath(const char *relativePath, std::string &outPath)
+bool ShaderSourceProvider::Impl::resolveShaderPath(const char *relativePath, std::string &outPath)
 {
     if (relativePath == nullptr || relativePath[0] == '\0')
     {
@@ -268,7 +290,7 @@ bool ShaderLibrary::resolveShaderPath(const char *relativePath, std::string &out
     }
 
     const std::filesystem::path shaderPath =
-        std::filesystem::path(mResolvedShaderDirectory) / relativePath;
+        std::filesystem::path(resolvedShaderDirectory) / relativePath;
     std::error_code error;
     if (!std::filesystem::exists(shaderPath, error) ||
         !std::filesystem::is_regular_file(shaderPath, error))
@@ -282,18 +304,18 @@ bool ShaderLibrary::resolveShaderPath(const char *relativePath, std::string &out
     return true;
 }
 
-Diligent::IShaderSourceInputStreamFactory *ShaderLibrary::streamFactory()
+Diligent::IShaderSourceInputStreamFactory *ShaderSourceProvider::Impl::streamFactory()
 {
     if (!ensureStreamFactory())
     {
         return nullptr;
     }
-    return mStreamFactory;
+    return streamFactoryInstance;
 }
 
-bool ShaderLibrary::ensureStreamFactory()
+bool ShaderSourceProvider::Impl::ensureStreamFactory()
 {
-    if (mStreamFactory != nullptr)
+    if (streamFactoryInstance != nullptr)
     {
         return true;
     }
@@ -305,16 +327,26 @@ bool ShaderLibrary::ensureStreamFactory()
     }
 
     Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> baseFactory;
-    Diligent::CreateDefaultShaderSourceStreamFactory(mResolvedShaderDirectory.c_str(),
-                                                     &baseFactory);
+    Diligent::CreateDefaultShaderSourceStreamFactory(resolvedShaderDirectory.c_str(), &baseFactory);
     if (baseFactory == nullptr)
     {
         CRESSIM_LOG_ERROR("Failed to create shader source stream factory for directory '",
-                          mResolvedShaderDirectory, "'.");
+                          resolvedShaderDirectory, "'.");
         return false;
     }
-    mStreamFactory = NormalizingShaderSourceFactory::Create(baseFactory, mResolvedShaderDirectory);
+    streamFactoryInstance =
+        NormalizingShaderSourceFactory::Create(baseFactory, resolvedShaderDirectory);
     return true;
+}
+
+bool ShaderSourceProvider::resolveShaderPath(const char *relativePath, std::string &outPath)
+{
+    return mImpl->resolveShaderPath(relativePath, outPath);
+}
+
+Diligent::IShaderSourceInputStreamFactory *ShaderSourceProvider::streamFactory()
+{
+    return mImpl->streamFactory();
 }
 
 } // namespace cressim::neo::gpu

@@ -2,7 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_PASSES_CAMERA_SEGMENTATION_PASS_H
 
 #include "gpu/gpu_device.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include "graphics/gpu_scene.h"
 #include "graphics/passes/forward_draw_types.h"
 #include "graphics/passes/raster_sensor_material.h"
@@ -90,7 +90,7 @@ private:
     gpu::GpuDevice &mDevice;
     RenderResourceManager &mResourceManager;
     bool mInitialized = false;
-    gpu::ShaderLibrary mShaderLibrary;
+    gpu::ShaderSourceProvider mShaderSourceProvider;
     MeshGpuCache mMeshGpuCache;
     RasterSensorMaterialHelper mMaterialHelper;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;

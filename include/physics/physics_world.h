@@ -244,7 +244,7 @@ public:
     std::uint64_t curveRenderRevision() const noexcept;
 
 private:
-    struct Impl;
+    struct CRESSIM_NEO_LOCAL Impl;
     std::unique_ptr<Impl> mImpl;
 };
 

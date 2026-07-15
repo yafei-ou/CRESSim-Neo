@@ -4,7 +4,7 @@
 #include "engine/shared_buffer_service.h"
 #include "gpu/gpu_device.h"
 #include "gpu/gpu_types.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include "graphics/gpu_scene.h"
 #include "physics/physics_gpu_scene_view.h"
 #include "physics/physics_solver.h"
@@ -405,8 +405,8 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
             Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE});
     }
 
-    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         CRESSIM_LOG_ERROR("CustomComputeService: shader stream factory is unavailable.");

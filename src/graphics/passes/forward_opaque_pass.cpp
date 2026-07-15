@@ -319,15 +319,15 @@ struct UniqueIblKeyHasher
 ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager,
                                      IblQualityTier iblQualityTier)
     : mDevice(device), mResourceManager(resourceManager), mIblQualityTier(iblQualityTier),
-      mShaderLibrary(""), mMeshGpuCache("CRESSimNeo.ForwardOpaquePass"),
+      mShaderSourceProvider(""), mMeshGpuCache("CRESSimNeo.ForwardOpaquePass"),
       mTextureGpuCache("CRESSimNeo.ForwardOpaquePass")
 {
 }
 
 bool ForwardOpaquePass::initialize()
 {
-    mShaderLibrary   = gpu::ShaderLibrary(mDevice.shaderSourceDirectory());
-    mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mDevice, mShaderLibrary);
+    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
+    mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mDevice, mShaderSourceProvider);
 
     gpu::GpuGraphicsBackendContext backendContext{};
     if (mDevice.tryGetGraphicsBackendContext(backendContext) &&

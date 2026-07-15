@@ -40,7 +40,7 @@ public:
     static bool supportsCudaInteropBuild() noexcept;
 
 private:
-    struct Impl;
+    struct CRESSIM_NEO_LOCAL Impl;
     std::unique_ptr<Impl> mImpl;
 };
 
@@ -72,7 +72,7 @@ public:
     static bool supportsCudaInteropBuild() noexcept;
 
 private:
-    struct Impl;
+    struct CRESSIM_NEO_LOCAL Impl;
     std::unique_ptr<Impl> mImpl;
 };
 
@@ -96,7 +96,7 @@ public:
     static bool supportsCudaInteropBuild() noexcept;
 
 private:
-    struct Impl;
+    struct CRESSIM_NEO_LOCAL Impl;
     std::unique_ptr<Impl> mImpl;
 };
 
@@ -127,7 +127,7 @@ public:
     static bool supportsCudaInteropBuild() noexcept;
 
 private:
-    struct Impl;
+    struct CRESSIM_NEO_LOCAL Impl;
     std::unique_ptr<Impl> mImpl;
 };
 

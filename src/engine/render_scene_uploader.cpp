@@ -3,7 +3,7 @@
 #include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/gpu_device.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
@@ -178,8 +178,8 @@ bool RenderSceneUploader::initialize(const common::SceneLayoutDesc &layout)
     mImpl->mPhysicsContextMask    = gpu::contextMaskForId(physicsContext.contextId);
     mImpl->mSharedPoseContextMask = mImpl->mGraphicsContextMask | mImpl->mPhysicsContextMask;
 
-    gpu::ShaderLibrary shaderLibrary(mImpl->mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    gpu::ShaderSourceProvider shaderSourceProvider(mImpl->mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return false;

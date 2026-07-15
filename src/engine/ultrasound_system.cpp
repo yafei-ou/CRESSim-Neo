@@ -7,7 +7,7 @@
 #include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/gpu_device.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include "gpu/shared_export_buffer.h"
 #include "physics/physics_solver.h"
 #include "physics/physics_world.h"
@@ -1192,8 +1192,9 @@ struct UltrasoundSystem::Impl
             return true;
         }
 
-        gpu::ShaderLibrary shaderLibrary(device.shaderSourceDirectory());
-        Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+        gpu::ShaderSourceProvider shaderSourceProvider(device.shaderSourceDirectory());
+        Diligent::IShaderSourceInputStreamFactory *streamFactory =
+            shaderSourceProvider.streamFactory();
         if (streamFactory == nullptr)
         {
             return false;
@@ -1350,8 +1351,9 @@ struct UltrasoundSystem::Impl
             return true;
         }
 
-        gpu::ShaderLibrary shaderLibrary(device.shaderSourceDirectory());
-        Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+        gpu::ShaderSourceProvider shaderSourceProvider(device.shaderSourceDirectory());
+        Diligent::IShaderSourceInputStreamFactory *streamFactory =
+            shaderSourceProvider.streamFactory();
         if (streamFactory == nullptr)
         {
             return false;

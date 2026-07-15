@@ -1,7 +1,7 @@
 #include "graphics/passes/fluid_composite_pass.h"
 
 #include "common/math_utils_runtime.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include "graphics/gpu_scene_pipeline_types.h"
 #include "graphics/passes/render_pass_types.h"
 
@@ -78,8 +78,8 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
         return nullptr;
     }
 
-    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return nullptr;

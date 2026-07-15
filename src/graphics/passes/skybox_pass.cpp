@@ -1,7 +1,7 @@
 #include "graphics/passes/skybox_pass.h"
 
 #include "gpu/gpu_buffer_utils.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include <algorithm>
 #include <cstdint>
 #include <string>
@@ -304,8 +304,8 @@ Diligent::IPipelineState *SkyboxPass::getOrCreatePipeline(Diligent::IRenderDevic
         return nullptr;
     }
 
-    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return nullptr;

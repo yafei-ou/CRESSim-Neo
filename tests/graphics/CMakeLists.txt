@@ -24,7 +24,7 @@ add_cressim_test(
     NAME render_plan_viewport_policy
     SOURCE render_plan_viewport_policy.cpp
     INCLUDE_SRC
-    LIBS cressim_neo_graphics
+    LIBS cressim_neo_graphics_test_support
 )
 
 add_cressim_test(
@@ -67,7 +67,7 @@ add_cressim_test(
     NAME texture_material_resources
     SOURCE texture_material_resources.cpp
     INCLUDE_SRC
-    LIBS cressim_neo_engine
+    LIBS cressim_neo_engine cressim_neo_graphics_test_support
 )
 
 add_cressim_test(
@@ -89,5 +89,5 @@ add_cressim_test(
     NAME debug_particle_graph_smoke
     SOURCE debug_particle_graph_smoke.cpp
     INCLUDE_SRC
-    LIBS cressim_neo_engine
+    LIBS cressim_neo_engine cressim_neo_physics_test_support
 )

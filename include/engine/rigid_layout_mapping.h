@@ -2,7 +2,6 @@
 #define CRESSIM_NEO_ENGINE_RIGID_LAYOUT_MAPPING_H
 
 #include "common/id.h"
-#include "engine/export.h"
 #include "physics/physics_types.h"
 
 #include <cstdint>
@@ -11,7 +10,7 @@
 namespace cressim::neo::engine
 {
 
-struct CRESSIM_NEO_ENGINE_API RigidLayoutMapping
+struct RigidLayoutMapping
 {
     std::uint32_t rigidBodyCount = 0u;
     std::uint32_t colliderCount  = 0u;
