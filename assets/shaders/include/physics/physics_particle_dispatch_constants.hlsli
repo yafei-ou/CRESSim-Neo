@@ -27,6 +27,7 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint maxSuturingNodesPerPath;
     uint reserved0;
     uint reserved1;
+    float4 gravity;
 };
 
 static const float kSoftInternalRelaxation = 0.2;

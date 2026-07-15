@@ -68,7 +68,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    linearVelocity.xyz += kGravity * dt;
+    linearVelocity.xyz += gravity.xyz * dt;
     const float3 predictedPosition = positionInvMass.xyz + linearVelocity.xyz * dt;
     const float4 predictedOrientation =
         IntegrateOrientation(orientation, angularVelocity.xyz, dt);

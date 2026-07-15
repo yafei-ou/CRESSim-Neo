@@ -75,6 +75,7 @@ public:
     const gpu::GpuDevice *getGpuDevice() const noexcept;
     physics::PhysicsSolver *getPhysicsSolver() noexcept;
     const physics::PhysicsSolver *getPhysicsSolver() const noexcept;
+    void setGravity(const Diligent::float3 &gravity) noexcept;
     const graphics::RenderStats &lastRenderStats() const noexcept;
     void setRenderFrameOptions(const graphics::RenderFrameOptions &options) noexcept;
     const graphics::RenderFrameOptions &renderFrameOptions() const noexcept;

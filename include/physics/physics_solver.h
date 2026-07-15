@@ -16,6 +16,7 @@ namespace cressim::neo::physics
 
 struct PhysicsSolverDesc
 {
+    Diligent::float3 gravity{0.0f, -9.81f, 0.0f};
     std::uint32_t substeps                    = 1;
     std::uint32_t defaultIterations           = 20;
     std::uint32_t fluidIterations             = 0;
@@ -37,6 +38,7 @@ public:
     bool step(const common::FrameContext &frameContext, PhysicsWorld &world);
     bool syncWorldState(PhysicsWorld &world);
     bool validateGpuMetaBlocking();
+    void setGravity(const Diligent::float3 &gravity) noexcept;
     PhysicsGpuSceneView gpuSceneView() const noexcept;
     const gpu::SharedExportBuffer *softPositionsInvMassSharedBuffer() const noexcept;
 

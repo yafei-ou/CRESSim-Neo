@@ -12,6 +12,7 @@ int main()
     engine::RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend = gpu::GpuBackend::Vulkan;
     config.gpuDeviceDesc.enableValidation = false;
+    config.physicsDesc.gravity             = {0.0f, -2.0f, 0.0f};
 
     engine::Runtime runtime;
     if (!runtime.initialize(config))
@@ -77,6 +78,19 @@ int main()
     {
         CRESSIM_LOG_ERROR( "Unexpected rigid body integration. expected=" , expectedX
                   , " actual=" , actualX , "\n");
+        runtime.shutdown();
+        return 1;
+    }
+
+    const float expectedY = config.physicsDesc.gravity.y * frame.deltaSeconds *
+                            frame.deltaSeconds *
+                            (static_cast<float>(kFrames) * static_cast<float>(kFrames + 1u) /
+                             2.0f);
+    const float actualY = finalRigidBody->position.y;
+    if (std::fabs(actualY - expectedY) > 0.01f)
+    {
+        CRESSIM_LOG_ERROR("Configured gravity was not applied. expected=", expectedY,
+                          " actual=", actualY, "\n");
         runtime.shutdown();
         return 1;
     }

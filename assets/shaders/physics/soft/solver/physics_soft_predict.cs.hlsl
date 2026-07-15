@@ -39,7 +39,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         gravityScale =
             CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex).gravityScale;
     }
-    velocity += kGravity * (dt * gravityScale);
+    velocity += gravity * (dt * gravityScale);
     const float3 predictedPosition = position + velocity * dt;
 
     CRESSIM_SB_STORE(g_ParticleVelocities, idx, float4(velocity, 0.0));

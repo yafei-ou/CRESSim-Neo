@@ -13,9 +13,9 @@ cbuffer PhysicsRigidDispatchConstantsBuffer
     uint reservedSubstepIndex;
     uint reservedIterationIndex;
     uint reservedSolverIterations;
-
     uint reserved0;
     uint reserved1;
+    float4 gravity;
 };
 
 #endif // CRESSIM_NEO_PHYSICS_RIGID_DISPATCH_CONSTANTS_HLSLI

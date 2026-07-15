@@ -559,6 +559,14 @@ const physics::PhysicsSolver *Runtime::getPhysicsSolver() const noexcept
     return mImpl->mPhysicsSolver.get();
 }
 
+void Runtime::setGravity(const Diligent::float3 &gravity) noexcept
+{
+    if (mImpl->mPhysicsSolver != nullptr)
+    {
+        mImpl->mPhysicsSolver->setGravity(gravity);
+    }
+}
+
 const graphics::RenderStats &Runtime::lastRenderStats() const noexcept
 {
     return mImpl->mLastRenderStats;

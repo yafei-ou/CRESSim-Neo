@@ -383,7 +383,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     for (std::uint32_t substep = 0; substep < substeps; ++substep)
     {
         GpuRigidDispatchConstants constants{};
-        constants.dt                    = substepDt;
+        constants.gravity = {mImpl->mDesc.gravity.x, mImpl->mDesc.gravity.y, mImpl->mDesc.gravity.z,
+                             0.0f};
+        constants.dt      = substepDt;
         constants.rigidBodyCount        = rigidBodyCount;
         constants.colliderCount         = colliderCount;
         constants.candidatePairCapacity = mImpl->sceneState.candidatePairCapacity();
@@ -391,6 +393,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         constants.reserved0             = routedCableCount;
         GpuParticleDispatchConstants particleConstants{};
         particleConstants.dt                   = substepDt;
+        particleConstants.gravity              = {mImpl->mDesc.gravity.x, mImpl->mDesc.gravity.y,
+                                                  mImpl->mDesc.gravity.z, 0.0f};
         particleConstants.particleCount        = particleCount;
         particleConstants.rigidColliderCount   = colliderCount;
         particleConstants.particleGridCellSize = particleGridCellSize;
@@ -1421,6 +1425,11 @@ bool PhysicsSolver::validateGpuMetaBlocking()
     }
 
     return true;
+}
+
+void PhysicsSolver::setGravity(const Diligent::float3 &gravity) noexcept
+{
+    mImpl->mDesc.gravity = gravity;
 }
 
 PhysicsGpuSceneView PhysicsSolver::gpuSceneView() const noexcept
