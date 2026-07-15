@@ -10,14 +10,14 @@ namespace cressim::neo::graphics::detail
 {
 
 ShadowPass::ShadowPass(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
-    : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
+    : mDevice(device), mResourceManager(resourceManager), mShaderSourceProvider(""),
       mMeshGpuCache("CRESSimNeo.ShadowPass")
 {
 }
 
 bool ShadowPass::initialize()
 {
-    mShaderLibrary = gpu::ShaderLibrary(mDevice.shaderSourceDirectory());
+    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
     mInitialized   = true;
     return true;
 }
@@ -391,14 +391,14 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
     constexpr const char *kShadowVsRelativePath = "graphics/shadow_depth.vs.hlsl";
 
     std::string shadowVsPath;
-    if (!mShaderLibrary.resolveShaderPath(kShadowVsRelativePath, shadowVsPath))
+    if (!mShaderSourceProvider.resolveShaderPath(kShadowVsRelativePath, shadowVsPath))
     {
         CRESSIM_LOG_ERROR("ShadowPass shader path resolution failed for relative path '",
                           kShadowVsRelativePath, "'.");
         return false;
     }
 
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderLibrary.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         CRESSIM_LOG_ERROR("ShadowPass could not acquire shader source stream factory.");

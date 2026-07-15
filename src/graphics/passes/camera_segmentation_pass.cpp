@@ -10,7 +10,7 @@ namespace cressim::neo::graphics::detail
 
 CameraSegmentationPass::CameraSegmentationPass(gpu::GpuDevice &device,
                                                RenderResourceManager &resourceManager)
-    : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
+    : mDevice(device), mResourceManager(resourceManager), mShaderSourceProvider(""),
       mMeshGpuCache("CRESSimNeo.CameraSegmentationPass"),
       mMaterialHelper(resourceManager, "CRESSimNeo.CameraSegmentationPass.Material")
 {
@@ -18,7 +18,7 @@ CameraSegmentationPass::CameraSegmentationPass(gpu::GpuDevice &device,
 
 bool CameraSegmentationPass::initialize()
 {
-    mShaderLibrary = gpu::ShaderLibrary(mDevice.shaderSourceDirectory());
+    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
     mInitialized   = true;
     return true;
 }
@@ -103,7 +103,7 @@ Diligent::IPipelineState *CameraSegmentationPass::getOrCreatePipeline(
         return nullptr;
     }
 
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderLibrary.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return nullptr;

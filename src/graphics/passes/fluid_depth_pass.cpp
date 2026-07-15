@@ -1,6 +1,6 @@
 #include "graphics/passes/fluid_depth_pass.h"
 
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include "graphics/passes/render_pass_types.h"
 #include "physics/physics_gpu_scene_view.h"
 
@@ -70,8 +70,8 @@ Diligent::IPipelineState *FluidDepthPass::getOrCreatePipeline(Diligent::IRenderD
         return nullptr;
     }
 
-    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return nullptr;

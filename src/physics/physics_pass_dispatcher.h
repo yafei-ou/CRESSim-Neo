@@ -5,7 +5,7 @@
 #include "physics/rigid_body_common.h"
 
 #include "gpu/gpu_compute_pass.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
@@ -460,7 +460,7 @@ private:
         Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
         std::uint32_t particleCount, const GpuParticleDispatchConstants &constants);
 
-    gpu::ShaderLibrary mShaderLibrary{""};
+    gpu::ShaderSourceProvider mShaderSourceProvider{""};
     Diligent::Uint64 mPhysicsContextMask = 0;
 
     gpu::GpuComputePass mRigidPredictPass;

@@ -1,7 +1,7 @@
 #include "graphics/renderer.h"
 
 #include "gpu/gpu_compute_pass.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include "graphics/output_planner.h"
 #include "graphics/passes/display_resolve_pass.h"
 #include "graphics/passes/forward_pipeline.h"
@@ -333,8 +333,8 @@ bool Renderer::Impl::ensureGpuScenePrepareState()
     }
     const Diligent::Uint64 graphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
 
-    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return false;

@@ -1,7 +1,7 @@
 #include "graphics/passes/display_resolve_pass.h"
 
 #include "common/math_utils_runtime.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include <algorithm>
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
@@ -163,8 +163,8 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
         return nullptr;
     }
 
-    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return nullptr;

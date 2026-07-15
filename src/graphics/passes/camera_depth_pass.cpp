@@ -9,7 +9,7 @@ namespace cressim::neo::graphics::detail
 {
 
 CameraDepthPass::CameraDepthPass(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
-    : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
+    : mDevice(device), mResourceManager(resourceManager), mShaderSourceProvider(""),
       mMeshGpuCache("CRESSimNeo.CameraDepthPass"),
       mMaterialHelper(resourceManager, "CRESSimNeo.CameraDepthPass.Material")
 {
@@ -17,7 +17,7 @@ CameraDepthPass::CameraDepthPass(gpu::GpuDevice &device, RenderResourceManager &
 
 bool CameraDepthPass::initialize()
 {
-    mShaderLibrary = gpu::ShaderLibrary(mDevice.shaderSourceDirectory());
+    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
     mInitialized   = true;
     return true;
 }
@@ -97,7 +97,7 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
         return nullptr;
     }
 
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderLibrary.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         return nullptr;

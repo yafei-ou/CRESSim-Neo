@@ -2,7 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_PASSES_SHADOW_PASS_H
 
 #include "gpu/gpu_device.h"
-#include "gpu/shader_library.h"
+#include "gpu/shader_source_provider.h"
 #include "graphics/gpu_scene.h"
 #include "graphics/passes/forward_draw_types.h"
 #include "graphics/services/mesh_gpu_cache.h"
@@ -74,7 +74,7 @@ private:
     gpu::GpuDevice &mDevice;
     RenderResourceManager &mResourceManager;
     bool mInitialized = false;
-    gpu::ShaderLibrary mShaderLibrary;
+    gpu::ShaderSourceProvider mShaderSourceProvider;
 
     MeshGpuCache mMeshGpuCache;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPipelineState;

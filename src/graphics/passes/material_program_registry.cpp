@@ -177,8 +177,8 @@ std::size_t MaterialProgramRegistry::ProgramKeyHasher::operator()(
 }
 
 MaterialProgramRegistry::MaterialProgramRegistry(gpu::GpuDevice &device,
-                                                 gpu::ShaderLibrary &shaderSourceProvider)
-    : mDevice(device), mShaderLibrary(shaderSourceProvider)
+                                                 gpu::ShaderSourceProvider &shaderSourceProvider)
+    : mDevice(device), mShaderSourceProvider(shaderSourceProvider)
 {
 }
 
@@ -247,7 +247,7 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
     constexpr const char *kPbrPsRelativePath = "graphics/pbr.ps.hlsl";
 
     std::string pbrVsPath;
-    if (!mShaderLibrary.resolveShaderPath(kPbrVsRelativePath, pbrVsPath))
+    if (!mShaderSourceProvider.resolveShaderPath(kPbrVsRelativePath, pbrVsPath))
     {
         CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to resolve vertex shader path for pass=",
                           passClassName(key.passClass), " relative='", kPbrVsRelativePath, "'.");
@@ -255,14 +255,14 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
     }
 
     std::string pbrPsPath;
-    if (!mShaderLibrary.resolveShaderPath(kPbrPsRelativePath, pbrPsPath))
+    if (!mShaderSourceProvider.resolveShaderPath(kPbrPsRelativePath, pbrPsPath))
     {
         CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to resolve pixel shader path for pass=",
                           passClassName(key.passClass), " relative='", kPbrPsRelativePath, "'.");
         return false;
     }
 
-    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderLibrary.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
         CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to get stream factory for pass=",
