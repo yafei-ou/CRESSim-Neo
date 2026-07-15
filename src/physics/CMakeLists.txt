@@ -41,6 +41,10 @@ target_compile_definitions(${TARGET_NAME} PUBLIC
 )
 
 target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common cressim_neo_gpu)
+# Diligent assertion helpers are referenced by inline Diligent headers used in
+# this library.  Link their platform implementation into this shared object:
+# it has hidden visibility and therefore cannot be resolved from another DSO.
+target_link_libraries(${TARGET_NAME} PRIVATE Diligent-TargetPlatform)
 if(CRESSIM_NEO_HAS_ULTRASOUND)
     target_link_libraries(${TARGET_NAME} PRIVATE cru_interface)
 endif()
