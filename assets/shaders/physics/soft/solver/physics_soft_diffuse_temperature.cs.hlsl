@@ -26,36 +26,6 @@ float sanitizeTemperature(float temperatureC, float bodyTemperatureC, float maxi
     return clamp(temperatureC, bodyTemperatureC, maximumTemperatureC);
 }
 
-float applyThresholdRateDamage(GpuSoftThermalMaterial material,
-                               float existingDamage,
-                               float temperatureC)
-{
-    const float normalizedThermalActivation =
-        material.damageFullTemperatureC > material.damageStartTemperatureC + kEpsilon
-            ? smoothstep(material.damageStartTemperatureC,
-                         material.damageFullTemperatureC,
-                         temperatureC)
-            : (temperatureC >= material.damageStartTemperatureC ? 1.0 : 0.0);
-    const float damageRate =
-        max(material.damageRate, 0.0) * normalizedThermalActivation;
-    const float previousDamage = saturate(existingDamage);
-    const float updatedDamage =
-        1.0 - (1.0 - previousDamage) * exp(-damageRate * max(dt, 0.0));
-    return saturate(max(previousDamage, updatedDamage));
-}
-
-float applyThermalDamage(GpuSoftThermalMaterial material,
-                         float existingDamage,
-                         float temperatureC)
-{
-    if (material.damageModel == kThermalDamageModelArrhenius)
-    {
-        return applyThresholdRateDamage(material, existingDamage, temperatureC);
-    }
-
-    return applyThresholdRateDamage(material, existingDamage, temperatureC);
-}
-
 [numthreads(256, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
@@ -124,7 +94,6 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         1.0 - exp(-max(material.diffusionRate, 0.0) * max(dt, 0.0));
     const float diffusedTemperature =
         lerp(currentTemperature, averageNeighbourTemperature, saturate(diffusionBlend));
-    state.damage = applyThermalDamage(material, state.damage, diffusedTemperature);
 
     const float coolingBlend =
         1.0 - exp(-max(material.coolingRate, 0.0) * max(dt, 0.0));
@@ -132,6 +101,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         lerp(diffusedTemperature, material.bodyTemperatureC, saturate(coolingBlend));
     state.temperatureC = sanitizeTemperature(
         state.temperatureC, material.bodyTemperatureC, maxTemperatureC);
+    state.damage = saturate(state.damage);
     state.waterFraction = saturate(state.waterFraction);
     state.charFraction = saturate(state.charFraction);
 

@@ -337,9 +337,13 @@ void normalizeSoftThermalMaterial(SoftThermalMaterialDesc &material) noexcept
             : ThermalDamageModel::ThresholdRate;
     material.evaporationStartTemperatureC = std::max(material.evaporationStartTemperatureC,
                                                      material.bodyTemperatureC);
+    material.evaporationTransitionWidthC =
+        std::max(material.evaporationTransitionWidthC, 0.0f);
     material.evaporationRate              = std::max(material.evaporationRate, 0.0f);
     material.charStartTemperatureC        = std::max(material.charStartTemperatureC,
                                                     material.bodyTemperatureC);
+    material.charFullTemperatureC =
+        std::max(material.charFullTemperatureC, material.charStartTemperatureC);
     material.charRate                     = std::max(material.charRate, 0.0f);
     material.maximumShrinkage             = std::clamp(material.maximumShrinkage, 0.0f, 1.0f);
     material.shrinkageRate                = std::max(material.shrinkageRate, 0.0f);

@@ -362,8 +362,10 @@ struct SoftThermalMaterialDesc
     float damageRate                    = 1.0f;
     ThermalDamageModel damageModel      = ThermalDamageModel::ThresholdRate;
     float evaporationStartTemperatureC  = 100.0f;
+    float evaporationTransitionWidthC   = 10.0f;
     float evaporationRate               = 0.5f;
     float charStartTemperatureC         = 180.0f;
+    float charFullTemperatureC          = 250.0f;
     float charRate                      = 0.25f;
     float maximumShrinkage              = 0.25f;
     float shrinkageRate                 = 1.0f;
@@ -395,9 +397,14 @@ struct alignas(16) SoftThermalMaterialGPU
     std::uint32_t damageModel;
 
     float evaporationStartTemperatureC;
+    float evaporationTransitionWidthC;
     float evaporationRate;
+    float reserved0;
+
     float charStartTemperatureC;
+    float charFullTemperatureC;
     float charRate;
+    float reserved1;
 
     float maximumShrinkage;
     float shrinkageRate;
@@ -407,11 +414,11 @@ struct alignas(16) SoftThermalMaterialGPU
     float thermalCutDamageThreshold;
     float thermalCutWaterThreshold;
     float maximumComplianceMultiplier;
-    float reserved1;
+    float reserved2;
 };
 
 static_assert(sizeof(SoftParticleThermalStateGPU) == 16u);
-static_assert(sizeof(SoftThermalMaterialGPU) == 80u);
+static_assert(sizeof(SoftThermalMaterialGPU) == 96u);
 
 struct SoftBodyMaterialDesc
 {

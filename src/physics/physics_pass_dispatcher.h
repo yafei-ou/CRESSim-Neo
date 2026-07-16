@@ -153,6 +153,9 @@ public:
     bool diffuseSoftTemperature(Diligent::IDeviceContext *computeContext,
                                 PhysicsSceneGpuState &sceneState,
                                 const GpuParticleDispatchConstants &constants);
+    bool updateSoftThermalState(Diligent::IDeviceContext *computeContext,
+                                PhysicsSceneGpuState &sceneState,
+                                const GpuParticleDispatchConstants &constants);
     bool evaluateSoftFracture(Diligent::IDeviceContext *computeContext,
                               const PhysicsSceneGpuState &sceneState,
                               std::uint32_t softEdgeCount,
@@ -533,6 +536,7 @@ private:
     gpu::GpuComputePass mApplySoftCuttingToolPass;
     gpu::GpuComputePass mApplyElectrocauteryToolPass;
     gpu::GpuComputePass mDiffuseSoftTemperaturePass;
+    gpu::GpuComputePass mUpdateSoftThermalStatePass;
     gpu::GpuComputePass mEvaluateSoftFracturePass;
     gpu::GpuComputePass mValidateShapeClustersPass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
