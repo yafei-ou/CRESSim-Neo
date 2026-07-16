@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/CRESSimNeoTargets.cmake")
+
+set(CRESSimNeo_SHADER_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/cressim-neo/shaders")
+
+check_required_components(CRESSimNeo)
