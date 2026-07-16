@@ -163,13 +163,18 @@ struct GpuSoftThermalMaterial
 
     float maximumShrinkage;
     float shrinkageRate;
+    float shrinkDamageStart;
+    float shrinkDamageFull;
+
     float minimumFailureThresholdScale;
     float minimumCutResistanceScale;
-
     float thermalCutDamageThreshold;
     float thermalCutWaterThreshold;
+
     float maximumComplianceMultiplier;
     float reserved2;
+    float reserved3;
+    float reserved4;
 };
 
 static const uint kThermalDamageModelThresholdRate = 0u;

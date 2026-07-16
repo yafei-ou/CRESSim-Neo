@@ -347,6 +347,10 @@ void normalizeSoftThermalMaterial(SoftThermalMaterialDesc &material) noexcept
     material.charRate                     = std::max(material.charRate, 0.0f);
     material.maximumShrinkage             = std::clamp(material.maximumShrinkage, 0.0f, 1.0f);
     material.shrinkageRate                = std::max(material.shrinkageRate, 0.0f);
+    material.shrinkDamageStart            = std::clamp(material.shrinkDamageStart, 0.0f, 1.0f);
+    material.shrinkDamageFull =
+        std::clamp(std::max(material.shrinkDamageFull, material.shrinkDamageStart), 0.0f,
+                   1.0f);
     material.minimumFailureThresholdScale =
         std::clamp(material.minimumFailureThresholdScale, 0.0f, 1.0f);
     material.minimumCutResistanceScale =

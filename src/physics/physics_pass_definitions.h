@@ -48,6 +48,7 @@ extern const gpu::GpuComputePassDefinition kApplySoftCuttingTool;
 extern const gpu::GpuComputePassDefinition kApplyElectrocauteryTool;
 extern const gpu::GpuComputePassDefinition kDiffuseSoftTemperature;
 extern const gpu::GpuComputePassDefinition kUpdateSoftThermalState;
+extern const gpu::GpuComputePassDefinition kApplySoftThermalShrinkage;
 extern const gpu::GpuComputePassDefinition kEvaluateSoftFracture;
 extern const gpu::GpuComputePassDefinition kValidateShapeClusters;
 extern const gpu::GpuComputePassDefinition kSolveSoftEdgeConstraints;

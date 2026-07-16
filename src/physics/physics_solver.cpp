@@ -678,6 +678,31 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
+        if (particleCount > 0u &&
+            !mImpl->passDispatcher.diffuseSoftTemperature(
+                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: DiffuseSoftTemperature dispatch.");
+            return false;
+        }
+
+        if (particleCount > 0u &&
+            !mImpl->passDispatcher.updateSoftThermalState(
+                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftThermalState dispatch.");
+            return false;
+        }
+
+        if (softEdgeCount > 0u &&
+            !mImpl->passDispatcher.applySoftThermalShrinkage(
+                computeBackend.computeContext, mImpl->sceneState, softEdgeCount,
+                particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ApplySoftThermalShrinkage dispatch.");
+            return false;
+        }
+
         if (hasParticleBroadPhaseWork)
         {
             if (!mImpl->passDispatcher.buildParticleBroadPhaseEntries(
@@ -1341,22 +1366,6 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ValidateShapeClusters dispatch.");
-            return false;
-        }
-
-        if (particleCount > 0u &&
-            !mImpl->passDispatcher.diffuseSoftTemperature(
-                computeBackend.computeContext, mImpl->sceneState, particleConstants))
-        {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: DiffuseSoftTemperature dispatch.");
-            return false;
-        }
-
-        if (particleCount > 0u &&
-            !mImpl->passDispatcher.updateSoftThermalState(
-                computeBackend.computeContext, mImpl->sceneState, particleConstants))
-        {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftThermalState dispatch.");
             return false;
         }
 

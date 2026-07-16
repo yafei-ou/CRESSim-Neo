@@ -709,6 +709,20 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateSoftThermalStateVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kApplySoftThermalShrinkageVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleOwningSoftBodyIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftThermalMaterials",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ThermalStateRead",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdges", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdgeLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kEvaluateSoftFractureVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2537,6 +2551,14 @@ const gpu::GpuComputePassDefinition kUpdateSoftThermalState{
     "CRESSimNeo.Physics.UpdateSoftThermalState.PSO",
     kUpdateSoftThermalStateVars,
     std::size(kUpdateSoftThermalStateVars),
+};
+
+const gpu::GpuComputePassDefinition kApplySoftThermalShrinkage{
+    "physics/soft/solver/physics_soft_apply_thermal_shrinkage.cs.hlsl",
+    "CRESSimNeo.Physics.ApplySoftThermalShrinkage.CS",
+    "CRESSimNeo.Physics.ApplySoftThermalShrinkage.PSO",
+    kApplySoftThermalShrinkageVars,
+    std::size(kApplySoftThermalShrinkageVars),
 };
 
 const gpu::GpuComputePassDefinition kEvaluateSoftFracture{

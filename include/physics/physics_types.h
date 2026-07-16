@@ -369,6 +369,8 @@ struct SoftThermalMaterialDesc
     float charRate                      = 0.25f;
     float maximumShrinkage              = 0.25f;
     float shrinkageRate                 = 1.0f;
+    float shrinkDamageStart             = 0.15f;
+    float shrinkDamageFull              = 0.85f;
     float minimumFailureThresholdScale  = 0.25f;
     float minimumCutResistanceScale     = 0.25f;
     float thermalCutDamageThreshold     = 0.85f;
@@ -408,17 +410,22 @@ struct alignas(16) SoftThermalMaterialGPU
 
     float maximumShrinkage;
     float shrinkageRate;
+    float shrinkDamageStart;
+    float shrinkDamageFull;
+
     float minimumFailureThresholdScale;
     float minimumCutResistanceScale;
-
     float thermalCutDamageThreshold;
     float thermalCutWaterThreshold;
+
     float maximumComplianceMultiplier;
     float reserved2;
+    float reserved3;
+    float reserved4;
 };
 
 static_assert(sizeof(SoftParticleThermalStateGPU) == 16u);
-static_assert(sizeof(SoftThermalMaterialGPU) == 96u);
+static_assert(sizeof(SoftThermalMaterialGPU) == 112u);
 
 struct SoftBodyMaterialDesc
 {

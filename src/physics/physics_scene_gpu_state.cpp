@@ -70,11 +70,15 @@ SoftThermalMaterialGPU toSoftThermalMaterialGpu(
         0.0f,
         material.maximumShrinkage,
         material.shrinkageRate,
+        material.shrinkDamageStart,
+        material.shrinkDamageFull,
         material.minimumFailureThresholdScale,
         material.minimumCutResistanceScale,
         material.thermalCutDamageThreshold,
         material.thermalCutWaterThreshold,
         material.maximumComplianceMultiplier,
+        0.0f,
+        0.0f,
         0.0f};
 }
 
