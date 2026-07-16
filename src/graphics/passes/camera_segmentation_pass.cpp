@@ -332,7 +332,12 @@ Diligent::IShaderResourceBinding *CameraSegmentationPass::getOrCreateShaderBindi
     }
 
     const auto it = mShaderBindings.find(pipeline);
-    return it != mShaderBindings.end() ? it->second : nullptr;
+    if (it == mShaderBindings.end())
+    {
+        return nullptr;
+    }
+
+    return it->second.RawPtr();
 }
 
 bool CameraSegmentationPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,

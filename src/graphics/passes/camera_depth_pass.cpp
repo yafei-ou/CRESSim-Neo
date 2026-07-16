@@ -315,7 +315,12 @@ Diligent::IShaderResourceBinding *CameraDepthPass::getOrCreateShaderBinding(
     }
 
     const auto it = mShaderBindings.find(pipeline);
-    return it != mShaderBindings.end() ? it->second : nullptr;
+    if (it == mShaderBindings.end())
+    {
+        return nullptr;
+    }
+
+    return it->second.RawPtr();
 }
 
 bool CameraDepthPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
