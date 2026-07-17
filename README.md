@@ -32,29 +32,66 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 ```
 
-## CMake development build
+## Native development
 
-Configure a Release build with the Python bindings enabled:
+### Guided setup
+
+For the normal shared-SDK workflow, configure a Release or Debug build with:
 
 ```bash
-cmake -S . -B build/linux-release -G Ninja \
+scripts/configure_builds.sh
+```
+
+The helper selects supported project features and safely preserves the generator
+of existing build directories. New directories can use Ninja or Unix Makefiles.
+It prints the commands for the configured build.
+
+Build and install with standard CMake commands. For example, for a Release
+build with both components enabled:
+
+```bash
+cmake --build build/linux-release --parallel
+cmake --install build/linux-release --component CXXSDK
+cmake --install build/linux-release --component Python
+```
+
+The project defines two install components:
+
+- `CXXSDK` installs the shared C++ libraries, public headers (including the
+  Diligent headers exposed by the public API), shaders, and the CMake package.
+- `Python` installs the `cressim_neo` module, its native runtime libraries,
+  Python sources, and shaders.
+
+Pass `--prefix "$HOME/.local"` to either install command when a custom prefix
+is needed. Static C++ SDK installation is not currently a supported public
+workflow.
+
+### Manual CMake configuration
+
+Use this equivalent workflow when scripting, automating, or choosing CMake
+options directly. Configure a Release build with Python bindings enabled:
+
+```bash
+cmake -S . -B build/linux-release \
   -DCMAKE_BUILD_TYPE=Release \
   -DCRESSIM_NEO_BUILD_PYTHON=ON
 cmake --build build/linux-release --parallel
 ```
 
-This build directory is persistent and incremental.  Re-run the second command
-after changing source files; CMake/Ninja rebuild only the affected targets. To
-limit parallelism:
+This build directory is persistent and incremental. Re-run the build command
+after changing source files; CMake rebuilds only affected targets. To limit
+parallelism:
 
 ```bash
 cmake --build build/linux-release --parallel 4
 ```
 
+For a new build directory, add `-G Ninja` to the configure command to use Ninja.
+
 For a smaller headless build, disable the default viewer and examples:
 
 ```bash
-cmake -S . -B build/linux-release -G Ninja \
+cmake -S . -B build/linux-release \
   -DCMAKE_BUILD_TYPE=Release \
   -DCRESSIM_NEO_BUILD_PYTHON=ON \
   -DCRESSIM_NEO_BUILD_VIEWER=OFF \
@@ -68,33 +105,10 @@ Useful optional CMake switches are:
 - `-DCRESSIM_NEO_ENABLE_CUDA_INTEROP=ON` — require and enable CUDAToolkit.
 - `-DCRESSIM_NEO_ENABLE_ULTRASOUND=ON` — enable CRESSim-Ultrasound.  This also
   requires CUDA interop and a working CUDA compiler.
-- `-DENGINE_STATIC=ON` — build static engine libraries.  The installable C++
-  SDK described below is currently provided by the default shared-library
-  build.
 
-## Installing from a CMake build
+### Consuming an installed C++ SDK
 
-The project defines two install components:
-
-- `CXXSDK` installs the shared C++ libraries, public headers (including the
-  Diligent headers exposed by the public API), shaders, and the CMake package.
-- `Python` installs the `cressim_neo` module, its native runtime libraries,
-  Python sources, and shaders.
-
-Install both components to a local prefix:
-
-```bash
-cmake --install build/linux-release --prefix "$HOME/.local"
-```
-
-Or install only one component:
-
-```bash
-cmake --install build/linux-release --component CXXSDK --prefix "$HOME/.local"
-cmake --install build/linux-release --component Python --prefix "$HOME/.local"
-```
-
-The C++ package is found from that prefix by consumers that configure with:
+After installing `CXXSDK` to a prefix, point a consumer project at it:
 
 ```bash
 cmake -S . -B build -DCMAKE_PREFIX_PATH="$HOME/.local"
@@ -121,8 +135,12 @@ wheel baseline independent of a CUDA toolchain.
 Build a wheel:
 
 ```bash
-python -m pip wheel --no-deps --wheel-dir dist .
+scripts/build_wheel.sh
 ```
+
+To build a local wheel with the interactive viewer bindings, use
+`scripts/build_wheel.sh --viewer`. Do not publish that artifact beside a
+headless wheel with the same package version and platform tag.
 
 Install and verify the resulting wheel:
 
@@ -155,10 +173,11 @@ python -m pip install 'cressim-neo[torch,gymnasium]'
 
 ## Documentation
 
-Build the developer documentation site after building a Python package:
+Build the developer documentation site with its dedicated documentation API
+profile:
 
 ```bash
-scripts/configure_builds.sh
+scripts/build_docs.sh
 ```
 
 See [`docs/README.md`](docs/README.md) for the full documentation prerequisites

@@ -50,6 +50,7 @@ CMakeUserPresets.json
 build
 bin
 out
+dist
 
 .cache
 .codex
