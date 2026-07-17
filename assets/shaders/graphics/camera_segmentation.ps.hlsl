@@ -1,4 +1,4 @@
-#include "include/graphics/graphics_forward_constants.hlsli"
+#include "graphics/graphics_forward_constants.hlsli"
 
 Texture2D g_BaseColorTexture;
 SamplerState g_BaseColorTexture_sampler;

@@ -14,7 +14,7 @@ struct PackedScanline
     float4 elevationalDirection;
 };
 
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 StructuredBuffer<float4> g_EntityPositions;
 StructuredBuffer<float4> g_EntityOrientations;

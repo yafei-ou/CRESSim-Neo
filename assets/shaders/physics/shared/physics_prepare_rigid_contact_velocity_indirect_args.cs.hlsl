@@ -1,4 +1,4 @@
-#include "../../include/physics/shared/physics_indirect_dispatch.hlsli"
+#include "physics/shared/physics_indirect_dispatch.hlsli"
 
 static const uint kComputeThreadGroupSize = 64u;
 

@@ -1,6 +1,6 @@
-#include "../../../include/physics/physics_rigid_dispatch_constants.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_broad_phase_types.hlsli"
+#include "physics/physics_rigid_dispatch_constants.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
+#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_BroadPhaseBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuBodyAabb, g_BodyAabbs);

@@ -143,7 +143,7 @@ struct EnvironmentIblLookupEntry
     float reserved0;
 };
 
-#include "../structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_EntityPositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_EntityOrientations);

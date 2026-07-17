@@ -15,7 +15,7 @@ except ImportError as exc:
 
 
 _SOFT_BODY_PUSHER_PRE_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer SoftBodyPusherPrePhysicsConstants
 {
@@ -64,7 +64,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _SOFT_BODY_PUSHER_POST_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer SoftBodyPusherPostPhysicsConstants
 {
@@ -155,7 +155,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _SOFT_BODY_PUSHER_RGB_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 Texture2DArray<float4> g_ColorTarget;
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ColorObservation);
@@ -203,7 +203,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _SOFT_BODY_PUSHER_RESET_PARTICLES_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ResetMask);
 CRESSIM_STRUCTURED_BUFFER(float2, g_ResetOffsets);
@@ -247,7 +247,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _SOFT_BODY_PUSHER_RESET_RIGID_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ResetMask);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PusherBodyIndices);
@@ -287,7 +287,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _SOFT_BODY_PUSHER_RESET_OUTPUTS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer SoftBodyPusherResetOutputsConstants
 {

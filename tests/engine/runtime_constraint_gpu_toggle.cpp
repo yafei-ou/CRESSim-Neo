@@ -13,9 +13,9 @@ namespace
 using namespace cressim::neo;
 
 constexpr const char *kRigidDistanceToggleShader = R"(
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer ConstraintToggleConstants
 {
@@ -54,9 +54,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 )";
 
 constexpr const char *kRoutedCableToggleShader = R"(
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer ConstraintToggleConstants
 {

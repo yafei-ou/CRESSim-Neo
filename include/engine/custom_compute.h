@@ -6,6 +6,7 @@
 #include "gpu/gpu_types.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -77,8 +78,15 @@ struct CustomComputeDispatchDesc
 struct CustomComputePassDesc
 {
     std::string debugName;
+    // Required source root for file-based custom shaders. It is independent of the engine shader
+    // package selected by GpuDeviceDesc::shaderDirectory.
+    std::filesystem::path shaderDirectory;
+    // Path relative to shaderDirectory.
     std::string shaderPath;
     std::string shaderSource;
+    // Ordered application-owned include roots. The custom source root's include directory is
+    // searched first for file shaders; built-in engine headers are searched last.
+    std::vector<std::filesystem::path> includeDirectories;
     std::string entryPoint         = "main";
     std::uint32_t threadGroupSizeX = 1u;
     std::uint32_t threadGroupSizeY = 1u;

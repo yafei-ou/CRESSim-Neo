@@ -1,9 +1,9 @@
 #ifndef CRESSIM_NEO_PHYSICS_FLUID_COMMON_HLSLI
 #define CRESSIM_NEO_PHYSICS_FLUID_COMMON_HLSLI
 
-#include "../physics_particle_dispatch_constants.hlsli"
-#include "../core/physics_base.hlsli"
-#include "../particle/physics_particle_types.hlsli"
+#include "physics/physics_particle_dispatch_constants.hlsli"
+#include "physics/core/physics_base.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
 
 static const float kFluidConstraintEpsilon = 1.0e-6;
 static const float kFluidSolveCoefficient = 0.7;

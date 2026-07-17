@@ -1,6 +1,6 @@
-#include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
-#include "../../../include/physics/particle/physics_particle_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_broad_phase_types.hlsli"
+#include "physics/physics_particle_dispatch_constants.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
+#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedParticleBroadPhaseKeys);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleCellRangeStartFlags);

@@ -163,7 +163,7 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
         return nullptr;
     }
 
-    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceConfig());
     Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {

@@ -1,8 +1,8 @@
-#include "../../../include/physics/physics_rigid_dispatch_constants.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_contact_primitives.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_box_box_manifold.hlsli"
+#include "physics/physics_rigid_dispatch_constants.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
+#include "physics/rigid/physics_rigid_contact_primitives.hlsli"
+#include "physics/rigid/physics_rigid_solver_shared.hlsli"
+#include "physics/rigid/physics_rigid_box_box_manifold.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);

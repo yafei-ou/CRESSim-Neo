@@ -1,4 +1,4 @@
-#include "../../../include/physics/particle/physics_particle_types.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ContactActiveFlags);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ContactActiveOffsets);

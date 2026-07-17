@@ -9,7 +9,7 @@ except ImportError as exc:
 
 
 CONSTANT_BUFFER_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer PythonConstantBuffer
 {
@@ -38,7 +38,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 MIXED_CONSTANT_BUFFER_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer PythonMixedConstantBuffer
 {

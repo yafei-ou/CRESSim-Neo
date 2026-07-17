@@ -1,5 +1,5 @@
-#include "../../include/physics/shared/physics_indirect_dispatch.hlsli"
-#include "../../include/physics/particle/physics_particle_types.hlsli"
+#include "physics/shared/physics_indirect_dispatch.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
 
 static const uint kComputeThreadGroupSize = 64u;
 

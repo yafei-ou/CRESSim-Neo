@@ -158,7 +158,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         return false;
     }
 
-    mShaderSourceProvider = gpu::ShaderSourceProvider(device.shaderSourceDirectory());
+    mShaderSourceProvider = gpu::ShaderSourceProvider(device.shaderSourceConfig());
     mPhysicsContextMask   = gpu::contextMaskForId(physicsContextId);
 
     Diligent::IShaderSourceInputStreamFactory *streamFactory =

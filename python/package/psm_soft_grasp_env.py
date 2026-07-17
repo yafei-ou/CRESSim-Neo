@@ -21,9 +21,9 @@ except ImportError as exc:
 
 
 _PSM_SOFT_GRASP_PRE_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer PsmSoftGraspPrePhysicsConstants
 {
@@ -236,9 +236,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_SOFT_GRASP_POST_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer PsmSoftGraspPostPhysicsConstants
 {
@@ -384,7 +384,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_SOFT_GRASP_RESET_PARTICLES_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ResetMask);
 CRESSIM_STRUCTURED_BUFFER(uint, g_EnvParticleOffsets);
@@ -423,8 +423,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_SOFT_GRASP_RESET_RIGID_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer PsmSoftGraspResetRigidConstants
 {
@@ -561,9 +561,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_SOFT_GRASP_RESET_OUTPUTS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ResetMask);
 CRESSIM_STRUCTURED_BUFFER(uint, g_TargetChoice);
@@ -671,7 +671,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_SOFT_GRASP_RGB_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 Texture2DArray<float4> g_ColorTarget;
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ColorObservation);

@@ -49,4 +49,6 @@ function(add_cressim_test)
         NAME "${target_name}"
         COMMAND ${target_name} ${TEST_ARGS}
     )
+    set_tests_properties(${target_name} PROPERTIES
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:${target_name}>")
 endfunction()

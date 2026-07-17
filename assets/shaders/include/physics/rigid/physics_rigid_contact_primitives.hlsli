@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_RIGID_CONTACT_PRIMITIVES_HLSLI
 #define CRESSIM_NEO_PHYSICS_RIGID_CONTACT_PRIMITIVES_HLSLI
 
-#include "../collision/physics_shape_common.hlsli"
+#include "physics/collision/physics_shape_common.hlsli"
 
 static const float kContactSlop = 1.0e-3;
 static const float kManifoldMergeDistance = 4.0 * kContactSlop;

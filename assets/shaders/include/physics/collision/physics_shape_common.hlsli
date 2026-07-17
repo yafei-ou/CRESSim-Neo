@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_COLLISION_SHAPE_COMMON_HLSLI
 #define CRESSIM_NEO_PHYSICS_COLLISION_SHAPE_COMMON_HLSLI
 
-#include "../core/physics_math.hlsli"
+#include "physics/core/physics_math.hlsli"
 
 static const uint kColliderSphere = 0u;
 static const uint kColliderBox = 1u;

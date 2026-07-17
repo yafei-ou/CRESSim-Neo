@@ -16,7 +16,7 @@ except ImportError as exc:
 
 
 _ULTRASOUND_CENTERING_PRE_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer UltrasoundCenteringPrePhysicsConstants
 {
@@ -65,7 +65,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _ULTRASOUND_CENTERING_RESET_PROBE_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer UltrasoundCenteringResetProbeConstants
 {
@@ -148,7 +148,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _ULTRASOUND_CENTERING_RESET_PARTICLES_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ResetMask);
 CRESSIM_STRUCTURED_BUFFER(uint, g_EnvParticleOffsets);
@@ -190,7 +190,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _ULTRASOUND_CENTERING_REWARD_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer UltrasoundCenteringRewardConstants
 {
@@ -270,7 +270,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _ULTRASOUND_CENTERING_OBSERVATION_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 Texture2DArray<float4> g_UltrasoundImage;
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_Observation);
@@ -300,7 +300,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _ULTRASOUND_CENTERING_RGB_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 Texture2DArray<float4> g_ColorTarget;
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ColorObservation);

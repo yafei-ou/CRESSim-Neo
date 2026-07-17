@@ -65,8 +65,11 @@ target_include_directories(${TARGET_NAME} PRIVATE
     ${PROJECT_SOURCE_DIR}/extern/DiligentEngine/DiligentCore/Common/interface
 )
 
-set(CRESSIM_NEO_SHADER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/assets/shaders")
-target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_SHADER_SOURCE_DIR="${CRESSIM_NEO_SHADER_SOURCE_DIR}")
+set(CRESSIM_NEO_SHADER_PACKAGE_DIR "${PROJECT_SOURCE_DIR}/assets/shaders")
+file(GLOB_RECURSE CRESSIM_NEO_SHADER_PACKAGE_FILES CONFIGURE_DEPENDS
+    "${CRESSIM_NEO_SHADER_PACKAGE_DIR}/*")
+target_compile_definitions(${TARGET_NAME} PRIVATE
+    CRESSIM_NEO_SHADER_INSTALL_DIR="${CMAKE_INSTALL_FULL_DATADIR}/cressim-neo/shaders")
 target_compile_definitions(${TARGET_NAME} PUBLIC
     CRESSIM_NEO_HAS_CUDA_INTEROP=$<BOOL:${CRESSIM_NEO_HAS_CUDA_INTEROP}>
 )
@@ -133,11 +136,13 @@ set_target_properties(${TARGET_NAME}
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+add_custom_target(cressim_neo_shader_package
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CRESSIM_NEO_SHADER_SOURCE_DIR}"
-        "$<TARGET_FILE_DIR:${TARGET_NAME}>/shaders"
+            "${CRESSIM_NEO_SHADER_PACKAGE_DIR}"
+            "${CMAKE_BINARY_DIR}/bin/shaders"
+    DEPENDS ${CRESSIM_NEO_SHADER_PACKAGE_FILES}
 )
+add_dependencies(${TARGET_NAME} cressim_neo_shader_package)
 
 if(WIN32 AND CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH AND EXISTS "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
     add_custom_command(TARGET ${TARGET_NAME} POST_BUILD

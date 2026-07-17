@@ -1192,7 +1192,7 @@ struct UltrasoundSystem::Impl
             return true;
         }
 
-        gpu::ShaderSourceProvider shaderSourceProvider(device.shaderSourceDirectory());
+        gpu::ShaderSourceProvider shaderSourceProvider(device.shaderSourceConfig());
         Diligent::IShaderSourceInputStreamFactory *streamFactory =
             shaderSourceProvider.streamFactory();
         if (streamFactory == nullptr)
@@ -1351,7 +1351,7 @@ struct UltrasoundSystem::Impl
             return true;
         }
 
-        gpu::ShaderSourceProvider shaderSourceProvider(device.shaderSourceDirectory());
+        gpu::ShaderSourceProvider shaderSourceProvider(device.shaderSourceConfig());
         Diligent::IShaderSourceInputStreamFactory *streamFactory =
             shaderSourceProvider.streamFactory();
         if (streamFactory == nullptr)

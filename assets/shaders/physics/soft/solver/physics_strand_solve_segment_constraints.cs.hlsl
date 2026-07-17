@@ -1,6 +1,6 @@
-#include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
-#include "../../../include/physics/particle/physics_particle_types.hlsli"
-#include "../../../include/physics/core/physics_math.hlsli"
+#include "physics/physics_particle_dispatch_constants.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
+#include "physics/core/physics_math.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandSegment, g_StrandSegments);

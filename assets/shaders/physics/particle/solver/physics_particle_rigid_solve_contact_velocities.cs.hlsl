@@ -1,9 +1,9 @@
-#include "../../../include/physics/physics_atomic_float.hlsli"
-#include "../../../include/physics/particle/physics_particle_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_contact_primitives.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
-#include "../../../include/physics/core/physics_math.hlsli"
+#include "physics/physics_atomic_float.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
+#include "physics/rigid/physics_rigid_contact_primitives.hlsli"
+#include "physics/rigid/physics_rigid_solver_shared.hlsli"
+#include "physics/core/physics_math.hlsli"
 
 static const float kRestitutionVelocityThreshold = 0.5;
 static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;

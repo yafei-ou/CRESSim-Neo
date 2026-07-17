@@ -1,6 +1,6 @@
-#include "../../../include/physics/physics_soft_render_dispatch_constants.hlsli"
-#include "../../../include/physics/particle/physics_particle_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
+#include "physics/physics_soft_render_dispatch_constants.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftBodyBoundsChunk, g_SoftBodyBoundsChunks);

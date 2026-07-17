@@ -17,7 +17,7 @@ CameraDepthPass::CameraDepthPass(gpu::GpuDevice &device, RenderResourceManager &
 
 bool CameraDepthPass::initialize()
 {
-    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
+    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceConfig());
     mInitialized          = true;
     return true;
 }

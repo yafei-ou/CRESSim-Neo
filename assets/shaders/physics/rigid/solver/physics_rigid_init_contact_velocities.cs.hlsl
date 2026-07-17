@@ -1,7 +1,7 @@
-#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_broad_phase_types.hlsli"
-#include "../../../include/physics/physics_rigid_dispatch_constants.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
+#include "physics/rigid/physics_rigid_solver_shared.hlsli"
+#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
+#include "physics/physics_rigid_dispatch_constants.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);

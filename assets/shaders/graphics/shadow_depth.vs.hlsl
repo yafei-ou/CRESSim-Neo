@@ -1,7 +1,7 @@
-#include "include/graphics/graphics_per_object.hlsli"
-#include "include/graphics/graphics_scene_buffers.hlsli"
+#include "graphics/graphics_per_object.hlsli"
+#include "graphics/graphics_scene_buffers.hlsli"
 #if !defined(CRESSIM_CAMERA_DEPTH_PASS)
-#include "include/graphics/graphics_shadow_constants.hlsli"
+#include "graphics/graphics_shadow_constants.hlsli"
 #endif
 
 struct VSInput

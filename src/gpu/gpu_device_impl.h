@@ -43,6 +43,7 @@ public:
                                     GpuPresentationReadbackEvent &outEvent) override;
     bool supportsNativePhysicsFloatAtomics() const override;
     const std::string &shaderSourceDirectory() const override;
+    ShaderSourceConfig shaderSourceConfig() const override;
     bool createShader(const Diligent::ShaderCreateInfo &createInfo,
                       Diligent::IShader **shader) override;
     bool createGraphicsPipelineState(const Diligent::GraphicsPipelineStateCreateInfo &createInfo,

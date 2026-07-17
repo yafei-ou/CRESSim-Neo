@@ -1,6 +1,6 @@
-#include "include/structured_buffer_compat.hlsli"
-#include "include/graphics/graphics_camera_input.hlsli"
-#include "include/graphics/graphics_scene_buffers.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "graphics/graphics_camera_input.hlsli"
+#include "graphics/graphics_scene_buffers.hlsli"
 
 struct EnvironmentBackgroundLookupEntry
 {

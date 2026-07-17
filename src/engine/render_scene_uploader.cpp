@@ -178,7 +178,7 @@ bool RenderSceneUploader::initialize(const common::SceneLayoutDesc &layout)
     mImpl->mPhysicsContextMask    = gpu::contextMaskForId(physicsContext.contextId);
     mImpl->mSharedPoseContextMask = mImpl->mGraphicsContextMask | mImpl->mPhysicsContextMask;
 
-    gpu::ShaderSourceProvider shaderSourceProvider(mImpl->mDevice.shaderSourceDirectory());
+    gpu::ShaderSourceProvider shaderSourceProvider(mImpl->mDevice.shaderSourceConfig());
     Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {

@@ -1,6 +1,6 @@
-#include "../../include/physics/physics_particle_dispatch_constants.hlsli"
-#include "../../include/physics/physics_atomic_float.hlsli"
-#include "../../include/structured_buffer_compat.hlsli"
+#include "physics/physics_particle_dispatch_constants.hlsli"
+#include "physics/physics_atomic_float.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticlePositionCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticleVelocityCorrections);

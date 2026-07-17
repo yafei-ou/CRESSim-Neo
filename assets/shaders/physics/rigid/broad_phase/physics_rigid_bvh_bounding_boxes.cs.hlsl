@@ -1,5 +1,5 @@
-#include "../../../include/physics/physics_rigid_broad_phase_build_constants.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_broad_phase_types.hlsli"
+#include "physics/physics_rigid_broad_phase_build_constants.hlsli"
+#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
 
 CRESSIM_GLOBALLYCOHERENT_RW_STRUCTURED_BUFFER(GpuBvhNode, g_BvhNodes);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuBvhConstructionInfo, g_BvhConstructionInfos);

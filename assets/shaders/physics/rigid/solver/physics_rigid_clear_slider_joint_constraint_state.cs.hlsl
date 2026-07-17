@@ -1,5 +1,5 @@
-#include "../../../include/physics/physics_rigid_joint_dispatch_constants.hlsli"
-#include "../../../include/structured_buffer_compat.hlsli"
+#include "physics/physics_rigid_joint_dispatch_constants.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_SliderJointLambdas0123);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_SliderJointLambdas45);

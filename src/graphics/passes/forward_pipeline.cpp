@@ -598,7 +598,7 @@ bool ForwardPipeline::initialize()
     }
     const Diligent::Uint64 graphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
 
-    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceConfig());
     Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr || mGpuIndirectState == nullptr)
     {
