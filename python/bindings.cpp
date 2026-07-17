@@ -971,7 +971,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("default_render_target_desc", &GpuDeviceDesc::defaultRenderTargetDesc)
         .def_readwrite("presentation", &GpuDeviceDesc::presentation)
         .def_readwrite("vulkan_shader_compiler_mode", &GpuDeviceDesc::vulkanShaderCompilerMode)
-        .def_readwrite("shader_directory", &GpuDeviceDesc::shaderDirectory);
+        .def_readwrite("shader_directory", &GpuDeviceDesc::shaderDirectory)
+        .def_readwrite("shader_include_directories", &GpuDeviceDesc::shaderIncludeDirectories);
 
     py::class_<RendererDesc>(m, "RendererDesc")
         .def(py::init<>())
