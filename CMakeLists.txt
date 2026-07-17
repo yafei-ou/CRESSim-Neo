@@ -8,6 +8,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
 # CTest defaults this option to ON when it creates it.  Define it first so a
 # normal project configure does not build the large test suite unless requested.
 option(BUILD_TESTING "Build the testing tree" OFF)
@@ -107,6 +110,7 @@ set(DILIGENT_BUILD_FX OFF CACHE BOOL "Build DiligentFX module" FORCE)
 set(DILIGENT_BUILD_SAMPLES OFF CACHE BOOL "Build DiligentSamples module" FORCE)
 set(DILIGENT_BUILD_DOCS OFF CACHE BOOL "Build Diligent documentation" FORCE)
 set(DILIGENT_BUILD_TESTS OFF CACHE BOOL "Build Diligent tests" FORCE)
+set(DILIGENT_INSTALL_CORE OFF CACHE BOOL "Install DiligentCore headers and libraries" FORCE)
 set(DILIGENT_NO_DIRECT3D11 ON CACHE BOOL "Disable Direct3D11 backend" FORCE)
 if(WIN32)
     set(DILIGENT_NO_DIRECT3D12 OFF CACHE BOOL "Disable Direct3D12 backend" FORCE)
@@ -129,6 +133,22 @@ add_subdirectory(extern/DiligentEngine/DiligentTools/ThirdParty
     ${CMAKE_BINARY_DIR}/DiligentTools/ThirdParty EXCLUDE_FROM_ALL)
 add_subdirectory(extern/DiligentEngine/DiligentTools/TextureLoader
     ${CMAKE_BINARY_DIR}/DiligentTools/TextureLoader EXCLUDE_FROM_ALL)
+
+# Public CRESSim-Neo headers expose Diligent math and graphics types.  Preserve
+# the required platform definitions and include root in our exported package
+# without making downstream consumers depend on this in-tree target.
+add_library(cressim_neo_build_settings INTERFACE)
+get_target_property(CRESSIM_NEO_DILIGENT_PUBLIC_DEFINITIONS
+    Diligent-PublicBuildSettings INTERFACE_COMPILE_DEFINITIONS)
+if(CRESSIM_NEO_DILIGENT_PUBLIC_DEFINITIONS)
+    target_compile_definitions(cressim_neo_build_settings INTERFACE
+        ${CRESSIM_NEO_DILIGENT_PUBLIC_DEFINITIONS})
+endif()
+target_include_directories(cressim_neo_build_settings INTERFACE
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/extern>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/include>)
 
 set(CRESSIM_NEO_HAS_CUDA_INTEROP OFF)
 if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
@@ -209,6 +229,74 @@ endif()
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
+endif()
+
+if(NOT ENGINE_STATIC)
+
+    set(CRESSIM_NEO_CXX_TARGETS
+        cressim_neo_build_settings
+        cressim_neo_common
+        cressim_neo_gpu
+        cressim_neo_graphics
+        cressim_neo_physics
+        cressim_neo_engine)
+    if(TARGET cressim_neo_viewer)
+        list(APPEND CRESSIM_NEO_CXX_TARGETS cressim_neo_viewer)
+    endif()
+
+    set_target_properties(cressim_neo_build_settings PROPERTIES EXPORT_NAME build_settings)
+    set_target_properties(cressim_neo_common PROPERTIES EXPORT_NAME common)
+    set_target_properties(cressim_neo_gpu PROPERTIES EXPORT_NAME gpu)
+    set_target_properties(cressim_neo_graphics PROPERTIES EXPORT_NAME graphics)
+    set_target_properties(cressim_neo_physics PROPERTIES EXPORT_NAME physics)
+    set_target_properties(cressim_neo_engine PROPERTIES EXPORT_NAME engine)
+    if(TARGET cressim_neo_viewer)
+        set_target_properties(cressim_neo_viewer PROPERTIES EXPORT_NAME viewer)
+    endif()
+
+    install(TARGETS ${CRESSIM_NEO_CXX_TARGETS}
+        EXPORT CRESSimNeoTargets
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT CXXSDK
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT CXXSDK
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT CXXSDK
+        INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+    if(CRESSIM_NEO_HAS_ULTRASOUND AND TARGET cru_interface)
+        install(FILES "$<TARGET_FILE:cru_interface>"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            COMPONENT CXXSDK)
+    endif()
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        COMPONENT CXXSDK)
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/extern/DiligentEngine/DiligentCore/"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/DiligentEngine/DiligentCore"
+        COMPONENT CXXSDK
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl"
+    )
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/assets/shaders/"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/cressim-neo/shaders"
+        COMPONENT CXXSDK)
+
+    set(CRESSIM_NEO_CMAKE_INSTALL_DIR
+        "${CMAKE_INSTALL_LIBDIR}/cmake/CRESSimNeo")
+    configure_package_config_file(
+        "${PROJECT_SOURCE_DIR}/cmake/CRESSimNeoConfig.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/CRESSimNeoConfig.cmake"
+        INSTALL_DESTINATION "${CRESSIM_NEO_CMAKE_INSTALL_DIR}")
+    write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/CRESSimNeoConfigVersion.cmake"
+        VERSION "${PROJECT_VERSION}"
+        COMPATIBILITY SameMajorVersion)
+    install(EXPORT CRESSimNeoTargets
+        FILE CRESSimNeoTargets.cmake
+        NAMESPACE CRESSimNeo::
+        DESTINATION "${CRESSIM_NEO_CMAKE_INSTALL_DIR}"
+        COMPONENT CXXSDK)
+    install(FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/CRESSimNeoConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/CRESSimNeoConfigVersion.cmake"
+        DESTINATION "${CRESSIM_NEO_CMAKE_INSTALL_DIR}"
+        COMPONENT CXXSDK)
 endif()
 
 # clang-format

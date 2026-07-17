@@ -32,21 +32,27 @@ cressim_neo_enable_clang_tidy(${TARGET_NAME})
 
 target_sources(${TARGET_NAME} PRIVATE ${PROJECT_HEADER} ${TARGET_HEADER})
 
-target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
-target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/extern)
+target_include_directories(${TARGET_NAME} PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/extern>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_compile_definitions(${TARGET_NAME} PUBLIC
     CRESSIM_NEO_HAS_ULTRASOUND=$<BOOL:${CRESSIM_NEO_HAS_ULTRASOUND}>
 )
 
-target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common cressim_neo_gpu)
+target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common cressim_neo_gpu cressim_neo_build_settings)
 # Diligent assertion helpers are referenced by inline Diligent headers used in
 # this library.  Link their platform implementation into this shared object:
 # it has hidden visibility and therefore cannot be resolved from another DSO.
 target_link_libraries(${TARGET_NAME} PRIVATE Diligent-TargetPlatform)
 if(CRESSIM_NEO_HAS_ULTRASOUND)
-    target_link_libraries(${TARGET_NAME} PRIVATE cru_interface)
+    # cru_interface is an in-tree runtime dependency, not part of the public
+    # CRESSim-Neo CMake package.  Keep it out of the installed export while
+    # still linking this library in the build tree.
+    target_link_libraries(${TARGET_NAME} PRIVATE
+        "$<BUILD_INTERFACE:$<TARGET_LINKER_FILE:cru_interface>>")
 endif()
 
 set_target_properties(${TARGET_NAME}

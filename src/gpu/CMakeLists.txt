@@ -56,8 +56,10 @@ source_group(
     FILES ${TARGET_SOURCE}
 )
 
-target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
-target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/extern)
+target_include_directories(${TARGET_NAME} PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/extern>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_include_directories(${TARGET_NAME} PRIVATE
     ${PROJECT_SOURCE_DIR}/extern/DiligentEngine/DiligentCore/Common/interface
@@ -69,7 +71,7 @@ target_compile_definitions(${TARGET_NAME} PUBLIC
     CRESSIM_NEO_HAS_CUDA_INTEROP=$<BOOL:${CRESSIM_NEO_HAS_CUDA_INTEROP}>
 )
 
-target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common)
+target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common cressim_neo_build_settings)
 if(TARGET Vulkan::Headers)
     target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
 endif()
@@ -78,7 +80,7 @@ if(CRESSIM_NEO_HAS_CUDA_INTEROP)
 endif()
 
 # Link with Diligent
-target_link_libraries(${TARGET_NAME} PUBLIC Diligent-PublicBuildSettings)
+target_link_libraries(${TARGET_NAME} PRIVATE Diligent-PublicBuildSettings)
 set(CRESSIM_NEO_GPU_HAS_DILIGENT_BACKEND OFF)
 if(WIN32)
     if(TARGET Diligent-GraphicsEngineD3D12-static)

@@ -24,26 +24,52 @@ python -c "import breathe, myst_parser; print('Breathe and MyST available')"
 Graphviz is not currently required. It may be added later if the documentation
 enables generated inheritance or collaboration diagrams.
 
-## Build the website
+## Guided build
 
-For the usual Linux build directories, an interactive setup helper is
-available from the repository root:
+Build the site with its dedicated Release Python API profile:
 
 ```bash
-scripts/configure_builds.sh
+scripts/build_docs.sh
 ```
 
-Choose build directories and native options. The documentation choice
-configures `build/docs-site` only when the selected Debug or Release Python
-package is already configured and built.
+`build_docs.sh` owns `build/linux-docs-api`, which enables Python and viewer bindings
+while disabling examples, tests, CUDA interop, and ultrasound. It builds that
+package before configuring `build/docs-site`. This does not change any native
+development build directory.
 
-Configure the standalone documentation build from the repository root. Using
-`docs/` as the CMake source keeps documentation setup independent from engine
-dependencies and does not compile the engine, examples, or tests:
+The generated site starts at `build/docs-site/html/index.html`. To serve it
+locally:
+
+```bash
+python -m http.server --directory build/docs-site/html 8000
+```
+
+## Manual CMake workflow
+
+Use these commands when automating the documentation build or changing its
+profile. First configure and build the dedicated API package:
+
+```bash
+cmake -S . -B build/linux-docs-api -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DENGINE_STATIC=OFF \
+  -DCRESSIM_NEO_BUILD_PYTHON=ON \
+  -DCRESSIM_NEO_BUILD_VIEWER=ON \
+  -DCRESSIM_NEO_BUILD_EXAMPLES=OFF \
+  -DBUILD_TESTING=OFF \
+  -DCRESSIM_NEO_ENABLE_CLANG_TIDY=OFF \
+  -DCRESSIM_NEO_ENABLE_CUDA_INTEROP=OFF \
+  -DCRESSIM_NEO_ENABLE_ULTRASOUND=OFF
+cmake --build build/linux-docs-api --target \
+  cressim_neo_python cressim_neo_python_package_files
+```
+
+Then configure the standalone documentation project. Using `docs/` as the
+CMake source keeps site generation independent from engine build targets:
 
 ```bash
 cmake -S docs -B build/docs-site \
-  -DCRESSIM_NEO_PYTHON_PACKAGE_DIR="$PWD/build/linux-debug/bin"
+  -DCRESSIM_NEO_PYTHON_PACKAGE_DIR="$PWD/build/linux-docs-api/bin"
 ```
 
 The package directory must contain a `cressim_neo` package built for the active
@@ -64,14 +90,5 @@ the `common`, `engine`, `physics`, `gpu`, `graphics`, and `viewer` namespaces.
 The Python API reference is generated in the same site from the compiled
 package.
 
-The generated site starts at `build/docs-site/html/index.html`. All generated
-documentation remains under the ignored `build/` directory and must not be
-committed.
-
-To serve the generated website locally:
-
-```bash
-python -m http.server --directory build/docs-site/html 8000
-```
-
-Then open <http://localhost:8000/>.
+All generated documentation remains under the ignored `build/` directory and
+must not be committed.

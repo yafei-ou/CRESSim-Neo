@@ -50,16 +50,18 @@ source_group(
     FILES ${TARGET_SOURCE}
 )
 
-target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
-target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/extern)
+target_include_directories(${TARGET_NAME} PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/extern>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 set(CRESSIM_NEO_SHADER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/assets/shaders")
 target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_SHADER_SOURCE_DIR="${CRESSIM_NEO_SHADER_SOURCE_DIR}")
 
-target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common cressim_neo_gpu)
+target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common cressim_neo_gpu cressim_neo_build_settings)
 
-target_link_libraries(${TARGET_NAME} PUBLIC Diligent-PublicBuildSettings)
+target_link_libraries(${TARGET_NAME} PRIVATE Diligent-PublicBuildSettings)
 target_link_libraries(${TARGET_NAME} PRIVATE Diligent-TextureLoader)
 
 set_target_properties(${TARGET_NAME}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Configure the standard Linux build trees through a small interactive menu.
+# Configure the supported shared-library native development builds.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -9,185 +9,206 @@ usage() {
     cat <<'EOF'
 Usage: scripts/configure_builds.sh
 
-Interactively configures any combination of:
-  1. build/linux-release
-  2. build/linux-debug
-  3. build/docs-site
+Interactive helper for configuring Release and/or Debug shared-library CMake
+builds. Building and installation use standard CMake commands after setup.
 
-The documentation site imports the Python bindings. If documentation is
-selected, the script asks which native build supplies that package and verifies
-that it has already been configured and built before configuring build/docs-site.
+Existing build directories retain their CMake generator. New build directories
+use Ninja when it is available, unless Unix Makefiles is selected.
 
-Before configuring native builds, the script also asks which common CMake
-options to enable (viewer, examples, Python bindings, tests, clang-tidy,
-CUDA interop, and Ultrasound). Ultrasound automatically enables CUDA interop.
-The displayed defaults match the project's CMake defaults.
+Static C++ SDK installation is not a supported workflow in this helper.
 EOF
 }
 
-if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    usage
-    exit 0
-fi
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
 
-if [[ $# -ne 0 ]]; then
-    usage >&2
-    exit 2
-fi
+print_command() {
+    printf ' +'
+    printf ' %q' "$@"
+    printf '\n'
+}
 
-read -r -p $'Select builds to configure (comma-separated; default: 1,2,3):\n  1) Linux Release\n  2) Linux Debug\n  3) Documentation site\n> ' selections
-selections="${selections:-1,2,3}"
-selections="${selections//,/ }"
+run_command() {
+    print_command "$@"
+    "$@"
+}
 
-configure_release=false
-configure_debug=false
-configure_docs=false
-
-for selection in ${selections}; do
-    case "${selection}" in
-        1|release) configure_release=true ;;
-        2|debug) configure_debug=true ;;
-        3|docs|documentation) configure_docs=true ;;
-        *)
-            echo "Unknown selection: ${selection}" >&2
-            echo "Use 1, 2, and/or 3 (for example: 1,3)." >&2
-            exit 2
-            ;;
-    esac
-done
-
-ask_cmake_option() {
+ask_yes_no() {
     local variable_name="$1"
     local prompt="$2"
     local default_value="$3"
     local answer
-    local prompt_suffix
+    local suffix='[y/N]'
 
     if [[ "${default_value}" == ON ]]; then
-        prompt_suffix='[Y/n]'
-    else
-        prompt_suffix='[y/N]'
+        suffix='[Y/n]'
     fi
 
-    read -r -p "${prompt} ${prompt_suffix} " answer
+    read -r -p "${prompt} ${suffix} " answer
     if [[ -z "${answer}" ]]; then
         answer="${default_value}"
     fi
+
     case "${answer}" in
         ON|on|y|Y|yes|YES) printf -v "${variable_name}" '%s' ON ;;
         OFF|off|n|N|no|NO) printf -v "${variable_name}" '%s' OFF ;;
-        *)
-            echo "Please answer y or n." >&2
-            exit 2
-            ;;
+        *) die "Please answer y or n." ;;
     esac
 }
 
-if "${configure_release}" || "${configure_debug}"; then
-    echo
-    echo "Common native CMake options (applied to every Linux build selected):"
-    ask_cmake_option ENGINE_STATIC "Build the engine as a static library?" OFF
-    ask_cmake_option CRESSIM_NEO_BUILD_VIEWER "Build the viewer?" ON
-    ask_cmake_option CRESSIM_NEO_BUILD_EXAMPLES "Build examples?" ON
-    ask_cmake_option CRESSIM_NEO_BUILD_PYTHON "Build Python bindings?" OFF
-    ask_cmake_option BUILD_TESTING "Enable tests?" OFF
-    ask_cmake_option CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy during builds?" OFF
-    ask_cmake_option CRESSIM_NEO_ENABLE_CUDA_INTEROP "Enable CUDA interop?" OFF
-    ask_cmake_option CRESSIM_NEO_ENABLE_ULTRASOUND "Enable CRESSim-Ultrasound?" OFF
+cache_value() {
+    local cache_file="$1"
+    local variable_name="$2"
 
-    if [[ "${CRESSIM_NEO_ENABLE_ULTRASOUND}" == ON && "${CRESSIM_NEO_ENABLE_CUDA_INTEROP}" == OFF ]]; then
-        CRESSIM_NEO_ENABLE_CUDA_INTEROP=ON
-        echo "CUDA interop was enabled because CRESSim-Ultrasound requires it."
-    fi
-fi
+    [[ -f "${cache_file}" ]] || return 0
+    sed -n "s/^${variable_name}:[^=]*=//p" "${cache_file}" | head -n 1
+}
 
-configure_native_build() {
-    local name="$1"
+build_dir_for() {
+    printf '%s/linux-%s' "${BUILD_ROOT}" "$1"
+}
+
+configure_native() {
+    local build_name="$1"
     local build_type="$2"
-    local build_dir="${BUILD_ROOT}/linux-${name}"
+    local build_dir
+    local cache_file
+    local existing_generator
+    local -a command
+
+    build_dir="$(build_dir_for "${build_name}")"
+    cache_file="${build_dir}/CMakeCache.txt"
+    command=(cmake -S "${REPO_ROOT}" -B "${build_dir}")
+
+    if [[ -f "${cache_file}" ]]; then
+        existing_generator="$(cache_value "${cache_file}" CMAKE_GENERATOR)"
+        echo "Reusing ${build_name} build directory and generator: ${existing_generator}"
+    else
+        command+=(-G "${NEW_BUILD_GENERATOR}")
+        echo "Creating ${build_name} build directory with generator: ${NEW_BUILD_GENERATOR}"
+    fi
+
+    command+=(
+        "-DCMAKE_BUILD_TYPE=${build_type}"
+        -DENGINE_STATIC=OFF
+        "-DCRESSIM_NEO_BUILD_VIEWER=${CRESSIM_NEO_BUILD_VIEWER}"
+        "-DCRESSIM_NEO_BUILD_EXAMPLES=${CRESSIM_NEO_BUILD_EXAMPLES}"
+        -DCRESSIM_NEO_BUILD_DOCS=OFF
+        "-DCRESSIM_NEO_BUILD_PYTHON=${CRESSIM_NEO_BUILD_PYTHON}"
+        "-DBUILD_TESTING=${BUILD_TESTING}"
+        "-DCRESSIM_NEO_ENABLE_CLANG_TIDY=${CRESSIM_NEO_ENABLE_CLANG_TIDY}"
+        "-DCRESSIM_NEO_ENABLE_CUDA_INTEROP=${CRESSIM_NEO_ENABLE_CUDA_INTEROP}"
+        "-DCRESSIM_NEO_ENABLE_ULTRASOUND=${CRESSIM_NEO_ENABLE_ULTRASOUND}"
+    )
+    if [[ -n "${INSTALL_PREFIX}" ]]; then
+        command+=("-DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX}")
+    fi
 
     echo
-    echo "Configuring ${build_type} build: ${build_dir}"
-    cmake -S "${REPO_ROOT}" -B "${build_dir}" \
-        -DCMAKE_BUILD_TYPE="${build_type}" \
-        -DENGINE_STATIC="${ENGINE_STATIC}" \
-        -DCRESSIM_NEO_BUILD_VIEWER="${CRESSIM_NEO_BUILD_VIEWER}" \
-        -DCRESSIM_NEO_BUILD_EXAMPLES="${CRESSIM_NEO_BUILD_EXAMPLES}" \
-        -DCRESSIM_NEO_BUILD_DOCS=OFF \
-        -DCRESSIM_NEO_BUILD_PYTHON="${CRESSIM_NEO_BUILD_PYTHON}" \
-        -DBUILD_TESTING="${BUILD_TESTING}" \
-        -DCRESSIM_NEO_ENABLE_CLANG_TIDY="${CRESSIM_NEO_ENABLE_CLANG_TIDY}" \
-        -DCRESSIM_NEO_ENABLE_CUDA_INTEROP="${CRESSIM_NEO_ENABLE_CUDA_INTEROP}" \
-        -DCRESSIM_NEO_ENABLE_ULTRASOUND="${CRESSIM_NEO_ENABLE_ULTRASOUND}"
+    echo "Configuring ${build_type} shared SDK build: ${build_dir}"
+    run_command "${command[@]}"
 }
 
-native_build_has_python_enabled() {
-    local build_name="$1"
-    local cache_file="${BUILD_ROOT}/linux-${build_name}/CMakeCache.txt"
-
-    [[ -f "${cache_file}" ]] &&
-        rg -q '^CRESSIM_NEO_BUILD_PYTHON:BOOL=ON$' "${cache_file}"
-}
-
-require_docs_python_package() {
-    local build_name="$1"
-    local build_dir="${BUILD_ROOT}/linux-${build_name}"
-    local cache_file="${build_dir}/CMakeCache.txt"
-    local package_dir="${build_dir}/bin/cressim_neo"
-
-    if [[ ! -d "${build_dir}" || ! -f "${cache_file}" ]]; then
-        echo "Documentation requires an existing configured build at: ${build_dir}" >&2
-        echo "Configure it first by selecting Linux ${build_name^}." >&2
-        exit 1
-    fi
-    if ! native_build_has_python_enabled "${build_name}"; then
-        echo "Documentation requires Python bindings in: ${build_dir}" >&2
-        echo "Reconfigure it with CRESSIM_NEO_BUILD_PYTHON=ON, then build the package." >&2
-        exit 1
-    fi
-    if [[ ! -f "${package_dir}/__init__.py" ]] || ! compgen -G "${package_dir}/_cressim_neo*.so" > /dev/null; then
-        echo "Documentation requires a built Python package in: ${package_dir}" >&2
-        echo "Build it first with: cmake --build ${build_dir} --target cressim_neo_python cressim_neo_python_package_files" >&2
-        exit 1
-    fi
-}
-
-if "${configure_release}"; then
-    configure_native_build release Release
+if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
+    usage
+    exit 0
+fi
+if (( $# != 0 )); then
+    usage >&2
+    exit 2
 fi
 
-if "${configure_debug}"; then
-    configure_native_build debug Debug
-fi
+echo "CRESSim-Neo shared SDK configuration"
+read -r -p $'Select native profiles (comma-separated; default: release):\n  release) Release shared SDK\n  debug)   Debug shared SDK\n  both)    Release and Debug shared SDK\n> ' selections
+selections="${selections:-release}"
+selections="${selections//,/ }"
 
-if "${configure_docs}"; then
-    default_docs_build="debug"
-    if ! "${configure_debug}" && "${configure_release}"; then
-        default_docs_build="release"
-    fi
-
-    read -r -p "Use which Python package for documentation (debug/release; default: ${default_docs_build})? " docs_build
-    docs_build="${docs_build:-${default_docs_build}}"
-    case "${docs_build}" in
-        debug) docs_build_type="Debug" ;;
-        release) docs_build_type="Release" ;;
-        *)
-            echo "Documentation package must be 'debug' or 'release'." >&2
-            exit 2
-            ;;
+NATIVE_BUILDS=()
+for selection in ${selections}; do
+    case "${selection}" in
+        release) NATIVE_BUILDS+=(release) ;;
+        debug) NATIVE_BUILDS+=(debug) ;;
+        both) NATIVE_BUILDS+=(release debug) ;;
+        *) die "Unknown profile '${selection}'. Use release, debug, or both." ;;
     esac
+done
 
-    docs_package_dir="${BUILD_ROOT}/linux-${docs_build}/bin"
-    require_docs_python_package "${docs_build}"
+unique_native_builds=()
+for build_name in "${NATIVE_BUILDS[@]}"; do
+    if [[ " ${unique_native_builds[*]} " != *" ${build_name} "* ]]; then
+        unique_native_builds+=("${build_name}")
+    fi
+done
+NATIVE_BUILDS=("${unique_native_builds[@]}")
 
-    echo
-    echo "Configuring documentation build: ${BUILD_ROOT}/docs-site"
-    cmake -S "${REPO_ROOT}/docs" -B "${BUILD_ROOT}/docs-site" \
-        -DCRESSIM_NEO_PYTHON_PACKAGE_DIR="${docs_package_dir}"
+echo
+echo "Supported shared-SDK features (applied to every selected native build):"
+ask_yes_no CRESSIM_NEO_BUILD_VIEWER "Build the interactive viewer?" ON
+ask_yes_no CRESSIM_NEO_BUILD_EXAMPLES "Build examples?" ON
+ask_yes_no CRESSIM_NEO_BUILD_PYTHON "Build Python bindings?" OFF
+ask_yes_no BUILD_TESTING "Enable tests?" OFF
+ask_yes_no CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy during builds?" OFF
+ask_yes_no CRESSIM_NEO_ENABLE_CUDA_INTEROP "Enable CUDA interop?" OFF
+ask_yes_no CRESSIM_NEO_ENABLE_ULTRASOUND "Enable CRESSim-Ultrasound?" OFF
+
+if [[ "${CRESSIM_NEO_ENABLE_ULTRASOUND}" == ON && "${CRESSIM_NEO_ENABLE_CUDA_INTEROP}" == OFF ]]; then
+    CRESSIM_NEO_ENABLE_CUDA_INTEROP=ON
+    echo "CUDA interop was enabled because CRESSim-Ultrasound requires it."
 fi
+
+needs_new_generator=OFF
+for build_name in "${NATIVE_BUILDS[@]}"; do
+    if [[ ! -f "$(build_dir_for "${build_name}")/CMakeCache.txt" ]]; then
+        needs_new_generator=ON
+    fi
+done
+if [[ "${needs_new_generator}" == ON ]]; then
+    if command -v ninja >/dev/null 2>&1; then
+        default_generator=ninja
+    else
+        default_generator=make
+    fi
+    read -r -p "Generator for new build directories (ninja/make; default: ${default_generator})? " generator_answer
+    generator_answer="${generator_answer:-${default_generator}}"
+    case "${generator_answer}" in
+        ninja)
+            command -v ninja >/dev/null 2>&1 || die "Ninja was selected but is not on PATH."
+            NEW_BUILD_GENERATOR=Ninja
+            ;;
+        make|makefiles)
+            NEW_BUILD_GENERATOR='Unix Makefiles'
+            ;;
+        *) die "Generator must be 'ninja' or 'make'." ;;
+    esac
+else
+    NEW_BUILD_GENERATOR=""
+    echo "All selected native build directories already exist; their generators will be preserved."
+fi
+
+read -r -p "Install prefix (empty: each build directory's configured default)? " INSTALL_PREFIX
+if [[ -n "${INSTALL_PREFIX}" && "${INSTALL_PREFIX}" != /* ]]; then
+    die "Install prefix must be an absolute path or left empty."
+fi
+
+for build_name in "${NATIVE_BUILDS[@]}"; do
+    case "${build_name}" in
+        release) configure_native release Release ;;
+        debug) configure_native debug Debug ;;
+    esac
+done
 
 echo
 echo "Configuration complete."
-if "${configure_docs}"; then
-    echo "Build the documentation with: cmake --build build/docs-site --target docs-html"
-fi
+for build_name in "${NATIVE_BUILDS[@]}"; do
+    build_dir="$(build_dir_for "${build_name}")"
+    install_prefix="$(cache_value "${build_dir}/CMakeCache.txt" CMAKE_INSTALL_PREFIX)"
+    echo "${build_name^}: ${build_dir}"
+    echo "  Build:       cmake --build ${build_dir} --parallel"
+    echo "  C++ SDK:     cmake --install ${build_dir} --component CXXSDK"
+    if [[ "${CRESSIM_NEO_BUILD_PYTHON}" == ON ]]; then
+        echo "  Python:      cmake --install ${build_dir} --component Python"
+    fi
+    [[ -n "${install_prefix}" ]] && echo "  Prefix:      ${install_prefix}"
+done
