@@ -51,6 +51,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         CRESSIM_SB_LOAD(g_ThermalStateRead, edge.particleA);
     const GpuSoftParticleThermalState thermalB =
         CRESSIM_SB_LOAD(g_ThermalStateRead, edge.particleB);
+    const float edgeThermalDamage =
+        max(saturate(thermalA.damage), saturate(thermalB.damage));
     const float averageDamage =
         0.5 * (saturate(thermalA.damage) + saturate(thermalB.damage));
     const float shrinkActivation =
@@ -66,6 +68,21 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         1.0 - exp(-max(material.shrinkageRate, 0.0) * max(dt, 0.0));
     edge.restLength =
         lerp(edge.restLength, max(targetRestLength, kEpsilon), saturate(shrinkBlend));
+
+    const float failureScale =
+        lerp(1.0, saturate(material.minimumFailureThresholdScale), edgeThermalDamage);
+    edge.failureThreshold =
+        edge.referenceFailureThreshold * failureScale;
+
+    const float cutResistanceScale =
+        lerp(1.0, saturate(material.minimumCutResistanceScale), edgeThermalDamage);
+    edge.cutResistance =
+        max(edge.referenceCutResistance * cutResistanceScale, kEpsilon);
+
+    const float complianceMultiplier =
+        lerp(1.0, max(material.maximumComplianceMultiplier, 1.0), averageDamage);
+    edge.compliance =
+        max(edge.referenceCompliance, 0.0) * complianceMultiplier;
 
     CRESSIM_SB_STORE(g_SoftEdges, edgeIndex, edge);
 }
