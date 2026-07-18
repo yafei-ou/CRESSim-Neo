@@ -11,11 +11,49 @@
 #include <utility>
 #include <vector>
 
+#if PLATFORM_WIN32
+#include <Windows.h>
+#elif defined(__unix__) || defined(__APPLE__)
+#include <dlfcn.h>
+#endif
+
 namespace cressim::neo::gpu
 {
 
 namespace
 {
+
+std::filesystem::path shaderModuleDirectory()
+{
+#if PLATFORM_WIN32
+    HMODULE module = nullptr;
+    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           reinterpret_cast<LPCWSTR>(&shaderModuleDirectory), &module) == 0)
+    {
+        return {};
+    }
+
+    std::vector<wchar_t> buffer(MAX_PATH);
+    const DWORD length =
+        GetModuleFileNameW(module, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (length == 0 || length >= buffer.size())
+    {
+        return {};
+    }
+    return std::filesystem::path{std::wstring{buffer.data(), length}}.parent_path();
+#elif defined(__unix__) || defined(__APPLE__)
+    Dl_info moduleInfo{};
+    if (dladdr(reinterpret_cast<const void *>(&shaderModuleDirectory), &moduleInfo) == 0 ||
+        moduleInfo.dli_fname == nullptr)
+    {
+        return {};
+    }
+    return std::filesystem::path{moduleInfo.dli_fname}.parent_path();
+#else
+    return {};
+#endif
+}
 
 class NormalizingShaderSourceFactory final
     : public Diligent::ObjectBase<Diligent::IShaderSourceInputStreamFactory>
@@ -211,8 +249,12 @@ bool ShaderSourceProvider::Impl::resolveConfig()
         std::vector<std::filesystem::path> candidates;
         candidates.emplace_back("shaders");
 
-#ifdef CRESSIM_NEO_SHADER_INSTALL_DIR
-        candidates.emplace_back(CRESSIM_NEO_SHADER_INSTALL_DIR);
+#ifdef CRESSIM_NEO_SHADER_INSTALL_RELATIVE_DIR
+        const std::filesystem::path moduleDirectory = shaderModuleDirectory();
+        if (!moduleDirectory.empty())
+        {
+            candidates.push_back(moduleDirectory / CRESSIM_NEO_SHADER_INSTALL_RELATIVE_DIR);
+        }
 #endif
 
         for (const auto &candidate : candidates)
