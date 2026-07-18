@@ -422,7 +422,12 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
 
     gpu::ShaderSourceConfig shaderConfig{};
     shaderConfig.sourceDirectory = hasShaderPath ? desc.shaderDirectory : engineShaderDirectory;
-    shaderConfig.includeSourceDirectory = hasShaderPath;
+    if (hasShaderPath)
+    {
+        std::error_code error;
+        shaderConfig.includeSourceDirectory =
+            std::filesystem::is_directory(desc.shaderDirectory / "include", error);
+    }
     shaderConfig.includeDirectories.insert(shaderConfig.includeDirectories.end(),
                                            desc.includeDirectories.begin(),
                                            desc.includeDirectories.end());
