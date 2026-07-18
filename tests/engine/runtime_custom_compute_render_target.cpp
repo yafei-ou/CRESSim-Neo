@@ -12,7 +12,7 @@ namespace
 {
 
 constexpr const char *kRenderTargetSampleShader = R"(
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 Texture2DArray<uint> g_SegmentationTarget;
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Output);

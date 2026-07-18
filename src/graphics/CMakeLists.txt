@@ -56,9 +56,6 @@ target_include_directories(${TARGET_NAME} PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
-set(CRESSIM_NEO_SHADER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/assets/shaders")
-target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_SHADER_SOURCE_DIR="${CRESSIM_NEO_SHADER_SOURCE_DIR}")
-
 target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common cressim_neo_gpu cressim_neo_build_settings)
 
 target_link_libraries(${TARGET_NAME} PRIVATE Diligent-PublicBuildSettings)
@@ -69,10 +66,4 @@ set_target_properties(${TARGET_NAME}
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
-
-add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CRESSIM_NEO_SHADER_SOURCE_DIR}"
-        "$<TARGET_FILE_DIR:${TARGET_NAME}>/shaders"
 )

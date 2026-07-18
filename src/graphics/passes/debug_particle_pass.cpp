@@ -95,7 +95,7 @@ Diligent::IPipelineState *DebugParticlePass::getOrCreatePipeline(
         return nullptr;
     }
 
-    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceConfig());
     Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
@@ -213,7 +213,7 @@ Diligent::IPipelineState *DebugParticlePass::getOrCreateEdgePipeline(
         return nullptr;
     }
 
-    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceConfig());
     Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {

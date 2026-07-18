@@ -1,6 +1,6 @@
-#include "include/graphics/graphics_scene_buffers.hlsli"
-#include "include/graphics/graphics_camera_input.hlsli"
-#include "include/physics/particle/physics_particle_types.hlsli"
+#include "graphics/graphics_scene_buffers.hlsli"
+#include "graphics/graphics_camera_input.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
 
 cbuffer GraphicsDebugParticles
 {

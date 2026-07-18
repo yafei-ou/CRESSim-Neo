@@ -11,9 +11,9 @@ TARGET_WIDTH = 640
 TARGET_HEIGHT = 360
 
 CUSTOM_SHIFT_SHADER = """
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer CustomRigidLateralShiftConstants
 {

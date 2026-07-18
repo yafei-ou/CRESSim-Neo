@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_FLUID_NEIGHBOR_BUILD_HLSLI
 #define CRESSIM_NEO_PHYSICS_FLUID_NEIGHBOR_BUILD_HLSLI
 
-#include "physics_fluid_common.hlsli"
+#include "physics/fluid/physics_fluid_common.hlsli"
 
 GpuParticleCellRange FindParticleCellRange(uint targetKey)
 {

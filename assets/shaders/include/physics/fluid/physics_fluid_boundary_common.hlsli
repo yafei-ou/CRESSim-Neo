@@ -1,11 +1,11 @@
 #ifndef CRESSIM_NEO_PHYSICS_FLUID_BOUNDARY_COMMON_HLSLI
 #define CRESSIM_NEO_PHYSICS_FLUID_BOUNDARY_COMMON_HLSLI
 
-#include "../core/physics_math.hlsli"
-#include "../particle/physics_particle_types.hlsli"
-#include "../collision/physics_shape_common.hlsli"
-#include "../rigid/physics_rigid_types.hlsli"
-#include "../rigid/physics_rigid_broad_phase_types.hlsli"
+#include "physics/core/physics_math.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
+#include "physics/collision/physics_shape_common.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
+#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
 
 bool ComputeFluidBoundaryContactInfo(uint rigidBodyIndex, uint colliderIndex, float3 selfPosition,
                                      out float signedDistance, out float3 normalWorld)

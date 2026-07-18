@@ -1,5 +1,5 @@
-#include "../../../include/physics/particle/physics_particle_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
+#include "physics/rigid/physics_rigid_solver_shared.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);

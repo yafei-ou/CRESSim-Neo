@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_GRAPHICS_LOCAL_SHADOW_COMMON_HLSLI
 #define CRESSIM_NEO_GRAPHICS_LOCAL_SHADOW_COMMON_HLSLI
 
-#include "graphics_scene_buffers.hlsli"
+#include "graphics/graphics_scene_buffers.hlsli"
 
 static const float CRESSIM_LOCAL_SHADOW_PI = 3.14159265359f;
 static const uint CRESSIM_LOCAL_SHADOW_POINT_FACE_COUNT = 6u;

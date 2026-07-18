@@ -1,5 +1,5 @@
-#include "include/graphics/graphics_scene_buffers.hlsli"
-#include "include/graphics/graphics_camera_input.hlsli"
+#include "graphics/graphics_scene_buffers.hlsli"
+#include "graphics/graphics_camera_input.hlsli"
 
 cbuffer GraphicsDebugParticles
 {

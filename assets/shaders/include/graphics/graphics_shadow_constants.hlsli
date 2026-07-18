@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_GRAPHICS_SHADOW_CONSTANTS_HLSLI
 #define CRESSIM_NEO_GRAPHICS_SHADOW_CONSTANTS_HLSLI
 
-#include "graphics_per_object.hlsli"
+#include "graphics/graphics_per_object.hlsli"
 
 #if !defined(CRESSIM_CAMERA_DEPTH_PASS)
 cbuffer GraphicsShadowPerPass

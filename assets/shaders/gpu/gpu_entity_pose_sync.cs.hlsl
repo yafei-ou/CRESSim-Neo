@@ -14,7 +14,7 @@ struct PoseMappingEntry
     uint reserved1;
 };
 
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SourcePositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_SourceOrientations);

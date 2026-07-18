@@ -1,9 +1,9 @@
-#include "../../../include/physics/physics_rigid_dispatch_constants.hlsli"
-#include "../../../include/physics/physics_atomic_float.hlsli"
-#include "../../../include/structured_buffer_compat.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_joint_solver_shared.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
+#include "physics/physics_rigid_dispatch_constants.hlsli"
+#include "physics/physics_atomic_float.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
+#include "physics/rigid/physics_rigid_joint_solver_shared.hlsli"
+#include "physics/rigid/physics_rigid_solver_shared.hlsli"
 
 static const float kAttachmentRelaxation = 0.95;
 static const float kMaxAttachmentTranslationCorrection = 0.05;

@@ -1,9 +1,9 @@
-#include "../../../include/physics/physics_rigid_dispatch_constants.hlsli"
-#include "../../../include/physics/physics_atomic_float.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_broad_phase_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_contact_primitives.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
+#include "physics/physics_rigid_dispatch_constants.hlsli"
+#include "physics/physics_atomic_float.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
+#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
+#include "physics/rigid/physics_rigid_contact_primitives.hlsli"
+#include "physics/rigid/physics_rigid_solver_shared.hlsli"
 
 static const float kBaumgarte = 0.25;
 // Final rigid-rigid cleanup is a single normal-only depenetration pass.

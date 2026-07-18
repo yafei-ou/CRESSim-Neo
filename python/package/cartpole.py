@@ -26,7 +26,7 @@ except ImportError:
 
 
 _CARTPOLE_RGB_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 Texture2DArray<float4> g_ColorTarget;
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ColorObservation);
@@ -74,8 +74,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PRE_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer CartpolePrePhysicsConstants
 {
@@ -118,9 +118,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _POST_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer CartpolePostPhysicsConstants
 {
@@ -196,9 +196,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _RESET_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ResetMask);
 CRESSIM_STRUCTURED_BUFFER(float, g_ResetState);

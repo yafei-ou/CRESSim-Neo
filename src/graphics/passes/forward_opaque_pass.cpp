@@ -326,7 +326,7 @@ ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManag
 
 bool ForwardOpaquePass::initialize()
 {
-    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
+    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceConfig());
     mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mDevice, mShaderSourceProvider);
 
     gpu::GpuGraphicsBackendContext backendContext{};

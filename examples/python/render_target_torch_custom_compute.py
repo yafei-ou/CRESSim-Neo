@@ -19,7 +19,7 @@ TARGET_HEIGHT = 256
 
 
 IMAGE_OBSERVATION_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 Texture2DArray<float4> g_ColorTarget;
 Texture2DArray<uint> g_SegmentationTarget;

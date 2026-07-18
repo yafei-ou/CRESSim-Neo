@@ -1,4 +1,4 @@
-#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 static const uint kNarrowPhaseChunkSize = 128u;
 

@@ -15,7 +15,7 @@ except ImportError as exc:
 
 
 _FLUID_POURING_PRE_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer FluidPouringPrePhysicsConstants
 {
@@ -69,7 +69,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _FLUID_POURING_POST_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer FluidPouringPostPhysicsConstants
 {
@@ -165,7 +165,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _FLUID_POURING_RGB_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 Texture2DArray<float4> g_ColorTarget;
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ColorObservation);
@@ -213,7 +213,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _FLUID_POURING_RESET_PARTICLES_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ResetMask);
 CRESSIM_STRUCTURED_BUFFER(float, g_ResetOffsets);
@@ -257,7 +257,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _FLUID_POURING_RESET_RIGID_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ResetMask);
 CRESSIM_STRUCTURED_BUFFER(uint, g_SourceBodyIndices);
@@ -297,7 +297,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _FLUID_POURING_RESET_OUTPUTS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer FluidPouringResetOutputsConstants
 {

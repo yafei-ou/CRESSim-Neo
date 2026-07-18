@@ -5,15 +5,29 @@
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
 
+#include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace cressim::neo::gpu
 {
 
+struct ShaderSourceConfig
+{
+    // Entry-point shader paths are resolved relative to this directory.
+    std::filesystem::path sourceDirectory;
+    // Adds <sourceDirectory>/include before includeDirectories when true.
+    bool includeSourceDirectory = true;
+    // Ordered roots used only for root-qualified #include directives.
+    std::vector<std::filesystem::path> includeDirectories;
+};
+
 class CRESSIM_NEO_GPU_API ShaderSourceProvider
 {
 public:
+    explicit ShaderSourceProvider(ShaderSourceConfig config);
+    // Compatibility shorthand: uses <shaderDirectory>/include as the sole include root.
     explicit ShaderSourceProvider(std::string shaderDirectory);
     ~ShaderSourceProvider();
 
@@ -23,8 +37,8 @@ public:
     ShaderSourceProvider(const ShaderSourceProvider &)            = delete;
     ShaderSourceProvider &operator=(const ShaderSourceProvider &) = delete;
 
-    bool resolveShaderPath(const char *relativePath, std::string &outPath);
     Diligent::IShaderSourceInputStreamFactory *streamFactory();
+    std::filesystem::path sourceDirectory();
 
 private:
     struct CRESSIM_NEO_LOCAL Impl;

@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_RIGID_JOINT_SOLVER_SHARED_HLSLI
 #define CRESSIM_NEO_PHYSICS_RIGID_JOINT_SOLVER_SHARED_HLSLI
 
-#include "physics_rigid_solver_shared.hlsli"
+#include "physics/rigid/physics_rigid_solver_shared.hlsli"
 
 float3 ChoosePerpendicular(float3 axis)
 {

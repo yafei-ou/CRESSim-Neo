@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_CORE_MATH_HLSLI
 #define CRESSIM_NEO_PHYSICS_CORE_MATH_HLSLI
 
-#include "physics_base.hlsli"
+#include "physics/core/physics_base.hlsli"
 
 float3 SafeNormalize(float3 value, float3 fallback)
 {

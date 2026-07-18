@@ -12,7 +12,7 @@ namespace
 {
 
 constexpr const char *kCameraOrientationShader = R"(
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer CameraOrientationConstants
 {

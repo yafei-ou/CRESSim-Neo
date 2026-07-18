@@ -17,7 +17,7 @@ ShadowPass::ShadowPass(gpu::GpuDevice &device, RenderResourceManager &resourceMa
 
 bool ShadowPass::initialize()
 {
-    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
+    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceConfig());
     mInitialized          = true;
     return true;
 }
@@ -390,14 +390,6 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
 
     constexpr const char *kShadowVsRelativePath = "graphics/shadow_depth.vs.hlsl";
 
-    std::string shadowVsPath;
-    if (!mShaderSourceProvider.resolveShaderPath(kShadowVsRelativePath, shadowVsPath))
-    {
-        CRESSIM_LOG_ERROR("ShadowPass shader path resolution failed for relative path '",
-                          kShadowVsRelativePath, "'.");
-        return false;
-    }
-
     Diligent::IShaderSourceInputStreamFactory *streamFactory =
         mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
@@ -437,7 +429,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
     }
     if (vertexShader == nullptr)
     {
-        CRESSIM_LOG_ERROR("ShadowPass failed to compile shader: '", shadowVsPath, "'.");
+        CRESSIM_LOG_ERROR("ShadowPass failed to compile shader: '", kShadowVsRelativePath, "'.");
         return false;
     }
 

@@ -18,7 +18,7 @@ CameraSegmentationPass::CameraSegmentationPass(gpu::GpuDevice &device,
 
 bool CameraSegmentationPass::initialize()
 {
-    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceDirectory());
+    mShaderSourceProvider = gpu::ShaderSourceProvider(mDevice.shaderSourceConfig());
     mInitialized          = true;
     return true;
 }

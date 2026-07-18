@@ -22,8 +22,8 @@ except ImportError as exc:
 
 
 _PSM_BLOOD_SUCTION_PRE_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer PsmBloodSuctionPrePhysicsConstants
 {
@@ -130,8 +130,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_BLOOD_SUCTION_PRE_PARTICLE_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
 
 cbuffer PsmBloodSuctionPreParticleConstants
 {
@@ -228,9 +228,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_BLOOD_SUCTION_POST_PHYSICS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer PsmBloodSuctionPostPhysicsConstants
 {
@@ -380,8 +380,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_BLOOD_SUCTION_POST_PARTICLE_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidParticleIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidParticleEnvIndices);
@@ -460,7 +460,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_BLOOD_SUCTION_RESET_PARTICLES_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ResetMask);
 CRESSIM_STRUCTURED_BUFFER(uint, g_EnvMetadataU32);
@@ -519,8 +519,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_BLOOD_SUCTION_RESET_RIGID_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/rigid/physics_rigid_types.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer PsmBloodSuctionResetRigidConstants
 {
@@ -629,8 +629,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_BLOOD_SUCTION_RESET_OUTPUTS_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
-#include "include/physics/core/physics_math.hlsli"
+#include "structured_buffer_compat.hlsli"
+#include "physics/core/physics_math.hlsli"
 
 cbuffer PsmBloodSuctionResetOutputsConstants
 {
@@ -739,7 +739,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 _PSM_BLOOD_SUCTION_RGB_SHADER = r"""
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 Texture2DArray<float4> g_ColorTarget;
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ColorObservation);

@@ -99,7 +99,7 @@ bool EntitySceneGpuState::initialize()
     mPhysicsContextMask    = gpu::contextMaskForId(physicsContext.contextId);
     mSharedPoseContextMask = mGraphicsContextMask | mPhysicsContextMask;
 
-    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceConfig());
     Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {

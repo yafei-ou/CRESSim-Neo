@@ -1,9 +1,9 @@
-#include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
-#include "../../../include/physics/physics_atomic_float.hlsli"
-#include "../../../include/physics/particle/physics_particle_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_contact_primitives.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
+#include "physics/physics_particle_dispatch_constants.hlsli"
+#include "physics/physics_atomic_float.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
+#include "physics/rigid/physics_rigid_contact_primitives.hlsli"
+#include "physics/rigid/physics_rigid_solver_shared.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingParticleRefs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);

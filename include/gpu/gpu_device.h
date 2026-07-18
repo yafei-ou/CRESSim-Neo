@@ -5,13 +5,16 @@
 #include "gpu/export.h"
 #include "gpu/gpu_render_target_system.h"
 #include "gpu/gpu_types.h"
+#include "gpu/shader_source_provider.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace cressim::neo::gpu
 {
@@ -49,9 +52,12 @@ struct GpuDeviceDesc
     GpuRenderTargetDesc defaultRenderTargetDesc{};
     PresentationDesc presentation{};
     VulkanShaderCompilerMode vulkanShaderCompilerMode = VulkanShaderCompilerMode::Auto;
-    // Optional override for runtime shader source directory.
-    // If empty, the engine resolves its default search paths.
+    // Optional override for the engine shader package root. If empty, the engine resolves its
+    // build-time and runtime defaults.
     std::string shaderDirectory;
+    // Additional, ordered include roots. Engine headers remain available from
+    // <shaderDirectory>/include; these roots are intended for application-owned shader headers.
+    std::vector<std::filesystem::path> shaderIncludeDirectories;
 };
 
 class CRESSIM_NEO_GPU_API GpuDevice
@@ -77,9 +83,16 @@ public:
     virtual bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
                                             GpuPresentationReadbackEvent &outEvent)  = 0;
     virtual bool supportsNativePhysicsFloatAtomics() const                           = 0;
+    // Legacy single-root accessor retained for custom GpuDevice implementations.
     virtual const std::string &shaderSourceDirectory() const                         = 0;
+    virtual ShaderSourceConfig shaderSourceConfig() const
+    {
+        ShaderSourceConfig config{};
+        config.sourceDirectory = shaderSourceDirectory();
+        return config;
+    }
     virtual bool createShader(const Diligent::ShaderCreateInfo &createInfo,
-                              Diligent::IShader **shader)                            = 0;
+                              Diligent::IShader **shader) = 0;
     virtual bool createGraphicsPipelineState(
         const Diligent::GraphicsPipelineStateCreateInfo &createInfo,
         Diligent::IPipelineState **pipelineState) = 0;

@@ -1,4 +1,4 @@
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 cbuffer UltrasoundReductionConstants
 {

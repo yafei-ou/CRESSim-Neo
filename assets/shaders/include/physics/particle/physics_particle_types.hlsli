@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_PARTICLE_TYPES_HLSLI
 #define CRESSIM_NEO_PHYSICS_PARTICLE_TYPES_HLSLI
 
-#include "../core/physics_base.hlsli"
+#include "physics/core/physics_base.hlsli"
 
 static const uint kParticleBroadPhaseEntryTypeParticle = 0u;
 static const uint kParticleKindSolid = 0u;

@@ -1,5 +1,5 @@
-#include "../../include/physics/core/physics_base.hlsli"
-#include "../../include/physics/physics_scan_constants.hlsli"
+#include "physics/core/physics_base.hlsli"
+#include "physics/physics_scan_constants.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ScannedBlockOffsets);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ScanOutput);

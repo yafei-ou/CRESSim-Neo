@@ -1,6 +1,6 @@
-#include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
-#include "../../../include/physics/physics_atomic_float.hlsli"
-#include "../../../include/physics/core/physics_base.hlsli"
+#include "physics/physics_particle_dispatch_constants.hlsli"
+#include "physics/physics_atomic_float.hlsli"
+#include "physics/core/physics_base.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticleVelocities);

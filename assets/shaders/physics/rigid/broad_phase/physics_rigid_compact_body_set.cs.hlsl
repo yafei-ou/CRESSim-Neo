@@ -1,5 +1,5 @@
-#include "../../../include/physics/physics_rigid_dispatch_constants.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
+#include "physics/physics_rigid_dispatch_constants.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_BodySetFlags);
 CRESSIM_STRUCTURED_BUFFER(uint, g_BodySetOffsets);

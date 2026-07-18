@@ -568,6 +568,14 @@ const std::string &GpuDeviceImpl::shaderSourceDirectory() const
     return mDesc.shaderDirectory;
 }
 
+ShaderSourceConfig GpuDeviceImpl::shaderSourceConfig() const
+{
+    ShaderSourceConfig config{};
+    config.sourceDirectory    = mDesc.shaderDirectory;
+    config.includeDirectories = mDesc.shaderIncludeDirectories;
+    return config;
+}
+
 bool GpuDeviceImpl::createShader(const Diligent::ShaderCreateInfo &createInfo,
                                  Diligent::IShader **shader)
 {

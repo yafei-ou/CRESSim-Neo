@@ -7,7 +7,7 @@
 
 #if CRESSIM_NATIVE_FLOAT_BUFFER_ATOMICS
 
-#    include "../structured_buffer_compat.hlsli"
+#    include "structured_buffer_compat.hlsli"
 
 // Each logical correction entry stays float4-shaped so the native and CAS paths
 // share the same 16-byte record layout and clear one whole entry at a time.
@@ -48,7 +48,7 @@ float CressimAtomicFloatAddNative([[vk::ext_reference]] float pointer, uint scop
 
 #else
 
-#    include "../byte_address_buffer_compat.hlsli"
+#    include "byte_address_buffer_compat.hlsli"
 
 // Each logical correction entry is stored as a padded raw float4 record so the
 // CAS path keeps 16-byte alignment and can clear the whole entry with one Store4.

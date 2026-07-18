@@ -1,6 +1,6 @@
-#include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
-#include "../../../include/physics/particle/physics_particle_types.hlsli"
-#include "../../../include/physics/fluid/physics_fluid_anisotropy_common.hlsli"
+#include "physics/physics_particle_dispatch_constants.hlsli"
+#include "physics/particle/physics_particle_types.hlsli"
+#include "physics/fluid/physics_fluid_anisotropy_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);

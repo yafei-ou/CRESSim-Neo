@@ -166,6 +166,12 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
             "CustomComputeService: createPass requires exactly one of shaderPath or shaderSource.");
         return handle;
     }
+    if (hasShaderPath && desc.shaderDirectory.empty())
+    {
+        CRESSIM_LOG_ERROR(
+            "CustomComputeService: file-based custom shaders require shaderDirectory.");
+        return handle;
+    }
     if (desc.resourceBindings.empty())
     {
         CRESSIM_LOG_ERROR(
@@ -405,7 +411,32 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
             Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE});
     }
 
-    gpu::ShaderSourceProvider shaderSourceProvider(mDevice.shaderSourceDirectory());
+    gpu::ShaderSourceProvider engineShaderSourceProvider(mDevice.shaderSourceConfig());
+    const std::filesystem::path engineShaderDirectory =
+        engineShaderSourceProvider.sourceDirectory();
+    if (engineShaderDirectory.empty())
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: built-in shader package is unavailable.");
+        return handle;
+    }
+
+    gpu::ShaderSourceConfig shaderConfig{};
+    shaderConfig.sourceDirectory = hasShaderPath ? desc.shaderDirectory : engineShaderDirectory;
+    if (hasShaderPath)
+    {
+        std::error_code error;
+        shaderConfig.includeSourceDirectory =
+            std::filesystem::is_directory(desc.shaderDirectory / "include", error);
+    }
+    shaderConfig.includeDirectories.insert(shaderConfig.includeDirectories.end(),
+                                           desc.includeDirectories.begin(),
+                                           desc.includeDirectories.end());
+    const gpu::ShaderSourceConfig deviceShaderConfig = mDevice.shaderSourceConfig();
+    shaderConfig.includeDirectories.insert(shaderConfig.includeDirectories.end(),
+                                           deviceShaderConfig.includeDirectories.begin(),
+                                           deviceShaderConfig.includeDirectories.end());
+    shaderConfig.includeDirectories.push_back(engineShaderDirectory / "include");
+    gpu::ShaderSourceProvider shaderSourceProvider(std::move(shaderConfig));
     Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {

@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_RIGID_SOLVER_SHARED_HLSLI
 #define CRESSIM_NEO_PHYSICS_RIGID_SOLVER_SHARED_HLSLI
 
-#include "../collision/physics_shape_common.hlsli"
+#include "physics/collision/physics_shape_common.hlsli"
 
 static const float kRigidRestitutionThreshold = 0.0;
 // These affects the needed number of velocity iterations; larger values lead to faster velocity

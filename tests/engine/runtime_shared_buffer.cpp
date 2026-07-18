@@ -7,7 +7,7 @@ namespace
 {
 
 constexpr const char *kSharedBufferWriteShader = R"(
-#include "include/structured_buffer_compat.hlsli"
+#include "structured_buffer_compat.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Output);
 

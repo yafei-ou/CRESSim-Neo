@@ -1,8 +1,8 @@
 #ifndef CRESSIM_NEO_PHYSICS_RIGID_BOX_BOX_MANIFOLD_HLSLI
 #define CRESSIM_NEO_PHYSICS_RIGID_BOX_BOX_MANIFOLD_HLSLI
 
-#include "physics_rigid_contact_primitives.hlsli"
-#include "physics_rigid_types.hlsli"
+#include "physics/rigid/physics_rigid_contact_primitives.hlsli"
+#include "physics/rigid/physics_rigid_types.hlsli"
 
 static const float kManifoldPointMergeDistanceSq = kManifoldMergeDistance * kManifoldMergeDistance;
 static const uint kBoxBoxCandidateCapacity = 16u;

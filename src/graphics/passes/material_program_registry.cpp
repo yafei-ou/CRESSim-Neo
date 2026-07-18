@@ -246,22 +246,6 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
     constexpr const char *kPbrVsRelativePath = "graphics/pbr.vs.hlsl";
     constexpr const char *kPbrPsRelativePath = "graphics/pbr.ps.hlsl";
 
-    std::string pbrVsPath;
-    if (!mShaderSourceProvider.resolveShaderPath(kPbrVsRelativePath, pbrVsPath))
-    {
-        CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to resolve vertex shader path for pass=",
-                          passClassName(key.passClass), " relative='", kPbrVsRelativePath, "'.");
-        return false;
-    }
-
-    std::string pbrPsPath;
-    if (!mShaderSourceProvider.resolveShaderPath(kPbrPsRelativePath, pbrPsPath))
-    {
-        CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to resolve pixel shader path for pass=",
-                          passClassName(key.passClass), " relative='", kPbrPsRelativePath, "'.");
-        return false;
-    }
-
     Diligent::IShaderSourceInputStreamFactory *streamFactory =
         mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
@@ -301,8 +285,8 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
         CRESSIM_LOG_ERROR(
             "MaterialProgramRegistry failed to compile VS. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
-            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), " shader='", pbrVsPath,
-            "'.");
+            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), " shader='",
+            kPbrVsRelativePath, "'.");
         return false;
     }
 
@@ -320,8 +304,8 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
         CRESSIM_LOG_ERROR(
             "MaterialProgramRegistry failed to compile PS. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
-            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), " shader='", pbrPsPath,
-            "'.");
+            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), " shader='",
+            kPbrPsRelativePath, "'.");
         return false;
     }
 

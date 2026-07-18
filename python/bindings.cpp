@@ -732,8 +732,38 @@ PYBIND11_MODULE(_cressim_neo, m)
     py::class_<CustomComputePassDesc>(m, "CustomComputePassDesc")
         .def(py::init<>())
         .def_readwrite("debug_name", &CustomComputePassDesc::debugName)
+        // Expose filesystem paths as Python strings.  Binding std::filesystem::path
+        // directly leaks the platform's C++ implementation type into pybind11
+        // docstrings (for example, std::filesystem::__cxx11::path on libstdc++),
+        // which cannot be represented in generated Python stubs.
+        .def_property(
+            "shader_directory",
+            [](const CustomComputePassDesc &desc) { return desc.shaderDirectory.string(); },
+            [](CustomComputePassDesc &desc, const std::string &value)
+            { desc.shaderDirectory = value; })
         .def_readwrite("shader_path", &CustomComputePassDesc::shaderPath)
         .def_readwrite("shader_source", &CustomComputePassDesc::shaderSource)
+        .def_property(
+            "include_directories",
+            [](const CustomComputePassDesc &desc)
+            {
+                std::vector<std::string> directories;
+                directories.reserve(desc.includeDirectories.size());
+                for (const auto &directory : desc.includeDirectories)
+                {
+                    directories.push_back(directory.string());
+                }
+                return directories;
+            },
+            [](CustomComputePassDesc &desc, const std::vector<std::string> &values)
+            {
+                desc.includeDirectories.clear();
+                desc.includeDirectories.reserve(values.size());
+                for (const auto &value : values)
+                {
+                    desc.includeDirectories.emplace_back(value);
+                }
+            })
         .def_readwrite("entry_point", &CustomComputePassDesc::entryPoint)
         .def_readwrite("thread_group_size_x", &CustomComputePassDesc::threadGroupSizeX)
         .def_readwrite("thread_group_size_y", &CustomComputePassDesc::threadGroupSizeY)
@@ -969,7 +999,28 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("default_render_target_desc", &GpuDeviceDesc::defaultRenderTargetDesc)
         .def_readwrite("presentation", &GpuDeviceDesc::presentation)
         .def_readwrite("vulkan_shader_compiler_mode", &GpuDeviceDesc::vulkanShaderCompilerMode)
-        .def_readwrite("shader_directory", &GpuDeviceDesc::shaderDirectory);
+        .def_readwrite("shader_directory", &GpuDeviceDesc::shaderDirectory)
+        .def_property(
+            "shader_include_directories",
+            [](const GpuDeviceDesc &desc)
+            {
+                std::vector<std::string> directories;
+                directories.reserve(desc.shaderIncludeDirectories.size());
+                for (const auto &directory : desc.shaderIncludeDirectories)
+                {
+                    directories.push_back(directory.string());
+                }
+                return directories;
+            },
+            [](GpuDeviceDesc &desc, const std::vector<std::string> &values)
+            {
+                desc.shaderIncludeDirectories.clear();
+                desc.shaderIncludeDirectories.reserve(values.size());
+                for (const auto &value : values)
+                {
+                    desc.shaderIncludeDirectories.emplace_back(value);
+                }
+            });
 
     py::class_<RendererDesc>(m, "RendererDesc")
         .def(py::init<>())
