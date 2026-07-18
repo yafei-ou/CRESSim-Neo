@@ -1,4 +1,4 @@
-#include "graphics/graphics_local_shadow_common.hlsli"
+#include "graphics_local_shadow_common.hlsli"
 
 struct IndirectCommandDesc
 {

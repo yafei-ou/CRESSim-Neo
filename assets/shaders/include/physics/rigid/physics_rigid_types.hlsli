@@ -1,8 +1,8 @@
 #ifndef CRESSIM_NEO_PHYSICS_RIGID_TYPES_HLSLI
 #define CRESSIM_NEO_PHYSICS_RIGID_TYPES_HLSLI
 
-#include "physics/collision/physics_shape_common.hlsli"
-#include "physics/shared/physics_indirect_dispatch.hlsli"
+#include "physics_shape_common.hlsli"
+#include "physics_indirect_dispatch.hlsli"
 
 static const uint kRigidBodyTypeStatic = 0u;
 static const uint kRigidBodyTypeKinematic = 1u;

@@ -1,7 +1,7 @@
-#include "physics/physics_rigid_dispatch_constants.hlsli"
-#include "physics/physics_atomic_float.hlsli"
-#include "physics/rigid/physics_rigid_types.hlsli"
-#include "physics/rigid/physics_rigid_solver_shared.hlsli"
+#include "physics_rigid_dispatch_constants.hlsli"
+#include "physics_atomic_float.hlsli"
+#include "physics_rigid_types.hlsli"
+#include "physics_rigid_solver_shared.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 

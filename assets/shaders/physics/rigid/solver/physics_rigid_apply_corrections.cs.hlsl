@@ -1,7 +1,7 @@
-#include "physics/physics_rigid_dispatch_constants.hlsli"
-#include "physics/physics_atomic_float.hlsli"
-#include "physics/rigid/physics_rigid_types.hlsli"
-#include "physics/core/physics_math.hlsli"
+#include "physics_rigid_dispatch_constants.hlsli"
+#include "physics_atomic_float.hlsli"
+#include "physics_rigid_types.hlsli"
+#include "physics_math.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);

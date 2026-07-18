@@ -1,6 +1,6 @@
-#include "physics/physics_particle_dispatch_constants.hlsli"
-#include "physics/particle/physics_particle_types.hlsli"
-#include "physics/core/physics_math.hlsli"
+#include "physics_particle_dispatch_constants.hlsli"
+#include "physics_particle_types.hlsli"
+#include "physics_math.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuStrandJointCorrection, g_StrandJointCorrections);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftConstraintRange, g_SegmentStrandJointRanges);

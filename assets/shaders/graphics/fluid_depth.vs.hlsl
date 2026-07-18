@@ -1,5 +1,5 @@
-#include "graphics/graphics_scene_buffers.hlsli"
-#include "graphics/graphics_camera_input.hlsli"
+#include "graphics_scene_buffers.hlsli"
+#include "graphics_camera_input.hlsli"
 
 cbuffer GraphicsFluidDepth
 {

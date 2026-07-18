@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_SHARED_INDIRECT_DISPATCH_HLSLI
 #define CRESSIM_NEO_PHYSICS_SHARED_INDIRECT_DISPATCH_HLSLI
 
-#include "physics/core/physics_base.hlsli"
+#include "physics_base.hlsli"
 
 static const uint kRigidContactsPerPair = 4u;
 static const uint kPhysicsIndirectSoftGenerateContacts = 0u;

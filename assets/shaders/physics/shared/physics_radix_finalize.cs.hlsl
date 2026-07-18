@@ -1,5 +1,5 @@
-#include "physics/core/physics_base.hlsli"
-#include "physics/physics_radix_constants.hlsli"
+#include "physics_base.hlsli"
+#include "physics_radix_constants.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_RadixBitFlags);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RadixBitOffsets);

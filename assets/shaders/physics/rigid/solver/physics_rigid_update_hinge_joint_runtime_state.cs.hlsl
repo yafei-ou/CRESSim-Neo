@@ -1,7 +1,7 @@
-#include "physics/physics_rigid_dispatch_constants.hlsli"
-#include "physics/physics_rigid_joint_dispatch_constants.hlsli"
-#include "physics/rigid/physics_rigid_types.hlsli"
-#include "physics/rigid/physics_rigid_joint_solver_shared.hlsli"
+#include "physics_rigid_dispatch_constants.hlsli"
+#include "physics_rigid_joint_dispatch_constants.hlsli"
+#include "physics_rigid_types.hlsli"
+#include "physics_rigid_joint_solver_shared.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);

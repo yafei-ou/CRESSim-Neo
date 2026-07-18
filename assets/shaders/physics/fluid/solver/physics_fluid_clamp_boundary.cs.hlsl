@@ -1,7 +1,7 @@
-#include "physics/physics_particle_dispatch_constants.hlsli"
-#include "physics/particle/physics_particle_types.hlsli"
-#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
-#include "physics/rigid/physics_rigid_types.hlsli"
+#include "physics_particle_dispatch_constants.hlsli"
+#include "physics_particle_types.hlsli"
+#include "physics_rigid_broad_phase_types.hlsli"
+#include "physics_rigid_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);
@@ -17,8 +17,8 @@ CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidIterationDeltaRW);
 
-#include "physics/fluid/physics_fluid_common.hlsli"
-#include "physics/fluid/physics_fluid_boundary_common.hlsli"
+#include "physics_fluid_common.hlsli"
+#include "physics_fluid_boundary_common.hlsli"
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)

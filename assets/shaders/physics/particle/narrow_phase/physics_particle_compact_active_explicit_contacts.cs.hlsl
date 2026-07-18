@@ -1,4 +1,4 @@
-#include "physics/particle/physics_particle_types.hlsli"
+#include "physics_particle_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuParticleContact, g_ParticleContacts);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ContactActiveFlags);

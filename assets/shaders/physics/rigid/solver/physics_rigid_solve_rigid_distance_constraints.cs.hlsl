@@ -1,7 +1,7 @@
-#include "physics/physics_rigid_dispatch_constants.hlsli"
-#include "physics/physics_atomic_float.hlsli"
-#include "physics/rigid/physics_rigid_types.hlsli"
-#include "physics/rigid/physics_rigid_joint_solver_shared.hlsli"
+#include "physics_rigid_dispatch_constants.hlsli"
+#include "physics_atomic_float.hlsli"
+#include "physics_rigid_types.hlsli"
+#include "physics_rigid_joint_solver_shared.hlsli"
 
 static const float kDistanceConstraintRelaxation = 0.95;
 static const float kMaxDistanceConstraintError = 0.08;

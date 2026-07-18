@@ -1,7 +1,7 @@
-#include "physics/physics_particle_dispatch_constants.hlsli"
-#include "physics/particle/physics_particle_types.hlsli"
-#include "physics/particle/physics_particle_grid.hlsli"
-#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
+#include "physics_particle_dispatch_constants.hlsli"
+#include "physics_particle_types.hlsli"
+#include "physics_particle_grid.hlsli"
+#include "physics_rigid_broad_phase_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuParticleBroadPhaseEntry, g_ParticleBroadPhaseEntries);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleCellRange, g_ParticleCellRanges);
@@ -17,7 +17,7 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleAdjacencyIndices);
 
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_CandidateCounts);
 
-#include "physics/particle/physics_particle_broad_phase_query.hlsli"
+#include "physics_particle_broad_phase_query.hlsli"
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)

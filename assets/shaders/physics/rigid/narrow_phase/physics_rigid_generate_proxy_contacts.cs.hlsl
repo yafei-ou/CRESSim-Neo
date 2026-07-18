@@ -1,10 +1,10 @@
-#include "physics/physics_rigid_dispatch_constants.hlsli"
-#include "physics/particle/physics_particle_types.hlsli"
-#include "physics/core/physics_math.hlsli"
-#include "physics/rigid/physics_rigid_types.hlsli"
-#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
-#include "physics/rigid/physics_rigid_contact_primitives.hlsli"
-#include "physics/rigid/physics_rigid_solver_shared.hlsli"
+#include "physics_rigid_dispatch_constants.hlsli"
+#include "physics_particle_types.hlsli"
+#include "physics_math.hlsli"
+#include "physics_rigid_types.hlsli"
+#include "physics_rigid_broad_phase_types.hlsli"
+#include "physics_rigid_contact_primitives.hlsli"
+#include "physics_rigid_solver_shared.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseMeta, g_BroadPhaseMeta);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuProxyRigidContactMeta, g_ProxyRigidContactMeta);

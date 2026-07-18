@@ -1,9 +1,9 @@
 #ifndef CRESSIM_NEO_PHYSICS_PARTICLE_BROAD_PHASE_QUERY_HLSLI
 #define CRESSIM_NEO_PHYSICS_PARTICLE_BROAD_PHASE_QUERY_HLSLI
 
-#include "physics/physics_particle_dispatch_constants.hlsli"
-#include "physics/particle/physics_particle_grid.hlsli"
-#include "physics/particle/physics_particle_types.hlsli"
+#include "physics_particle_dispatch_constants.hlsli"
+#include "physics_particle_grid.hlsli"
+#include "physics_particle_types.hlsli"
 
 GpuParticleCellRange FindCellRange(uint targetKey)
 {

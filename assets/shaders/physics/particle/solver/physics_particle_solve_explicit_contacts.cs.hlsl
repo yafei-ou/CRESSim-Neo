@@ -1,9 +1,9 @@
-#include "physics/physics_atomic_float.hlsli"
-#include "physics/particle/physics_particle_types.hlsli"
-#include "physics/rigid/physics_rigid_types.hlsli"
-#include "physics/rigid/physics_rigid_contact_primitives.hlsli"
-#include "physics/rigid/physics_rigid_solver_shared.hlsli"
-#include "physics/core/physics_math.hlsli"
+#include "physics_atomic_float.hlsli"
+#include "physics_particle_types.hlsli"
+#include "physics_rigid_types.hlsli"
+#include "physics_rigid_contact_primitives.hlsli"
+#include "physics_rigid_solver_shared.hlsli"
+#include "physics_math.hlsli"
 
 static const float kSoftContactRelaxation = 0.95;
 static const float kSoftMaxCorrectionPerIter = 0.05;

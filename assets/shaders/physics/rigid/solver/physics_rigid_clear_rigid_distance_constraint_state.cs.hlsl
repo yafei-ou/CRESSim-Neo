@@ -1,4 +1,4 @@
-#include "physics/physics_rigid_dispatch_constants.hlsli"
+#include "physics_rigid_dispatch_constants.hlsli"
 #include "structured_buffer_compat.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_RigidDistanceConstraintLambdas);

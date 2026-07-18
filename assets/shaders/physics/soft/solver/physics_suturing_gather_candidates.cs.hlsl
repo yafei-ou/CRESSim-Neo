@@ -1,5 +1,5 @@
-#include "physics/physics_particle_dispatch_constants.hlsli"
-#include "physics/particle/physics_particle_types.hlsli"
+#include "physics_particle_dispatch_constants.hlsli"
+#include "physics_particle_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerTypes);
 CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingNeighborLinks);

@@ -1,6 +1,6 @@
-#include "physics/shared/physics_indirect_dispatch.hlsli"
-#include "physics/rigid/physics_rigid_types.hlsli"
-#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
+#include "physics_indirect_dispatch.hlsli"
+#include "physics_rigid_types.hlsli"
+#include "physics_rigid_broad_phase_types.hlsli"
 
 static const uint kComputeThreadGroupSize = 64u;
 

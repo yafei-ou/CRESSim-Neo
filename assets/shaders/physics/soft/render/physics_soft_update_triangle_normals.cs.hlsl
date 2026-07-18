@@ -1,5 +1,5 @@
-#include "physics/physics_soft_render_dispatch_constants.hlsli"
-#include "physics/core/physics_base.hlsli"
+#include "physics_soft_render_dispatch_constants.hlsli"
+#include "physics_base.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(uint4, g_SoftRenderTriangleParticleIndices);

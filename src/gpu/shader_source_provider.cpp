@@ -276,7 +276,30 @@ bool ShaderSourceProvider::Impl::resolveConfig()
 
     if (config.includeSourceDirectory)
     {
-        resolvedIncludeDirectories.push_back(resolvedSourceDirectory / "include");
+        const std::filesystem::path includeDirectory = resolvedSourceDirectory / "include";
+        resolvedIncludeDirectories.push_back(includeDirectory);
+
+        std::error_code error;
+        if (std::filesystem::is_directory(includeDirectory, error))
+        {
+            std::filesystem::recursive_directory_iterator directoryIt{includeDirectory, error};
+            const std::filesystem::recursive_directory_iterator directoryEnd;
+            while (!error && directoryIt != directoryEnd)
+            {
+                if (directoryIt->is_directory(error))
+                {
+                    resolvedIncludeDirectories.push_back(directoryIt->path());
+                }
+                directoryIt.increment(error);
+            }
+            if (error)
+            {
+                CRESSIM_LOG_ERROR("Failed to enumerate shader include directory '",
+                                  includeDirectory.string(), "'.");
+                resolvedSourceDirectory.clear();
+                return false;
+            }
+        }
     }
     resolvedIncludeDirectories.insert(resolvedIncludeDirectories.end(),
                                       config.includeDirectories.begin(),

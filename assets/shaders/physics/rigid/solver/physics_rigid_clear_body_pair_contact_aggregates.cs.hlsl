@@ -1,5 +1,5 @@
-#include "physics/rigid/physics_rigid_types.hlsli"
-#include "physics/physics_rigid_dispatch_constants.hlsli"
+#include "physics_rigid_types.hlsli"
+#include "physics_rigid_dispatch_constants.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(GpuRigidBodyPairContactAggregateMapEntry,
                              g_RigidBodyPairAggregateMap);

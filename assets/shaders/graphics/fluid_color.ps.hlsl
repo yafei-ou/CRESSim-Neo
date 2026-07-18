@@ -1,5 +1,5 @@
 #include "structured_buffer_compat.hlsli"
-#include "graphics/graphics_camera_input.hlsli"
+#include "graphics_camera_input.hlsli"
 
 cbuffer GraphicsFluidColor
 {

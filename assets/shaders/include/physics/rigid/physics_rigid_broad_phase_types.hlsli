@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_RIGID_BROAD_PHASE_TYPES_HLSLI
 #define CRESSIM_NEO_PHYSICS_RIGID_BROAD_PHASE_TYPES_HLSLI
 
-#include "physics/collision/physics_shape_common.hlsli"
+#include "physics_shape_common.hlsli"
 
 struct GpuBroadPhaseElement
 {

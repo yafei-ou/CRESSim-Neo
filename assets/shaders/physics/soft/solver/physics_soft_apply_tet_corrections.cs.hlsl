@@ -1,5 +1,5 @@
-#include "physics/physics_particle_dispatch_constants.hlsli"
-#include "physics/particle/physics_particle_types.hlsli"
+#include "physics_particle_dispatch_constants.hlsli"
+#include "physics_particle_types.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftConstraintRange, g_ParticleTetRanges);

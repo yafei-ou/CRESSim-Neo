@@ -1,8 +1,8 @@
-#include "physics/particle/physics_particle_types.hlsli"
-#include "physics/core/physics_math.hlsli"
-#include "physics/collision/physics_shape_common.hlsli"
-#include "physics/rigid/physics_rigid_types.hlsli"
-#include "physics/rigid/physics_rigid_broad_phase_types.hlsli"
+#include "physics_particle_types.hlsli"
+#include "physics_math.hlsli"
+#include "physics_shape_common.hlsli"
+#include "physics_rigid_types.hlsli"
+#include "physics_rigid_broad_phase_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);

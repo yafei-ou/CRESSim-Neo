@@ -1,6 +1,6 @@
-#include "physics/physics_rigid_dispatch_constants.hlsli"
+#include "physics_rigid_dispatch_constants.hlsli"
 #include "structured_buffer_compat.hlsli"
-#include "physics/particle/physics_particle_types.hlsli"
+#include "physics_particle_types.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandRigidAttachmentLambda, g_StrandRigidAttachmentLambdas);
 

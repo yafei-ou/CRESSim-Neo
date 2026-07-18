@@ -1,5 +1,5 @@
 #include "structured_buffer_compat.hlsli"
-#include "graphics/graphics_camera_input.hlsli"
+#include "graphics_camera_input.hlsli"
 
 static const uint CRESSIM_LIGHT_TYPE_DIRECTIONAL = 0u;
 static const uint CRESSIM_LIGHT_TYPE_POINT = 1u;

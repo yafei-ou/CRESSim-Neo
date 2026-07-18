@@ -17,9 +17,9 @@ struct ShaderSourceConfig
 {
     // Entry-point shader paths are resolved relative to this directory.
     std::filesystem::path sourceDirectory;
-    // Adds <sourceDirectory>/include before includeDirectories when true.
+    // Adds <sourceDirectory>/include and its child directories before includeDirectories when true.
     bool includeSourceDirectory = true;
-    // Ordered roots used only for root-qualified #include directives.
+    // Additional ordered include roots searched after the engine shader headers.
     std::vector<std::filesystem::path> includeDirectories;
 };
 
