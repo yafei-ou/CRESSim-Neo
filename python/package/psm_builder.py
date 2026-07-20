@@ -119,6 +119,26 @@ _MISSING_JOINT_LIMIT = (0.0, 0.0)
 _MISSING_JAW_IDS = (_MISSING_JOINT_ID, _MISSING_JOINT_ID)
 
 
+def _srgb_channel_to_linear(value: float) -> float:
+    """Convert an sRGB material channel to the renderer's linear working space."""
+    srgb = min(max(float(value), 0.0), 1.0)
+    if srgb <= 0.04045:
+        return srgb / 12.92
+    return ((srgb + 0.055) / 1.055) ** 2.4
+
+
+def _srgb_rgba_to_linear(
+    rgba: tuple[float, float, float, float],
+) -> tuple[float, float, float, float]:
+    """Convert URDF display-color RGB while preserving its non-color alpha channel."""
+    return (
+        _srgb_channel_to_linear(rgba[0]),
+        _srgb_channel_to_linear(rgba[1]),
+        _srgb_channel_to_linear(rgba[2]),
+        float(rgba[3]),
+    )
+
+
 @dataclass
 class PsmRobotInstance:
     env_index: int
@@ -1072,7 +1092,9 @@ class _PsmAuthor:
                 )
             material_handles[link_name] = self._register_material(
                 f"PsmBuilder.Material.{link_name}",
-                materials.get(primary_visual["material_name"], (0.8, 0.8, 0.8, 1.0)),
+                _srgb_rgba_to_linear(
+                    materials.get(primary_visual["material_name"], (0.8, 0.8, 0.8, 1.0))
+                ),
                 0.55,
                 texture_handle,
             )
