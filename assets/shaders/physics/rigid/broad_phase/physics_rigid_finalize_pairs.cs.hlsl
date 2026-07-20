@@ -46,21 +46,21 @@ CRESSIM_RW_STRUCTURED_BUFFER(GpuBroadPhaseMeta, g_BroadPhaseMeta);
                     CRESSIM_SB_LOAD(g_PairCountsCapsuleCapsule, lastIndex);
     }
 
-    uint runningStart = 0u;
+    uint requiredPairCount = 0u;
     [unroll] for (uint type = 0u; type < kRigidPairTypeCount; ++type)
     {
         GpuRigidPairRange range;
         range.type = type;
-        range.start = runningStart;
-        range.count = counts[type];
+        range.start = min(requiredPairCount, candidatePairCapacity);
+        range.count = min(counts[type], candidatePairCapacity - range.start);
         range.reserved = 0u;
         CRESSIM_SB_STORE(g_RigidPairRanges, type, range);
-        runningStart += counts[type];
+        requiredPairCount += counts[type];
     }
 
     GpuBroadPhaseMeta meta = CRESSIM_SB_LOAD(g_BroadPhaseMeta, 0);
-    meta.candidatePairCount = runningStart;
-    meta.requiredPairCount = runningStart;
-    meta.overflow = runningStart > candidatePairCapacity ? 1u : 0u;
+    meta.candidatePairCount = min(requiredPairCount, candidatePairCapacity);
+    meta.requiredPairCount = requiredPairCount;
+    meta.overflow = requiredPairCount > candidatePairCapacity ? 1u : 0u;
     CRESSIM_SB_STORE(g_BroadPhaseMeta, 0, meta);
 }
