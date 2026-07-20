@@ -231,9 +231,9 @@ int main()
     }
 
     const float firstCenterDepth = cressim::neo::tests::helpers::decodeDepthValue(
-        firstEvent, firstEvent.width / 2u, firstEvent.height / 2u);
+        firstEvent, firstEvent.depthWidth / 2u, firstEvent.depthHeight / 2u);
     const float secondCenterDepth = cressim::neo::tests::helpers::decodeDepthValue(
-        secondEvent, secondEvent.width / 2u, secondEvent.height / 2u);
+        secondEvent, secondEvent.depthWidth / 2u, secondEvent.depthHeight / 2u);
 
     if (!(secondCenterDepth < firstCenterDepth))
     {
