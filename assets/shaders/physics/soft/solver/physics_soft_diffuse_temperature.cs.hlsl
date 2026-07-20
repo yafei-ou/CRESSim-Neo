@@ -14,6 +14,7 @@ bool isEdgeActive(uint flags)
     return (flags & kSoftEdgeActiveFlag) != 0u &&
            (flags & kSoftEdgeDisabledFlag) == 0u &&
            (flags & kSoftEdgeCutFlag) == 0u &&
+           (flags & kSoftEdgeThermalCutFlag) == 0u &&
            (flags & kSoftEdgeFracturedFlag) == 0u;
 }
 

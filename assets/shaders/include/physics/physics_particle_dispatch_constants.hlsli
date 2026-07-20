@@ -75,7 +75,7 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     float electrocauteryToolHeatRadius;
     float electrocauteryToolAblationRadius;
     float electrocauteryToolHeatingRateCPerSecond;
-    float electrocauteryToolReserved1;
+    float electrocauteryToolAblationInfluenceThreshold;
     float electrocauteryToolReserved2;
 };
 

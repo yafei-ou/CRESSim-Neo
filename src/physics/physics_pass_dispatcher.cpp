@@ -280,7 +280,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mApplyElectrocauteryToolPass, kApplyElectrocauteryTool) ||
         !initPass(mDiffuseSoftTemperaturePass, kDiffuseSoftTemperature) ||
         !initPass(mUpdateSoftThermalStatePass, kUpdateSoftThermalState) ||
-        !initPass(mApplySoftThermalShrinkagePass, kApplySoftThermalShrinkage) ||
+        !initPass(mApplySoftThermalEdgeResponsePass, kApplySoftThermalEdgeResponse) ||
         !initPass(mEvaluateSoftFracturePass, kEvaluateSoftFracture) ||
         !initPass(mValidateShapeClustersPass, kValidateShapeClusters) ||
         !initSolverConfigPass(mSolveSoftEdgeConstraintsPass, kSolveSoftEdgeConstraints) ||
@@ -2314,7 +2314,7 @@ bool PhysicsPassDispatcher::updateSoftThermalState(
     return dispatched;
 }
 
-bool PhysicsPassDispatcher::applySoftThermalShrinkage(
+bool PhysicsPassDispatcher::applySoftThermalEdgeResponse(
     Diligent::IDeviceContext *computeContext, PhysicsSceneGpuState &sceneState,
     std::uint32_t softEdgeCount, const GpuParticleDispatchConstants &constants)
 {
@@ -2328,7 +2328,8 @@ bool PhysicsPassDispatcher::applySoftThermalShrinkage(
     const auto &transient = sceneState.transientBuffers();
     const PhysicsGpuSceneView sceneView = sceneState.sceneView();
     Diligent::IBuffer *thermalStateRead = sceneState.softThermalStateReadBuffer();
-    if (softParticles.owningSoftBodyIndicesBuffer == nullptr ||
+    if (softParticles.positionsInvMassBuffer == nullptr ||
+        softParticles.owningSoftBodyIndicesBuffer == nullptr ||
         sceneView.soft.thermal.thermalMaterialsBuffer == nullptr ||
         thermalStateRead == nullptr ||
         softTopology.edgesBuffer == nullptr ||
@@ -2340,6 +2341,8 @@ bool PhysicsPassDispatcher::applySoftThermalShrinkage(
     const std::array bindings{
         gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
                               mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleOwningSoftBodyIndices",
                               softParticles.owningSoftBodyIndicesBuffer,
@@ -2356,8 +2359,8 @@ bool PhysicsPassDispatcher::applySoftThermalShrinkage(
     };
 
     return writeParticleDispatchConstants(computeContext, constants) &&
-           mApplySoftThermalShrinkagePass.dispatch(computeContext, kDefaultVariant, bindings,
-                                                   dispatchGroupCount(softEdgeCount));
+           mApplySoftThermalEdgeResponsePass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                      dispatchGroupCount(softEdgeCount));
 }
 
 bool PhysicsPassDispatcher::evaluateSoftFracture(
@@ -6061,7 +6064,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
         mApplyElectrocauteryToolPass.forceRecreateAllVariants() &&
         mDiffuseSoftTemperaturePass.forceRecreateAllVariants() &&
         mUpdateSoftThermalStatePass.forceRecreateAllVariants() &&
-        mApplySoftThermalShrinkagePass.forceRecreateAllVariants() &&
+        mApplySoftThermalEdgeResponsePass.forceRecreateAllVariants() &&
         mEvaluateSoftFracturePass.forceRecreateAllVariants() &&
         mValidateShapeClustersPass.forceRecreateAllVariants() &&
         mSolveSoftEdgeConstraintsPass.forceRecreateAllVariants() &&

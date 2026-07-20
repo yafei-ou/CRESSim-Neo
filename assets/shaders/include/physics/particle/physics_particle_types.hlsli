@@ -31,6 +31,7 @@ static const uint kSoftEdgeActiveFlag = 1u << 0u;
 static const uint kSoftEdgeCutFlag = 1u << 1u;
 static const uint kSoftEdgeFracturedFlag = 1u << 2u;
 static const uint kSoftEdgeDisabledFlag = 1u << 3u;
+static const uint kSoftEdgeThermalCutFlag = 1u << 4u;
 
 struct GpuParticleBroadPhaseEntry
 {
@@ -275,7 +276,10 @@ uint GetSoftEdgeOtherParticle(GpuSoftEdge edge, uint particleIndex)
 bool IsSoftEdgeTopologyConductive(GpuSoftEdge edge)
 {
     return (edge.flags & kSoftEdgeActiveFlag) != 0u &&
-           (edge.flags & kSoftEdgeDisabledFlag) == 0u;
+           (edge.flags & kSoftEdgeDisabledFlag) == 0u &&
+           (edge.flags & kSoftEdgeCutFlag) == 0u &&
+           (edge.flags & kSoftEdgeThermalCutFlag) == 0u &&
+           (edge.flags & kSoftEdgeFracturedFlag) == 0u;
 }
 
 GpuSoftThermalAdjacency MakeSoftThermalAdjacency(uint particleIndex,

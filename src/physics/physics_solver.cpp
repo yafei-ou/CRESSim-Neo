@@ -661,23 +661,6 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
-        if (mechanicalBladeActive && softEdgeCount > 0u &&
-            !mImpl->passDispatcher.applySoftCuttingTool(
-                computeBackend.computeContext, mImpl->sceneState, softEdgeCount,
-                particleConstants))
-        {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ApplySoftCuttingTool dispatch.");
-            return false;
-        }
-        if (hasShapeMatchingWork &&
-            !mImpl->passDispatcher.validateShapeClusters(
-                computeBackend.computeContext, mImpl->sceneState, shapeClusterCount,
-                particleConstants))
-        {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ValidateShapeClusters dispatch.");
-            return false;
-        }
-
         if (particleCount > 0u &&
             !mImpl->passDispatcher.diffuseSoftTemperature(
                 computeBackend.computeContext, mImpl->sceneState, particleConstants))
@@ -695,11 +678,29 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         }
 
         if (softEdgeCount > 0u &&
-            !mImpl->passDispatcher.applySoftThermalShrinkage(
+            !mImpl->passDispatcher.applySoftThermalEdgeResponse(
                 computeBackend.computeContext, mImpl->sceneState, softEdgeCount,
                 particleConstants))
         {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ApplySoftThermalShrinkage dispatch.");
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: ApplySoftThermalEdgeResponse dispatch.");
+            return false;
+        }
+
+        if (mechanicalBladeActive && softEdgeCount > 0u &&
+            !mImpl->passDispatcher.applySoftCuttingTool(
+                computeBackend.computeContext, mImpl->sceneState, softEdgeCount,
+                particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ApplySoftCuttingTool dispatch.");
+            return false;
+        }
+        if (hasShapeMatchingWork &&
+            !mImpl->passDispatcher.validateShapeClusters(
+                computeBackend.computeContext, mImpl->sceneState, shapeClusterCount,
+                particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ValidateShapeClusters dispatch.");
             return false;
         }
 

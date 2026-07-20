@@ -3406,6 +3406,8 @@ void PhysicsWorld::setElectrocauteryTool(const ElectrocauteryToolGPU &tool) noex
     normalized.ablationRadius =
         std::clamp(normalized.ablationRadius, 0.0f, normalized.heatRadius);
     normalized.heatingRateCPerSecond = std::max(normalized.heatingRateCPerSecond, 0.0f);
+    normalized.ablationInfluenceThreshold =
+        std::clamp(normalized.ablationInfluenceThreshold, 0.0f, 1.0f);
     if (normalized.mode == static_cast<std::uint32_t>(ElectrocauteryToolMode::Disabled))
     {
         normalized.query.enabled = 0u;

@@ -481,10 +481,11 @@ static_assert(sizeof(FluidMaterialGpu) == 48u);
 
 enum SoftEdgeFlags : std::uint32_t
 {
-    Edge_Active    = 1u << 0u,
-    Edge_Cut       = 1u << 1u,
-    Edge_Fractured = 1u << 2u,
-    Edge_Disabled  = 1u << 3u,
+    Edge_Active     = 1u << 0u,
+    Edge_Cut        = 1u << 1u,
+    Edge_Fractured  = 1u << 2u,
+    Edge_Disabled   = 1u << 3u,
+    Edge_ThermalCut = 1u << 4u,
 };
 
 enum class CuttingToolShape : std::uint32_t
@@ -570,7 +571,7 @@ struct alignas(16) ElectrocauteryToolGPU
 
     float ablationRadius = 0.01f;
     float heatingRateCPerSecond = 0.0f;
-    float reserved1 = 0.0f;
+    float ablationInfluenceThreshold = 0.5f;
     float reserved2 = 0.0f;
 };
 
