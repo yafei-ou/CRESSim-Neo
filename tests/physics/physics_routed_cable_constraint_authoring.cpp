@@ -68,7 +68,10 @@ int main()
     updated.enabled = false;
     if (!world.upsertRoutedCableConstraint(updated) ||
         world.routedCableDefinitionRevision() == definitionRevision ||
-        !world.routedCableConstraints().empty())
+        world.routedCableConstraints().size() != 1u ||
+        world.routedCableConstraints()[0].enabled != 0u ||
+        std::abs(world.routedCableConstraints()[0].targetLength - 1.0f) > 1.0e-6f ||
+        world.routedCableRoutePoints().size() != 3u)
     {
         CRESSIM_LOG_ERROR("Runtime routed cable payload update behaved incorrectly.\n");
         return 1;

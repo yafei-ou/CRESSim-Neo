@@ -369,7 +369,8 @@ int main()
     engine::RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend = gpu::GpuBackend::Vulkan;
     config.gpuDeviceDesc.enableValidation = false;
-    config.sceneLayout.envCount           = 3u;
+    constexpr std::uint32_t kInitialEnvCount = 3u;
+    config.sceneLayout.envCount              = kInitialEnvCount + 1u;
 
     engine::Runtime runtime;
     if (!runtime.initialize(config))
@@ -381,7 +382,7 @@ int main()
 
     auto &world = runtime.getWorld();
     std::vector<AuthoredCartpoleEnv> authored;
-    for (std::uint32_t envIndex = 0; envIndex < config.sceneLayout.envCount; ++envIndex)
+    for (std::uint32_t envIndex = 0; envIndex < kInitialEnvCount; ++envIndex)
     {
         authored.push_back(authorEnv(world, envIndex));
         if (authored.back().ball == physics::kInvalidBallJointId ||
@@ -431,7 +432,7 @@ int main()
         return 1;
     }
 
-    const AuthoredCartpoleEnv added = authorEnv(world, 2u);
+    const AuthoredCartpoleEnv added = authorEnv(world, kInitialEnvCount);
     if (added.ball == physics::kInvalidBallJointId ||
         added.slider == physics::kInvalidSliderJointId ||
         added.spherical == physics::kInvalidSphericalJointId ||

@@ -59,7 +59,9 @@ int main()
     updated.enabled = false;
     if (!world.upsertRigidDistanceConstraint(updated) ||
         world.rigidDistanceConstraintDefinitionRevision() == definitionRevision ||
-        !world.rigidDistanceConstraints().empty())
+        world.rigidDistanceConstraints().size() != 1u ||
+        world.rigidDistanceConstraints()[0].enabled != 0u ||
+        std::abs(world.rigidDistanceConstraints()[0].restDistance - 0.5f) > 1.0e-6f)
     {
         CRESSIM_LOG_ERROR("Rigid distance runtime payload update behaved incorrectly.\n");
         return 1;

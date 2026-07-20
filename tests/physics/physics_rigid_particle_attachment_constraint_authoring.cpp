@@ -72,7 +72,9 @@ int main()
     updated.enabled    = false;
     if (!world.upsertRigidParticleAttachmentConstraint(updated) ||
         world.rigidParticleAttachmentDefinitionRevision() == definitionRevision ||
-        !world.rigidParticleAttachments().empty())
+        world.rigidParticleAttachments().size() != 1u ||
+        world.rigidParticleAttachments()[0].enabled != 0u ||
+        std::abs(world.rigidParticleAttachments()[0].compliance - 0.05f) > 1.0e-6f)
     {
         CRESSIM_LOG_ERROR("Rigid-particle attachment runtime payload update behaved incorrectly.\n");
         return 1;
@@ -87,7 +89,8 @@ int main()
     updated.rigidBodyEntityId = 0u;
     if (world.upsertRigidParticleAttachmentConstraint(updated) ||
         world.rigidParticleAttachmentConstraintSnapshot().size() != 1u ||
-        !world.rigidParticleAttachments().empty())
+        world.rigidParticleAttachments().size() != 1u ||
+        world.rigidParticleAttachments()[0].enabled != 0u)
     {
         CRESSIM_LOG_ERROR("Invalid rigid-particle attachment should be rejected.\n");
         return 1;

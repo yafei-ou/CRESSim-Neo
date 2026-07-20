@@ -94,7 +94,8 @@ int main()
 
     updated.enabled            = false;
     if (!world.upsertStrandRigidAttachmentConstraint(updated) ||
-        !world.strandRigidAttachments().empty())
+        world.strandRigidAttachments().size() != 1u ||
+        world.strandRigidAttachments()[0].enabled != 0u)
     {
         CRESSIM_LOG_ERROR("Disabling strand-rigid attachment did not rebuild.\n");
         return 1;
@@ -104,7 +105,8 @@ int main()
     updated.localSegmentIndex = 9u;
     if (world.upsertStrandRigidAttachmentConstraint(updated) ||
         world.strandRigidAttachmentConstraintSnapshot().size() != 1u ||
-        !world.strandRigidAttachments().empty())
+        world.strandRigidAttachments().size() != 1u ||
+        world.strandRigidAttachments()[0].enabled != 0u)
     {
         CRESSIM_LOG_ERROR("Invalid strand-rigid attachment should be rejected.\n");
         return 1;
@@ -116,7 +118,8 @@ int main()
         CRESSIM_LOG_ERROR("Valid strand-rigid attachment update failed.\n");
         return 1;
     }
-    if (world.strandRigidAttachments().size() != 1u)
+    if (world.strandRigidAttachments().size() != 1u ||
+        world.strandRigidAttachments()[0].enabled != 1u)
     {
         CRESSIM_LOG_ERROR("Valid strand-rigid attachment did not rebuild.\n");
         return 1;
