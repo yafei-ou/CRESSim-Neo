@@ -135,7 +135,6 @@ int main(int argc, char** argv)
     ground.visible = true;
     world.setMeshRenderer(groundEntity, ground);
     RigidBodyComponent groundBody{};
-    groundBody.simulated = true;
     groundBody.bodyType = cressim::neo::physics::RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
@@ -155,7 +154,6 @@ int main(int argc, char** argv)
     frontCube.visible = true;
     world.setMeshRenderer(frontCubeEntity, frontCube);
     RigidBodyComponent frontCubeBody{};
-    frontCubeBody.simulated = true;
     frontCubeBody.inverseMass = 1.0f;
     frontCubeBody.inverseInertiaLocal =
         cressim::neo::examples::helpers::computeBoxInverseInertia(
@@ -178,7 +176,6 @@ int main(int argc, char** argv)
     backCube.visible = true;
     world.setMeshRenderer(backCubeEntity, backCube);
     RigidBodyComponent backCubeBody{};
-    backCubeBody.simulated = true;
     backCubeBody.inverseMass = 1.0f;
     backCubeBody.inverseInertiaLocal =
         cressim::neo::examples::helpers::computeBoxInverseInertia(

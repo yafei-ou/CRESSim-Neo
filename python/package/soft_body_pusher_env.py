@@ -514,7 +514,6 @@ class SoftBodyPusherTorchVectorEnv(TorchStagedVectorEnvBase):
             ground_body = neo.RigidBodyComponent()
             ground_body.body_type = neo.RigidBodyType.Static
             ground_body.inverse_mass = 0.0
-            ground_body.simulated = True
             world.set_rigid_body(ground_entity, ground_body)
             ground_collider = _make_box_collider(ground_half)
             ground_collider.friction = 0.90
@@ -560,7 +559,6 @@ class SoftBodyPusherTorchVectorEnv(TorchStagedVectorEnvBase):
             soft.material.contact.friction = 0.82
             soft.material.contact.static_friction = 1.05
             soft.material.contact.damping = 0.35
-            soft.simulated = True
             soft.self_collision_enabled = True
             soft.collision_layer = 0x1
             soft.collision_mask = 0xFFFFFFFF
@@ -577,7 +575,6 @@ class SoftBodyPusherTorchVectorEnv(TorchStagedVectorEnvBase):
             pusher_body = neo.RigidBodyComponent()
             pusher_body.body_type = neo.RigidBodyType.Kinematic
             pusher_body.inverse_mass = 1.0
-            pusher_body.simulated = True
             pusher_body.kinematic_target_enabled = True
             pusher_body.kinematic_target_position = pusher_transform.world_transform.position
             world.set_rigid_body(pusher_entity, pusher_body)

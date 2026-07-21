@@ -166,7 +166,6 @@ void addBoxRigidBody(cressim::neo::engine::World &world, Runtime &runtime,
     world.setMeshRenderer(entity, renderer);
 
     RigidBodyComponent body{};
-    body.simulated = true;
     body.bodyType = bodyType;
     body.inverseMass = bodyType == RigidBodyType::Static ? 0.0f : 1.0f;
     body.inverseInertiaLocal =
@@ -199,7 +198,6 @@ void addSphereRigidBody(cressim::neo::engine::World &world, Runtime &runtime,
     world.setMeshRenderer(entity, renderer);
 
     RigidBodyComponent body{};
-    body.simulated = true;
     body.bodyType = bodyType;
     body.inverseMass = bodyType == RigidBodyType::Static ? 0.0f : 1.0f;
     body.inverseInertiaLocal =
@@ -235,7 +233,6 @@ void addProxyBoxRigidBody(cressim::neo::engine::World &world, Runtime &runtime,
     world.setMeshRenderer(entity, renderer);
 
     RigidBodyComponent body{};
-    body.simulated = true;
     body.bodyType = bodyType;
     body.inverseMass = bodyType == RigidBodyType::Static ? 0.0f : 1.0f;
     body.inverseInertiaLocal = bodyType == RigidBodyType::Static
@@ -271,7 +268,6 @@ void addProxySphereRigidBody(cressim::neo::engine::World &world, Runtime &runtim
     world.setMeshRenderer(entity, renderer);
 
     RigidBodyComponent body{};
-    body.simulated = true;
     body.bodyType = bodyType;
     body.inverseMass = bodyType == RigidBodyType::Static ? 0.0f : 1.0f;
     body.inverseInertiaLocal =
@@ -461,7 +457,6 @@ int main(int argc, char **argv)
     world.setMeshRenderer(groundEntity, groundRenderer);
 
     RigidBodyComponent groundBody{};
-    groundBody.simulated = true;
     groundBody.bodyType = RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};

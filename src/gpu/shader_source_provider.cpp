@@ -99,10 +99,11 @@ public:
 
     using Diligent::IObject::QueryInterface;
 
-    Diligent::Bool DILIGENT_CALL_TYPE CreateInputStream(const Diligent::Char *name,
-                                                       Diligent::IFileStream **ppStream) override final
+    Diligent::Bool DILIGENT_CALL_TYPE
+    CreateInputStream(const Diligent::Char *name, Diligent::IFileStream **ppStream) override final
     {
-        return CreateInputStream2(name, Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_NONE, ppStream);
+        return CreateInputStream2(name, Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_NONE,
+                                  ppStream);
     }
 
     Diligent::Bool DILIGENT_CALL_TYPE CreateInputStream2(
@@ -146,8 +147,7 @@ public:
             }
         }
 
-        if (!created &&
-            (flags & Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT) == 0)
+        if (!created && (flags & Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT) == 0)
         {
             LOG_ERROR_MESSAGE("Failed to create input stream for source file ", name);
         }

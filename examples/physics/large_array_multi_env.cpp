@@ -367,7 +367,6 @@ void authorGround(World& world, std::uint32_t envIndex, const Diligent::float3& 
     world.setMeshRenderer(groundEntity, MeshRendererComponent{planeMesh, groundMaterial, true});
 
     RigidBodyComponent groundBody{};
-    groundBody.simulated = true;
     groundBody.bodyType = RigidBodyType::Static;
     world.setRigidBody(groundEntity, groundBody);
 
@@ -411,7 +410,6 @@ void authorContainerWalls(World& world, std::uint32_t envIndex, const Diligent::
         world.setMeshRenderer(wallEntity, MeshRendererComponent{wallMesh, wallMaterial, true});
 
         RigidBodyComponent wallBody{};
-        wallBody.simulated = true;
         wallBody.bodyType = RigidBodyType::Static;
         world.setRigidBody(wallEntity, wallBody);
 
@@ -503,7 +501,6 @@ void authorDynamicArray(World& world, std::uint32_t envIndex, std::uint32_t envC
                     entity, MeshRendererComponent{meshForShape(shape), materialForShape(shape), true});
 
                 RigidBodyComponent body{};
-                body.simulated = true;
                 body.inverseMass = 1.0f;
                 body.inverseInertiaLocal =
                     cressim::neo::examples::helpers::computeInverseInertiaForShape(

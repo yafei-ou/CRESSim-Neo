@@ -37,7 +37,6 @@ int main()
     world.setTransform(floorEntity, floorTransform);
 
     engine::RigidBodyComponent floorBody{};
-    floorBody.simulated = true;
     floorBody.bodyType = physics::RigidBodyType::Static;
     floorBody.inverseMass = 0.0f;
     floorBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};

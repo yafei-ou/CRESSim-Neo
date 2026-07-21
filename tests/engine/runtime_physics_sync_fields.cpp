@@ -32,7 +32,6 @@ int main()
     world.setCamera(cameraEntity, camera);
 
     engine::RigidBodyComponent rigidBody{};
-    rigidBody.simulated = true;
     rigidBody.bodyType = physics::RigidBodyType::Kinematic;
     rigidBody.inverseMass = 0.5f;
     rigidBody.linearVelocity = {2.0f, 0.0f, -1.0f};

@@ -179,7 +179,6 @@ bool testRigidDistanceToggle()
     engine::RigidBodyComponent baseBody{};
     baseBody.bodyType = physics::RigidBodyType::Kinematic;
     baseBody.inverseMass = 1.0f;
-    baseBody.simulated = true;
     baseBody.kinematicTargetEnabled = true;
     baseBody.kinematicTargetPosition = baseTransform.worldTransform.position;
     world.setRigidBody(baseEntity, baseBody);
@@ -192,7 +191,6 @@ bool testRigidDistanceToggle()
     targetBody.bodyType = physics::RigidBodyType::Dynamic;
     targetBody.inverseMass = 1.0f;
     targetBody.inverseInertiaLocal = {1.0f, 1.0f, 1.0f};
-    targetBody.simulated = true;
     world.setRigidBody(targetEntity, targetBody);
     engine::ColliderComponent targetCollider{};
     targetCollider.shapeType = physics::ColliderShapeType::Box;
@@ -325,7 +323,6 @@ bool testRoutedCableToggle()
     engine::RigidBodyComponent baseBody{};
     baseBody.bodyType = physics::RigidBodyType::Kinematic;
     baseBody.inverseMass = 1.0f;
-    baseBody.simulated = true;
     baseBody.kinematicTargetEnabled = true;
     baseBody.kinematicTargetPosition = baseTransform.worldTransform.position;
     world.setRigidBody(baseEntity, baseBody);
@@ -338,7 +335,6 @@ bool testRoutedCableToggle()
     targetBody.bodyType = physics::RigidBodyType::Dynamic;
     targetBody.inverseMass = 1.0f;
     targetBody.inverseInertiaLocal = {1.0f, 1.0f, 1.0f};
-    targetBody.simulated = true;
     world.setRigidBody(targetEntity, targetBody);
     engine::ColliderComponent targetCollider{};
     targetCollider.shapeType = physics::ColliderShapeType::Box;

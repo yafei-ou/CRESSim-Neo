@@ -752,7 +752,6 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             ground_body = neo.RigidBodyComponent()
             ground_body.body_type = neo.RigidBodyType.Static
             ground_body.inverse_mass = 0.0
-            ground_body.simulated = True
             world.set_rigid_body(ground_entity, ground_body)
             ground_collider = neo.ColliderComponent()
             ground_collider.shape_type = neo.ColliderShapeType.Box
@@ -786,7 +785,6 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             soft.particle_radius = 0.02
             soft.edge_compliance = 0.0
             soft.volume_compliance = 8.0e-4
-            soft.simulated = True
             soft.self_collision_enabled = False
             soft.collision_layer = 0x1
             soft.collision_mask = 0xFFFFFFFF

@@ -126,7 +126,6 @@ AuthoredCartpoleEnv authorEnv(cressim::neo::engine::World &world, const std::uin
     engine::RigidBodyComponent baseBody{};
     baseBody.bodyType    = physics::RigidBodyType::Static;
     baseBody.inverseMass = 0.0f;
-    baseBody.simulated   = true;
     world.setRigidBody(authored.base, baseBody);
 
     engine::ColliderComponent baseCollider{};
@@ -144,7 +143,6 @@ AuthoredCartpoleEnv authorEnv(cressim::neo::engine::World &world, const std::uin
     cartBody.bodyType          = physics::RigidBodyType::Dynamic;
     cartBody.inverseMass       = 1.0f;
     cartBody.inverseInertiaLocal = {2.0f, 2.0f, 2.0f};
-    cartBody.simulated         = true;
     world.setRigidBody(authored.cart, cartBody);
 
     engine::ColliderComponent cartCollider{};
@@ -162,7 +160,6 @@ AuthoredCartpoleEnv authorEnv(cressim::neo::engine::World &world, const std::uin
     poleBody.bodyType            = physics::RigidBodyType::Dynamic;
     poleBody.inverseMass         = 0.5f;
     poleBody.inverseInertiaLocal = {1.5f, 1.5f, 1.5f};
-    poleBody.simulated           = true;
     world.setRigidBody(authored.pole, poleBody);
 
     engine::ColliderComponent poleCollider{};

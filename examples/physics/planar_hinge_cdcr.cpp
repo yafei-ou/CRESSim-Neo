@@ -436,7 +436,6 @@ int main(int argc, char **argv)
             (kTopY - kBaseHalfExtents.y - kLinkHalfExtents.y) - static_cast<float>(i) * linkLength;
 
         RigidBodyComponent body{};
-        body.simulated            = true;
         body.bodyType             = RigidBodyType::Dynamic;
         body.inverseMass          = (i + 1u == sceneOptions.linkCount) ? 0.65f : 0.95f;
         body.inverseInertiaLocal  = cressim::neo::examples::helpers::computeBoxInverseInertia(

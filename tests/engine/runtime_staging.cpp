@@ -208,7 +208,6 @@ int main()
     RigidBodyComponent rigidBody{};
     rigidBody.linearVelocity = {1.5f, 0.0f, 0.0f};
     rigidBody.inverseMass = 1.0f;
-    rigidBody.simulated = true;
     world.setRigidBody(rigidEntity, rigidBody);
 
     ColliderComponent rigidCollider{};

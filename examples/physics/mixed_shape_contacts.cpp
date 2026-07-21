@@ -269,7 +269,6 @@ int main(int argc, char** argv)
     groundMesh.visible = true;
     world.setMeshRenderer(groundEntity, groundMesh);
     RigidBodyComponent groundBody{};
-    groundBody.simulated = true;
     groundBody.bodyType = cressim::neo::physics::RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
@@ -297,7 +296,6 @@ int main(int argc, char** argv)
     world.setMeshRenderer(compositeEntity, compositeMesh);
 
     RigidBodyComponent compositeBody{};
-    compositeBody.simulated = true;
     compositeBody.inverseMass = 1.0f;
     compositeBody.inverseInertiaLocal =
         cressim::neo::examples::helpers::computeBoxInverseInertia(
@@ -342,7 +340,6 @@ int main(int argc, char** argv)
     world.setMeshRenderer(singleColliderEntity, singleColliderMesh);
 
     RigidBodyComponent singleColliderBody{};
-    singleColliderBody.simulated = true;
     singleColliderBody.inverseMass = 1.0f;
     singleColliderBody.inverseInertiaLocal =
         cressim::neo::examples::helpers::computeBoxInverseInertia(
@@ -369,7 +366,6 @@ int main(int argc, char** argv)
     world.setMeshRenderer(sphereReferenceEntity, sphereReferenceMesh);
 
     RigidBodyComponent sphereReferenceBody{};
-    sphereReferenceBody.simulated = true;
     sphereReferenceBody.inverseMass = 1.0f;
     sphereReferenceBody.inverseInertiaLocal =
         cressim::neo::examples::helpers::computeSphereInverseInertia(
@@ -395,7 +391,6 @@ int main(int argc, char** argv)
     // world.setMeshRenderer(probeEntity, probeMesh);
 
     // RigidBodyComponent probeBody{};
-    // probeBody.simulated = true;
     // probeBody.inverseMass = 1.0f;
     // probeBody.inverseInertiaLocal = computeBoxInverseInertia({0.45f, 0.45f, 0.45f},
     //                                                          probeBody.inverseMass);

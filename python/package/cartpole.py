@@ -622,7 +622,6 @@ class CartpoleTorchVectorEnv:
             base_body = neo.RigidBodyComponent()
             base_body.body_type = neo.RigidBodyType.Static
             base_body.inverse_mass = 0.0
-            base_body.simulated = True
             world.set_rigid_body(base_entity, base_body)
             base_collider = neo.ColliderComponent()
             base_collider.shape_type = neo.ColliderShapeType.Box
@@ -638,7 +637,6 @@ class CartpoleTorchVectorEnv:
             cart_body.body_type = neo.RigidBodyType.Dynamic
             cart_body.inverse_mass = 1.0
             cart_body.inverse_inertia_local = neo.Float3(2.0, 2.0, 2.0)
-            cart_body.simulated = True
             world.set_rigid_body(cart_entity, cart_body)
             cart_collider = neo.ColliderComponent()
             cart_collider.shape_type = neo.ColliderShapeType.Box
@@ -654,7 +652,6 @@ class CartpoleTorchVectorEnv:
             pole_body.body_type = neo.RigidBodyType.Dynamic
             pole_body.inverse_mass = 0.5
             pole_body.inverse_inertia_local = neo.Float3(1.5, 1.5, 1.5)
-            pole_body.simulated = True
             world.set_rigid_body(pole_entity, pole_body)
             pole_collider = neo.ColliderComponent()
             pole_collider.shape_type = neo.ColliderShapeType.Box

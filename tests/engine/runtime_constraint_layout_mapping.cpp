@@ -37,7 +37,6 @@ AuthoredConstraintEnv authorEnv(cressim::neo::engine::World &world, const std::u
     engine::RigidBodyComponent baseBody{};
     baseBody.bodyType    = physics::RigidBodyType::Static;
     baseBody.inverseMass = 0.0f;
-    baseBody.simulated   = true;
     world.setRigidBody(authored.base, baseBody);
 
     engine::ColliderComponent baseCollider{};
@@ -54,7 +53,6 @@ AuthoredConstraintEnv authorEnv(cressim::neo::engine::World &world, const std::u
     targetBody.bodyType            = physics::RigidBodyType::Dynamic;
     targetBody.inverseMass         = 1.0f;
     targetBody.inverseInertiaLocal = {1.0f, 1.0f, 1.0f};
-    targetBody.simulated           = true;
     world.setRigidBody(authored.target, targetBody);
 
     engine::ColliderComponent targetCollider{};
@@ -68,7 +66,6 @@ AuthoredConstraintEnv authorEnv(cressim::neo::engine::World &world, const std::u
     strand.staticParticleIndices = {0u};
     strand.particleRadius        = 0.02f;
     strand.particleMass          = 0.1f;
-    strand.simulated             = true;
     if (!world.setStrand(authored.strand, strand))
     {
         return authored;

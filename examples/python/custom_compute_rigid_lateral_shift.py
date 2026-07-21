@@ -141,7 +141,6 @@ def _author_scene(runtime: neo.Runtime, target) -> neo.GpuRenderTargetBinding:
         body = neo.RigidBodyComponent()
         body.body_type = neo.RigidBodyType.Kinematic
         body.inverse_mass = 1.0
-        body.simulated = True
         world.set_rigid_body(entity, body)
 
         collider = neo.ColliderComponent()

@@ -64,7 +64,6 @@ void spawnStaticBox(cressim::neo::engine::World &world, MeshHandle mesh, Materia
     world.setMeshRenderer(entity, renderer);
 
     RigidBodyComponent body{};
-    body.simulated = true;
     body.bodyType = RigidBodyType::Static;
     body.inverseMass = 0.0f;
     body.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
@@ -88,7 +87,6 @@ void spawnStaticBox(cressim::neo::engine::World &world, cressim::neo::common::En
     world.setMeshRenderer(entity, MeshRendererComponent{mesh, material, true});
 
     RigidBodyComponent body{};
-    body.simulated = true;
     body.bodyType = RigidBodyType::Static;
     body.inverseMass = 0.0f;
     body.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};

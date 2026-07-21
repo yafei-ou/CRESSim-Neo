@@ -1042,7 +1042,6 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
         ground_body = neo.RigidBodyComponent()
         ground_body.body_type = neo.RigidBodyType.Static
         ground_body.inverse_mass = 0.0
-        ground_body.simulated = True
         world.set_rigid_body(ground_entity, ground_body)
         ground_collider = neo.ColliderComponent()
         ground_collider.shape_type = neo.ColliderShapeType.Box
@@ -1093,7 +1092,6 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
         soft.material.contact.friction = 0.82
         soft.material.contact.static_friction = 1.05
         soft.material.contact.damping = 0.40
-        soft.simulated = True
         soft.self_collision_enabled = True
         soft.collision_layer = 0x1
         soft.collision_mask = 0xFFFFFFFF

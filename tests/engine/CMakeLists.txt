@@ -96,14 +96,6 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE engine
-    NAME soft_body_simulated_toggle
-    SOURCE soft_body_simulated_toggle.cpp
-    INCLUDE_SRC
-    LIBS cressim_neo_engine
-)
-
-add_cressim_test(
-    SUITE engine
     NAME soft_body_runtime_update_preserves_state
     SOURCE soft_body_runtime_update_preserves_state.cpp
     INCLUDE_SRC

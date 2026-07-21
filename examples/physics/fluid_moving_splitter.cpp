@@ -149,7 +149,6 @@ void spawnStaticBox(cressim::neo::engine::World &world, std::uint32_t envIndex, 
     world.setMeshRenderer(entity, renderer);
 
     RigidBodyComponent body{};
-    body.simulated = true;
     body.bodyType = RigidBodyType::Static;
     body.inverseMass = 0.0f;
     body.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
@@ -173,7 +172,6 @@ void spawnStaticCollisionBox(cressim::neo::engine::World &world, std::uint32_t e
     world.setTransform(entity, transform);
 
     RigidBodyComponent body{};
-    body.simulated = true;
     body.bodyType = RigidBodyType::Static;
     body.inverseMass = 0.0f;
     body.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
@@ -338,7 +336,6 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     world.setMeshRenderer(splitterEntity, splitterRenderer);
 
     RigidBodyComponent splitterBody{};
-    splitterBody.simulated = true;
     splitterBody.bodyType = RigidBodyType::Kinematic;
     splitterBody.inverseMass = 0.0f;
     splitterBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};

@@ -16,7 +16,6 @@ int main()
 
     engine::RigidBodyComponent rigidBody{};
     rigidBody.bodyType = physics::RigidBodyType::Dynamic;
-    rigidBody.simulated = true;
     rigidBody.linearVelocity = {0.5f, 0.0f, 0.0f};
     world.setRigidBody(entity, rigidBody);
 

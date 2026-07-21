@@ -82,7 +82,6 @@ int main()
     engine::RigidBodyComponent body{};
     body.bodyType    = physics::RigidBodyType::Kinematic;
     body.inverseMass = 1.0f;
-    body.simulated   = true;
     world.setRigidBody(bodyEntity, body);
 
     engine::ColliderComponent collider{};

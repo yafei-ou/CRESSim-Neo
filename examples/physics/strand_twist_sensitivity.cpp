@@ -225,7 +225,6 @@ void setKinematicHandle(Runtime &runtime, EntityId entity, const Diligent::float
     world.setMeshRenderer(entity, MeshRendererComponent{mesh, material, true});
 
     RigidBodyComponent body{};
-    body.simulated               = true;
     body.bodyType                = RigidBodyType::Kinematic;
     body.inverseMass             = 0.0f;
     body.kinematicTargetEnabled  = true;

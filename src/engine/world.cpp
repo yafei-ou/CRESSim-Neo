@@ -1489,17 +1489,6 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
         return;
     }
 
-    if (!component.simulated)
-    {
-        if (mImpl->mPhysicsWorld.removeRigidBody(entityId))
-        {
-            mImpl->clearColliderLinks(entityId);
-            mImpl->mPhysicsRenderableMappingsDirty = true;
-        }
-        mImpl->mPhysicsLinks[entityId].hasRigidBody = false;
-        return;
-    }
-
     mImpl->ensureEntityPoseSlot(entityId);
 
     TransformComponent transform{};
@@ -1565,12 +1554,6 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
         return false;
     }
 
-    if (!component.simulated)
-    {
-        (void)removeSoftBody(entityId);
-        return true;
-    }
-
     if (!tryGetMeshRenderer(entityId).has_value())
     {
         CRESSIM_LOG_WARNING("setSoftBody without a mesh renderer on the same entity.");
@@ -1620,12 +1603,6 @@ bool World::setMeshfreeSoftBody(common::EntityId entityId,
     if (!mImpl->requireAliveEntity(entityId, "setMeshfreeSoftBody"))
     {
         return false;
-    }
-
-    if (!component.simulated)
-    {
-        (void)removeSoftBody(entityId);
-        return true;
     }
 
     TransformComponent transform{};
@@ -1694,12 +1671,6 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
     if (!mImpl->requireAliveEntity(entityId, "setStrand"))
     {
         return false;
-    }
-
-    if (!component.simulated)
-    {
-        (void)removeStrand(entityId);
-        return true;
     }
 
     physics::StrandState state{};
@@ -2010,12 +1981,6 @@ bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
     if (!mImpl->requireAliveEntity(entityId, "setFluid"))
     {
         return false;
-    }
-
-    if (!component.simulated)
-    {
-        (void)removeFluid(entityId);
-        return true;
     }
 
     TransformComponent transform{};
@@ -2552,7 +2517,6 @@ std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entity
     }
 
     RigidBodyComponent component{};
-    component.simulated                   = true;
     component.bodyType                    = rb->bodyType;
     component.linearVelocity              = rb->linearVelocity;
     component.angularVelocity             = rb->angularVelocity;

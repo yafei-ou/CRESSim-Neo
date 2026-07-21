@@ -506,7 +506,6 @@ int main(int argc, char **argv)
         const auto entity = world.createEntity();
         const float y     = kTopY - static_cast<float>(i) * sceneOptions.diskSpacing;
         RigidBodyComponent body{};
-        body.simulated = true;
         if (i == 0u)
         {
             body.bodyType            = RigidBodyType::Static;

@@ -210,7 +210,6 @@ int main(int argc, char** argv)
     ground.visible = true;
     world.setMeshRenderer(groundEntity, ground);
     RigidBodyComponent groundBody{};
-    groundBody.simulated = true;
     groundBody.bodyType = cressim::neo::physics::RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
@@ -250,7 +249,6 @@ int main(int argc, char** argv)
     frontMesh.visible = true;
     world.setMeshRenderer(frontEntity, frontMesh);
     RigidBodyComponent frontBody{};
-    frontBody.simulated = true;
     frontBody.inverseMass = 1.0f;
     frontBody.inverseInertiaLocal =
         cressim::neo::examples::helpers::computeInverseInertiaForShape(
@@ -273,7 +271,6 @@ int main(int argc, char** argv)
     backMesh.visible = true;
     world.setMeshRenderer(backEntity, backMesh);
     RigidBodyComponent backBody{};
-    backBody.simulated = true;
     backBody.inverseMass = 1.0f;
     if (legacyBoxPair)
     {

@@ -131,7 +131,6 @@ struct RigidBodyComponent
     Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF kinematicTargetRotation{0.0f, 0.0f, 0.0f, 1.0f};
     bool kinematicTargetEnabled = false;
-    bool simulated              = true;
 };
 
 struct ColliderComponent
@@ -157,7 +156,6 @@ struct SoftBodyComponent
     float particleRadius         = 0.125f;
     float edgeCompliance         = 0.0f;
     float volumeCompliance       = 0.001f;
-    bool simulated               = true;
     bool selfCollisionEnabled    = false;
     bool supportsSuturing        = false;
     std::uint32_t collisionLayer = 1u;
@@ -176,7 +174,6 @@ struct MeshfreeSoftBodyComponent
     float particleMass           = 0.001f;
     std::uint32_t neighbourCount = 12u;
     float compliance             = 1.0e-6f;
-    bool simulated               = true;
     bool selfCollisionEnabled    = false;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
@@ -194,7 +191,6 @@ struct StrandComponent
     float twistCompliance        = 0.0f;
     float distanceCompliance     = 0.0f;
     Diligent::float3 rootMaterialNormal{0.0f, 1.0f, 0.0f};
-    bool simulated               = true;
     bool selfCollisionEnabled    = false;
     bool suturingEnabled         = false;
     // Without an authored suturing sequence, suturing-enabled strands currently use
@@ -219,7 +215,6 @@ struct FluidComponent
     Diligent::float4 visualColor{0.32f, 0.62f, 0.95f, 0.72f};
     float particleMass           = 1.0f;
     float particleRadius         = 0.125f;
-    bool simulated               = true;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
 };

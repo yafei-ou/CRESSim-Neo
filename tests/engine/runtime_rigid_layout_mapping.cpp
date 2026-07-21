@@ -27,7 +27,6 @@ AuthoredRigidEntities authorEnv(cressim::neo::engine::World &world, const std::u
 
     engine::RigidBodyComponent groundBody{};
     groundBody.bodyType  = physics::RigidBodyType::Static;
-    groundBody.simulated = true;
     world.setRigidBody(authored.ground, groundBody);
 
     engine::ColliderComponent groundCollider{};
@@ -43,7 +42,6 @@ AuthoredRigidEntities authorEnv(cressim::neo::engine::World &world, const std::u
     engine::RigidBodyComponent boxBody{};
     boxBody.bodyType    = physics::RigidBodyType::Kinematic;
     boxBody.inverseMass = 1.0f;
-    boxBody.simulated   = true;
     world.setRigidBody(authored.box, boxBody);
 
     engine::ColliderComponent boxCollider{};

@@ -1383,7 +1383,6 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         ground_body = neo.RigidBodyComponent()
         ground_body.body_type = neo.RigidBodyType.Static
         ground_body.inverse_mass = 0.0
-        ground_body.simulated = True
         world.set_rigid_body(ground_entity, ground_body)
         ground_collider = neo.ColliderComponent()
         ground_collider.shape_type = neo.ColliderShapeType.Box
@@ -1435,7 +1434,6 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         soft_body.volume_compliance = self.DEFAULT_CONTAINER_VOLUME_COMPLIANCE
         soft_body.self_collision_enabled = False
         soft_body.supports_suturing = False
-        soft_body.simulated = True
         soft_body.collision_layer = 0x1
         soft_body.collision_mask = 0xFFFFFFFF
         soft_body.material.contact.friction = self.DEFAULT_CONTAINER_CONTACT_FRICTION
@@ -1490,7 +1488,6 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         fluid.material.surface_tension = 1.5
         particle_diameter = 2.0 * fluid.particle_radius
         fluid.particle_mass = particle_diameter * particle_diameter * particle_diameter * 10.0
-        fluid.simulated = True
         fluid.visual_color = neo.Float4(0.90, 0.16, 0.16, 0.80)
         if not world.set_fluid(fluid_entity, fluid):
             raise RuntimeError(f"Failed to author fluid body for env {env_index}.")

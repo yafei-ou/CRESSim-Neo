@@ -371,7 +371,6 @@ int main(int argc, char **argv)
     world.setMeshRenderer(groundEntity, MeshRendererComponent{groundMesh, groundMaterial, true});
 
     RigidBodyComponent groundBody{};
-    groundBody.simulated = true;
     groundBody.bodyType = RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
@@ -434,7 +433,6 @@ int main(int argc, char **argv)
     driverContactMaterial.damping = 0.02f;
 
     RigidBodyComponent driverBody{};
-    driverBody.simulated = true;
     driverBody.bodyType = RigidBodyType::Kinematic;
     driverBody.proxyCollisionLayer = 0x4u;
     driverBody.proxyCollisionMask = 0x1u | 0x2u;

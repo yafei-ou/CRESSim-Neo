@@ -62,7 +62,6 @@ void spawnStaticBox(cressim::neo::engine::World &world, MeshHandle mesh, Materia
     world.setMeshRenderer(entity, renderer);
 
     RigidBodyComponent body{};
-    body.simulated = true;
     body.bodyType = RigidBodyType::Static;
     body.inverseMass = 0.0f;
     body.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
@@ -86,7 +85,6 @@ void spawnStaticCollisionBox(cressim::neo::engine::World &world,
     world.setTransform(entity, transform);
 
     RigidBodyComponent body{};
-    body.simulated = true;
     body.bodyType = RigidBodyType::Static;
     body.inverseMass = 0.0f;
     body.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};

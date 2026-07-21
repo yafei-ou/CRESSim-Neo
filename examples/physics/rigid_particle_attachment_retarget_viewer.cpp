@@ -186,7 +186,6 @@ void authorScene(Runtime &runtime, MeshHandle handleMesh, MeshHandle groundMesh,
     RigidBodyComponent handleBody{};
     handleBody.bodyType = RigidBodyType::Kinematic;
     handleBody.inverseMass = 1.0f;
-    handleBody.simulated = true;
     handleBody.kinematicTargetEnabled = true;
     handleBody.kinematicTargetPosition = handleTransform.worldTransform.position;
     world.setRigidBody(handleEntity, handleBody);
@@ -197,7 +196,6 @@ void authorScene(Runtime &runtime, MeshHandle handleMesh, MeshHandle groundMesh,
     strandA.staticParticleIndices = {0u};
     strandA.particleRadius = 0.045f;
     strandA.particleMass = 0.08f;
-    strandA.simulated = true;
     if (!world.setStrand(strandAEntity, strandA))
     {
         throw std::runtime_error("Failed to author strand A.");
@@ -209,7 +207,6 @@ void authorScene(Runtime &runtime, MeshHandle handleMesh, MeshHandle groundMesh,
     strandB.staticParticleIndices = {0u};
     strandB.particleRadius = 0.045f;
     strandB.particleMass = 0.08f;
-    strandB.simulated = true;
     if (!world.setStrand(strandBEntity, strandB))
     {
         throw std::runtime_error("Failed to author strand B.");

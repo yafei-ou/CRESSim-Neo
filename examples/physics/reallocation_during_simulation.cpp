@@ -64,7 +64,6 @@ void spawnWave(cressim::neo::engine::World& world, MeshHandle cubeMesh,
         world.setMeshRenderer(entity, meshRenderer);
 
         RigidBodyComponent body{};
-        body.simulated = true;
         body.bodyType = dynamicBodies ? cressim::neo::physics::RigidBodyType::Dynamic
                                       : cressim::neo::physics::RigidBodyType::Static;
         body.inverseMass = dynamicBodies ? 1.0f : 0.0f;
@@ -196,7 +195,6 @@ int main(int argc, char** argv)
     world.setMeshRenderer(groundEntity, groundRenderer);
 
     RigidBodyComponent groundBody{};
-    groundBody.simulated = true;
     groundBody.bodyType = cressim::neo::physics::RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};

@@ -619,7 +619,6 @@ class FluidPouringTorchVectorEnv(TorchStagedVectorEnvBase):
             ground_body = neo.RigidBodyComponent()
             ground_body.body_type = neo.RigidBodyType.Static
             ground_body.inverse_mass = 0.0
-            ground_body.simulated = True
             world.set_rigid_body(ground_entity, ground_body)
             world.add_collider(ground_entity, _make_box_collider(ground_half))
             if self.enable_rgb_observation:
@@ -644,7 +643,6 @@ class FluidPouringTorchVectorEnv(TorchStagedVectorEnvBase):
             source_body.body_type = neo.RigidBodyType.Kinematic
             source_body.inverse_mass = 0.0
             source_body.inverse_inertia_local = neo.Float3(0.0, 0.0, 0.0)
-            source_body.simulated = True
             source_body.kinematic_target_enabled = True
             source_body.kinematic_target_position = source_transform.world_transform.position
             world.set_rigid_body(source_entity, source_body)
@@ -670,7 +668,6 @@ class FluidPouringTorchVectorEnv(TorchStagedVectorEnvBase):
             target_body = neo.RigidBodyComponent()
             target_body.body_type = neo.RigidBodyType.Static
             target_body.inverse_mass = 0.0
-            target_body.simulated = True
             world.set_rigid_body(target_entity, target_body)
             if not world.replace_colliders(
                 target_entity, _make_container_colliders(cup_inner_half, wall_thickness)
@@ -710,7 +707,6 @@ class FluidPouringTorchVectorEnv(TorchStagedVectorEnvBase):
             fluid.material.surface_tension = 1.5
             particle_diameter = 2.0 * fluid.particle_radius
             fluid.particle_mass = particle_diameter * particle_diameter * particle_diameter * 1000.0
-            fluid.simulated = True
             fluid.visual_color = neo.Float4(0.16, 0.56, 0.96, 0.4)
             if not world.set_fluid(fluid_entity, fluid):
                 raise RuntimeError(f"Failed to author fluid body for env {env_index}.")

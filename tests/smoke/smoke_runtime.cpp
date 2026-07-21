@@ -188,7 +188,6 @@ int runSmoke(cressim::neo::gpu::GpuBackend backend)
     rigidTransform.worldTransform.position = {-0.2f, 0.1f, 0.0f};
     world.setTransform(rigidEntity, rigidTransform);
     cressim::neo::engine::RigidBodyComponent rigidBody{};
-    rigidBody.simulated = true;
     rigidBody.inverseMass = 1.0f;
     rigidBody.linearVelocity = {0.25f, 0.0f, 0.0f};
     rigidBody.angularVelocity = {0.0f, 0.1f, 0.0f};
