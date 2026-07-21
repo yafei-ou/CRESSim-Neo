@@ -1,3 +1,6 @@
 [submodule "extern/DiligentEngine"]
 	path = extern/DiligentEngine
 	url = git@github.com:DiligentGraphics/DiligentEngine.git
+[submodule "extern/CRESSim-Ultrasound"]
+	path = extern/CRESSim-Ultrasound
+	url = https://github.com/yafei-ou/CRESSim-Ultrasound.git
