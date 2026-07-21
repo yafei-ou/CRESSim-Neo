@@ -525,6 +525,12 @@ struct DeformableDistanceConstraint
     std::uint32_t particleB = 0u;
     float restLength        = 0.0f;
     float compliance        = 0.0f;
+    // Keep authored constraints resident in the GPU edge buffer so enable/disable can be
+    // evaluated by the solver instead of changing the constraint's GPU identity.
+    std::uint32_t enabled   = 1u;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+    std::uint32_t reserved2 = 0u;
 };
 
 using SoftEdge = DeformableDistanceConstraint;

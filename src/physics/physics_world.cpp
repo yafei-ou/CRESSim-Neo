@@ -5308,11 +5308,6 @@ void PhysicsWorld::Impl::rebuildSoftParticleLayout() noexcept
     for (const AuthoredParticleDistanceConstraintState &constraint :
          mParticleDistanceConstraintSnapshot)
     {
-        if (!constraint.enabled)
-        {
-            continue;
-        }
-
         const auto particleA = resolveParticleReference(constraint.particleA);
         const auto particleB = resolveParticleReference(constraint.particleB);
         if (!particleA.has_value() || !particleB.has_value() || *particleA == *particleB)
@@ -5332,6 +5327,7 @@ void PhysicsWorld::Impl::rebuildSoftParticleLayout() noexcept
         resolved.particleB  = *particleB;
         resolved.restLength = constraint.restLength;
         resolved.compliance = constraint.compliance;
+        resolved.enabled    = constraint.enabled ? 1u : 0u;
         mSoftEdges.push_back(resolved);
     }
 
@@ -5716,11 +5712,6 @@ void PhysicsWorld::Impl::rebuildSoftConstraintData() noexcept
     for (const AuthoredParticleDistanceConstraintState &constraint :
          mParticleDistanceConstraintSnapshot)
     {
-        if (!constraint.enabled)
-        {
-            continue;
-        }
-
         const auto particleA = resolveParticleReference(constraint.particleA);
         const auto particleB = resolveParticleReference(constraint.particleB);
         if (!particleA.has_value() || !particleB.has_value() || *particleA == *particleB)
@@ -5740,6 +5731,7 @@ void PhysicsWorld::Impl::rebuildSoftConstraintData() noexcept
         resolved.particleB  = *particleB;
         resolved.restLength = constraint.restLength;
         resolved.compliance = constraint.compliance;
+        resolved.enabled    = constraint.enabled ? 1u : 0u;
         mSoftEdges.push_back(resolved);
     }
 

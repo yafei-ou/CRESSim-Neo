@@ -70,7 +70,7 @@ void main(uint vertexId : SV_VertexID, out VSOutput Out)
     const CameraInput cameraInput = CRESSIM_SB_LOAD(g_CameraInputs, g_DebugParticleCameraIndex);
     const uint particleEnvIndex = CRESSIM_SB_LOAD(g_ParticleEnvironmentIndices, particleIndex);
 
-    if (preparedCamera.active == 0u || cameraInput.active == 0u ||
+    if (edge.enabled == 0u || preparedCamera.active == 0u || cameraInput.active == 0u ||
         particleEnvIndex != g_DebugParticleEnvIndex)
     {
         Out.Position = float4(2.0, 2.0, 2.0, 1.0);

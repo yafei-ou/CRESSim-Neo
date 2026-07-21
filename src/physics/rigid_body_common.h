@@ -808,6 +808,7 @@ static_assert(sizeof(GpuParticleCellRange) == 16u);
 static_assert(sizeof(GpuParticleRigidContact) == 64u);
 static_assert(sizeof(GpuParticleContact) == 48u);
 static_assert(sizeof(GpuSoftConstraintRange) == 16u);
+static_assert(sizeof(DeformableDistanceConstraint) == 32u);
 static_assert(sizeof(GpuSoftIncidentEdge) == 16u);
 static_assert(sizeof(GpuSoftIncidentBend) == 16u);
 static_assert(sizeof(GpuSoftIncidentTet) == 16u);

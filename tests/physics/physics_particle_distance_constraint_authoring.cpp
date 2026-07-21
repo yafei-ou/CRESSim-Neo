@@ -81,7 +81,8 @@ int main()
     if (attachmentConstraint.particleA != expectedNeedleParticle ||
         attachmentConstraint.particleB != expectedStrandParticle ||
         std::abs(attachmentConstraint.restLength) > 1.0e-6f ||
-        std::abs(attachmentConstraint.compliance - 0.005f) > 1.0e-6f)
+        std::abs(attachmentConstraint.compliance - 0.005f) > 1.0e-6f ||
+        attachmentConstraint.enabled != 1u)
     {
         CRESSIM_LOG_ERROR("Resolved authored attachment constraint is incorrect.\n");
         return 1;
@@ -92,16 +93,18 @@ int main()
     updated.enabled = false;
     world.upsertParticleDistanceConstraint(updated);
 
-    if (world.distanceConstraints().size() != 0u)
+    if (world.distanceConstraints().size() != 1u ||
+        world.distanceConstraints().back().enabled != 0u)
     {
-        CRESSIM_LOG_ERROR("Disabled authored particle constraint should not resolve.\n");
+        CRESSIM_LOG_ERROR("Disabled authored particle constraint should remain resolved but disabled.\n");
         return 1;
     }
 
     updated.enabled = true;
     world.upsertParticleDistanceConstraint(updated);
     if (world.distanceConstraints().size() != 1u ||
-        std::abs(world.distanceConstraints().back().compliance - 0.01f) > 1.0e-6f)
+        std::abs(world.distanceConstraints().back().compliance - 0.01f) > 1.0e-6f ||
+        world.distanceConstraints().back().enabled != 1u)
     {
         CRESSIM_LOG_ERROR("Updated authored particle constraint did not rebuild correctly.\n");
         return 1;

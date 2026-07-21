@@ -20,6 +20,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     edgeCorrection.correctionA = float4(0.0, 0.0, 0.0, 0.0);
     edgeCorrection.correctionB = float4(0.0, 0.0, 0.0, 0.0);
 
+    if (edge.enabled == 0u)
+    {
+        CRESSIM_SB_STORE(g_SoftEdgeCorrections, edgeIndex, edgeCorrection);
+        return;
+    }
+
     const uint particleA = edge.particleA;
     const uint particleB = edge.particleB;
 

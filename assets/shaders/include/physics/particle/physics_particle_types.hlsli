@@ -113,6 +113,10 @@ struct GpuSoftEdge
     uint particleB;
     float restLength;
     float compliance;
+    uint enabled;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
 };
 
 struct GpuSoftTet
