@@ -43,7 +43,6 @@ int main()
     soft.particleRadius                           = 0.1f;
     soft.edgeCompliance                           = 0.0f;
     soft.volumeCompliance = 0.0f;
-    soft.simulated         = true;
     soft.selfCollisionEnabled = true;
     soft.collisionLayer       = 0x2u;
     soft.collisionMask        = 0x9u;

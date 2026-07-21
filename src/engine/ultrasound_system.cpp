@@ -1717,7 +1717,7 @@ bool UltrasoundSystem::prepare(World &world)
         }
 
         const physics::SoftBodyState *softBody = physicsWorld.tryGetSoftBody(sourceEntityId);
-        if (softBody == nullptr || !softBody->simulated || softBody->particleCount == 0u)
+        if (softBody == nullptr || softBody->particleCount == 0u)
         {
             continue;
         }
@@ -1885,7 +1885,7 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
             continue;
         }
         const physics::SoftBodyState *softBody = physicsWorld.tryGetSoftBody(sourceEntityId);
-        if (softBody == nullptr || !softBody->simulated || softBody->particleCount == 0u)
+        if (softBody == nullptr || softBody->particleCount == 0u)
         {
             continue;
         }

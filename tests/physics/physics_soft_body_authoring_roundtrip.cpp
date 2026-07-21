@@ -25,7 +25,6 @@ int main()
     softBody.particleRadius       = 0.18f;
     softBody.edgeCompliance       = 0.03f;
     softBody.volumeCompliance     = 0.04f;
-    softBody.simulated            = true;
     softBody.selfCollisionEnabled = true;
     softBody.collisionLayer       = 0x4u;
     softBody.collisionMask        = 0x12u;

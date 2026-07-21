@@ -354,7 +354,6 @@ struct SoftBodyState
     float particleRadius               = 0.125f;
     float edgeCompliance               = 0.0f;
     float volumeCompliance             = 0.0f;
-    bool simulated                     = true;
     bool selfCollisionEnabled          = false;
     std::uint32_t contactMaterialIndex = 0u;
     std::uint32_t particleOffset       = 0u;
@@ -383,7 +382,6 @@ struct StrandState
     float twistCompliance        = 0.0f;
     float distanceCompliance     = 0.0f;
     Diligent::float3 rootMaterialNormal{0.0f, 1.0f, 0.0f};
-    bool simulated                     = true;
     bool selfCollisionEnabled          = false;
     std::uint32_t contactMaterialIndex = 0u;
     std::uint32_t particleOffset       = 0u;
@@ -408,7 +406,6 @@ struct FluidState
     common::Transform restTransform{};
     float particleMass                 = 1.0f;
     float particleRadius               = 0.125f;
-    bool simulated                     = true;
     std::uint32_t contactMaterialIndex = 0u;
     std::uint32_t fluidMaterialIndex   = 0u;
     std::uint32_t particleOffset       = 0u;

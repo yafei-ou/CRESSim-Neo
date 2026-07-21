@@ -1592,7 +1592,6 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     state.particleRadius       = component.particleRadius;
     state.edgeCompliance       = component.edgeCompliance;
     state.volumeCompliance     = component.volumeCompliance;
-    state.simulated            = component.simulated;
     state.selfCollisionEnabled = component.selfCollisionEnabled;
     state.supportsSuturing     = component.supportsSuturing;
     state.collisionLayer       = component.collisionLayer;
@@ -1651,7 +1650,6 @@ bool World::setMeshfreeSoftBody(common::EntityId entityId,
     state.particleRadius                                 = component.particleRadius;
     state.edgeCompliance                                 = component.compliance;
     state.volumeCompliance                               = 0.0f;
-    state.simulated                                      = component.simulated;
     state.selfCollisionEnabled                           = component.selfCollisionEnabled;
     state.collisionLayer                                 = component.collisionLayer;
     state.collisionMask                                  = component.collisionMask;
@@ -1717,7 +1715,6 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
     state.twistCompliance        = component.twistCompliance;
     state.distanceCompliance     = component.distanceCompliance;
     state.rootMaterialNormal     = component.rootMaterialNormal;
-    state.simulated              = component.simulated;
     state.selfCollisionEnabled   = component.selfCollisionEnabled;
     state.suturingEnabled        = component.suturingEnabled;
     state.pathNodeSpacing        = component.pathNodeSpacing;
@@ -2036,7 +2033,6 @@ bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
     state.restTransform    = transform.worldTransform;
     state.particleMass     = component.particleMass;
     state.particleRadius   = component.particleRadius;
-    state.simulated        = component.simulated;
     state.collisionLayer   = component.collisionLayer;
     state.collisionMask    = component.collisionMask;
 
@@ -2590,7 +2586,6 @@ std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId
     component.particleRadius       = softBody->particleRadius;
     component.edgeCompliance       = softBody->edgeCompliance;
     component.volumeCompliance     = softBody->volumeCompliance;
-    component.simulated            = softBody->simulated;
     component.selfCollisionEnabled = softBody->selfCollisionEnabled;
     component.supportsSuturing     = softBody->supportsSuturing;
     component.collisionLayer       = softBody->collisionLayer;
@@ -2617,7 +2612,6 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
     component.twistCompliance        = strand->twistCompliance;
     component.distanceCompliance     = strand->distanceCompliance;
     component.rootMaterialNormal     = strand->rootMaterialNormal;
-    component.simulated              = strand->simulated;
     component.selfCollisionEnabled   = strand->selfCollisionEnabled;
     component.suturingEnabled        = strand->suturingEnabled;
     component.pathNodeSpacing        = strand->pathNodeSpacing;
@@ -2649,7 +2643,6 @@ std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) cons
     component.visualColor    = fluid->visualColor;
     component.particleMass   = fluid->particleMass;
     component.particleRadius = fluid->particleRadius;
-    component.simulated      = fluid->simulated;
     component.collisionLayer = fluid->collisionLayer;
     component.collisionMask  = fluid->collisionMask;
     return component;

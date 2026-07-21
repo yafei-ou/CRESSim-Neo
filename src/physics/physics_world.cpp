@@ -4041,7 +4041,6 @@ void PhysicsWorld::Impl::applySoftBodyRuntimeProperties(
     softBody.particleRadius                      = normalizedState.particleRadius;
     softBody.edgeCompliance                      = normalizedState.edgeCompliance;
     softBody.volumeCompliance                    = normalizedState.volumeCompliance;
-    softBody.simulated                           = normalizedState.simulated;
     softBody.selfCollisionEnabled                = normalizedState.selfCollisionEnabled;
     softBody.supportsSuturing                    = normalizedState.supportsSuturing;
 
@@ -4120,7 +4119,6 @@ void PhysicsWorld::Impl::applyStrandRuntimeProperties(std::uint32_t index,
     strand.twistCompliance                       = normalizedState.twistCompliance;
     strand.distanceCompliance                    = normalizedState.distanceCompliance;
     strand.rootMaterialNormal                    = normalizedState.rootMaterialNormal;
-    strand.simulated                             = normalizedState.simulated;
     strand.selfCollisionEnabled                  = normalizedState.selfCollisionEnabled;
     strand.suturingEnabled                       = normalizedState.suturingEnabled;
     strand.pathNodeSpacing                       = normalizedState.pathNodeSpacing;
