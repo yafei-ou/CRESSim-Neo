@@ -55,7 +55,6 @@ dist
 .cache
 .codex
 .DS_Store
-extern
 
 # Python
 __pycache__

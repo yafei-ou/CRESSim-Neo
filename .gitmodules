@@ -1,0 +1,3 @@
+[submodule "extern/DiligentEngine"]
+	path = extern/DiligentEngine
+	url = git@github.com:DiligentGraphics/DiligentEngine.git
