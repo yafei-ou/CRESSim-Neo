@@ -5,76 +5,19 @@ from pathlib import Path
 
 import cressim_neo as neo
 import torch
-from live_capture_utils import InteractiveImageCapture, rgb_tensor_to_numpy
+from live_capture_utils import (
+    InteractiveImageCapture,
+    create_rgb_ultrasound_grid_figure,
+    rgb_tensor_to_numpy,
+    update_rgb_ultrasound_grid_figure,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 try:
     import matplotlib.pyplot as plt
-    import numpy as np
 except ImportError as exc:
-    raise RuntimeError("This example requires matplotlib and numpy to be installed.") from exc
-
-
-def create_live_figure(
-    rgb_tensor: "torch.Tensor",
-    observation_tensor: "torch.Tensor",
-) -> tuple["plt.Figure", np.ndarray, np.ndarray]:
-    rgb_images = rgb_tensor_to_numpy(rgb_tensor)
-    ultrasound_images = observation_tensor[:, -1].detach().cpu().numpy()
-    env_count = rgb_images.shape[0]
-    column_count = min(4, env_count)
-    row_count = math.ceil(env_count / column_count)
-    figure, axes = plt.subplots(
-        row_count * 2,
-        column_count,
-        figsize=(4 * column_count, 6 * row_count),
-        squeeze=False,
-    )
-    rgb_artists: list[np.ndarray] = []
-    ultrasound_artists: list[np.ndarray] = []
-    for env_index in range(env_count):
-        row_index = env_index // column_count
-        column_index = env_index % column_count
-        rgb_axis = axes[row_index * 2, column_index]
-        ultrasound_axis = axes[row_index * 2 + 1, column_index]
-        rgb_artist = rgb_axis.imshow(
-            rgb_images[env_index], animated=True
-        )
-        ultrasound_artist = ultrasound_axis.imshow(
-            ultrasound_images[env_index], cmap="gray", vmin=0.0, vmax=1.0, animated=True
-        )
-        rgb_axis.set_title(f"Env {env_index} RGB")
-        ultrasound_axis.set_title(f"Env {env_index} Ultrasound")
-        rgb_axis.axis("off")
-        ultrasound_axis.axis("off")
-        rgb_artists.append(rgb_artist)
-        ultrasound_artists.append(ultrasound_artist)
-    for env_index in range(env_count, row_count * column_count):
-        row_index = env_index // column_count
-        column_index = env_index % column_count
-        axes[row_index * 2, column_index].axis("off")
-        axes[row_index * 2 + 1, column_index].axis("off")
-    figure.tight_layout()
-    plt.show(block=False)
-    return (
-        figure,
-        np.asarray(rgb_artists, dtype=object),
-        np.asarray(ultrasound_artists, dtype=object),
-    )
-
-
-def update_live_figure(
-    rgb_artists: np.ndarray,
-    ultrasound_artists: np.ndarray,
-    rgb_tensor: "torch.Tensor",
-    observation_tensor: "torch.Tensor",
-) -> None:
-    rgb_images = rgb_tensor_to_numpy(rgb_tensor)
-    ultrasound_images = observation_tensor[:, -1].detach().cpu().numpy()
-    for env_index, rgb_artist in enumerate(rgb_artists.tolist()):
-        rgb_artist.set_data(rgb_images[env_index])
-        ultrasound_artists[env_index].set_data(ultrasound_images[env_index])
+    raise RuntimeError("This example requires matplotlib to be installed.") from exc
 
 
 def scripted_action(
@@ -113,7 +56,9 @@ def main() -> int:
     try:
         observation = env.reset()
         rgb = env.render()
-        figure, rgb_artists, ultrasound_artists = create_live_figure(rgb, observation)
+        figure, rgb_artists, ultrasound_artists = create_rgb_ultrasound_grid_figure(
+            rgb, observation
+        )
         capture = InteractiveImageCapture(figure, __file__)
         capture.update(
             "reset",
@@ -142,7 +87,9 @@ def main() -> int:
 
             if plt.fignum_exists(figure.number):
                 rgb = env.render()
-                update_live_figure(rgb_artists, ultrasound_artists, rgb, observation)
+                update_rgb_ultrasound_grid_figure(
+                    rgb_artists, ultrasound_artists, rgb, observation
+                )
                 capture.update(
                     f"step_{step_index:04d}",
                     [

@@ -431,75 +431,41 @@ def reshape_env_action(action: torch.Tensor, action_dim: int) -> torch.Tensor:
     return action
 
 
-def create_live_figure(
+def create_inference_figure(
     initial_rgb: "torch.Tensor",
     initial_observation: Any = None,
 ) -> tuple[object, object, object | None]:
-    try:
-        import matplotlib.pyplot as plt
-        import numpy as np
-    except ImportError as exc:
-        raise RuntimeError("Inference mode requires matplotlib and numpy to be installed.") from exc
+    from live_capture_utils import create_rgb_grid_figure, create_rgb_ultrasound_grid_figure
 
-    rgb_images = np.clip(initial_rgb[..., :3].detach().cpu().numpy(), 0.0, 1.0)
-    env_count = min(rgb_images.shape[0], 4)
+    env_count = min(initial_rgb.shape[0], 4)
     show_ultrasound = (
         initial_observation is not None
         and not isinstance(initial_observation, dict)
         and initial_observation.ndim == 4
         and initial_observation.shape[0] >= env_count
     )
-    row_count = 2 if show_ultrasound else 1
-    figure, axes = plt.subplots(
-        row_count,
-        env_count,
-        figsize=(4 * env_count, 3 * row_count + 1),
-        squeeze=False,
-    )
-    rgb_artists: list[object] = []
-    ultrasound_artists: list[object] = []
     if show_ultrasound:
-        ultrasound_images = initial_observation[:env_count, -1].detach().cpu().numpy()
-    for env_index in range(env_count):
-        image_artist = axes[0, env_index].imshow(rgb_images[env_index], animated=True)
-        axes[0, env_index].set_title(f"Env {env_index} RGB" if show_ultrasound else f"Env {env_index}")
-        axes[0, env_index].axis("off")
-        rgb_artists.append(image_artist)
-        if show_ultrasound:
-            ultrasound_artist = axes[1, env_index].imshow(
-                ultrasound_images[env_index],
-                cmap="gray",
-                vmin=0.0,
-                vmax=1.0,
-                animated=True,
-            )
-            axes[1, env_index].set_title(f"Env {env_index} Ultrasound")
-            axes[1, env_index].axis("off")
-            ultrasound_artists.append(ultrasound_artist)
-    figure.tight_layout()
-    plt.show(block=False)
-    return (
-        figure,
-        np.asarray(rgb_artists, dtype=object),
-        np.asarray(ultrasound_artists, dtype=object) if show_ultrasound else None,
-    )
+        return create_rgb_ultrasound_grid_figure(
+            initial_rgb[:env_count], initial_observation[:env_count]
+        )
+    figure, rgb_artists = create_rgb_grid_figure(initial_rgb[:env_count])
+    return figure, rgb_artists, None
 
 
-def update_live_figure(
+def update_inference_figure(
     rgb_artists: object,
     rgb_tensor: "torch.Tensor",
     observation_tensor: Any = None,
     ultrasound_artists: object | None = None,
 ) -> None:
-    import numpy as np
+    from live_capture_utils import update_rgb_grid_figure, update_rgb_ultrasound_grid_figure
 
-    rgb_images = np.clip(rgb_tensor[..., :3].detach().cpu().numpy(), 0.0, 1.0)
-    for env_index, image_artist in enumerate(rgb_artists.tolist()):
-        image_artist.set_data(rgb_images[env_index])
     if observation_tensor is not None and not isinstance(observation_tensor, dict) and ultrasound_artists is not None:
-        ultrasound_images = observation_tensor[: len(ultrasound_artists), -1].detach().cpu().numpy()
-        for env_index, ultrasound_artist in enumerate(ultrasound_artists.tolist()):
-            ultrasound_artist.set_data(ultrasound_images[env_index])
+        update_rgb_ultrasound_grid_figure(
+            rgb_artists, ultrasound_artists, rgb_tensor, observation_tensor
+        )
+    else:
+        update_rgb_grid_figure(rgb_artists, rgb_tensor)
 
 
 def benchmark_env_stepping(
@@ -996,7 +962,7 @@ def run_inference_continuous(
     try:
         observation = env.reset()
         rgb = env.render()
-        figure, rgb_artists, ultrasound_artists = create_live_figure(rgb, observation)
+        figure, rgb_artists, ultrasound_artists = create_inference_figure(rgb, observation)
 
         while plt.fignum_exists(figure.number):
             with torch.no_grad():
@@ -1014,8 +980,7 @@ def run_inference_continuous(
                 _assign_observation(observation, reset_observation, done_indices)
 
             rgb = env.render()
-            update_live_figure(rgb_artists, rgb, observation, ultrasound_artists)
-            figure.canvas.draw_idle()
+            update_inference_figure(rgb_artists, rgb, observation, ultrasound_artists)
             plt.pause(frame_interval)
     finally:
         plt.close("all")

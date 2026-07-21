@@ -48,7 +48,9 @@ def create_rgb_grid_figure(
     figure.canvas.mpl_connect("draw_event", _cache_blit_background)
     plt.show(block=False)
     figure.canvas.draw()
-    return figure, np.asarray(image_artists, dtype=object)
+    artists = np.asarray(image_artists, dtype=object)
+    update_rgb_grid_figure(artists, rgb_tensor)
+    return figure, artists
 
 
 def update_rgb_grid_figure(image_artists: np.ndarray, rgb_tensor) -> None:
@@ -74,6 +76,98 @@ def update_rgb_grid_figure(image_artists: np.ndarray, rgb_tensor) -> None:
 
     canvas.restore_region(background)
     for image_artist in image_artists.flat:
+        image_artist.axes.draw_artist(image_artist)
+    canvas.blit(figure.bbox)
+    canvas.flush_events()
+
+
+def create_rgb_ultrasound_grid_figure(
+    rgb_tensor,
+    observation_tensor,
+    *,
+    max_columns: int = 4,
+) -> tuple["plt.Figure", np.ndarray, np.ndarray]:
+    """Create a blitted RGB/ultrasound grid from a stacked ultrasound observation."""
+    rgb_images = rgb_tensor_to_numpy(rgb_tensor)
+    ultrasound_images = observation_tensor[:, -1].detach().cpu().numpy()
+    env_count = rgb_images.shape[0]
+    column_count = min(max_columns, env_count)
+    row_count = int(np.ceil(env_count / column_count))
+    figure, axes = plt.subplots(
+        row_count * 2,
+        column_count,
+        figsize=(4 * column_count, 6 * row_count),
+        squeeze=False,
+    )
+    rgb_artists: list[object] = []
+    ultrasound_artists: list[object] = []
+    for env_index in range(env_count):
+        row_index = env_index // column_count
+        column_index = env_index % column_count
+        rgb_axis = axes[row_index * 2, column_index]
+        ultrasound_axis = axes[row_index * 2 + 1, column_index]
+        rgb_artist = rgb_axis.imshow(rgb_images[env_index], animated=True)
+        ultrasound_artist = ultrasound_axis.imshow(
+            ultrasound_images[env_index],
+            cmap="gray",
+            vmin=0.0,
+            vmax=1.0,
+            animated=True,
+        )
+        rgb_axis.set_title(f"Env {env_index} RGB")
+        ultrasound_axis.set_title(f"Env {env_index} Ultrasound")
+        rgb_axis.axis("off")
+        ultrasound_axis.axis("off")
+        rgb_artists.append(rgb_artist)
+        ultrasound_artists.append(ultrasound_artist)
+    for env_index in range(env_count, row_count * column_count):
+        row_index = env_index // column_count
+        column_index = env_index % column_count
+        axes[row_index * 2, column_index].axis("off")
+        axes[row_index * 2 + 1, column_index].axis("off")
+    figure.tight_layout()
+    figure.canvas.mpl_connect("draw_event", _cache_blit_background)
+    plt.show(block=False)
+    figure.canvas.draw()
+    rgb_artist_array = np.asarray(rgb_artists, dtype=object)
+    ultrasound_artist_array = np.asarray(ultrasound_artists, dtype=object)
+    update_rgb_ultrasound_grid_figure(
+        rgb_artist_array, ultrasound_artist_array, rgb_tensor, observation_tensor
+    )
+    return figure, rgb_artist_array, ultrasound_artist_array
+
+
+def update_rgb_ultrasound_grid_figure(
+    rgb_artists: np.ndarray,
+    ultrasound_artists: np.ndarray,
+    rgb_tensor,
+    observation_tensor,
+) -> None:
+    rgb_images = rgb_tensor_to_numpy(rgb_tensor)
+    ultrasound_images = observation_tensor[:, -1].detach().cpu().numpy()
+    if rgb_artists.size == 0:
+        return
+
+    figure = rgb_artists.flat[0].figure
+    canvas = figure.canvas
+    for env_index, rgb_artist in enumerate(rgb_artists.tolist()):
+        rgb_artist.set_data(rgb_images[env_index])
+        ultrasound_artists[env_index].set_data(ultrasound_images[env_index])
+
+    if not canvas.supports_blit:
+        canvas.draw_idle()
+        canvas.flush_events()
+        return
+
+    background = getattr(figure, "_cressim_blit_background", None)
+    if background is None:
+        canvas.draw()
+        background = getattr(figure, "_cressim_blit_background", None)
+    if background is None:
+        return
+
+    canvas.restore_region(background)
+    for image_artist in (*rgb_artists.flat, *ultrasound_artists.flat):
         image_artist.axes.draw_artist(image_artist)
     canvas.blit(figure.bbox)
     canvas.flush_events()
