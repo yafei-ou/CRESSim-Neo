@@ -99,25 +99,24 @@ public:
 
     using Diligent::IObject::QueryInterface;
 
-    void DILIGENT_CALL_TYPE CreateInputStream(const Diligent::Char *name,
-                                              Diligent::IFileStream **ppStream) override final
+    Diligent::Bool DILIGENT_CALL_TYPE CreateInputStream(const Diligent::Char *name,
+                                                       Diligent::IFileStream **ppStream) override final
     {
-        CreateInputStream2(name, Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_NONE, ppStream);
+        return CreateInputStream2(name, Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_NONE, ppStream);
     }
 
-    void DILIGENT_CALL_TYPE CreateInputStream2(
+    Diligent::Bool DILIGENT_CALL_TYPE CreateInputStream2(
         const Diligent::Char *name, Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAGS flags,
         Diligent::IFileStream **ppStream) override final
     {
-        if (ppStream == nullptr)
+        if (ppStream != nullptr)
         {
-            return;
+            *ppStream = nullptr;
         }
 
-        *ppStream = nullptr;
         if (name == nullptr || name[0] == '\0' || mSourceFactory == nullptr)
         {
-            return;
+            return false;
         }
 
         const std::string requestedName = normalizeSeparators(name);
@@ -127,31 +126,33 @@ public:
             {
                 LOG_ERROR_MESSAGE("Rejected shader source path outside configured roots: ", name);
             }
-            return;
+            return false;
         }
 
-        mSourceFactory->CreateInputStream2(requestedName.c_str(),
-                                           Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT,
-                                           ppStream);
-        if (*ppStream == nullptr)
+        Diligent::Bool created = mSourceFactory->CreateInputStream2(
+            requestedName.c_str(), Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT,
+            ppStream);
+        if (!created)
         {
             for (const auto &includeFactory : mIncludeFactories)
             {
-                includeFactory->CreateInputStream2(
+                created = includeFactory->CreateInputStream2(
                     requestedName.c_str(), Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT,
                     ppStream);
-                if (*ppStream != nullptr)
+                if (created)
                 {
                     break;
                 }
             }
         }
 
-        if (*ppStream == nullptr &&
+        if (!created &&
             (flags & Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT) == 0)
         {
             LOG_ERROR_MESSAGE("Failed to create input stream for source file ", name);
         }
+
+        return created;
     }
 
 private:
