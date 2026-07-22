@@ -4,12 +4,6 @@
 #include "physics_rigid_types.hlsli"
 #include "physics_rigid_joint_solver_shared.hlsli"
 
-static const float kJointRelaxation = 0.7;
-static const float kMaxJointError = 0.05;
-static const float kMaxJointTranslationCorrection = 0.02;
-static const float kMaxJointAngularCorrection = 0.12;
-static const float kJointRegularization = 1e-5;
-static const float kMinXpbdDt = 1e-5;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);

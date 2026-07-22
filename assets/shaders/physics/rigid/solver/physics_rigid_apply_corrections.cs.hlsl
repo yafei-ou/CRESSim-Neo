@@ -9,9 +9,6 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
-static const float kMaxTotalTranslationCorrectionPerIter = 0.01;
-static const float kMaxTotalRotationCorrectionPerIter = 0.10;
-
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {

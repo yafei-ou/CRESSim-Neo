@@ -4,10 +4,6 @@
 #include "physics_rigid_types.hlsli"
 #include "physics_rigid_joint_solver_shared.hlsli"
 
-static const float kJointRelaxation = 0.95;
-static const float kMaxJointError = 0.05;
-static const float kMaxJointTranslationCorrection = 0.02;
-static const float kMaxJointAngularCorrection = 0.12;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -64,7 +60,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 rB = QuaternionRotate(qB, joint.localAnchorB.xyz);
     const float3 pA = posInvMassA.xyz + rA;
     const float3 pB = posInvMassB.xyz + rB;
-    const float3 delta = ClampErrorVector(pA - pB, kMaxJointError) * kJointRelaxation;
+    const float3 delta = ClampErrorVector(pA - pB, kMaxJointError) * kBallJointRelaxation;
 
     const float3 n0 = float3(1.0, 0.0, 0.0);
     const float3 n1 = float3(0.0, 1.0, 0.0);

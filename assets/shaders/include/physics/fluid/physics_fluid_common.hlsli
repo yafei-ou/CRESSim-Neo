@@ -4,11 +4,7 @@
 #include "physics_particle_dispatch_constants.hlsli"
 #include "physics_base.hlsli"
 #include "physics_particle_types.hlsli"
-
-static const float kFluidConstraintEpsilon = 1.0e-6;
-static const float kFluidSolveCoefficient = 0.7;
-static const float kFluidBoundaryDensityScale = 0.12;
-static const float kFluidBoundaryDeltaScale = 0.08;
+#include "physics_solver_config.hlsli"
 
 #ifdef CRESSIM_FLUID_COMMON_HAS_MATERIAL_INDICES
 bool AreSameFluidMaterial(uint particleIndex, uint otherIndex)

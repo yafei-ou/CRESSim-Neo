@@ -1,6 +1,8 @@
 #ifndef CRESSIM_NEO_PHYSICS_PARTICLE_DISPATCH_CONSTANTS_HLSLI
 #define CRESSIM_NEO_PHYSICS_PARTICLE_DISPATCH_CONSTANTS_HLSLI
 
+#include "physics_solver_config.hlsli"
+
 cbuffer PhysicsParticleDispatchConstantsBuffer
 {
     float dt;
@@ -29,7 +31,5 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint reserved1;
     float4 gravity;
 };
-
-static const float kSoftInternalRelaxation = 0.2;
 
 #endif // CRESSIM_NEO_PHYSICS_PARTICLE_DISPATCH_CONSTANTS_HLSLI

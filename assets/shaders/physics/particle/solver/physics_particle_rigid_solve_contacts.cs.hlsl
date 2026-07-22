@@ -5,9 +5,6 @@
 #include "physics_rigid_solver_shared.hlsli"
 #include "physics_math.hlsli"
 
-static const float kSoftContactRelaxation = 0.95;
-static const float kSoftMaxCorrectionPerIter = 0.05;
-
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePreviousPositions);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleMaterialIndices);

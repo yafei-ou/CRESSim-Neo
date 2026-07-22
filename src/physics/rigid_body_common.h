@@ -67,6 +67,20 @@ struct GpuRigidDispatchConstants
     Diligent::float4 gravity{0.0f, -9.81f, 0.0f, 0.0f};
 };
 
+struct GpuPhysicsSolverConfig
+{
+    Diligent::float4 contact0{1.0e-3f, 4.0f, 0.95f, 0.05f};
+    Diligent::float4 contact1{0.5f, 2.0f, 0.0f, 1.0e-5f};
+    Diligent::float4 rigid0{0.25f, 0.90f, 0.10f, 1.0f};
+    Diligent::float4 rigid1{0.01f, 0.10f, 0.8f, 0.5f};
+    Diligent::float4 joints0{0.95f, 0.7f, 0.05f, 0.02f};
+    Diligent::float4 joints1{0.12f, 1.0e-5f, 5.0e-5f, 1.0e-5f};
+    Diligent::float4 soft0{0.2f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 soft1{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 fluid0{0.7f, 1.0f, 0.12f, 0.08f};
+    Diligent::float4 fluid1{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
 struct GpuRigidJointDispatchConstants
 {
     std::uint32_t jointCount = 0u;
@@ -787,6 +801,8 @@ struct GpuRigidBodyPairContactAggregateSlot
 };
 
 static_assert(sizeof(GpuRigidDispatchConstants) == 64u);
+static_assert(sizeof(GpuPhysicsSolverConfig) == 160u);
+static_assert(sizeof(GpuPhysicsSolverConfig) % 32u == 0u);
 static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuRoutedCableConstraint) == 32u);
 static_assert(sizeof(GpuRoutedCableRoutePoint) == 32u);

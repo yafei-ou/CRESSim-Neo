@@ -5,10 +5,6 @@
 #include "physics_rigid_contact_primitives.hlsli"
 #include "physics_rigid_solver_shared.hlsli"
 
-static const float kBaumgarte = 0.25;
-// Final rigid-rigid cleanup is a single normal-only depenetration pass.
-static const float kMaxCorrectionPerIter = 0.1;
-static const float kRelaxation = 0.90;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -80,7 +76,8 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
     const float3 n = SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
     const float measuredPenetration = -dot(pB - pA, n);
     const float rawPenetration = max(measuredPenetration - kContactSlop, 0.0);
-    const float penetration = min(rawPenetration * kBaumgarte, kMaxCorrectionPerIter);
+    const float penetration = min(rawPenetration * kBaumgarte,
+                                  kRigidMaxDepenetrationCorrectionPerIter);
     if (penetration <= 0.0)
         return;
 
@@ -92,7 +89,7 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
     if (denom <= kEpsilon)
         return;
 
-    const float lambda = (penetration / denom) * kRelaxation;
+    const float lambda = (penetration / denom) * kRigidDepenetrationRelaxation;
     float3 translationA = -n * (invMassA * lambda);
     float3 rotationA =
         -MultiplyWorldInverseInertia(invInertiaA, qA, cross(rA, n)) * lambda;
@@ -115,7 +112,8 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
         const float tangentDenom = tangentMassA + tangentMassB;
         if (tangentDenom > kEpsilon)
         {
-            const float tangentLambda = (frictionDistance / tangentDenom) * kRelaxation;
+            const float tangentLambda =
+                (frictionDistance / tangentDenom) * kRigidDepenetrationRelaxation;
             translationA += tangent * (invMassA * tangentLambda);
             rotationA +=
                 MultiplyWorldInverseInertia(invInertiaA, qA, cross(rA, tangent)) * tangentLambda;

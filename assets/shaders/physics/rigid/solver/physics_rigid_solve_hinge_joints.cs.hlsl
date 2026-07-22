@@ -6,13 +6,6 @@
 
 // We still relax applied corrections for stability, but cache the same relaxed lambda that is
 // actually applied so the XPBD compliance term stays internally consistent.
-static const float kJointRelaxation = 0.7;
-static const float kMaxJointError = 0.05;
-static const float kMaxJointTranslationCorrection = 0.02;
-static const float kMaxJointAngularCorrection = 0.12;
-static const float kHingeTranslationRegularization = 1e-5;
-static const float kHingeAngularRegularization = 5e-5;
-static const float kMinXpbdDt = 1e-5;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);

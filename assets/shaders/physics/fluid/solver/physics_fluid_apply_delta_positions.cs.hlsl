@@ -2,8 +2,6 @@
 #include "physics_base.hlsli"
 #include "physics_particle_types.hlsli"
 
-static const float kFluidRelaxationFactor = 1.0;
-
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
 CRESSIM_STRUCTURED_BUFFER(float4, g_FluidDeltaPositions);

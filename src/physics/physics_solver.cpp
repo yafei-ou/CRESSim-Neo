@@ -97,6 +97,37 @@ struct PhysicsSolver::Impl
     bool mInitialized                               = false;
 };
 
+GpuPhysicsSolverConfig makeSolverConfig(const PhysicsSolverDesc &desc)
+{
+    GpuPhysicsSolverConfig config{};
+    config.contact0 = {desc.contact.slop, desc.contact.manifoldMergeSlopMultiplier,
+                       desc.contact.softRelaxation, desc.contact.softMaxCorrectionPerIteration};
+    config.contact1 = {desc.contact.restitutionVelocityThreshold,
+                       desc.contact.restitutionPenetrationSlopMultiplier,
+                       desc.contact.rigidRestitutionVelocityThreshold,
+                       desc.contact.positionFrictionMinDistance};
+    config.rigid0   = {desc.rigid.depenetrationBaumgarte, desc.rigid.depenetrationRelaxation,
+                       desc.rigid.depenetrationMaxCorrectionPerIteration,
+                       desc.rigid.velocityPenetrationStiffness};
+    config.rigid1   = {desc.rigid.maxTranslationCorrectionPerIteration,
+                       desc.rigid.maxRotationCorrectionPerIteration,
+                       desc.rigid.maxLinearVelocityCorrectionPerIteration,
+                       desc.rigid.maxAngularVelocityCorrectionPerIteration};
+    config.joints0  = {desc.joints.ballRelaxation, desc.joints.articulatedRelaxation,
+                       desc.joints.maxError, desc.joints.maxTranslationCorrection};
+    config.joints1  = {desc.joints.maxAngularCorrection, desc.joints.regularization,
+                       desc.joints.angularRegularization, desc.joints.minXpbdDt};
+    config.soft0    = {desc.soft.internalRelaxation, desc.soft.reserved0, desc.soft.reserved1,
+                       desc.soft.reserved2};
+    config.soft1    = {desc.soft.reserved3, desc.soft.reserved4, desc.soft.reserved5,
+                       desc.soft.reserved6};
+    config.fluid0   = {desc.fluid.constraintRelaxation, desc.fluid.positionRelaxation,
+                       desc.fluid.boundaryDensityScale, desc.fluid.boundaryDeltaScale};
+    config.fluid1   = {desc.fluid.reserved0, desc.fluid.reserved1, desc.fluid.reserved2,
+                       desc.fluid.reserved3};
+    return config;
+}
+
 PhysicsSolver::PhysicsSolver(gpu::GpuDevice &device, const PhysicsSolverDesc &desc)
     : mImpl(std::make_unique<Impl>(device, desc))
 {
@@ -379,6 +410,13 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         std::max(std::max(std::max(fluidIterations, softInternalIterations), softContactIterations),
                  std::max(rigidJointIterations, rigidContactIterations));
     const float substepDt = frameContext.deltaSeconds / static_cast<float>(substeps);
+
+    if (!mImpl->passDispatcher.updateSolverConfig(computeBackend.computeContext,
+                                                  makeSolverConfig(mImpl->mDesc)))
+    {
+        CRESSIM_LOG_ERROR("PhysicsSolver: failed to update solver configuration.");
+        return false;
+    }
 
     for (std::uint32_t substep = 0; substep < substeps; ++substep)
     {
