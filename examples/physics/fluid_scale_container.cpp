@@ -254,6 +254,8 @@ int main(int argc, char **argv)
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options.common);
     config.physicsDesc.gravity.y *= options.scale;
+    config.physicsDesc.contact.slop *= options.scale;
+    config.physicsDesc.contact.positionFrictionMinDistance *= options.scale;
     config.physicsDesc.substeps          = options.substeps;
     config.physicsDesc.defaultIterations = options.fluidIterations;
     config.physicsDesc.fluidIterations   = options.fluidIterations;
@@ -268,6 +270,9 @@ int main(int argc, char **argv)
     defaults.showStats   = true;
     defaults.vSync       = false;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options.common, defaults);
+    // This example is used to compare scale-dependent solver behavior. Decouple its
+    // physics step from first-frame shader compilation and presentation timing.
+    viewerDesc.useFixedTimestep = true;
     viewerDesc.enableDebugParticles = options.debugParticles;
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -350,6 +355,7 @@ int main(int argc, char **argv)
                      ", spacing=", kBaseParticleSpacing * s, ", substeps=", options.substeps,
                      ", fluidIterations=", options.fluidIterations,
                      ", pressureRelaxation=", options.pressureRelaxation,
+                     ", contactSlop=", config.physicsDesc.contact.slop,
                      ", maxUnderDensityRatio=",
                      options.maxUnderDensityRatio, ".\n");
 
