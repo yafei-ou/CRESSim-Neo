@@ -101,6 +101,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_fluid_scale_container
+    SOURCE fluid_scale_container.cpp
+)
+
+add_cressim_example(
     NAME physics_fluid_moving_splitter
     SOURCE fluid_moving_splitter.cpp
 )

@@ -123,7 +123,7 @@ GpuPhysicsSolverConfig makeSolverConfig(const PhysicsSolverDesc &desc)
                        desc.soft.reserved6};
     config.fluid0   = {desc.fluid.constraintRelaxation, desc.fluid.positionRelaxation,
                        desc.fluid.boundaryDensityScale, desc.fluid.boundaryDeltaScale};
-    config.fluid1   = {desc.fluid.reserved0, desc.fluid.reserved1, desc.fluid.reserved2,
+    config.fluid1   = {desc.fluid.maxUnderDensityRatio, desc.fluid.reserved1, desc.fluid.reserved2,
                        desc.fluid.reserved3};
     return config;
 }

@@ -70,7 +70,7 @@ struct FluidSolverSettings
     float positionRelaxation   = 1.0f;
     float boundaryDensityScale = 0.12f;
     float boundaryDeltaScale   = 0.08f;
-    float reserved0            = 0.0f;
+    float maxUnderDensityRatio = 0.0f;
     float reserved1            = 0.0f;
     float reserved2            = 0.0f;
     float reserved3            = 0.0f;

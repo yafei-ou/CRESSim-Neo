@@ -48,5 +48,6 @@ cbuffer PhysicsSolverConfigBuffer
 #define kFluidRelaxationFactor g_FluidSolverConfig0.y
 #define kFluidBoundaryDensityScale g_FluidSolverConfig0.z
 #define kFluidBoundaryDeltaScale g_FluidSolverConfig0.w
+#define kFluidMaxUnderDensityRatio g_FluidSolverConfig1.x
 
 #endif // CRESSIM_NEO_PHYSICS_SOLVER_CONFIG_HLSLI

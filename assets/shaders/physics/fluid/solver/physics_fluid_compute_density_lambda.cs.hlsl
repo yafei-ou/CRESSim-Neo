@@ -97,7 +97,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                                                  surfaceTension, density, surfaceNormal);
 
     const float constraint =
-        max(density - restDensity, -restDensity * 0.005) * densityConstraintScale;
+        max(density - restDensity, -restDensity * max(kFluidMaxUnderDensityRatio, 0.0)) *
+        densityConstraintScale;
 
     if (surfaceTension > kEpsilon)
     {
