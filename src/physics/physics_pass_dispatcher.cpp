@@ -5632,7 +5632,7 @@ bool PhysicsPassDispatcher::solveRigidContactVelocities(Diligent::IDeviceContext
 
 bool PhysicsPassDispatcher::recreateSceneBindingVariants()
 {
-    return mRigidPredictPass.forceRecreateAllVariants() &&
+    const bool recreated = mRigidPredictPass.forceRecreateAllVariants() &&
            mSoftPredictPass.forceRecreateAllVariants() &&
            mSyncRigidProxyParticlesPass.forceRecreateAllVariants() &&
            mBuildParticleBroadPhaseEntriesPass.forceRecreateAllVariants() &&
@@ -5749,6 +5749,40 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mApplyRigidCorrectionsPass.forceRecreateAllVariants() &&
            mUpdateRigidVelocitiesPass.forceRecreateAllVariants() &&
            mApplyRigidContactVelocitiesPass.forceRecreateAllVariants();
+    if (!recreated)
+    {
+        return false;
+    }
+
+    const std::array bindings{gpu::GpuBufferBinding{"PhysicsSolverConfigBuffer",
+                                                    mSolverConfigBuffer,
+                                                    Diligent::BUFFER_VIEW_SHADER_RESOURCE}};
+    auto bindSolverConfig = [&](gpu::GpuComputePass &pass) -> bool
+    { return pass.bindVariant(kDefaultVariant, bindings); };
+
+    return bindSolverConfig(mSolveSoftEdgeConstraintsPass) &&
+           bindSolverConfig(mSolveSoftBendConstraintsPass) &&
+           bindSolverConfig(mSolveSoftTetConstraintsPass) &&
+           bindSolverConfig(mSolveStrandSegmentConstraintsPass) &&
+           bindSolverConfig(mSolveStrandJointConstraintsPass) &&
+           bindSolverConfig(mSolveStrandDistanceConstraintsPass) &&
+           bindSolverConfig(mSolveParticleExplicitContactsPass) &&
+           bindSolverConfig(mSolveParticleRigidContactsPass) &&
+           bindSolverConfig(mComputeFluidDeltaPositionsPass) &&
+           bindSolverConfig(mApplyFluidDeltaPositionsPass) &&
+           bindSolverConfig(mProjectFluidBoundaryVelocitiesPass) &&
+           bindSolverConfig(mSolveParticleContactVelocitiesPass) &&
+           bindSolverConfig(mSolveParticleRigidContactVelocitiesPass) &&
+           bindSolverConfig(mGenerateRigidContactsPass) &&
+           bindSolverConfig(mFinalRigidContactDepenetrationPass) &&
+           bindSolverConfig(mInitRigidContactVelocitiesPass) &&
+           bindSolverConfig(mSolveRigidContactVelocitiesPass) &&
+           bindSolverConfig(mSolveBallJointConstraintsPass) &&
+           bindSolverConfig(mSolveSphericalJointConstraintsPass) &&
+           bindSolverConfig(mSolveHingeJointConstraintsPassivePass) &&
+           bindSolverConfig(mSolveSliderJointConstraintsPassivePass) &&
+           bindSolverConfig(mApplyRigidCorrectionsPass) &&
+           bindSolverConfig(mApplyRigidContactVelocitiesPass);
 }
 
 } // namespace cressim::neo::physics

@@ -1,4 +1,5 @@
 #include "physics_particle_dispatch_constants.hlsli"
+#include "physics_solver_config.hlsli"
 #include "physics_particle_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);

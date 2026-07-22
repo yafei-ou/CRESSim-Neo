@@ -1,8 +1,6 @@
 #ifndef CRESSIM_NEO_PHYSICS_PARTICLE_DISPATCH_CONSTANTS_HLSLI
 #define CRESSIM_NEO_PHYSICS_PARTICLE_DISPATCH_CONSTANTS_HLSLI
 
-#include "physics_solver_config.hlsli"
-
 cbuffer PhysicsParticleDispatchConstantsBuffer
 {
     float dt;

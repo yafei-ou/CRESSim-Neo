@@ -1,4 +1,5 @@
 #include "physics_particle_dispatch_constants.hlsli"
+#include "physics_solver_config.hlsli"
 #include "physics_base.hlsli"
 #include "physics_particle_types.hlsli"
 

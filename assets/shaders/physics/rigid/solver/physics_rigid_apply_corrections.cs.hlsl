@@ -1,4 +1,5 @@
 #include "physics_rigid_dispatch_constants.hlsli"
+#include "physics_solver_config.hlsli"
 #include "physics_atomic_float.hlsli"
 #include "physics_rigid_types.hlsli"
 #include "physics_math.hlsli"
