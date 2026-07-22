@@ -2,9 +2,8 @@
 #define CRESSIM_NEO_PHYSICS_RIGID_CONTACT_PRIMITIVES_HLSLI
 
 #include "physics_shape_common.hlsli"
+#include "physics_solver_config.hlsli"
 
-static const float kContactSlop = 1.0e-3;
-static const float kManifoldMergeDistance = 4.0 * kContactSlop;
 static const uint kObbAxisFaceA = 0u;
 static const uint kObbAxisFaceB = 1u;
 static const uint kObbAxisEdge = 2u;

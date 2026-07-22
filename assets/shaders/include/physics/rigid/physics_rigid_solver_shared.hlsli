@@ -2,13 +2,8 @@
 #define CRESSIM_NEO_PHYSICS_RIGID_SOLVER_SHARED_HLSLI
 
 #include "physics_shape_common.hlsli"
+#include "physics_solver_config.hlsli"
 
-static const float kRigidRestitutionThreshold = 0.0;
-// These affects the needed number of velocity iterations; larger values lead to faster velocity
-// solver but can be unstable with more contacts; smaller values improves stability but requires
-// more velocity iterations
-static const float kMaxTotalLinearVelocityCorrectionPerIter = 0.8;
-static const float kMaxTotalAngularVelocityCorrectionPerIter = 0.5;
 
 float3 MultiplyWorldInverseInertia(float3 inverseInertiaLocal, float4 orientation, float3 value)
 {
@@ -56,7 +51,7 @@ float3 ComputePositionFrictionDelta(float3 tangentialDisplacement, float penetra
                                     float kineticFriction, float staticFriction)
 {
     const float tangentialDistance = length(tangentialDisplacement);
-    if (tangentialDistance <= 1.0e-5 || penetration <= kEpsilon)
+    if (tangentialDistance <= kPositionFrictionMinDistance || penetration <= kEpsilon)
     {
         return 0.0;
     }

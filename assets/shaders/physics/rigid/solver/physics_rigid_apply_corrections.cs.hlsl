@@ -1,4 +1,5 @@
 #include "physics_rigid_dispatch_constants.hlsli"
+#include "physics_solver_config.hlsli"
 #include "physics_atomic_float.hlsli"
 #include "physics_rigid_types.hlsli"
 #include "physics_math.hlsli"
@@ -8,9 +9,6 @@ CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
-
-static const float kMaxTotalTranslationCorrectionPerIter = 0.01;
-static const float kMaxTotalRotationCorrectionPerIter = 0.10;
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)

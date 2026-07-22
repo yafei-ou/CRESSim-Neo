@@ -4,8 +4,6 @@
 #include "physics_rigid_solver_shared.hlsli"
 #include "physics_rigid_dispatch_constants.hlsli"
 
-static const float kRigidVelocityPenetrationStiffness = 1.0;
-
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyLinearVelocities);

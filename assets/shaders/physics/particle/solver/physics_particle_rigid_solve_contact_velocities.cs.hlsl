@@ -5,9 +5,6 @@
 #include "physics_rigid_solver_shared.hlsli"
 #include "physics_math.hlsli"
 
-static const float kRestitutionVelocityThreshold = 0.5;
-static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
-
 // Soft-rigid position solve handles overlap and kinetic friction first.
 // This pass is restitution-only and operates on reconstructed post-solve velocities.
 

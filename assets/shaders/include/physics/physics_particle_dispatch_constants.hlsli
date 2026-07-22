@@ -30,6 +30,4 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     float4 gravity;
 };
 
-static const float kSoftInternalRelaxation = 0.2;
-
 #endif // CRESSIM_NEO_PHYSICS_PARTICLE_DISPATCH_CONSTANTS_HLSLI

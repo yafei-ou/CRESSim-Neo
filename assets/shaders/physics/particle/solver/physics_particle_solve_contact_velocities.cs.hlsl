@@ -5,9 +5,6 @@
 #include "physics_rigid_solver_shared.hlsli"
 #include "physics_math.hlsli"
 
-static const float kRestitutionVelocityThreshold = 0.5;
-static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
-
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleVelocities);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerTypes);

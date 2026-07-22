@@ -93,6 +93,18 @@ bool PhysicsPassDispatcher::writeRigidDispatchConstants(Diligent::IDeviceContext
                                 sizeof(constants));
 }
 
+bool PhysicsPassDispatcher::writeSolverConfig(Diligent::IDeviceContext *computeContext,
+                                              const GpuPhysicsSolverConfig &config)
+{
+    return writeConstantsBuffer(computeContext, mSolverConfigBuffer, &config, sizeof(config));
+}
+
+bool PhysicsPassDispatcher::updateSolverConfig(Diligent::IDeviceContext *computeContext,
+                                               const GpuPhysicsSolverConfig &config)
+{
+    return writeSolverConfig(computeContext, config);
+}
+
 bool PhysicsPassDispatcher::writeRigidJointDispatchConstants(
     Diligent::IDeviceContext *computeContext, const GpuRigidJointDispatchConstants &constants)
 {
@@ -169,6 +181,19 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         return false;
     }
 
+    Diligent::BufferDesc solverConfigDesc{};
+    solverConfigDesc.Name                 = "CRESSimNeo.Physics.SolverConfig";
+    solverConfigDesc.Size                 = sizeof(GpuPhysicsSolverConfig);
+    solverConfigDesc.Usage                = Diligent::USAGE_DYNAMIC;
+    solverConfigDesc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
+    solverConfigDesc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
+    solverConfigDesc.ImmediateContextMask = mPhysicsContextMask;
+    backendContext.renderDevice->CreateBuffer(solverConfigDesc, nullptr, &mSolverConfigBuffer);
+    if (mSolverConfigBuffer == nullptr)
+    {
+        return false;
+    }
+
     auto initPass = [&](gpu::GpuComputePass &pass, const gpu::GpuComputePassDefinition &definition,
                         std::size_t variantCount = 1u) -> bool
     {
@@ -177,6 +202,27 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
             return false;
         }
         return pass.createVariants(variantCount);
+    };
+
+    auto initSolverConfigPass = [&](gpu::GpuComputePass &pass,
+                                    const gpu::GpuComputePassDefinition &definition,
+                                    std::size_t variantCount = 1u) -> bool
+    {
+        if (!initPass(pass, definition, variantCount))
+        {
+            return false;
+        }
+        const std::array bindings{gpu::GpuBufferBinding{"PhysicsSolverConfigBuffer",
+                                                        mSolverConfigBuffer,
+                                                        Diligent::BUFFER_VIEW_SHADER_RESOURCE}};
+        for (std::size_t variant = 0u; variant < variantCount; ++variant)
+        {
+            if (!pass.bindVariant(variant, bindings))
+            {
+                return false;
+            }
+        }
+        return true;
     };
 
     using namespace passdefs;
@@ -224,35 +270,39 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mUpdateSuturingTipPathsPass, kUpdateSuturingTipPaths) ||
         !initPass(mAssignSuturingInsideParticlesPass, kAssignSuturingInsideParticles) ||
         !initPass(mSolveSuturingNodePathConstraintsPass, kSolveSuturingNodePathConstraints) ||
-        !initPass(mSolveSoftEdgeConstraintsPass, kSolveSoftEdgeConstraints) ||
-        !initPass(mSolveSoftBendConstraintsPass, kSolveSoftBendConstraints) ||
-        !initPass(mSolveSoftTetConstraintsPass, kSolveSoftTetConstraints) ||
+        !initSolverConfigPass(mSolveSoftEdgeConstraintsPass, kSolveSoftEdgeConstraints) ||
+        !initSolverConfigPass(mSolveSoftBendConstraintsPass, kSolveSoftBendConstraints) ||
+        !initSolverConfigPass(mSolveSoftTetConstraintsPass, kSolveSoftTetConstraints) ||
         !initPass(mApplySoftEdgeCorrectionsPass, kApplySoftEdgeCorrections) ||
         !initPass(mApplySoftBendCorrectionsPass, kApplySoftBendCorrections) ||
         !initPass(mApplySoftTetCorrectionsPass, kApplySoftTetCorrections) ||
-        !initPass(mSolveStrandSegmentConstraintsPass, kSolveStrandSegmentConstraints) ||
+        !initSolverConfigPass(mSolveStrandSegmentConstraintsPass, kSolveStrandSegmentConstraints) ||
         !initPass(mApplyStrandSegmentCorrectionsPass, kApplyStrandSegmentCorrections) ||
-        !initPass(mSolveStrandJointConstraintsPass, kSolveStrandJointConstraints) ||
+        !initSolverConfigPass(mSolveStrandJointConstraintsPass, kSolveStrandJointConstraints) ||
         !initPass(mApplyStrandJointCorrectionsPass, kApplyStrandJointCorrections) ||
         !initPass(mApplyStrandRigidAttachmentCorrectionsPass,
                   kApplyStrandRigidAttachmentCorrections) ||
-        !initPass(mSolveStrandDistanceConstraintsPass, kSolveStrandDistanceConstraints) ||
+        !initSolverConfigPass(mSolveStrandDistanceConstraintsPass,
+                              kSolveStrandDistanceConstraints) ||
         !initPass(mApplyStrandDistanceCorrectionsPass, kApplyStrandDistanceCorrections) ||
-        !initPass(mSolveParticleExplicitContactsPass, kSolveParticleExplicitContacts) ||
-        !initPass(mSolveParticleRigidContactsPass, kSolveParticleRigidContacts) ||
+        !initSolverConfigPass(mSolveParticleExplicitContactsPass, kSolveParticleExplicitContacts) ||
+        !initSolverConfigPass(mSolveParticleRigidContactsPass, kSolveParticleRigidContacts) ||
         !initPass(mApplyParticlePositionCorrectionsPass, kApplyParticlePositionCorrections) ||
         !initPass(mUpdateParticleVelocitiesPass, kUpdateParticleVelocities) ||
         !initPass(mBuildFluidNeighborPairsPass, kBuildFluidNeighborPairs) ||
         !initPass(mComputeFluidDensityConstraintsPass, kComputeFluidDensityConstraints) ||
-        !initPass(mComputeFluidDeltaPositionsPass, kComputeFluidDeltaPositions) ||
-        !initPass(mApplyFluidDeltaPositionsPass, kApplyFluidDeltaPositions) ||
+        !initSolverConfigPass(mComputeFluidDeltaPositionsPass, kComputeFluidDeltaPositions) ||
+        !initSolverConfigPass(mApplyFluidDeltaPositionsPass, kApplyFluidDeltaPositions) ||
         !initPass(mClampFluidBoundaryPass, kClampFluidBoundary) ||
-        !initPass(mProjectFluidBoundaryVelocitiesPass, kProjectFluidBoundaryVelocities) ||
+        !initSolverConfigPass(mProjectFluidBoundaryVelocitiesPass,
+                              kProjectFluidBoundaryVelocities) ||
         !initPass(mComputeFluidVorticityPass, kComputeFluidVorticity) ||
         !initPass(mApplyFluidVorticityConfinementPass, kApplyFluidVorticityConfinement) ||
         !initPass(mBuildFluidRenderAnisotropyPass, kBuildFluidRenderAnisotropy) ||
-        !initPass(mSolveParticleContactVelocitiesPass, kSolveParticleContactVelocities) ||
-        !initPass(mSolveParticleRigidContactVelocitiesPass, kSolveParticleRigidContactVelocities) ||
+        !initSolverConfigPass(mSolveParticleContactVelocitiesPass,
+                              kSolveParticleContactVelocities) ||
+        !initSolverConfigPass(mSolveParticleRigidContactVelocitiesPass,
+                              kSolveParticleRigidContactVelocities) ||
         !initPass(mApplyParticleContactVelocitiesPass, kApplyParticleContactVelocities) ||
         !initPass(mSkinSoftRenderVerticesPass, kSkinSoftRenderVertices) ||
         !initPass(mUpdateSoftTriangleNormalsPass, kUpdateSoftTriangleNormals) ||
@@ -278,18 +328,22 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mEmitPairsPass, kEmitPairs, 2u) ||
         !initPass(mBuildNarrowPhaseChunksPass, kBuildNarrowPhaseChunks) ||
         !initPass(mPrepareRigidIndirectArgsPass, kPrepareRigidIndirectArgs) ||
-        !initPass(mGenerateRigidContactsPass, kGenerateRigidContacts) ||
+        !initSolverConfigPass(mGenerateRigidContactsPass, kGenerateRigidContacts) ||
         !initPass(mGenerateProxyRigidContactsPass, kGenerateProxyRigidContacts) ||
-        !initPass(mFinalRigidContactDepenetrationPass, kFinalRigidContactDepenetration) ||
+        !initSolverConfigPass(mFinalRigidContactDepenetrationPass,
+                              kFinalRigidContactDepenetration) ||
         !initPass(mClearRigidBodyPairContactAggregatesPass, kClearRigidBodyPairContactAggregates) ||
-        !initPass(mInitRigidContactVelocitiesPass, kInitRigidContactVelocities) ||
+        !initSolverConfigPass(mInitRigidContactVelocitiesPass, kInitRigidContactVelocities) ||
         !initPass(mPrepareRigidContactVelocityIndirectArgsPass,
                   kPrepareRigidContactVelocityIndirectArgs) ||
-        !initPass(mSolveRigidContactVelocitiesPass, kSolveRigidContactVelocities) ||
-        !initPass(mSolveBallJointConstraintsPass, kSolveBallJointConstraints) ||
-        !initPass(mSolveSphericalJointConstraintsPass, kSolveSphericalJointConstraints) ||
-        !initPass(mSolveHingeJointConstraintsPassivePass, kSolveHingeJointConstraintsPassive) ||
-        !initPass(mSolveSliderJointConstraintsPassivePass, kSolveSliderJointConstraintsPassive) ||
+        !initSolverConfigPass(mSolveRigidContactVelocitiesPass, kSolveRigidContactVelocities) ||
+        !initSolverConfigPass(mSolveBallJointConstraintsPass, kSolveBallJointConstraints) ||
+        !initSolverConfigPass(mSolveSphericalJointConstraintsPass,
+                              kSolveSphericalJointConstraints) ||
+        !initSolverConfigPass(mSolveHingeJointConstraintsPassivePass,
+                              kSolveHingeJointConstraintsPassive) ||
+        !initSolverConfigPass(mSolveSliderJointConstraintsPassivePass,
+                              kSolveSliderJointConstraintsPassive) ||
         !initPass(mSolveRigidParticleAttachmentConstraintsPass,
                   kSolveRigidParticleAttachmentConstraints) ||
         !initPass(mSolveStrandRigidAttachmentConstraintsPass,
@@ -304,9 +358,9 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mSolveHingeJointTargetVelocitiesPass, kSolveHingeJointTargetVelocities) ||
         !initPass(mSolveSliderJointTargetVelocitiesPass, kSolveSliderJointTargetVelocities) ||
         !initPass(mClearRigidCorrectionsPass, kClearRigidCorrections) ||
-        !initPass(mApplyRigidCorrectionsPass, kApplyRigidCorrections) ||
+        !initSolverConfigPass(mApplyRigidCorrectionsPass, kApplyRigidCorrections) ||
         !initPass(mUpdateRigidVelocitiesPass, kUpdateRigidVelocities) ||
-        !initPass(mApplyRigidContactVelocitiesPass, kApplyRigidContactVelocities))
+        !initSolverConfigPass(mApplyRigidContactVelocitiesPass, kApplyRigidContactVelocities))
     {
         CRESSIM_LOG_ERROR("PhysicsPassDispatcher: failed to initialize compute passes.");
         return false;
@@ -5578,123 +5632,157 @@ bool PhysicsPassDispatcher::solveRigidContactVelocities(Diligent::IDeviceContext
 
 bool PhysicsPassDispatcher::recreateSceneBindingVariants()
 {
-    return mRigidPredictPass.forceRecreateAllVariants() &&
-           mSoftPredictPass.forceRecreateAllVariants() &&
-           mSyncRigidProxyParticlesPass.forceRecreateAllVariants() &&
-           mBuildParticleBroadPhaseEntriesPass.forceRecreateAllVariants() &&
-           mBuildParticleBroadPhaseKeysPass.forceRecreateAllVariants() &&
-           mMarkParticleCellRangeStartsPass.forceRecreateAllVariants() &&
-           mClearParticleCellRangesPass.forceRecreateAllVariants() &&
-           mBuildParticleCellRangesPass.forceRecreateAllVariants() &&
-           mCountParticleParticleCandidatePairsPass.forceRecreateAllVariants() &&
-           mFinalizeParticleParticleCandidatePairsPass.forceRecreateAllVariants() &&
-           mEmitParticleParticleCandidatePairsPass.forceRecreateAllVariants() &&
-           mCountParticleRigidCandidatePairsPass.forceRecreateAllVariants() &&
-           mFinalizeParticleRigidCandidatePairsPass.forceRecreateAllVariants() &&
-           mEmitParticleRigidCandidatePairsPass.forceRecreateAllVariants() &&
-           mCountFluidBoundaryCandidatePairsPass.forceRecreateAllVariants() &&
-           mFinalizeFluidBoundaryCandidatePairsPass.forceRecreateAllVariants() &&
-           mEmitFluidBoundaryCandidatePairsPass.forceRecreateAllVariants() &&
-           mGenerateParticleExplicitContactsPass.forceRecreateAllVariants() &&
-           mGenerateParticleRigidContactsPass.forceRecreateAllVariants() &&
-           mPrepareExplicitContactScanPass.forceRecreateAllVariants() &&
-           mPrepareRigidContactScanPass.forceRecreateAllVariants() &&
-           mPrepareParticleCandidateIndirectArgsPass.forceRecreateAllVariants() &&
-           mPrepareParticleActiveIndirectArgsPass.forceRecreateAllVariants() &&
-           mFinalizeActiveParticleExplicitContactsPass.forceRecreateAllVariants() &&
-           mCompactActiveParticleExplicitContactsPass.forceRecreateAllVariants() &&
-           mFinalizeActiveParticleRigidContactsPass.forceRecreateAllVariants() &&
-           mCompactActiveParticleRigidContactsPass.forceRecreateAllVariants() &&
-           mClearSoftConstraintStatePass.forceRecreateAllVariants() &&
-           mClearRigidParticleAttachmentConstraintStatePass.forceRecreateAllVariants() &&
-           mClearStrandRigidAttachmentConstraintStatePass.forceRecreateAllVariants() &&
-           mClearRigidDistanceConstraintStatePass.forceRecreateAllVariants() &&
-           mClearRoutedCableConstraintStatePass.forceRecreateAllVariants() &&
-           mClearSuturingCandidatesPass.forceRecreateAllVariants() &&
-           mGatherSuturingCandidatesPass.forceRecreateAllVariants() &&
-           mClassifySuturingParticlesPass.forceRecreateAllVariants() &&
-           mUpdateSuturingTipPathsPass.forceRecreateAllVariants() &&
-           mAssignSuturingInsideParticlesPass.forceRecreateAllVariants() &&
-           mSolveSuturingNodePathConstraintsPass.forceRecreateAllVariants() &&
-           mSolveSoftEdgeConstraintsPass.forceRecreateAllVariants() &&
-           mSolveSoftBendConstraintsPass.forceRecreateAllVariants() &&
-           mSolveSoftTetConstraintsPass.forceRecreateAllVariants() &&
-           mApplySoftEdgeCorrectionsPass.forceRecreateAllVariants() &&
-           mApplySoftBendCorrectionsPass.forceRecreateAllVariants() &&
-           mApplySoftTetCorrectionsPass.forceRecreateAllVariants() &&
-           mSolveStrandSegmentConstraintsPass.forceRecreateAllVariants() &&
-           mApplyStrandSegmentCorrectionsPass.forceRecreateAllVariants() &&
-           mSolveStrandJointConstraintsPass.forceRecreateAllVariants() &&
-           mApplyStrandJointCorrectionsPass.forceRecreateAllVariants() &&
-           mApplyStrandRigidAttachmentCorrectionsPass.forceRecreateAllVariants() &&
-           mSolveStrandDistanceConstraintsPass.forceRecreateAllVariants() &&
-           mApplyStrandDistanceCorrectionsPass.forceRecreateAllVariants() &&
-           mSolveParticleExplicitContactsPass.forceRecreateAllVariants() &&
-           mSolveParticleRigidContactsPass.forceRecreateAllVariants() &&
-           mApplyParticlePositionCorrectionsPass.forceRecreateAllVariants() &&
-           mUpdateParticleVelocitiesPass.forceRecreateAllVariants() &&
-           mBuildFluidNeighborPairsPass.forceRecreateAllVariants() &&
-           mComputeFluidDensityConstraintsPass.forceRecreateAllVariants() &&
-           mComputeFluidDeltaPositionsPass.forceRecreateAllVariants() &&
-           mApplyFluidDeltaPositionsPass.forceRecreateAllVariants() &&
-           mClampFluidBoundaryPass.forceRecreateAllVariants() &&
-           mProjectFluidBoundaryVelocitiesPass.forceRecreateAllVariants() &&
-           mComputeFluidVorticityPass.forceRecreateAllVariants() &&
-           mApplyFluidVorticityConfinementPass.forceRecreateAllVariants() &&
-           mBuildFluidRenderAnisotropyPass.forceRecreateAllVariants() &&
-           mSolveParticleContactVelocitiesPass.forceRecreateAllVariants() &&
-           mSolveParticleRigidContactVelocitiesPass.forceRecreateAllVariants() &&
-           mApplyParticleContactVelocitiesPass.forceRecreateAllVariants() &&
-           mUpdateSoftTriangleNormalsPass.forceRecreateAllVariants() &&
-           mUpdateSoftRenderNormalsPass.forceRecreateAllVariants() &&
-           mUpdateCurveRenderDataPass.forceRecreateAllVariants() &&
-           mUpdateSoftBodyBoundsPass.forceRecreateAllVariants() &&
-           mFinalizeSoftBodyBoundsPass.forceRecreateAllVariants() &&
-           mClearRigidCorrectionsPass.forceRecreateAllVariants() &&
-           mUpdateRigidWorldAabbsPass.forceRecreateAllVariants() &&
-           mScanBlockPass.forceRecreateAllVariants() &&
-           mScanAddOffsetsPass.forceRecreateAllVariants() &&
-           mCompactBodySetPass.forceRecreateAllVariants() &&
-           mFinalizeActiveBodiesPass.forceRecreateAllVariants() &&
-           mBuildBroadPhaseElementsPass.forceRecreateAllVariants() &&
-           mReduceExtentElementsPass.forceRecreateAllVariants() &&
-           mReduceExtentExtentsPass.forceRecreateAllVariants() &&
-           mMortonCodesPass.forceRecreateAllVariants() &&
-           mRadixClassifyPass.forceRecreateAllVariants() &&
-           mRadixFinalizePass.forceRecreateAllVariants() &&
-           mRadixScatterPass.forceRecreateAllVariants() &&
-           mBvhHierarchyPass.forceRecreateAllVariants() &&
-           mBvhBoundingBoxesPass.forceRecreateAllVariants() &&
-           mCountPairsPass.forceRecreateAllVariants() &&
-           mFinalizePairsPass.forceRecreateAllVariants() &&
-           mEmitPairsPass.forceRecreateAllVariants() &&
-           mBuildNarrowPhaseChunksPass.forceRecreateAllVariants() &&
-           mPrepareRigidIndirectArgsPass.forceRecreateAllVariants() &&
-           mGenerateRigidContactsPass.forceRecreateAllVariants() &&
-           mGenerateProxyRigidContactsPass.forceRecreateAllVariants() &&
-           mFinalRigidContactDepenetrationPass.forceRecreateAllVariants() &&
-           mClearRigidBodyPairContactAggregatesPass.forceRecreateAllVariants() &&
-           mInitRigidContactVelocitiesPass.forceRecreateAllVariants() &&
-           mPrepareRigidContactVelocityIndirectArgsPass.forceRecreateAllVariants() &&
-           mSolveRigidContactVelocitiesPass.forceRecreateAllVariants() &&
-           mSolveBallJointConstraintsPass.forceRecreateAllVariants() &&
-           mSolveSphericalJointConstraintsPass.forceRecreateAllVariants() &&
-           mSolveHingeJointConstraintsPassivePass.forceRecreateAllVariants() &&
-           mSolveSliderJointConstraintsPassivePass.forceRecreateAllVariants() &&
-           mSolveRigidParticleAttachmentConstraintsPass.forceRecreateAllVariants() &&
-           mSolveStrandRigidAttachmentConstraintsPass.forceRecreateAllVariants() &&
-           mSolveRigidDistanceConstraintsPass.forceRecreateAllVariants() &&
-           mSolveRoutedCableConstraintsPass.forceRecreateAllVariants() &&
-           mClearHingeJointConstraintStatePass.forceRecreateAllVariants() &&
-           mClearSphericalJointConstraintStatePass.forceRecreateAllVariants() &&
-           mClearSliderJointConstraintStatePass.forceRecreateAllVariants() &&
-           mSolveHingeJointTargetVelocitiesPass.forceRecreateAllVariants() &&
-           mSolveSliderJointTargetVelocitiesPass.forceRecreateAllVariants() &&
-           mUpdateHingeJointRuntimeStatePass.forceRecreateAllVariants() &&
-           mUpdateSliderJointRuntimeStatePass.forceRecreateAllVariants() &&
-           mApplyRigidCorrectionsPass.forceRecreateAllVariants() &&
-           mUpdateRigidVelocitiesPass.forceRecreateAllVariants() &&
-           mApplyRigidContactVelocitiesPass.forceRecreateAllVariants();
+    const bool recreated =
+        mRigidPredictPass.forceRecreateAllVariants() &&
+        mSoftPredictPass.forceRecreateAllVariants() &&
+        mSyncRigidProxyParticlesPass.forceRecreateAllVariants() &&
+        mBuildParticleBroadPhaseEntriesPass.forceRecreateAllVariants() &&
+        mBuildParticleBroadPhaseKeysPass.forceRecreateAllVariants() &&
+        mMarkParticleCellRangeStartsPass.forceRecreateAllVariants() &&
+        mClearParticleCellRangesPass.forceRecreateAllVariants() &&
+        mBuildParticleCellRangesPass.forceRecreateAllVariants() &&
+        mCountParticleParticleCandidatePairsPass.forceRecreateAllVariants() &&
+        mFinalizeParticleParticleCandidatePairsPass.forceRecreateAllVariants() &&
+        mEmitParticleParticleCandidatePairsPass.forceRecreateAllVariants() &&
+        mCountParticleRigidCandidatePairsPass.forceRecreateAllVariants() &&
+        mFinalizeParticleRigidCandidatePairsPass.forceRecreateAllVariants() &&
+        mEmitParticleRigidCandidatePairsPass.forceRecreateAllVariants() &&
+        mCountFluidBoundaryCandidatePairsPass.forceRecreateAllVariants() &&
+        mFinalizeFluidBoundaryCandidatePairsPass.forceRecreateAllVariants() &&
+        mEmitFluidBoundaryCandidatePairsPass.forceRecreateAllVariants() &&
+        mGenerateParticleExplicitContactsPass.forceRecreateAllVariants() &&
+        mGenerateParticleRigidContactsPass.forceRecreateAllVariants() &&
+        mPrepareExplicitContactScanPass.forceRecreateAllVariants() &&
+        mPrepareRigidContactScanPass.forceRecreateAllVariants() &&
+        mPrepareParticleCandidateIndirectArgsPass.forceRecreateAllVariants() &&
+        mPrepareParticleActiveIndirectArgsPass.forceRecreateAllVariants() &&
+        mFinalizeActiveParticleExplicitContactsPass.forceRecreateAllVariants() &&
+        mCompactActiveParticleExplicitContactsPass.forceRecreateAllVariants() &&
+        mFinalizeActiveParticleRigidContactsPass.forceRecreateAllVariants() &&
+        mCompactActiveParticleRigidContactsPass.forceRecreateAllVariants() &&
+        mClearSoftConstraintStatePass.forceRecreateAllVariants() &&
+        mClearRigidParticleAttachmentConstraintStatePass.forceRecreateAllVariants() &&
+        mClearStrandRigidAttachmentConstraintStatePass.forceRecreateAllVariants() &&
+        mClearRigidDistanceConstraintStatePass.forceRecreateAllVariants() &&
+        mClearRoutedCableConstraintStatePass.forceRecreateAllVariants() &&
+        mClearSuturingCandidatesPass.forceRecreateAllVariants() &&
+        mGatherSuturingCandidatesPass.forceRecreateAllVariants() &&
+        mClassifySuturingParticlesPass.forceRecreateAllVariants() &&
+        mUpdateSuturingTipPathsPass.forceRecreateAllVariants() &&
+        mAssignSuturingInsideParticlesPass.forceRecreateAllVariants() &&
+        mSolveSuturingNodePathConstraintsPass.forceRecreateAllVariants() &&
+        mSolveSoftEdgeConstraintsPass.forceRecreateAllVariants() &&
+        mSolveSoftBendConstraintsPass.forceRecreateAllVariants() &&
+        mSolveSoftTetConstraintsPass.forceRecreateAllVariants() &&
+        mApplySoftEdgeCorrectionsPass.forceRecreateAllVariants() &&
+        mApplySoftBendCorrectionsPass.forceRecreateAllVariants() &&
+        mApplySoftTetCorrectionsPass.forceRecreateAllVariants() &&
+        mSolveStrandSegmentConstraintsPass.forceRecreateAllVariants() &&
+        mApplyStrandSegmentCorrectionsPass.forceRecreateAllVariants() &&
+        mSolveStrandJointConstraintsPass.forceRecreateAllVariants() &&
+        mApplyStrandJointCorrectionsPass.forceRecreateAllVariants() &&
+        mApplyStrandRigidAttachmentCorrectionsPass.forceRecreateAllVariants() &&
+        mSolveStrandDistanceConstraintsPass.forceRecreateAllVariants() &&
+        mApplyStrandDistanceCorrectionsPass.forceRecreateAllVariants() &&
+        mSolveParticleExplicitContactsPass.forceRecreateAllVariants() &&
+        mSolveParticleRigidContactsPass.forceRecreateAllVariants() &&
+        mApplyParticlePositionCorrectionsPass.forceRecreateAllVariants() &&
+        mUpdateParticleVelocitiesPass.forceRecreateAllVariants() &&
+        mBuildFluidNeighborPairsPass.forceRecreateAllVariants() &&
+        mComputeFluidDensityConstraintsPass.forceRecreateAllVariants() &&
+        mComputeFluidDeltaPositionsPass.forceRecreateAllVariants() &&
+        mApplyFluidDeltaPositionsPass.forceRecreateAllVariants() &&
+        mClampFluidBoundaryPass.forceRecreateAllVariants() &&
+        mProjectFluidBoundaryVelocitiesPass.forceRecreateAllVariants() &&
+        mComputeFluidVorticityPass.forceRecreateAllVariants() &&
+        mApplyFluidVorticityConfinementPass.forceRecreateAllVariants() &&
+        mBuildFluidRenderAnisotropyPass.forceRecreateAllVariants() &&
+        mSolveParticleContactVelocitiesPass.forceRecreateAllVariants() &&
+        mSolveParticleRigidContactVelocitiesPass.forceRecreateAllVariants() &&
+        mApplyParticleContactVelocitiesPass.forceRecreateAllVariants() &&
+        mUpdateSoftTriangleNormalsPass.forceRecreateAllVariants() &&
+        mUpdateSoftRenderNormalsPass.forceRecreateAllVariants() &&
+        mUpdateCurveRenderDataPass.forceRecreateAllVariants() &&
+        mUpdateSoftBodyBoundsPass.forceRecreateAllVariants() &&
+        mFinalizeSoftBodyBoundsPass.forceRecreateAllVariants() &&
+        mClearRigidCorrectionsPass.forceRecreateAllVariants() &&
+        mUpdateRigidWorldAabbsPass.forceRecreateAllVariants() &&
+        mScanBlockPass.forceRecreateAllVariants() &&
+        mScanAddOffsetsPass.forceRecreateAllVariants() &&
+        mCompactBodySetPass.forceRecreateAllVariants() &&
+        mFinalizeActiveBodiesPass.forceRecreateAllVariants() &&
+        mBuildBroadPhaseElementsPass.forceRecreateAllVariants() &&
+        mReduceExtentElementsPass.forceRecreateAllVariants() &&
+        mReduceExtentExtentsPass.forceRecreateAllVariants() &&
+        mMortonCodesPass.forceRecreateAllVariants() &&
+        mRadixClassifyPass.forceRecreateAllVariants() &&
+        mRadixFinalizePass.forceRecreateAllVariants() &&
+        mRadixScatterPass.forceRecreateAllVariants() &&
+        mBvhHierarchyPass.forceRecreateAllVariants() &&
+        mBvhBoundingBoxesPass.forceRecreateAllVariants() &&
+        mCountPairsPass.forceRecreateAllVariants() &&
+        mFinalizePairsPass.forceRecreateAllVariants() &&
+        mEmitPairsPass.forceRecreateAllVariants() &&
+        mBuildNarrowPhaseChunksPass.forceRecreateAllVariants() &&
+        mPrepareRigidIndirectArgsPass.forceRecreateAllVariants() &&
+        mGenerateRigidContactsPass.forceRecreateAllVariants() &&
+        mGenerateProxyRigidContactsPass.forceRecreateAllVariants() &&
+        mFinalRigidContactDepenetrationPass.forceRecreateAllVariants() &&
+        mClearRigidBodyPairContactAggregatesPass.forceRecreateAllVariants() &&
+        mInitRigidContactVelocitiesPass.forceRecreateAllVariants() &&
+        mPrepareRigidContactVelocityIndirectArgsPass.forceRecreateAllVariants() &&
+        mSolveRigidContactVelocitiesPass.forceRecreateAllVariants() &&
+        mSolveBallJointConstraintsPass.forceRecreateAllVariants() &&
+        mSolveSphericalJointConstraintsPass.forceRecreateAllVariants() &&
+        mSolveHingeJointConstraintsPassivePass.forceRecreateAllVariants() &&
+        mSolveSliderJointConstraintsPassivePass.forceRecreateAllVariants() &&
+        mSolveRigidParticleAttachmentConstraintsPass.forceRecreateAllVariants() &&
+        mSolveStrandRigidAttachmentConstraintsPass.forceRecreateAllVariants() &&
+        mSolveRigidDistanceConstraintsPass.forceRecreateAllVariants() &&
+        mSolveRoutedCableConstraintsPass.forceRecreateAllVariants() &&
+        mClearHingeJointConstraintStatePass.forceRecreateAllVariants() &&
+        mClearSphericalJointConstraintStatePass.forceRecreateAllVariants() &&
+        mClearSliderJointConstraintStatePass.forceRecreateAllVariants() &&
+        mSolveHingeJointTargetVelocitiesPass.forceRecreateAllVariants() &&
+        mSolveSliderJointTargetVelocitiesPass.forceRecreateAllVariants() &&
+        mUpdateHingeJointRuntimeStatePass.forceRecreateAllVariants() &&
+        mUpdateSliderJointRuntimeStatePass.forceRecreateAllVariants() &&
+        mApplyRigidCorrectionsPass.forceRecreateAllVariants() &&
+        mUpdateRigidVelocitiesPass.forceRecreateAllVariants() &&
+        mApplyRigidContactVelocitiesPass.forceRecreateAllVariants();
+    if (!recreated)
+    {
+        return false;
+    }
+
+    const std::array bindings{gpu::GpuBufferBinding{
+        "PhysicsSolverConfigBuffer", mSolverConfigBuffer, Diligent::BUFFER_VIEW_SHADER_RESOURCE}};
+    auto bindSolverConfig = [&](gpu::GpuComputePass &pass) -> bool
+    { return pass.bindVariant(kDefaultVariant, bindings); };
+
+    return bindSolverConfig(mSolveSoftEdgeConstraintsPass) &&
+           bindSolverConfig(mSolveSoftBendConstraintsPass) &&
+           bindSolverConfig(mSolveSoftTetConstraintsPass) &&
+           bindSolverConfig(mSolveStrandSegmentConstraintsPass) &&
+           bindSolverConfig(mSolveStrandJointConstraintsPass) &&
+           bindSolverConfig(mSolveStrandDistanceConstraintsPass) &&
+           bindSolverConfig(mSolveParticleExplicitContactsPass) &&
+           bindSolverConfig(mSolveParticleRigidContactsPass) &&
+           bindSolverConfig(mComputeFluidDeltaPositionsPass) &&
+           bindSolverConfig(mApplyFluidDeltaPositionsPass) &&
+           bindSolverConfig(mProjectFluidBoundaryVelocitiesPass) &&
+           bindSolverConfig(mSolveParticleContactVelocitiesPass) &&
+           bindSolverConfig(mSolveParticleRigidContactVelocitiesPass) &&
+           bindSolverConfig(mGenerateRigidContactsPass) &&
+           bindSolverConfig(mFinalRigidContactDepenetrationPass) &&
+           bindSolverConfig(mInitRigidContactVelocitiesPass) &&
+           bindSolverConfig(mSolveRigidContactVelocitiesPass) &&
+           bindSolverConfig(mSolveBallJointConstraintsPass) &&
+           bindSolverConfig(mSolveSphericalJointConstraintsPass) &&
+           bindSolverConfig(mSolveHingeJointConstraintsPassivePass) &&
+           bindSolverConfig(mSolveSliderJointConstraintsPassivePass) &&
+           bindSolverConfig(mApplyRigidCorrectionsPass) &&
+           bindSolverConfig(mApplyRigidContactVelocitiesPass);
 }
 
 } // namespace cressim::neo::physics

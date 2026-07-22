@@ -56,8 +56,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
     const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
     const float restDensity = max(fluidMaterial.restDensity, 1.0);
-    const float densityConstraintScale =
-        max(fluidMaterial.densityConstraintScaleDerived, 1.0e-6);
+    // The CPU derives this scale from the smoothing radius. It becomes much smaller
+    // at smaller particle scales, so an absolute shader floor breaks scale similarity.
+    const float densityConstraintScale = fluidMaterial.densityConstraintScaleDerived;
     const float smoothingRadius = max(fluidMaterial.smoothingRadius, 1.0e-4);
     const float surfaceTension = max(fluidMaterial.surfaceTensionDerived, 0.0);
     float density = 0.0;
@@ -97,7 +98,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                                                  surfaceTension, density, surfaceNormal);
 
     const float constraint =
-        max(density - restDensity, -restDensity * 0.005) * densityConstraintScale;
+        max(density - restDensity, -restDensity * max(kFluidMaxUnderDensityRatio, 0.0)) *
+        densityConstraintScale;
 
     if (surfaceTension > kEpsilon)
     {

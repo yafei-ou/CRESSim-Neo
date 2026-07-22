@@ -21,6 +21,8 @@ class PhysicsPassDispatcher
 {
 public:
     bool initialize(gpu::GpuDevice &device, std::uint32_t physicsContextId);
+    bool updateSolverConfig(Diligent::IDeviceContext *computeContext,
+                            const GpuPhysicsSolverConfig &config);
 
     bool clearRigidCorrections(Diligent::IDeviceContext *computeContext,
                                PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
@@ -337,6 +339,8 @@ public:
 private:
     bool writeRigidDispatchConstants(Diligent::IDeviceContext *computeContext,
                                      const GpuRigidDispatchConstants &constants);
+    bool writeSolverConfig(Diligent::IDeviceContext *computeContext,
+                           const GpuPhysicsSolverConfig &config);
     bool writeRigidJointDispatchConstants(Diligent::IDeviceContext *computeContext,
                                           const GpuRigidJointDispatchConstants &constants);
     bool writeParticleDispatchConstants(Diligent::IDeviceContext *computeContext,
@@ -583,6 +587,7 @@ private:
     gpu::GpuComputePass mApplyRigidContactVelocitiesPass;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mSolverConfigBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidJointDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mParticleDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftRenderDispatchConstantsBuffer;

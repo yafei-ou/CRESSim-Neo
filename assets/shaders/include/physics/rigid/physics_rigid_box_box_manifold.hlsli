@@ -4,7 +4,7 @@
 #include "physics_rigid_contact_primitives.hlsli"
 #include "physics_rigid_types.hlsli"
 
-static const float kManifoldPointMergeDistanceSq = kManifoldMergeDistance * kManifoldMergeDistance;
+#define kManifoldPointMergeDistanceSq (kManifoldMergeDistance * kManifoldMergeDistance)
 static const uint kBoxBoxCandidateCapacity = 16u;
 static const float kEdgeAxisRelativeTolerance = 0.95;
 static const float kEdgeAxisAbsoluteTolerance = 1.0e-3;
