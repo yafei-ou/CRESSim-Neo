@@ -254,6 +254,8 @@ int main(int argc, char **argv)
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options.common);
     config.physicsDesc.gravity.y *= options.scale;
+    config.physicsDesc.contact.slop *= options.scale;
+    config.physicsDesc.contact.positionFrictionMinDistance *= options.scale;
     config.physicsDesc.substeps          = options.substeps;
     config.physicsDesc.defaultIterations = options.fluidIterations;
     config.physicsDesc.fluidIterations   = options.fluidIterations;
@@ -353,6 +355,7 @@ int main(int argc, char **argv)
                      ", spacing=", kBaseParticleSpacing * s, ", substeps=", options.substeps,
                      ", fluidIterations=", options.fluidIterations,
                      ", pressureRelaxation=", options.pressureRelaxation,
+                     ", contactSlop=", config.physicsDesc.contact.slop,
                      ", maxUnderDensityRatio=",
                      options.maxUnderDensityRatio, ".\n");
 

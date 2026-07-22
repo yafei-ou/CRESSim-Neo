@@ -249,18 +249,16 @@ FluidMaterialGpu toFluidSolverMaterial(const FluidMaterialDesc &material,
     const float cohesion1      = -(1.0f + restRatio) / restRatioSq;
     const float cohesion2      = (restRatioSq + restRatio + 1.0f) / restRatioSq;
 
-    return FluidMaterialGpu{restDensity,
-                            invRestDensity,
-                            smoothingRadius,
+    return FluidMaterialGpu{restDensity, invRestDensity, smoothingRadius,
                             1.0f / std::max(densityConstraintScale, 1.0e-6f),
                             material.viscosity * invRestDensity,
-                            material.cohesion * smoothingRadius,
-                            cohesion1,
-                            cohesion2,
+                            material.cohesion * smoothingRadius, cohesion1, cohesion2,
                             (material.surfaceTension * invRestDensity) / surfaceConstraintScale,
-                            material.vorticityConfinement * invRestDensity,
-                            material.gravityScale,
-                            material.cflCoefficient * smoothingRadius};
+                            // The confinement force contains curl, which grows as the
+                            // smoothing radius shrinks. Include h here so the resulting
+                            // acceleration scales with the rest of a uniformly scaled scene.
+                            material.vorticityConfinement * invRestDensity * smoothingRadius,
+                            material.gravityScale, material.cflCoefficient * smoothingRadius};
 }
 
 bool nearlyEqual(float a, float b, float epsilon = 1.0e-4f) noexcept
@@ -6477,7 +6475,7 @@ void PhysicsWorld::Impl::recomputeParticleGridCellSize() noexcept
         }
     }
 
-    mParticleGridCellSize = std::max(gridCellSize, 0.1f);
+    mParticleGridCellSize = std::max(gridCellSize, 1.0e-4f);
 }
 
 void PhysicsWorld::Impl::recomputeSoftBodyBoundsChunkCount() noexcept
