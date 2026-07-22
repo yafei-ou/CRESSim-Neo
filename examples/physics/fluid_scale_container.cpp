@@ -268,6 +268,9 @@ int main(int argc, char **argv)
     defaults.showStats   = true;
     defaults.vSync       = false;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options.common, defaults);
+    // This example is used to compare scale-dependent solver behavior. Decouple its
+    // physics step from first-frame shader compilation and presentation timing.
+    viewerDesc.useFixedTimestep = true;
     viewerDesc.enableDebugParticles = options.debugParticles;
     if (!viewer.initialize(viewerDesc, config))
     {
