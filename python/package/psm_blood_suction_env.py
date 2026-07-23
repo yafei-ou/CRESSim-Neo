@@ -840,14 +840,14 @@ def _bind_resources(
             binding.resource_key = key
 
 
-def _find_repo_root(
+def _find_asset_root(
     resolve_root: str | Path | None,
     required_relative_path: str,
 ) -> Path:
-    search_roots: list[Path] = []
+    search_roots: list[Path] = [Path(__file__).resolve().parent / "assets"]
     if resolve_root is not None:
-        search_roots.append(Path(resolve_root).expanduser().resolve())
-    search_roots.extend(Path(__file__).resolve().parents)
+        explicit_root = Path(resolve_root).expanduser().resolve()
+        search_roots.extend((explicit_root, explicit_root / "assets"))
     for root in search_roots:
         if (root / required_relative_path).exists():
             return root
@@ -1092,7 +1092,7 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         self.resolve_root = resolve_root
         self.urdf_path = urdf_path
         self.tool_type = str(tool_type)
-        self.repo_root = _find_repo_root(resolve_root, "examples/models/container.node")
+        self.asset_root = _find_asset_root(resolve_root, "models/container.node")
 
         self.container_top_y = self.DEFAULT_CONTAINER_TOP_Y
         self.fluid_particle_radius = self.DEFAULT_FLUID_PARTICLE_RADIUS
@@ -1217,7 +1217,7 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
     def _author_scene(self) -> None:
         world = self.runtime.world()
         resources = self.runtime.resources()
-        models_dir = self.repo_root / "examples" / "models"
+        models_dir = self.asset_root / "models"
         node_path = models_dir / "container.node"
         ele_path = models_dir / "container.ele"
         surface_path = models_dir / "container_surface.obj"

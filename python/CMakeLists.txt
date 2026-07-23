@@ -190,6 +190,12 @@ install(
     COMPONENT Python
 )
 
+install(
+    DIRECTORY "${PROJECT_SOURCE_DIR}/assets/models" "${PROJECT_SOURCE_DIR}/assets/environments"
+    DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}/assets"
+    COMPONENT Python
+)
+
 if(CRESSIM_NEO_HAS_ULTRASOUND AND TARGET cru_interface)
     install(
         FILES "$<TARGET_FILE:cru_interface>"
@@ -309,6 +315,12 @@ add_custom_target(${TARGET_NAME}_package_files ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${PROJECT_SOURCE_DIR}/assets/shaders"
         "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/shaders"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${PROJECT_SOURCE_DIR}/assets/models"
+        "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/assets/models"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${PROJECT_SOURCE_DIR}/assets/environments"
+        "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/assets/environments"
     DEPENDS
         "${CRESSIM_NEO_PYTHON_PACKAGE_INIT}"
         ${CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES}

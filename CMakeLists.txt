@@ -286,10 +286,6 @@ if(NOT ENGINE_STATIC)
         COMPONENT CXXSDK
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl"
     )
-    install(DIRECTORY "${PROJECT_SOURCE_DIR}/assets/shaders/"
-        DESTINATION "${CMAKE_INSTALL_DATADIR}/cressim-neo/shaders"
-        COMPONENT CXXSDK)
-
     set(CRESSIM_NEO_CMAKE_INSTALL_DIR
         "${CMAKE_INSTALL_LIBDIR}/cmake/CRESSimNeo")
     configure_package_config_file(
@@ -311,6 +307,10 @@ if(NOT ENGINE_STATIC)
         DESTINATION "${CRESSIM_NEO_CMAKE_INSTALL_DIR}"
         COMPONENT CXXSDK)
 endif()
+
+install(DIRECTORY "${PROJECT_SOURCE_DIR}/assets/"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/cressim-neo/assets"
+    COMPONENT CXXSDK)
 
 # clang-format
 file(GLOB_RECURSE ALL_SOURCE_FILES

@@ -3,6 +3,7 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
+#include "helpers/asset_paths.h"
 #include "helpers/example_cli.h"
 #include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
@@ -64,31 +65,19 @@ constexpr std::uint32_t kObjectsPerEnvBudget = kDynamicBodiesPerEnv + 16u;
 constexpr std::uint32_t kMatrixObjectsPerEnvBudget = 24u;
 constexpr std::uint32_t kSharedIrradianceSize = 16u;
 constexpr std::array<const char*, 25u> kLargeArraySkyboxCrossPaths = {{
-    "examples/cubemaps/Cubemap/Cubemap_Sky_01-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_02-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_03-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_04-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_05-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_06-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_07-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_08-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_09-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_10-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_11-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_12-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_13-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_14-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_15-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_16-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_17-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_18-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_19-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_20-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_21-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_22-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_23-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_24-512x512.png",
-    "examples/cubemaps/Cubemap/Cubemap_Sky_25-512x512.png",
+    "Cubemap_Sky_01-512x512.png", "Cubemap_Sky_02-512x512.png",
+    "Cubemap_Sky_03-512x512.png", "Cubemap_Sky_04-512x512.png",
+    "Cubemap_Sky_05-512x512.png", "Cubemap_Sky_06-512x512.png",
+    "Cubemap_Sky_07-512x512.png", "Cubemap_Sky_08-512x512.png",
+    "Cubemap_Sky_09-512x512.png", "Cubemap_Sky_10-512x512.png",
+    "Cubemap_Sky_11-512x512.png", "Cubemap_Sky_12-512x512.png",
+    "Cubemap_Sky_13-512x512.png", "Cubemap_Sky_14-512x512.png",
+    "Cubemap_Sky_15-512x512.png", "Cubemap_Sky_16-512x512.png",
+    "Cubemap_Sky_17-512x512.png", "Cubemap_Sky_18-512x512.png",
+    "Cubemap_Sky_19-512x512.png", "Cubemap_Sky_20-512x512.png",
+    "Cubemap_Sky_21-512x512.png", "Cubemap_Sky_22-512x512.png",
+    "Cubemap_Sky_23-512x512.png", "Cubemap_Sky_24-512x512.png",
+    "Cubemap_Sky_25-512x512.png",
 }};
 
 enum class LightingMode
@@ -288,9 +277,9 @@ EnvironmentIblDesc loadFileSkyboxIbl(cressim::neo::graphics::RenderResourceManag
                                      std::uint32_t skyboxIndex,
                                      float intensity, float backgroundIntensity)
 {
-    const std::filesystem::path crossPath =
-        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
-        kLargeArraySkyboxCrossPaths[skyboxIndex % kLargeArraySkyboxCrossPaths.size()];
+    const std::filesystem::path crossPath = cressim::neo::examples::helpers::assetPath(
+        std::filesystem::path("environments/cubemaps/Cubemap") /
+        kLargeArraySkyboxCrossPaths[skyboxIndex % kLargeArraySkyboxCrossPaths.size()]);
 
     EnvironmentIblBakeOptions options{};
     options.irradianceSize = kSharedIrradianceSize;

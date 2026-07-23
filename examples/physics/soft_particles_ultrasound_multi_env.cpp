@@ -1,6 +1,7 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/asset_paths.h"
 #include "helpers/readback_image_io.h"
 #include "helpers/shape_meshes.h"
 #include "helpers/skybox_example.h"
@@ -67,7 +68,7 @@ constexpr float kProbeHeight             = 0.35f;
 constexpr float kProbeBodyHalfHeight     = 0.06f;
 constexpr float kProbeBodyDepth          = 0.08f;
 constexpr const char *kUltrasoundSkyboxCrossPath =
-    "examples/cubemaps/Cubemap/Cubemap_Sky_18-512x512.png";
+    "environments/cubemaps/Cubemap/Cubemap_Sky_18-512x512.png";
 constexpr std::uint32_t kSceneOutputWidth  = 1280u;
 constexpr std::uint32_t kSceneOutputHeight = 720u;
 enum class ExampleProbeType
@@ -247,8 +248,7 @@ std::uint8_t encodeByte(float value)
 EnvironmentIblDesc loadUltrasoundSkyboxIbl(cressim::neo::graphics::RenderResourceManager &resources)
 {
     const std::filesystem::path crossPath =
-        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
-        kUltrasoundSkyboxCrossPath;
+        cressim::neo::examples::helpers::assetPath(kUltrasoundSkyboxCrossPath);
 
     EnvironmentIblBakeOptions options{};
     options.irradianceSize         = 16u;
@@ -756,8 +756,7 @@ ProbeObjVisualDesc registerLinearProbeObjMesh(cressim::neo::graphics::RenderReso
     ProbeObjVisualDesc desc{};
 
     const std::filesystem::path probeObjPath =
-        std::filesystem::path(__FILE__).parent_path().parent_path() / "models" /
-        "Linear Probe.obj";
+        cressim::neo::examples::helpers::assetPath("models/Linear Probe.obj");
     if (!std::filesystem::exists(probeObjPath))
     {
         CRESSIM_LOG_INFO("Linear probe OBJ not found at ", probeObjPath.string(),

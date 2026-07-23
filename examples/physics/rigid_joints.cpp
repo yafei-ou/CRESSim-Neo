@@ -2,6 +2,7 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
+#include "helpers/asset_paths.h"
 #include "helpers/viewer_example.h"
 #include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
@@ -76,7 +77,7 @@ constexpr float kHorizontalSliderDriveCenter = 0.12f;
 constexpr float kVerticalSliderDriveCenter = 0.32f;
 constexpr float kOverviewAreaOffsetX = 2.0f;
 constexpr const char *kRigidJointsSkyboxCrossPath =
-    "examples/cubemaps/Cubemap/Cubemap_Sky_05-512x512.png";
+    "environments/cubemaps/Cubemap/Cubemap_Sky_05-512x512.png";
 
 struct AuthoredHingeJointIds
 {
@@ -195,8 +196,7 @@ EnvironmentIblDesc loadRigidJointsSkyboxIbl(
     cressim::neo::graphics::RenderResourceManager &resources)
 {
     const std::filesystem::path crossPath =
-        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
-        kRigidJointsSkyboxCrossPath;
+        cressim::neo::examples::helpers::assetPath(kRigidJointsSkyboxCrossPath);
 
     EnvironmentIblBakeOptions options{};
     options.irradianceSize = 16u;

@@ -1,18 +1,18 @@
 {
   "schema_version": 2,
   "components": {
-    "examples/cubemaps": {
+    "assets/environments/cubemaps": {
       "status": "pending",
-      "notes": "Example assets are built but not installed by the current CMake rules; decide separately for a source checkout or an examples distribution.",
+      "notes": "Standard cubemap assets installed with the CMake Assets component and the Python package.",
       "notice_files": [
-        "examples/cubemaps/License.txt"
+        "assets/environments/cubemaps/License.txt"
       ],
       "notice_sources": [],
       "scan_suggested_notice_sources": []
     },
-    "examples/models/psm": {
+    "assets/models/psm": {
       "status": "pending",
-      "notes": "Model assets are built only with examples and are not installed by the current SDK rules; their URL-only clues require provenance review.",
+      "notes": "Standard model assets installed with the CMake Assets component and the Python package; their URL-only clues require provenance review.",
       "notice_files": [],
       "notice_sources": [],
       "scan_suggested_notice_sources": []

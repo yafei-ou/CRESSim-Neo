@@ -2,6 +2,7 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
+#include "helpers/asset_paths.h"
 #include "helpers/example_cli.h"
 #include "helpers/readback_image_io.h"
 #include "helpers/shape_meshes.h"
@@ -64,7 +65,7 @@ struct ExampleOptions
 };
 
 constexpr const char *kCameraOutputsSkyboxCrossPath =
-    "examples/cubemaps/Cubemap/Cubemap_Sky_18-512x512.png";
+    "environments/cubemaps/Cubemap/Cubemap_Sky_18-512x512.png";
 constexpr std::uint32_t kExplicitOutputWidth  = 960u;
 constexpr std::uint32_t kExplicitOutputHeight = 720u;
 
@@ -123,8 +124,7 @@ EnvironmentIblDesc loadCameraOutputsSkyboxIbl(
     cressim::neo::graphics::RenderResourceManager &resources)
 {
     const std::filesystem::path crossPath =
-        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
-        kCameraOutputsSkyboxCrossPath;
+        cressim::neo::examples::helpers::assetPath(kCameraOutputsSkyboxCrossPath);
 
     EnvironmentIblBakeOptions options{};
     options.irradianceSize = 16u;
