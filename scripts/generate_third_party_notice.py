@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 VALID_STATUSES = {"pending", "include", "exclude"}
+REVIEW_SCHEMA_VERSIONS = {1, 2}
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -56,7 +57,7 @@ def main() -> int:
 
     with arguments.review.open(encoding="utf-8") as review_file:
         review = json.load(review_file)
-    if review.get("schema_version") != 1 or not isinstance(review.get("components"), dict):
+    if review.get("schema_version") not in REVIEW_SCHEMA_VERSIONS or not isinstance(review.get("components"), dict):
         raise ValueError(f"Unsupported review file: {arguments.review}")
 
     included_components: list[tuple[str, dict[str, object]]] = []

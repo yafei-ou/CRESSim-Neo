@@ -5,15 +5,16 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPORT="${REPO_ROOT}/build/compliance/scancode.json"
 REVIEW="${REPO_ROOT}/compliance/third_party_review.json"
+EVIDENCE="${REPO_ROOT}/build/compliance/third_party_evidence.json"
 OUTPUT="${REPO_ROOT}/build/compliance/third_party_review.md"
 
 usage() {
     cat <<'EOF'
-Usage: scripts/summarize_third_party_scan.sh [--report <path>] [--output <path>]
+Usage: scripts/summarize_third_party_scan.sh [--report <path>] [--evidence <path>] [--output <path>]
 
-Creates a compact Markdown dashboard and updates the persistent review registry.
-Existing include/exclude/pending decisions and notes are preserved. If the
-registry does not exist, it is initialized with pending decisions.
+Creates a compact Markdown dashboard and grouped evidence from a ScanCode
+report. It updates the persistent review registry without overwriting existing
+include/exclude/pending decisions, notes, or notice_files.
 EOF
 }
 
@@ -34,6 +35,11 @@ while (( $# > 0 )); do
             OUTPUT="$2"
             shift 2
             ;;
+        --evidence)
+            (( $# >= 2 )) || die "--evidence requires a path."
+            EVIDENCE="$2"
+            shift 2
+            ;;
         --help|-h)
             usage
             exit 0
@@ -51,4 +57,5 @@ command -v python3 >/dev/null 2>&1 || die "python3 is required to summarize the 
 python3 "${REPO_ROOT}/scripts/summarize_scancode_report.py" \
     --report "${REPORT}" \
     --review "${REVIEW}" \
+    --evidence "${EVIDENCE}" \
     --output "${OUTPUT}"

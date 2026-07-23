@@ -1,11 +1,6 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "components": {
-    "first-party": {
-      "status": "pending",
-      "notes": "",
-      "notice_files": []
-    },
     "examples/cubemaps": {
       "status": "pending",
       "notes": "",
@@ -30,6 +25,238 @@
         "extern/CRESSim-Ultrasound/LICENSE",
         "extern/CRESSim-Ultrasound/THIRD_PARTY_NOTICES.md"
       ]
+    },
+    "extern/DiligentEngine": {
+      "status": "include",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/License.txt",
+        "extern/DiligentEngine/DiligentFX/License.txt",
+        "extern/DiligentEngine/DiligentSamples/License.txt",
+        "extern/DiligentEngine/DiligentSamples/Samples/Asteroids/license.txt",
+        "extern/DiligentEngine/DiligentTools/License.txt",
+        "extern/DiligentEngine/DiligentTools/NativeApp/Apple/LICENSE.txt",
+        "extern/DiligentEngine/License.txt"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/abseil-cpp": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/dawn": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler": {
+      "status": "include",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/LICENSE.TXT"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/FSR": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/glew": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/glew/LICENSE.txt"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/glslang": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/LICENSE.txt",
+        "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/license-checker.cfg"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/googletest": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/LICENSE"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/GPUOpenShaderUtils": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/GPUOpenShaderUtils/License.txt"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/OpenXR-SDK": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSE",
+        "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSES/LicenseRef-KhronosFreeUse.txt"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSE"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/LICENSE",
+        "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/utils/vscode/src/lsp/LICENSE"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/stb": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/volk": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/volk/LICENSE.md"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/LICENSE.md"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/LICENSE",
+        "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/cli/COPYING",
+        "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/tests/bench/LICENSE",
+        "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/tests/collisions/LICENSE"
+      ]
+    },
+    "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/LICENSE.md"
+      ]
+    },
+    "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/LICENSE",
+        "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/src/LICENSE"
+      ]
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/args": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentTools/ThirdParty/args/LICENSE"
+      ]
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/imgui": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/LICENSE.txt",
+        "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/examples/libs/glfw/COPYING.txt"
+      ]
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/imgui_v1.85": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/imGuIZMO.quat": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentTools/ThirdParty/imGuIZMO.quat/license.txt"
+      ]
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/json": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentTools/ThirdParty/json/LICENSE.MIT",
+        "extern/DiligentEngine/DiligentTools/ThirdParty/json/docs/mkdocs/docs/home/license.md"
+      ]
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/libpng": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/LICENSE",
+        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/ci/LICENSE_MIT.txt",
+        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/contrib/gregbook/COPYING",
+        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/contrib/gregbook/LICENSE",
+        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/contrib/pngexif/LICENSE_MIT.txt",
+        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/contrib/pngminus/LICENSE.txt"
+      ]
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/stb": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentTools/ThirdParty/stb/LICENSE",
+        "extern/DiligentEngine/DiligentTools/ThirdParty/stb/data/herringbone/license.txt"
+      ]
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/tinygltf": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentTools/ThirdParty/tinygltf/LICENSE"
+      ]
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty/zlib": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/LICENSE",
+        "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/contrib/dotzlib/LICENSE_1_0.txt",
+        "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/contrib/minizip/LICENSE.Info-Zip"
+      ]
+    },
+    "extern/DiligentEngine/DiligentCore/ThirdParty": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "extern/DiligentEngine/DiligentTools/ThirdParty": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "project files with third-party clues": {
+      "status": "pending",
+      "notes": "Review whether these are only references or contain distributed third-party material.",
+      "notice_files": []
     }
   }
 }

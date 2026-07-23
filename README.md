@@ -47,8 +47,9 @@ against each supported C++ SDK and Python install profile, then retain the
 required notices for code, headers, assets, and binaries actually distributed.
 The initial scan excludes the large DiligentEngine submodule; add
 `--include-diligent` when preparing the complete inventory.
-Create or refresh `build/compliance/third_party_review.md`, a compact dashboard
-grouped by component, separately:
+Create or refresh `build/compliance/third_party_review.md`, a compact dashboard,
+and `build/compliance/third_party_evidence.json`, the grouped source paths and
+line ranges behind it:
 
 ```bash
 scripts/summarize_third_party_scan.sh
@@ -57,6 +58,9 @@ scripts/summarize_third_party_scan.sh
 Record each review decision in
 `compliance/third_party_review.json` as `pending`, `include`, or `exclude`; the
 file is preserved and extended when later scans discover new components.
+Generated ScanCode evidence stays out of that tracked decision file: the raw
+report remains `scancode.json`, while the regrouped evidence remains
+`third_party_evidence.json`.
 
 After review, generate a draft notice from the canonical upstream notice files
 declared in each included component's `notice_files` array:
