@@ -940,6 +940,10 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
               CustomComputeResourceAccess::ReadOnly,
               bufferElementCount(sceneView.soft.renderNormalsBuffer),
               sceneView.soft.bindingGeneration);
+    addBuffer("soft.render_thermal_state", sceneView.soft.renderThermalStateBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.renderThermalStateBuffer),
+              sceneView.soft.bindingGeneration);
     addBuffer("soft.world_aabbs", sceneView.soft.worldAabbsBuffer,
               CustomComputeResourceAccess::ReadOnly, sceneView.soft.softBodyCount,
               sceneView.soft.bindingGeneration);

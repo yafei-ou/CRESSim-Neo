@@ -1,5 +1,5 @@
-#include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
-#include "../../../include/physics/particle/physics_particle_types.hlsli"
+#include "physics_particle_dispatch_constants.hlsli"
+#include "physics_particle_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwningSoftBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftThermalMaterial, g_SoftThermalMaterials);

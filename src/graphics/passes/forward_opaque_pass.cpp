@@ -835,7 +835,8 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     if (programFamily == MaterialProgramFamily::SoftBodyLit)
     {
         if (mPhysicsScene == nullptr || mPhysicsScene->soft.renderPositionsBuffer == nullptr ||
-            mPhysicsScene->soft.renderNormalsBuffer == nullptr)
+            mPhysicsScene->soft.renderNormalsBuffer == nullptr ||
+            mPhysicsScene->soft.renderThermalStateBuffer == nullptr)
         {
             return false;
         }
@@ -845,7 +846,10 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         Diligent::IShaderResourceVariable *normalVar =
             program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
                                                              "g_SoftBodyVertexNormals");
-        if (softPositionVar == nullptr || normalVar == nullptr)
+        Diligent::IShaderResourceVariable *thermalStateVar =
+            program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                             "g_SoftBodyRenderThermalState");
+        if (softPositionVar == nullptr || normalVar == nullptr || thermalStateVar == nullptr)
         {
             return false;
         }
@@ -854,12 +858,16 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
                 Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         Diligent::IBufferView *normalSrv = mPhysicsScene->soft.renderNormalsBuffer->GetDefaultView(
             Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        if (softPositionSrv == nullptr || normalSrv == nullptr)
+        Diligent::IBufferView *thermalStateSrv =
+            mPhysicsScene->soft.renderThermalStateBuffer->GetDefaultView(
+                Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (softPositionSrv == nullptr || normalSrv == nullptr || thermalStateSrv == nullptr)
         {
             return false;
         }
         softPositionVar->Set(softPositionSrv);
         normalVar->Set(normalSrv);
+        thermalStateVar->Set(thermalStateSrv);
     }
     else if (programFamily == MaterialProgramFamily::CurveLit)
     {

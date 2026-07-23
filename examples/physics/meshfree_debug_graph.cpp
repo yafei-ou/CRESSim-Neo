@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -43,12 +44,41 @@ using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::CuttingToolGPU;
 using cressim::neo::physics::CuttingToolShape;
+using cressim::neo::physics::ElectrocauteryToolGPU;
+using cressim::neo::physics::ElectrocauteryToolMode;
 using cressim::neo::physics::RigidBodyType;
+using cressim::neo::physics::SoftEdge;
 using cressim::neo::physics::SoftEdgeToolCounters;
+using cressim::neo::physics::SoftRenderDataHost;
+using cressim::neo::physics::SoftThermalMaterialDesc;
 using cressim::neo::physics::SurfaceMeshData;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
+
+enum class ThermalDebugMode
+{
+    None,
+    ElectrosurgicalCut,
+    ElectrosurgicalCoagulation,
+    ElectrosurgicalBlend,
+};
+
+enum class ThermalVisualizationMode
+{
+    PbrSurface,
+    ParticleHeatmap,
+};
+
+enum class ElectrocauteryDemoPhase
+{
+    Entry,
+    Dwell,
+    Plunge,
+    Press,
+    Retract,
+    Complete,
+};
 
 struct MeshfreeDebugOptions
 {
@@ -66,17 +96,19 @@ struct MeshfreeDebugOptions
     bool showCutEdges = false;
     bool showStrain = false;
     bool showDamage = false;
+    ThermalDebugMode thermalDebugMode = ThermalDebugMode::None;
+    ThermalVisualizationMode thermalVisualizationMode = ThermalVisualizationMode::PbrSurface;
     CuttingToolShape toolShape = CuttingToolShape::Blade;
     std::filesystem::path cloudPath =
-        cressim::neo::examples::helpers::assetPath("physics/fixtures/cube_particles.bin");
+        cressim::neo::examples::helpers::assetPath("physics/fixtures/gallbladder_particles.bin");
     std::filesystem::path surfacePath =
-        cressim::neo::examples::helpers::assetPath("physics/fixtures/Cube.obj");
-    std::uint32_t neighbourCount = 12u;
+        cressim::neo::examples::helpers::assetPath("physics/fixtures/Gallbladder.obj");
+    std::uint32_t neighbourCount = 24u;
     std::uint32_t substeps = 0u;
     std::uint32_t softInternalIterations = 0u;
     std::uint32_t softContactIterations = 0u;
     cressim::neo::physics::SoftBodyShapeMatchingDesc shapeMatching{};
-    float cloudScale = 0.35f;
+    float cloudScale = 0.035f;
     float particleRadius = 0.035f;
     float particleMass = 0.0f;
     float compliance = -1.0f;
@@ -93,6 +125,39 @@ struct MeshfreeDebugOptions
     float disableEdgeRegionRadius = 0.0f;
     Diligent::float3 disableEdgeRegionCenter{0.0f, 0.0f, 0.0f};
     Diligent::float3 rotationDegrees{0.0f, 0.0f, 0.0f};
+};
+
+struct ElectrocauteryDemoState
+{
+    ElectrocauteryDemoPhase phase = ElectrocauteryDemoPhase::Entry;
+    double phaseStartTimeSeconds = 0.0;
+    Diligent::float3 entryTip{0.0f, 0.0f, 0.0f};
+    Diligent::float3 contactTip{0.0f, 0.0f, 0.0f};
+    Diligent::float3 surfaceNormal{0.0f, 0.0f, -1.0f};
+    Diligent::float3 trocarShaftAxis{0.0f, 1.0f, 0.0f};
+    Diligent::float3 frozenTip{0.0f, 0.0f, 0.0f};
+    Diligent::float3 frozenShaftAxis{0.0f, 1.0f, 0.0f};
+    float pressDepth = 0.08f;
+    float groundTipY = -0.72f;
+    float retractDistance = 0.70f;
+    float capsuleRadius = 0.025f;
+    float capsuleHalfHeight = 0.18f;
+    float cutPunctureDamageThreshold = 0.55f;
+    std::uint32_t thermallyCutEdgesAtPlungeStart = 0u;
+    std::uint32_t lastThermallyCutEdges = 0u;
+    std::uint32_t stableThermalCutReadbacks = 0u;
+    bool tipReachedGround = false;
+};
+
+struct ElectrocauteryToolPose
+{
+    Diligent::float3 proximalTip{0.0f, 0.0f, 0.0f};
+    Diligent::float3 distalTip{0.0f, 0.0f, 0.0f};
+    Diligent::float3 shaftAxis{0.0f, 1.0f, 0.0f};
+    Diligent::QuaternionF rotation{0.0f, 0.0f, 0.0f, 1.0f};
+    float capsuleRadius = 0.025f;
+    float capsuleHalfHeight = 0.18f;
+    bool heatActive = false;
 };
 
 struct ParticleBounds
@@ -139,10 +204,12 @@ void printUsage(const char *appName)
         " [--shape-correction-debug-scale S] [--disable-cut-aware-clusters]"
         " [--show-particles] [--hide-particles] [--draw-edges] [--disable-edge-test]"
         " [--disable-edge-region X Y Z R] [--enable-fracture] [--fracture-threshold S]"
-        " [--enable-cutting-tool] [--tool-shape capsule|blade] [--tool-radius R]"
+        " [--enable-cutting-tool] [--tool-shape blade] [--tool-radius R]"
         " [--tool-strength S] [--instant-cut] [--blade-length L] [--blade-depth D]"
         " [--blade-thickness T] [--blade-cut-band-depth D]"
-        " [--show-cut-edges] [--show-strain] [--show-damage]",
+        " [--show-cut-edges] [--show-strain] [--show-damage]"
+        " [--thermal-debug electrosurgical_cut|electrosurgical_coagulation]"
+        " [--thermal-visual pbr|heatmap]",
         false);
 }
 
@@ -160,15 +227,60 @@ float parseFloat(const char *value, const char *optionName)
 CuttingToolShape parseToolShape(const char *value)
 {
     const std::string parsed = value != nullptr ? value : "";
-    if (parsed == "capsule")
-    {
-        return CuttingToolShape::Capsule;
-    }
     if (parsed == "blade")
     {
         return CuttingToolShape::Blade;
     }
     throw std::invalid_argument("Invalid --tool-shape: " + parsed);
+}
+
+ThermalDebugMode parseThermalDebugMode(const char *value)
+{
+    const std::string parsed = value != nullptr ? value : "";
+    if (parsed == "electrosurgical_cut")
+    {
+        return ThermalDebugMode::ElectrosurgicalCut;
+    }
+    if (parsed == "electrosurgical_coagulation")
+    {
+        return ThermalDebugMode::ElectrosurgicalCoagulation;
+    }
+    if (parsed == "electrosurgical_blend")
+    {
+        return ThermalDebugMode::ElectrosurgicalBlend;
+    }
+    throw std::invalid_argument("Invalid --thermal-debug: " + parsed);
+}
+
+ThermalVisualizationMode parseThermalVisualizationMode(const char *value)
+{
+    const std::string parsed = value != nullptr ? value : "";
+    if (parsed == "pbr")
+    {
+        return ThermalVisualizationMode::PbrSurface;
+    }
+    if (parsed == "heatmap")
+    {
+        return ThermalVisualizationMode::ParticleHeatmap;
+    }
+    throw std::invalid_argument("Invalid --thermal-visual: " + parsed);
+}
+
+bool thermalDebugEnabled(const MeshfreeDebugOptions &options)
+{
+    return options.thermalDebugMode != ThermalDebugMode::None;
+}
+
+bool thermalHeatmapEnabled(const MeshfreeDebugOptions &options)
+{
+    return thermalDebugEnabled(options) &&
+           options.thermalVisualizationMode == ThermalVisualizationMode::ParticleHeatmap;
+}
+
+bool thermalPbrSurfaceEnabled(const MeshfreeDebugOptions &options)
+{
+    return !thermalDebugEnabled(options) ||
+           options.thermalVisualizationMode == ThermalVisualizationMode::PbrSurface;
 }
 
 std::uint32_t parsePositiveUint32(const char *value, const char *optionName)
@@ -251,7 +363,7 @@ MaterialHandle registerSurfaceShellMaterial(
 {
     MaterialResourceDesc desc{};
     desc.debugName             = "MeshfreeDebug.CubeSurfaceShell";
-    desc.baseColor             = {0.82f, 0.28f, 0.34f};
+    desc.baseColor             = {0.33f, 0.42f, 0.18f}; //{0.82f, 0.28f, 0.34f};
     desc.roughness             = 0.68f;
     desc.renderMode            = MaterialRenderMode::Opaque;
     desc.opacity               = 1.0f;
@@ -354,9 +466,99 @@ MeshResourceDesc makeSurfaceMeshResource(const SurfaceMeshData &surface, const c
     return mesh;
 }
 
-std::uint32_t filterSurfaceMeshTrianglesByComponent(
+std::uint64_t particlePairKey(std::uint32_t a, std::uint32_t b)
+{
+    if (b < a)
+    {
+        std::swap(a, b);
+    }
+    return (static_cast<std::uint64_t>(a) << 32u) | static_cast<std::uint64_t>(b);
+}
+
+std::unordered_set<std::uint64_t> buildThermalCutParticlePairs(
+    const std::vector<SoftEdge> &softEdges)
+{
+    std::unordered_set<std::uint64_t> pairs;
+    for (const SoftEdge &edge : softEdges)
+    {
+        if ((edge.flags & cressim::neo::physics::Edge_ThermalCut) == 0u)
+        {
+            continue;
+        }
+        pairs.insert(particlePairKey(edge.particleA, edge.particleB));
+    }
+    return pairs;
+}
+
+bool triangleTouchesThermalCutEdge(
+    std::uint32_t i0,
+    std::uint32_t i1,
+    std::uint32_t i2,
+    const SoftRenderDataHost &softRenderData,
+    const std::unordered_set<std::uint64_t> &thermalCutParticlePairs)
+{
+    if (thermalCutParticlePairs.empty())
+    {
+        return false;
+    }
+
+    auto pairWasThermallyCut = [&](std::uint32_t a, std::uint32_t b)
+    {
+        return thermalCutParticlePairs.find(particlePairKey(a, b)) !=
+               thermalCutParticlePairs.end();
+    };
+
+    std::uint32_t boundParticles[12u]{};
+    std::uint32_t boundParticleCount = 0u;
+    auto appendBindingParticles = [&](std::uint32_t vertexIndex)
+    {
+        if (vertexIndex >= softRenderData.vertexBindings.size())
+        {
+            return;
+        }
+
+        const auto &binding = softRenderData.vertexBindings[vertexIndex];
+        const std::uint32_t indices[4u] = {
+            binding.particleIndices.x,
+            binding.particleIndices.y,
+            binding.particleIndices.z,
+            binding.particleIndices.w};
+        const float weights[4u] = {
+            binding.weights.x,
+            binding.weights.y,
+            binding.weights.z,
+            binding.weights.w};
+        for (std::uint32_t slot = 0u; slot < 4u; ++slot)
+        {
+            if (weights[slot] <= 1.0e-4f)
+            {
+                continue;
+            }
+            boundParticles[boundParticleCount++] = indices[slot];
+        }
+    };
+
+    appendBindingParticles(i0);
+    appendBindingParticles(i1);
+    appendBindingParticles(i2);
+    for (std::uint32_t a = 0u; a < boundParticleCount; ++a)
+    {
+        for (std::uint32_t b = a + 1u; b < boundParticleCount; ++b)
+        {
+            if (pairWasThermallyCut(boundParticles[a], boundParticles[b]))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+std::uint32_t filterSurfaceMeshTrianglesByTopology(
     MeshResourceDesc &surfaceMesh, const std::vector<std::uint32_t> &originalIndices,
-    const std::vector<std::uint32_t> &vertexComponents)
+    const std::vector<std::uint32_t> &vertexComponents,
+    const SoftRenderDataHost *softRenderData,
+    const std::unordered_set<std::uint64_t> *thermalCutParticlePairs)
 {
     if (originalIndices.empty() || vertexComponents.empty())
     {
@@ -385,8 +587,14 @@ std::uint32_t filterSurfaceMeshTrianglesByComponent(
         const std::uint32_t c0 = vertexComponents[i0];
         const std::uint32_t c1 = vertexComponents[i1];
         const std::uint32_t c2 = vertexComponents[i2];
-        if (c0 == kInvalidComponent || c1 == kInvalidComponent || c2 == kInvalidComponent ||
-            (c0 == c1 && c1 == c2))
+        const bool crossesDisconnectedComponents =
+            c0 != kInvalidComponent && c1 != kInvalidComponent &&
+            c2 != kInvalidComponent && !(c0 == c1 && c1 == c2);
+        const bool touchesThermalCutEdge =
+            softRenderData != nullptr && thermalCutParticlePairs != nullptr &&
+            triangleTouchesThermalCutEdge(i0, i1, i2, *softRenderData,
+                                          *thermalCutParticlePairs);
+        if (!crossesDisconnectedComponents && !touchesThermalCutEdge)
         {
             filteredIndices.push_back(i0);
             filteredIndices.push_back(i1);
@@ -458,6 +666,14 @@ std::vector<std::uint32_t> selectGroundPinParticles(
 float length3(const Diligent::float3 &value)
 {
     return std::sqrt(Diligent::dot(value, value));
+}
+
+Diligent::float3 choosePerpendicular(const Diligent::float3 &axis)
+{
+    const Diligent::float3 reference = std::abs(axis.y) < 0.99f
+                                           ? Diligent::float3{0.0f, 1.0f, 0.0f}
+                                           : Diligent::float3{1.0f, 0.0f, 0.0f};
+    return Diligent::normalize(Diligent::cross(reference, axis));
 }
 
 float segmentDistanceToPoint(const Diligent::float3 &a, const Diligent::float3 &b,
@@ -600,6 +816,21 @@ void logSoftEdgeToolCounters(const SoftEdgeToolCounters &counters)
                      ", newly cut=", counters.numNewlyCutEdges,
                      ", already disabled=", counters.numAlreadyDisabledEdges,
                      ", active after cut=", counters.numActiveEdgesAfterCut, ".\n");
+    CRESSIM_LOG_INFO("Thermal particle stats: temperature min/avg/max=",
+                     counters.minimumTemperatureC, " / ", counters.averageTemperatureC,
+                     " / ", counters.maximumTemperatureC,
+                     " C, particles damaged=", counters.particlesAboveDamageThreshold,
+                     ", damage avg/max=", counters.averageThermalDamage, " / ",
+                     counters.maximumThermalDamage, ", water min/avg=",
+                     counters.minimumWaterFraction, " / ", counters.averageWaterFraction,
+                     ", char avg/max=", counters.averageCharFraction, " / ",
+                     counters.maximumCharFraction, ".\n");
+    CRESSIM_LOG_INFO("Thermal edge stats: modified=", counters.thermallyModifiedEdges,
+                     ", thermally cut=", counters.thermallyCutEdges,
+                     ", shrink ratio min/avg=", counters.minimumShrinkRatio, " / ",
+                     counters.averageShrinkRatio, ", failure threshold min/avg=",
+                     counters.minimumEffectiveFailureThreshold, " / ",
+                     counters.averageEffectiveFailureThreshold, ".\n");
 }
 
 CuttingToolGPU makeCuttingTool(const MeshfreeDebugOptions &options,
@@ -607,26 +838,24 @@ CuttingToolGPU makeCuttingTool(const MeshfreeDebugOptions &options,
                                const ParticleBounds &rotatedParticleBounds,
                                float timeSeconds)
 {
+    (void)timeSeconds;
     CuttingToolGPU tool{};
-    if (!options.enableCuttingTool)
+    if (!options.enableCuttingTool || thermalDebugEnabled(options) ||
+        options.toolShape != CuttingToolShape::Blade)
     {
         return tool;
     }
 
     const float minimumReach = std::max(options.toolRadius * 8.0f, 0.01f);
-    const float capsuleLength = std::max(rotatedParticleBounds.extent.y * 0.70f, minimumReach);
-    const float sweepHalfWidth =
-        std::max(rotatedParticleBounds.extent.z * 0.65f, options.toolRadius * 10.0f);
-    const float z = bodyCenter.z + std::sin(timeSeconds * 0.65f) * sweepHalfWidth;
 
-    tool.shape = static_cast<std::uint32_t>(options.toolShape);
+    tool.shape = static_cast<std::uint32_t>(CuttingToolShape::Blade);
     tool.enabled = 1u;
     tool.instantCut = options.instantCut ? 1u : 0u;
     tool.strength = options.instantCut ? 1.0e6f : options.toolStrength;
     tool.cutResistanceScale = 1.0f;
 
-    tool.tipA = {bodyCenter.x, bodyCenter.y, z};
-    tool.tipB = {bodyCenter.x, bodyCenter.y + capsuleLength, z};
+    tool.tipA = bodyCenter;
+    tool.tipB = {bodyCenter.x, bodyCenter.y + minimumReach, bodyCenter.z};
     tool.radius = options.toolRadius;
 
     const BladeToolDimensions blade = resolveBladeToolDimensions(options, rotatedParticleBounds);
@@ -651,6 +880,418 @@ CuttingToolGPU makeCuttingTool(const MeshfreeDebugOptions &options,
     return tool;
 }
 
+Diligent::float3 lerp3(const Diligent::float3 &a, const Diligent::float3 &b, float t)
+{
+    return a + (b - a) * std::clamp(t, 0.0f, 1.0f);
+}
+
+float safeExtent(float value)
+{
+    return std::max(std::abs(value), 1.0e-5f);
+}
+
+float smooth01(float t)
+{
+    t = std::clamp(t, 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+Diligent::float3 selectElectrocauteryContactTip(
+    const SurfaceMeshData &surfaceMesh,
+    const Diligent::float3 &softBodyPosition,
+    const Diligent::QuaternionF &softBodyRotation,
+    const Diligent::float3 &bodyCenter,
+    const ParticleBounds &rotatedParticleBounds,
+    float capsuleRadius)
+{
+    const Diligent::float3 fallbackTarget{
+        bodyCenter.x + rotatedParticleBounds.extent.x * 0.16f,
+        softBodyPosition.y + rotatedParticleBounds.max.y -
+            rotatedParticleBounds.extent.y * 0.18f,
+        softBodyPosition.z + rotatedParticleBounds.min.z +
+            rotatedParticleBounds.extent.z * 0.18f};
+    if (surfaceMesh.surfaceRestPositions.empty())
+    {
+        return fallbackTarget;
+    }
+
+    Diligent::float3 bestPoint = fallbackTarget;
+    float bestScore = 0.0f;
+    bool foundPoint = false;
+    for (const Diligent::float3 &surfacePosition : surfaceMesh.surfaceRestPositions)
+    {
+        const Diligent::float3 worldPosition =
+            softBodyPosition + softBodyRotation.RotateVector(surfacePosition);
+        const float dx = (worldPosition.x - fallbackTarget.x) /
+                         safeExtent(rotatedParticleBounds.extent.x);
+        const float dy = (worldPosition.y - fallbackTarget.y) /
+                         safeExtent(rotatedParticleBounds.extent.y);
+        const float dz = (worldPosition.z - fallbackTarget.z) /
+                         safeExtent(rotatedParticleBounds.extent.z);
+        const float score = dx * dx + dy * dy * 1.35f + dz * dz * 0.85f;
+        if (!foundPoint || score < bestScore)
+        {
+            bestPoint = worldPosition;
+            bestScore = score;
+            foundPoint = true;
+        }
+    }
+
+    return bestPoint;
+}
+
+ElectrocauteryDemoState makeElectrocauteryDemoState(
+    const MeshfreeDebugOptions &options,
+    const Diligent::float3 &bodyCenter,
+    const Diligent::float3 &softBodyPosition,
+    const Diligent::QuaternionF &softBodyRotation,
+    const ParticleBounds &rotatedParticleBounds,
+    const SurfaceMeshData &surfaceMesh,
+    const Diligent::float3 &cameraPosition,
+    const Diligent::QuaternionF &cameraRotation,
+    float cameraVerticalFovDegrees,
+    float cameraNearClip,
+    float presentationAspect,
+    float groundSurfaceY)
+{
+    ElectrocauteryDemoState state{};
+    state.capsuleRadius = std::max(options.toolRadius, 1.0e-5f);
+    state.pressDepth = std::max(rotatedParticleBounds.extent.z * 0.18f, state.capsuleRadius * 2.0f);
+    state.groundTipY = groundSurfaceY + state.capsuleRadius * 0.25f;
+    state.retractDistance = std::max(rotatedParticleBounds.extent.z * 0.85f, state.capsuleRadius * 10.0f);
+
+    // 1. Find the initial visual surface point
+    state.contactTip = selectElectrocauteryContactTip(surfaceMesh, softBodyPosition, softBodyRotation, bodyCenter, rotatedParticleBounds, state.capsuleRadius);
+
+    // 2. Calculate the Entry Tip FIRST to establish the tool's physical trajectory from the right
+    const Diligent::float3 cameraForward = Diligent::normalize(cameraRotation.RotateVector({0.0f, 0.0f, 1.0f}));
+    const Diligent::float3 cameraRight = Diligent::normalize(cameraRotation.RotateVector({1.0f, 0.0f, 0.0f}));
+    const Diligent::float3 cameraUp = Diligent::normalize(cameraRotation.RotateVector({0.0f, 1.0f, 0.0f}));
+
+    const float contactDepth = std::max(Diligent::dot(state.contactTip - cameraPosition, cameraForward), cameraNearClip + state.capsuleRadius * 4.0f);
+    const float entryDepth = std::max(contactDepth * 0.70f, cameraNearClip + state.capsuleRadius * 4.0f);
+    const float halfNearHeight = std::tan(cameraVerticalFovDegrees * (Diligent::PI_F / 180.0f) * 0.5f) * entryDepth;
+    const float halfNearWidth = halfNearHeight * std::max(presentationAspect, 1.0e-3f);
+
+    state.entryTip = cameraPosition + cameraForward * entryDepth + cameraRight * (halfNearWidth * 1.12f) + cameraUp * (halfNearHeight * 0.86f);
+
+    // 3. Define the normal pointing backward along the tool's path, NOT at the camera
+    state.surfaceNormal = Diligent::normalize(state.entryTip - state.contactTip);
+    const Diligent::float3 inward = -state.surfaceNormal;
+
+    // 4. SINK IT DEEP: Push the tip past the visual surface so it pierces the large XPBD particles
+    const float deepSink = std::max(rotatedParticleBounds.extent.x * 0.15f, options.particleRadius * 1.5f);
+    state.contactTip = state.contactTip + inward * deepSink;
+
+    state.trocarShaftAxis = Diligent::normalize(state.entryTip - state.contactTip);
+    state.groundTipY = std::min(state.groundTipY, state.contactTip.y - state.capsuleRadius);
+
+    const float plungeTravel = std::max(state.contactTip.y - state.groundTipY, 0.0f);
+    const float shaftLength = length3(state.entryTip - state.contactTip) + plungeTravel + state.retractDistance + 1.50f;
+    state.capsuleHalfHeight = std::max(shaftLength * 0.5f - state.capsuleRadius, state.capsuleRadius * 8.0f);
+    state.frozenTip = state.entryTip;
+    state.frozenShaftAxis = state.trocarShaftAxis;
+
+    return state;
+}
+
+ElectrocauteryToolPose makeElectrocauteryToolPose(
+    const MeshfreeDebugOptions &options,
+    ElectrocauteryDemoState &state,
+    double timeSeconds)
+{
+    constexpr double kEntryDurationSeconds = 2.4;
+    constexpr double kRetractDurationSeconds = 1.35;
+    constexpr double kCutPlungeDurationSeconds = 3.2;
+    constexpr double kCoagulationPressDurationCapSeconds = 8.0;
+
+    if (!thermalDebugEnabled(options))
+    {
+        return {};
+    }
+
+    auto phaseElapsed = [&]() -> double
+    {
+        return std::max(0.0, timeSeconds - state.phaseStartTimeSeconds);
+    };
+
+    if (state.phase == ElectrocauteryDemoPhase::Entry &&
+        phaseElapsed() >= kEntryDurationSeconds)
+    {
+        state.phase = options.thermalDebugMode == ThermalDebugMode::ElectrosurgicalCut
+                          ? ElectrocauteryDemoPhase::Dwell
+                          : ElectrocauteryDemoPhase::Press;
+        state.phaseStartTimeSeconds = timeSeconds;
+    }
+
+    const Diligent::float3 inward = -state.surfaceNormal;
+    Diligent::float3 distalTip = state.contactTip;
+    Diligent::float3 shaftAxis = state.trocarShaftAxis;
+    bool heatActive = false;
+    state.tipReachedGround = false;
+
+    switch (state.phase)
+    {
+    case ElectrocauteryDemoPhase::Entry:
+    {
+        const float t = smooth01(static_cast<float>(phaseElapsed() / kEntryDurationSeconds));
+        distalTip = lerp3(state.entryTip, state.contactTip, t);
+        shaftAxis = state.trocarShaftAxis;
+        break;
+    }
+    case ElectrocauteryDemoPhase::Dwell:
+    {
+        distalTip = state.contactTip;
+        shaftAxis = state.trocarShaftAxis;
+        heatActive = true;
+        break;
+    }
+    case ElectrocauteryDemoPhase::Plunge:
+    {
+        const float t = smooth01(static_cast<float>(phaseElapsed() / kCutPlungeDurationSeconds));
+        
+        // Sweep downwards AND pull deeply inward through the volume
+        Diligent::float3 plungeOffset = {0.1f, 0.0f, 0.0f}; 
+        Diligent::float3 plungeTarget = state.contactTip;
+        plungeTarget.y = state.groundTipY; 
+        plungeTarget = plungeTarget + plungeOffset - inward * (state.capsuleRadius * 5.0f); // Add a horizontal slicing sweep
+        
+        distalTip = lerp3(state.contactTip, plungeTarget, t);
+        
+        if (t >= 1.0f)
+        {
+            distalTip = plungeTarget;
+            state.tipReachedGround = true;
+        }
+        shaftAxis = state.trocarShaftAxis;
+        heatActive = true;
+        break;
+    }
+    case ElectrocauteryDemoPhase::Press:
+    {
+        const double pressDurationCap = kCoagulationPressDurationCapSeconds;
+        const float t = smooth01(static_cast<float>(phaseElapsed() / pressDurationCap));
+        distalTip = state.contactTip + inward * (state.pressDepth * t);
+        shaftAxis = state.trocarShaftAxis;
+        heatActive = true;
+        break;
+    }
+    case ElectrocauteryDemoPhase::Retract:
+    {
+        const float t = smooth01(static_cast<float>(phaseElapsed() / kRetractDurationSeconds));
+        const Diligent::float3 retractedTip =
+            state.contactTip + state.surfaceNormal * state.retractDistance;
+        distalTip = lerp3(state.frozenTip, retractedTip, t);
+        shaftAxis = state.frozenShaftAxis;
+        if (t >= 1.0f)
+        {
+            state.phase = ElectrocauteryDemoPhase::Complete;
+            state.phaseStartTimeSeconds = timeSeconds;
+            state.frozenTip = distalTip;
+        }
+        break;
+    }
+    case ElectrocauteryDemoPhase::Complete:
+        distalTip = state.frozenTip;
+        shaftAxis = state.frozenShaftAxis;
+        break;
+    }
+
+    const float shaftLength =
+        std::max((state.capsuleHalfHeight + state.capsuleRadius) * 2.0f,
+                 state.capsuleRadius * 8.0f);
+    shaftAxis = Diligent::normalize(shaftAxis);
+
+    ElectrocauteryToolPose pose{};
+    pose.distalTip = distalTip;
+    pose.proximalTip = distalTip + shaftAxis * shaftLength;
+    pose.shaftAxis = shaftAxis;
+    pose.capsuleRadius = state.capsuleRadius;
+    pose.capsuleHalfHeight = state.capsuleHalfHeight;
+    pose.heatActive = heatActive;
+
+    const Diligent::float3 yAxis = shaftAxis;
+    const Diligent::float3 xAxis = choosePerpendicular(yAxis);
+    const Diligent::float3 zAxis = Diligent::normalize(Diligent::cross(xAxis, yAxis));
+    pose.rotation = quaternionFromBasis(xAxis, yAxis, zAxis);
+    state.frozenTip = distalTip;
+    state.frozenShaftAxis = shaftAxis;
+    return pose;
+}
+
+void requestElectrocauteryPlunge(ElectrocauteryDemoState &state, double timeSeconds,
+                                 std::uint32_t thermallyCutEdges)
+{
+    if (state.phase != ElectrocauteryDemoPhase::Dwell)
+    {
+        return;
+    }
+
+    state.phase = ElectrocauteryDemoPhase::Plunge;
+    state.phaseStartTimeSeconds = timeSeconds;
+    state.thermallyCutEdgesAtPlungeStart = thermallyCutEdges;
+    state.lastThermallyCutEdges = thermallyCutEdges;
+    state.stableThermalCutReadbacks = 0u;
+    state.tipReachedGround = false;
+}
+
+bool updateElectrocauteryCutColumnCompletion(ElectrocauteryDemoState &state,
+                                             std::uint32_t thermallyCutEdges)
+{
+    if (!state.tipReachedGround ||
+        thermallyCutEdges <= state.thermallyCutEdgesAtPlungeStart)
+    {
+        state.lastThermallyCutEdges = thermallyCutEdges;
+        state.stableThermalCutReadbacks = 0u;
+        return false;
+    }
+
+    if (thermallyCutEdges > state.lastThermallyCutEdges)
+    {
+        state.lastThermallyCutEdges = thermallyCutEdges;
+        state.stableThermalCutReadbacks = 0u;
+        return false;
+    }
+
+    ++state.stableThermalCutReadbacks;
+    return state.stableThermalCutReadbacks >= 2u;
+}
+
+void requestElectrocauteryRetraction(ElectrocauteryDemoState &state, double timeSeconds)
+{
+    if (state.phase != ElectrocauteryDemoPhase::Press &&
+        state.phase != ElectrocauteryDemoPhase::Plunge)
+    {
+        return;
+    }
+
+    state.phase = ElectrocauteryDemoPhase::Retract;
+    state.phaseStartTimeSeconds = timeSeconds;
+}
+
+ElectrocauteryToolGPU makeElectrocauteryTool(const MeshfreeDebugOptions &options,
+                                             const ElectrocauteryToolPose &pose)
+{
+    ElectrocauteryToolGPU tool{};
+    if (!thermalDebugEnabled(options) || !pose.heatActive)
+    {
+        return tool;
+    }
+
+    const float meanParticleSpacing = std::max(options.particleRadius * 2.0f, 1.0e-5f);
+    tool.query.shape = static_cast<std::uint32_t>(CuttingToolShape::Capsule);
+    tool.query.enabled = 1u;
+    tool.query.tipA = pose.proximalTip;
+    tool.query.tipB = pose.distalTip;
+    tool.query.radius = pose.capsuleRadius;
+
+    switch (options.thermalDebugMode)
+    {
+    case ThermalDebugMode::ElectrosurgicalCut:
+        tool.mode = static_cast<std::uint32_t>(ElectrocauteryToolMode::ElectrosurgicalCut);
+        tool.activeTipLength = std::max(1.4f * meanParticleSpacing, pose.capsuleRadius * 2.0f);
+        tool.heatRadius = std::max(1.65f * meanParticleSpacing, pose.capsuleRadius * 1.7f);
+        tool.ablationRadius = std::max(0.55f * meanParticleSpacing, pose.capsuleRadius * 0.65f);
+        tool.heatingRateCPerSecond = 420.0f;
+        tool.ablationInfluenceThreshold = 0.22f;
+        break;
+    case ThermalDebugMode::ElectrosurgicalCoagulation:
+        tool.mode =
+            static_cast<std::uint32_t>(ElectrocauteryToolMode::ElectrosurgicalCoagulation);
+        tool.activeTipLength = std::max(2.0f * meanParticleSpacing, pose.capsuleRadius * 2.5f);
+        tool.heatRadius = std::max(2.8f * meanParticleSpacing, pose.capsuleRadius * 2.8f);
+        tool.ablationRadius = 0.0f;
+        tool.heatingRateCPerSecond = 185.0f;
+        tool.ablationInfluenceThreshold = 1.0f;
+        break;
+    case ThermalDebugMode::ElectrosurgicalBlend:
+        tool.mode = static_cast<std::uint32_t>(ElectrocauteryToolMode::ElectrosurgicalBlend);
+        tool.activeTipLength = std::max(1.8f * meanParticleSpacing, pose.capsuleRadius * 2.2f);
+        tool.heatRadius = std::max(2.2f * meanParticleSpacing, pose.capsuleRadius * 2.2f);
+        tool.ablationRadius = std::max(0.65f * meanParticleSpacing, pose.capsuleRadius * 0.75f);
+        tool.heatingRateCPerSecond = 185.0f;
+        tool.ablationInfluenceThreshold = 0.5f;
+        break;
+    case ThermalDebugMode::None:
+        break;
+    }
+
+    return tool;
+}
+
+TransformComponent makeElectrocauteryToolTransform(const ElectrocauteryToolPose &pose)
+{
+    TransformComponent transform{};
+    transform.worldTransform.position =
+        pose.distalTip + pose.shaftAxis * (pose.capsuleHalfHeight + pose.capsuleRadius);
+    transform.worldTransform.rotation = pose.rotation;
+    return transform;
+}
+
+void configureThermalMaterialForDebug(const MeshfreeDebugOptions &options,
+                                      SoftThermalMaterialDesc &material)
+{
+    if (!thermalDebugEnabled(options))
+    {
+        return;
+    }
+
+    material.bodyTemperatureC = 37.0f;
+    material.maximumTemperatureC = 250.0f;
+    material.diffusionRate = 4.5f;
+    material.coolingRate = 0.25f;
+    material.damageStartTemperatureC = 60.0f;
+    material.damageFullTemperatureC = 100.0f;
+    material.damageRate = 2.0f;
+    material.evaporationStartTemperatureC = 90.0f;
+    material.evaporationTransitionWidthC = 15.0f;
+    material.evaporationRate = 2.0f;
+    material.charStartTemperatureC = 140.0f;
+    material.charFullTemperatureC = 220.0f;
+    material.charRate = 1.0f;
+    material.shrinkageRate = 2.0f;
+    material.shrinkDamageStart = 0.15f;
+    material.shrinkDamageFull = 0.85f;
+    material.minimumFailureThresholdScale = 0.25f;
+    material.minimumCutResistanceScale = 0.20f;
+    material.thermalCutDamageThreshold = 0.90f;
+    material.thermalCutWaterThreshold = 0.18f;
+    material.maximumComplianceMultiplier = 4.0f;
+
+    switch (options.thermalDebugMode)
+    {
+    case ThermalDebugMode::ElectrosurgicalCut:
+        material.damageRate = 6.0f;
+        material.evaporationRate = 0.35f;
+        material.charStartTemperatureC = 220.0f;
+        material.charFullTemperatureC = 250.0f;
+        material.charRate = 0.12f;
+        material.maximumShrinkage = 0.06f;
+        material.minimumFailureThresholdScale = 0.20f;
+        material.minimumCutResistanceScale = 0.12f;
+        material.thermalCutDamageThreshold = 0.55f;
+        material.thermalCutWaterThreshold = 0.98f;
+        break;
+    case ThermalDebugMode::ElectrosurgicalCoagulation:
+        material.maximumShrinkage = 0.3f;
+        material.damageRate = 4.0f;
+        material.evaporationRate = 2.5f;
+        material.charStartTemperatureC = 125.0f;
+        material.charFullTemperatureC = 205.0f;
+        material.charRate = 2.0f;
+        material.minimumFailureThresholdScale = 0.35f;
+        material.thermalCutDamageThreshold = 0.95f;
+        break;
+    case ThermalDebugMode::ElectrosurgicalBlend:
+        material.maximumShrinkage = 0.15f;
+        material.damageRate = 2.4f;
+        material.charRate = 1.0f;
+        break;
+    case ThermalDebugMode::None:
+        break;
+    }
+}
+
 TransformComponent makeCuttingToolTransform(const MeshfreeDebugOptions &options,
                                             const CuttingToolGPU &tool,
                                             const ParticleBounds &rotatedParticleBounds)
@@ -667,10 +1308,6 @@ TransformComponent makeCuttingToolTransform(const MeshfreeDebugOptions &options,
         return transform;
     }
 
-    transform.worldTransform.position = {
-        (tool.tipA.x + tool.tipB.x) * 0.5f,
-        (tool.tipA.y + tool.tipB.y) * 0.5f,
-        (tool.tipA.z + tool.tipB.z) * 0.5f};
     return transform;
 }
 
@@ -691,10 +1328,6 @@ void logCuttingToolDebug(const CuttingToolGPU &tool)
         return;
     }
 
-    CRESSIM_LOG_INFO("Cutting tool capsule: tipA=(", tool.tipA.x, ", ", tool.tipA.y,
-                     ", ", tool.tipA.z, "), tipB=(", tool.tipB.x, ", ", tool.tipB.y,
-                     ", ", tool.tipB.z, "), radius=", tool.radius,
-                     ", strength=", tool.strength, ".\n");
 }
 
 bool edgeIntersectsDisableSelection(const MeshfreeDebugOptions &options,
@@ -827,6 +1460,7 @@ void applyDebugParticleGraphOptions(Runtime &runtime, const MeshfreeDebugOptions
     renderOptions.debugParticles.showCutEdges             = options.showCutEdges;
     renderOptions.debugParticles.showStrain               = options.showStrain;
     renderOptions.debugParticles.showDamage               = options.showDamage;
+    renderOptions.debugParticles.showThermalHeatmap       = thermalHeatmapEnabled(options);
     renderOptions.debugParticles.highStrainThreshold      = options.fractureThreshold;
     renderOptions.debugParticles.fallbackRadius           = options.particleRadius;
     runtime.setRenderFrameOptions(renderOptions);
@@ -1178,6 +1812,21 @@ int main(int argc, char **argv)
                 options.debugParticlesExplicit = true;
                 continue;
             }
+            if (arg == "--thermal-debug")
+            {
+                options.thermalDebugMode = parseThermalDebugMode(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--thermal-debug"));
+                options.enableCuttingTool = true;
+                continue;
+            }
+            if (arg == "--thermal-visual")
+            {
+                options.thermalVisualizationMode = parseThermalVisualizationMode(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--thermal-visual"));
+                continue;
+            }
             if (arg == "--drop")
             {
                 options.pinToGround = false;
@@ -1215,11 +1864,16 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    if (thermalHeatmapEnabled(options) && !options.debugParticlesExplicit)
+    {
+        options.showDebugParticles = true;
+    }
+
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options.common);
-    config.physicsDesc.substeps                    = 4u;
+    config.physicsDesc.substeps                    = 6u;
     config.physicsDesc.defaultIterations           = 16u;
-    config.physicsDesc.softInternalIterations      = 32u;
-    config.physicsDesc.softContactIterations       = 12u;
+    config.physicsDesc.softInternalIterations      = 96u;
+    config.physicsDesc.softContactIterations       = 48u;
     config.physicsDesc.rigidRigidContactIterations = 0u;
     if (options.substeps != 0u)
     {
@@ -1368,10 +2022,10 @@ int main(int argc, char **argv)
     softBody.particleRadius                  = configuredParticleRadius;
     softBody.particleMass                    = options.particleMass > 0.0f
                                                    ? options.particleMass
-                                                   : 0.04f;
+                                                   : 0.0002f;
     softBody.compliance                      = options.compliance >= 0.0f
                                                    ? options.compliance
-                                                   : 2.0e-5f;
+                                                   : 5.0e-3f;
     softBody.shapeMatching                   = options.shapeMatching;
     softBody.edgeFailureThreshold            = options.enableFracture
                                                    ? options.fractureThreshold
@@ -1383,7 +2037,8 @@ int main(int argc, char **argv)
     softBody.material.contact.staticFriction = 0.60f;
     softBody.material.contact.damping        = options.damping >= 0.0f
                                                    ? options.damping
-                                                   : 0.60f;
+                                                   : 6.00f;
+    configureThermalMaterialForDebug(options, softBody.material.thermal);
     softBody.selfCollisionEnabled            = false;
     softBody.collisionLayer                  = 0x2u;
     softBody.collisionMask                   = 0x1u;
@@ -1398,29 +2053,44 @@ int main(int argc, char **argv)
     CuttingToolGPU currentCuttingTool =
         makeCuttingTool(options, cuttingToolBodyCenter, rotatedParticleBounds, 0.0f);
     world.physicsWorld().setCuttingTool(currentCuttingTool);
+    ElectrocauteryDemoState electrocauteryDemoState =
+        makeElectrocauteryDemoState(options, cuttingToolBodyCenter,
+                                    softTransform.worldTransform.position, softRotation,
+                                    rotatedParticleBounds, surfaceMesh,
+                                    cameraTransform.worldTransform.position,
+                                    cameraTransform.worldTransform.rotation,
+                                    camera.verticalFovDegrees, camera.nearClip,
+                                    static_cast<float>(viewerDesc.width) /
+                                        static_cast<float>(std::max(viewerDesc.height, 1u)),
+                                    kGroundSurfaceY);
+    ElectrocauteryToolPose currentElectrocauteryPose =
+        makeElectrocauteryToolPose(options, electrocauteryDemoState, 0.0);
+    world.physicsWorld().setElectrocauteryTool(
+        makeElectrocauteryTool(options, currentElectrocauteryPose));
     cressim::neo::common::EntityId cuttingToolEntity =
         cressim::neo::common::kInvalidEntityId;
-    if (options.enableCuttingTool)
+    if (thermalDebugEnabled(options))
     {
-        MeshHandle cuttingToolMesh{};
-        if (options.toolShape == CuttingToolShape::Blade)
-        {
-            const BladeToolDimensions blade =
-                resolveBladeToolDimensions(options, rotatedParticleBounds);
-            cuttingToolMesh = resources.registerMesh(
-                cressim::neo::examples::helpers::makeBoxMesh(
-                    Diligent::float3{blade.length * 0.5f, blade.visualHalfDepth,
-                                     blade.visualHalfThickness},
-                    "MeshfreeDebug.CuttingToolBlade"));
-        }
-        else
-        {
-            const float toolLength = length3(currentCuttingTool.tipB - currentCuttingTool.tipA);
-            cuttingToolMesh = resources.registerMesh(
-                cressim::neo::examples::helpers::makeCapsuleMesh(
-                    std::max(options.toolRadius, 1.0e-5f), toolLength * 0.5f, 16u, 4u, 1u,
-                    "MeshfreeDebug.CuttingToolCapsule"));
-        }
+        MeshHandle cuttingToolMesh = resources.registerMesh(
+            cressim::neo::examples::helpers::makeCapsuleMesh(
+                currentElectrocauteryPose.capsuleRadius,
+                currentElectrocauteryPose.capsuleHalfHeight,
+                16u, 4u, 1u, "MeshfreeDebug.ElectrocauteryCapsule"));
+        cuttingToolEntity = world.createEntity();
+        world.setTransform(cuttingToolEntity,
+                           makeElectrocauteryToolTransform(currentElectrocauteryPose));
+        world.setMeshRenderer(cuttingToolEntity,
+                              MeshRendererComponent{cuttingToolMesh, cuttingToolMaterial, true});
+    }
+    else if (options.enableCuttingTool && options.toolShape == CuttingToolShape::Blade)
+    {
+        const BladeToolDimensions blade =
+            resolveBladeToolDimensions(options, rotatedParticleBounds);
+        MeshHandle cuttingToolMesh = resources.registerMesh(
+            cressim::neo::examples::helpers::makeBoxMesh(
+                Diligent::float3{blade.length * 0.5f, blade.visualHalfDepth,
+                                 blade.visualHalfThickness},
+                "MeshfreeDebug.CuttingToolBlade"));
         cuttingToolEntity = world.createEntity();
         world.setTransform(cuttingToolEntity,
                            makeCuttingToolTransform(options, currentCuttingTool,
@@ -1442,7 +2112,8 @@ int main(int argc, char **argv)
     MeshResourceDesc surfaceShellMeshResource{};
     std::vector<std::uint32_t> surfaceShellOriginalIndices;
     const bool surfaceShellActive =
-        !options.drawConstraintEdges && !surfaceMesh.surfaceRestPositions.empty();
+        thermalPbrSurfaceEnabled(options) && !options.drawConstraintEdges &&
+        !surfaceMesh.surfaceRestPositions.empty();
     if (surfaceShellActive)
     {
         surfaceShellMeshResource =
@@ -1517,15 +2188,33 @@ int main(int argc, char **argv)
 
     DebugViewerCallbacks callbacks{};
     callbacks.beforeTick = [&options, shapeStats, cuttingToolBodyCenter, rotatedParticleBounds,
-                            cuttingToolEntity](const cressim::neo::common::FrameContext &frame,
-                                               Runtime &callbackRuntime)
+                            cuttingToolEntity, &electrocauteryDemoState](
+                               const cressim::neo::common::FrameContext &frame,
+                               Runtime &callbackRuntime)
     {
         applyDebugParticleGraphOptions(callbackRuntime, options,
                                        shapeStats.maximumMembershipsPerParticle);
-        CuttingToolGPU tool = makeCuttingTool(options, cuttingToolBodyCenter,
-                                              rotatedParticleBounds,
-                                              static_cast<float>(frame.timeSeconds));
+        CuttingToolGPU tool{};
+        if (thermalDebugEnabled(options))
+        {
+            ElectrocauteryToolPose pose =
+                makeElectrocauteryToolPose(options, electrocauteryDemoState,
+                                           frame.timeSeconds);
+            callbackRuntime.getWorld().physicsWorld().setCuttingTool(tool);
+            callbackRuntime.getWorld().physicsWorld().setElectrocauteryTool(
+                makeElectrocauteryTool(options, pose));
+            if (cuttingToolEntity != cressim::neo::common::kInvalidEntityId)
+            {
+                callbackRuntime.getWorld().setTransform(
+                    cuttingToolEntity, makeElectrocauteryToolTransform(pose));
+            }
+            return;
+        }
+
+        tool = makeCuttingTool(options, cuttingToolBodyCenter, rotatedParticleBounds,
+                               static_cast<float>(frame.timeSeconds));
         callbackRuntime.getWorld().physicsWorld().setCuttingTool(tool);
+        callbackRuntime.getWorld().physicsWorld().setElectrocauteryTool({});
         if (cuttingToolEntity != cressim::neo::common::kInvalidEntityId)
         {
             callbackRuntime.getWorld().setTransform(
@@ -1535,13 +2224,14 @@ int main(int argc, char **argv)
     };
     callbacks.afterTick = [&options, &viewerDesc, &resources, softEntity, &surfaceShellMesh,
                            surfaceShellActive, &surfaceShellMeshResource,
-                           &surfaceShellOriginalIndices](
+                           &surfaceShellOriginalIndices,
+                           &electrocauteryDemoState](
                               const cressim::neo::common::FrameContext &frame,
                               Runtime &callbackRuntime)
     {
         const bool hasMutableEdges =
             options.disableEdgeTest || options.disableEdgeRegion || options.enableFracture ||
-            options.enableCuttingTool;
+            options.enableCuttingTool || thermalDebugEnabled(options);
         const bool shouldLog = frame.frameIndex == 1u || (frame.frameIndex % 120u) == 0u;
         const bool shouldRefreshCutSurface = hasMutableEdges && (frame.frameIndex % 4u) == 0u;
         if ((options.drawConstraintEdges || hasMutableEdges) &&
@@ -1557,6 +2247,39 @@ int main(int argc, char **argv)
                 return;
             }
 
+            if (thermalDebugEnabled(options) &&
+                options.thermalDebugMode == ThermalDebugMode::ElectrosurgicalCut)
+            {
+                if (electrocauteryDemoState.phase == ElectrocauteryDemoPhase::Dwell &&
+                    counters.maximumThermalDamage >=
+                        electrocauteryDemoState.cutPunctureDamageThreshold)
+                {
+                    requestElectrocauteryPlunge(electrocauteryDemoState,
+                                                frame.timeSeconds,
+                                                counters.thermallyCutEdges);
+                }
+                else if (electrocauteryDemoState.phase == ElectrocauteryDemoPhase::Plunge &&
+                         updateElectrocauteryCutColumnCompletion(
+                             electrocauteryDemoState,
+                             counters.thermallyCutEdges))
+                {
+                    requestElectrocauteryRetraction(electrocauteryDemoState,
+                                                    frame.timeSeconds);
+                }
+            }
+            else if (thermalDebugEnabled(options) &&
+                     electrocauteryDemoState.phase == ElectrocauteryDemoPhase::Press)
+            {
+                const bool coagulationComplete =
+                    options.thermalDebugMode == ThermalDebugMode::ElectrosurgicalCoagulation &&
+                    counters.maximumCharFraction >= 0.98f;
+                if (coagulationComplete)
+                {
+                    requestElectrocauteryRetraction(electrocauteryDemoState,
+                                                    frame.timeSeconds);
+                }
+            }
+
             std::vector<std::uint32_t> surfaceVertexComponents;
             const std::uint32_t rejectedSurfaceWeights =
                 hasMutableEdges
@@ -1568,8 +2291,20 @@ int main(int argc, char **argv)
                 !surfaceShellOriginalIndices.empty())
             {
                 const std::vector<std::uint32_t> beforeIndices = surfaceShellMeshResource.indices;
-                culledSurfaceTriangles = filterSurfaceMeshTrianglesByComponent(
-                    surfaceShellMeshResource, surfaceShellOriginalIndices, surfaceVertexComponents);
+                const bool thermalCutSurfaceCulling =
+                    thermalDebugEnabled(options) &&
+                    options.thermalDebugMode == ThermalDebugMode::ElectrosurgicalCut &&
+                    counters.thermallyCutEdges > 0u;
+                const std::unordered_set<std::uint64_t> thermalCutParticlePairs =
+                    thermalCutSurfaceCulling
+                        ? buildThermalCutParticlePairs(physicsWorld.softEdges())
+                        : std::unordered_set<std::uint64_t>{};
+                culledSurfaceTriangles = filterSurfaceMeshTrianglesByTopology(
+                    surfaceShellMeshResource, surfaceShellOriginalIndices,
+                    surfaceVertexComponents, thermalCutSurfaceCulling
+                                                 ? &physicsWorld.softRenderData()
+                                                 : nullptr,
+                    thermalCutSurfaceCulling ? &thermalCutParticlePairs : nullptr);
                 if (surfaceShellMeshResource.indices != beforeIndices)
                 {
                     MeshHandle filteredSurfaceMesh = resources.registerMesh(surfaceShellMeshResource);

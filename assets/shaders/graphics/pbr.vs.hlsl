@@ -19,6 +19,7 @@ struct VSOutput
     nointerpolation uint CameraIndex : TEXCOORD4;
     nointerpolation uint MainLightIndex : TEXCOORD5;
     nointerpolation uint ShadowLayer : TEXCOORD6;
+    float4 ThermalState : TEXCOORD7;
 #if MANUAL_LAYER_EXPORT
     uint Layer : SV_RenderTargetArrayIndex;
 #endif
@@ -64,6 +65,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
         Out.CameraIndex = cameraIndex;
         Out.MainLightIndex = mainLightIndex;
         Out.ShadowLayer = shadowLayer;
+        Out.ThermalState = float4(37.0, 0.0, 1.0, 0.0);
 #if MANUAL_LAYER_EXPORT
         Out.Layer = colorLayer;
 #endif
@@ -73,6 +75,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     float4 worldPos = float4(0.0, 0.0, 0.0, 1.0);
     float3 worldNormal = float3(0.0, 1.0, 0.0);
     float3 worldTangent = float3(1.0, 0.0, 0.0);
+    float4 thermalState = float4(37.0, 0.0, 1.0, 0.0);
     float transformSign = 1.0;
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
     const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
@@ -85,6 +88,8 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
         worldPos = float4(deformedPos, 1.0);
         worldNormal =
             normalize(CRESSIM_SB_LOAD(g_SoftBodyVertexNormals, metadata.deformNormalBase + vertexId).xyz);
+        thermalState =
+            CRESSIM_SB_LOAD(g_SoftBodyRenderThermalState, metadata.deformVertexBase + vertexId);
         const float3 tangentCandidate = In.Tangent.xyz - worldNormal * dot(worldNormal, In.Tangent.xyz);
         worldTangent = normalize(dot(tangentCandidate, tangentCandidate) > 1e-6
                                      ? tangentCandidate
@@ -143,6 +148,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     Out.CameraIndex = cameraIndex;
     Out.MainLightIndex = mainLightIndex;
     Out.ShadowLayer = shadowLayer;
+    Out.ThermalState = thermalState;
 #if MANUAL_LAYER_EXPORT
     Out.Layer = colorLayer;
 #endif

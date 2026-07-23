@@ -147,6 +147,7 @@ struct PhysicsGpuSoftSceneView
     Diligent::IBuffer *suturingPathNodesBuffer           = nullptr;
     Diligent::IBuffer *renderPositionsBuffer             = nullptr;
     Diligent::IBuffer *renderNormalsBuffer               = nullptr;
+    Diligent::IBuffer *renderThermalStateBuffer          = nullptr;
     Diligent::IBuffer *worldAabbsBuffer                  = nullptr;
     std::uint32_t softBodyCount                          = 0;
     std::uint32_t edgeCount                              = 0;

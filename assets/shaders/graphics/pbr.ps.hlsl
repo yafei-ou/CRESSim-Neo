@@ -11,6 +11,7 @@ struct VSOutput
     nointerpolation uint CameraIndex : TEXCOORD4;
     nointerpolation uint MainLightIndex : TEXCOORD5;
     nointerpolation uint ShadowLayer : TEXCOORD6;
+    float4 ThermalState : TEXCOORD7;
 #ifdef CRESSIM_FEATURE_DOUBLE_SIDED
     bool IsFrontFace : SV_IsFrontFace;
 #endif
@@ -455,6 +456,19 @@ float4 main(in VSOutput In) : SV_Target
     {
         discard;
     }
+#endif
+
+#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+    const float damage = saturate(In.ThermalState.y);
+    const float charLevel = saturate(In.ThermalState.w);
+    const float coagulation = damage * (1.0 - charLevel);
+    const float3 coagulatedTissueColor = float3(0.54, 0.25, 0.16);
+    const float3 charColor = float3(0.025, 0.018, 0.014);
+    const float charRoughnessIncrease = 0.35;
+    const float3 damagedAlbedo =
+        lerp(baseColor.rgb, coagulatedTissueColor, coagulation);
+    baseColor.rgb = lerp(damagedAlbedo, charColor, charLevel);
+    roughness = saturate(roughness + charLevel * charRoughnessIncrease);
 #endif
 
     PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, In.CameraIndex);

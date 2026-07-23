@@ -259,6 +259,7 @@ bool ShaderSourceProvider::Impl::resolveConfig()
         if (!moduleDirectory.empty())
         {
             candidates.push_back(moduleDirectory / "assets" / "shaders");
+            candidates.push_back(moduleDirectory / "shaders");
 #ifdef CRESSIM_NEO_SHADER_INSTALL_RELATIVE_DIR
             candidates.push_back(moduleDirectory / CRESSIM_NEO_SHADER_INSTALL_RELATIVE_DIR);
 #endif

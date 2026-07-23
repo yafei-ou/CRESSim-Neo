@@ -5,6 +5,7 @@
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace cressim::neo::physics
@@ -820,7 +821,7 @@ static_assert(sizeof(GpuSphericalJoint) == 144u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
-static_assert(sizeof(GpuParticleDispatchConstants) == 400u);
+static_assert(sizeof(GpuParticleDispatchConstants) == 416u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
 static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);
@@ -837,7 +838,7 @@ static_assert(sizeof(GpuStrandIncidentSegment) == 16u);
 static_assert(sizeof(GpuStrandIncidentJoint) == 16u);
 static_assert(sizeof(GpuStrandIncidentAttachment) == 16u);
 static_assert(sizeof(DeformableDistanceConstraint) == 52u);
-static_assert(sizeof(SoftEdgeToolCounters) == 16u);
+static_assert(offsetof(SoftEdgeToolCounters, minimumTemperatureC) == 16u);
 static_assert(sizeof(GpuSuturingPair) == 64u);
 static_assert(sizeof(GpuSuturingPathHeader) == 32u);
 static_assert(sizeof(GpuSuturingPathNode) == 48u);

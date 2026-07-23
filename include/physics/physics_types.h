@@ -585,6 +585,26 @@ struct SoftEdgeToolCounters
     std::uint32_t numNewlyCutEdges = 0u;
     std::uint32_t numAlreadyDisabledEdges = 0u;
     std::uint32_t numActiveEdgesAfterCut = 0u;
+
+    float minimumTemperatureC = 0.0f;
+    float maximumTemperatureC = 0.0f;
+    float averageTemperatureC = 0.0f;
+    std::uint32_t particlesAboveDamageThreshold = 0u;
+
+    float maximumThermalDamage = 0.0f;
+    float averageThermalDamage = 0.0f;
+    float minimumWaterFraction = 0.0f;
+    float averageWaterFraction = 0.0f;
+
+    float maximumCharFraction = 0.0f;
+    float averageCharFraction = 0.0f;
+    std::uint32_t thermallyModifiedEdges = 0u;
+    std::uint32_t thermallyCutEdges = 0u;
+
+    float minimumShrinkRatio = 1.0f;
+    float averageShrinkRatio = 1.0f;
+    float minimumEffectiveFailureThreshold = 0.0f;
+    float averageEffectiveFailureThreshold = 0.0f;
 };
 
 struct RigidBodyState

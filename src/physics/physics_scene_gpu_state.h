@@ -164,6 +164,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyFallbackNormalsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyRenderPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyRenderNormalsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyRenderThermalStateBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyWorldAabbsBuffer;
     };
 
@@ -336,6 +337,7 @@ public:
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> edgesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> toolCountersBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> thermalStateBuffer;
     };
 
     struct BroadPhaseCompactionTailReadback
@@ -488,6 +490,7 @@ public:
     void setStaticBroadPhaseDirty(bool dirty) noexcept;
     std::uint64_t rigidBindingGeneration() const noexcept;
     std::uint64_t softBindingGeneration() const noexcept;
+    std::uint32_t softThermalStateReadBufferIndex() const noexcept;
     Diligent::IBuffer *softThermalStateReadBuffer() const noexcept;
     Diligent::IBuffer *softThermalStateWriteBuffer() const noexcept;
     void advanceSoftThermalStateBuffers() noexcept;

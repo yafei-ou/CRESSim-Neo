@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <limits>
 #include <string>
 
 namespace cressim::neo::physics
@@ -503,6 +505,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentSoftTopology.segmentIncidentStrandRigidAttachmentsBuffer.RawPtr();
     const auto softRenderNormalsBefore =
         mPersistentSoftTopology.softBodyRenderNormalsBuffer.RawPtr();
+    const auto softRenderThermalStateBefore =
+        mPersistentSoftTopology.softBodyRenderThermalStateBuffer.RawPtr();
     const auto softWorldAabbsBefore     = mPersistentSoftTopology.softBodyWorldAabbsBuffer.RawPtr();
     const auto suturingPairsBefore      = mPersistentSuturing.pairsBuffer.RawPtr();
     const auto suturingInsertionsBefore = mPersistentSuturing.insertionStatesBuffer.RawPtr();
@@ -766,9 +770,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mReadbackParticles.neighborMetaBuffer != nullptr &&
         mReadbackSoftEdges.edgesBuffer != nullptr &&
         mReadbackSoftEdges.toolCountersBuffer != nullptr &&
+        mReadbackSoftEdges.thermalStateBuffer != nullptr &&
         mPersistentSoftThermal.thermalStateBufferA != nullptr &&
         mPersistentSoftThermal.thermalStateBufferB != nullptr &&
-        mPersistentSoftThermal.thermalMaterialsBuffer != nullptr;
+        mPersistentSoftThermal.thermalMaterialsBuffer != nullptr &&
+        mPersistentSoftTopology.softBodyRenderThermalStateBuffer != nullptr;
     const std::uint32_t newRigidBodyCapacity    = std::max<std::uint32_t>(bodyCount, 64u);
     const std::uint32_t newColliderCapacity     = std::max<std::uint32_t>(colliderCount, 64u);
     const std::uint32_t newSoftParticleCapacity = std::max<std::uint32_t>(particleCount, 64u);
@@ -1473,6 +1479,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.softBodyRenderNormalsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRenderThermalState",
+                                sizeof(Diligent::float4), newSoftRenderVertexCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftTopology.softBodyRenderThermalStateBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBodyWorldAabbs",
                                 sizeof(GpuBodyAabb), newSoftBodyRangeCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -2173,6 +2184,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 sizeof(std::uint32_t), 4u, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
                                 mReadbackSoftEdges.toolCountersBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftThermalState.Readback",
+                                sizeof(SoftParticleThermalStateGPU), newSoftParticleCapacity,
+                                Diligent::BIND_NONE, Diligent::USAGE_STAGING,
+                                Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackSoftEdges.thermalStateBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ProxyRigidContactMeta.Readback",
                                 sizeof(GpuProxyRigidContactMeta), 1u, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
@@ -2488,6 +2504,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         curveNormalsBefore != mPersistentCurveRender.normalsBuffer.RawPtr() ||
         curveWorldAabbsBefore != mPersistentCurveRender.worldAabbsBuffer.RawPtr() ||
         softRenderNormalsBefore != mPersistentSoftTopology.softBodyRenderNormalsBuffer.RawPtr() ||
+        softRenderThermalStateBefore !=
+            mPersistentSoftTopology.softBodyRenderThermalStateBuffer.RawPtr() ||
         softWorldAabbsBefore != mPersistentSoftTopology.softBodyWorldAabbsBuffer.RawPtr();
     if (rigidBindingsChanged)
     {
@@ -3830,7 +3848,20 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
            updateStructuredBufferRange(
                computeContext, mPersistentSoftTopology.softBodyRenderNormalsBuffer,
                softRenderData.fallbackNormals, 0u,
-               static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()));
+               static_cast<std::uint32_t>(softRenderData.fallbackNormals.size())) &&
+           [&]()
+           {
+               std::vector<Diligent::float4> initialRenderThermalState(
+                   softRenderData.vertexBindings.size(),
+                   Diligent::float4{kInitialSoftParticleThermalState.temperatureC,
+                                    kInitialSoftParticleThermalState.damage,
+                                    kInitialSoftParticleThermalState.waterFraction,
+                                    kInitialSoftParticleThermalState.charFraction});
+               return updateStructuredBufferRange(
+                   computeContext, mPersistentSoftTopology.softBodyRenderThermalStateBuffer,
+                   initialRenderThermalState, 0u,
+                   static_cast<std::uint32_t>(initialRenderThermalState.size()));
+           }();
 }
 
 bool PhysicsSceneGpuState::uploadRoutedCableTopology(
@@ -4389,10 +4420,16 @@ bool PhysicsSceneGpuState::readbackSoftEdgeDebugStateBlocking(
     std::uint32_t softEdgeCount, SoftEdgeToolCounters &outCounters)
 {
     outCounters = SoftEdgeToolCounters{};
+    constexpr Diligent::Uint64 kSoftEdgeToolGpuCounterBytes =
+        static_cast<Diligent::Uint64>(4u * sizeof(std::uint32_t));
+    constexpr float kThermalDamageDebugThreshold = 0.01f;
+    constexpr float kEdgeModificationEpsilon = 1.0e-4f;
     if (computeContext == nullptr || mPersistentSoftTopology.edgesBuffer == nullptr ||
         mTransientState.softEdgeToolCountersBuffer == nullptr ||
+        softThermalStateReadBuffer() == nullptr ||
         mReadbackSoftEdges.edgesBuffer == nullptr ||
         mReadbackSoftEdges.toolCountersBuffer == nullptr ||
+        mReadbackSoftEdges.thermalStateBuffer == nullptr ||
         softEdgeCount > world.softEdges().size())
     {
         return false;
@@ -4408,28 +4445,52 @@ bool PhysicsSceneGpuState::readbackSoftEdgeDebugStateBlocking(
             mReadbackSoftEdges.edgesBuffer, 0u, edgeBytes,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
+    if (mSoftParticleCount > 0u)
+    {
+        const Diligent::Uint64 thermalBytes =
+            static_cast<Diligent::Uint64>(mSoftParticleCount) *
+            sizeof(SoftParticleThermalStateGPU);
+        computeContext->CopyBuffer(
+            softThermalStateReadBuffer(), 0u,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+            mReadbackSoftEdges.thermalStateBuffer, 0u, thermalBytes,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
     computeContext->CopyBuffer(
         mTransientState.softEdgeToolCountersBuffer, 0u,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-        mReadbackSoftEdges.toolCountersBuffer, 0u, sizeof(SoftEdgeToolCounters),
+        mReadbackSoftEdges.toolCountersBuffer, 0u, kSoftEdgeToolGpuCounterBytes,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     computeContext->Flush();
     computeContext->WaitForIdle();
 
     void *mappedEdges = nullptr;
     void *mappedCounters = nullptr;
+    void *mappedThermalState = nullptr;
     if (softEdgeCount > 0u)
     {
         computeContext->MapBuffer(mReadbackSoftEdges.edgesBuffer, Diligent::MAP_READ,
                                   Diligent::MAP_FLAG_DO_NOT_WAIT, mappedEdges);
     }
+    if (mSoftParticleCount > 0u)
+    {
+        computeContext->MapBuffer(mReadbackSoftEdges.thermalStateBuffer, Diligent::MAP_READ,
+                                  Diligent::MAP_FLAG_DO_NOT_WAIT, mappedThermalState);
+    }
     computeContext->MapBuffer(mReadbackSoftEdges.toolCountersBuffer, Diligent::MAP_READ,
                               Diligent::MAP_FLAG_DO_NOT_WAIT, mappedCounters);
-    if ((softEdgeCount > 0u && mappedEdges == nullptr) || mappedCounters == nullptr)
+    if ((softEdgeCount > 0u && mappedEdges == nullptr) ||
+        (mSoftParticleCount > 0u && mappedThermalState == nullptr) ||
+        mappedCounters == nullptr)
     {
         if (mappedEdges != nullptr)
         {
             computeContext->UnmapBuffer(mReadbackSoftEdges.edgesBuffer, Diligent::MAP_READ);
+        }
+        if (mappedThermalState != nullptr)
+        {
+            computeContext->UnmapBuffer(mReadbackSoftEdges.thermalStateBuffer,
+                                        Diligent::MAP_READ);
         }
         if (mappedCounters != nullptr)
         {
@@ -4442,22 +4503,125 @@ bool PhysicsSceneGpuState::readbackSoftEdgeDebugStateBlocking(
     if (softEdgeCount > 0u)
     {
         const auto *edges = static_cast<const SoftEdge *>(mappedEdges);
+        float shrinkRatioSum = 0.0f;
+        float failureThresholdSum = 0.0f;
+        outCounters.minimumShrinkRatio = std::numeric_limits<float>::max();
+        outCounters.minimumEffectiveFailureThreshold = std::numeric_limits<float>::max();
         for (std::uint32_t edgeIndex = 0u; edgeIndex < softEdgeCount; ++edgeIndex)
         {
+            const SoftEdge &edge = edges[edgeIndex];
+            const float referenceRestLength =
+                edge.referenceRestLength > 1.0e-6f ? edge.referenceRestLength : edge.restLength;
+            const float shrinkRatio =
+                referenceRestLength > 1.0e-6f ? edge.restLength / referenceRestLength : 1.0f;
+            shrinkRatioSum += shrinkRatio;
+            failureThresholdSum += edge.failureThreshold;
+            outCounters.minimumShrinkRatio =
+                std::min(outCounters.minimumShrinkRatio, shrinkRatio);
+            outCounters.minimumEffectiveFailureThreshold =
+                std::min(outCounters.minimumEffectiveFailureThreshold, edge.failureThreshold);
+
+            const bool shrinkModified = std::abs(shrinkRatio - 1.0f) > kEdgeModificationEpsilon;
+            const bool failureModified =
+                std::abs(edge.failureThreshold - edge.referenceFailureThreshold) >
+                kEdgeModificationEpsilon;
+            const bool cutResistanceModified =
+                std::abs(edge.cutResistance - edge.referenceCutResistance) >
+                kEdgeModificationEpsilon;
+            const bool complianceModified =
+                std::abs(edge.compliance - edge.referenceCompliance) > kEdgeModificationEpsilon;
+            if (shrinkModified || failureModified || cutResistanceModified ||
+                complianceModified)
+            {
+                ++outCounters.thermallyModifiedEdges;
+            }
+            if ((edge.flags & Edge_ThermalCut) != 0u)
+            {
+                ++outCounters.thermallyCutEdges;
+            }
+
             if (!world.syncSoftEdgeStateFromSimulation(edgeIndex, edges[edgeIndex]))
             {
                 computeContext->UnmapBuffer(mReadbackSoftEdges.edgesBuffer,
                                             Diligent::MAP_READ);
+                if (mappedThermalState != nullptr)
+                {
+                    computeContext->UnmapBuffer(mReadbackSoftEdges.thermalStateBuffer,
+                                                Diligent::MAP_READ);
+                }
                 computeContext->UnmapBuffer(mReadbackSoftEdges.toolCountersBuffer,
                                             Diligent::MAP_READ);
                 return false;
             }
         }
+        outCounters.averageShrinkRatio =
+            shrinkRatioSum / static_cast<float>(softEdgeCount);
+        outCounters.averageEffectiveFailureThreshold =
+            failureThresholdSum / static_cast<float>(softEdgeCount);
         world.finalizeSoftEdgeWriteback();
         computeContext->UnmapBuffer(mReadbackSoftEdges.edgesBuffer, Diligent::MAP_READ);
     }
+    else
+    {
+        outCounters.minimumShrinkRatio = 1.0f;
+        outCounters.averageShrinkRatio = 1.0f;
+    }
 
-    outCounters = *static_cast<const SoftEdgeToolCounters *>(mappedCounters);
+    if (mSoftParticleCount > 0u)
+    {
+        const auto *thermalStates =
+            static_cast<const SoftParticleThermalStateGPU *>(mappedThermalState);
+        float temperatureSum = 0.0f;
+        float damageSum = 0.0f;
+        float waterSum = 0.0f;
+        float charSum = 0.0f;
+        outCounters.minimumTemperatureC = std::numeric_limits<float>::max();
+        outCounters.maximumTemperatureC = std::numeric_limits<float>::lowest();
+        outCounters.maximumThermalDamage = 0.0f;
+        outCounters.minimumWaterFraction = std::numeric_limits<float>::max();
+        outCounters.maximumCharFraction = 0.0f;
+        for (std::uint32_t particleIndex = 0u; particleIndex < mSoftParticleCount;
+             ++particleIndex)
+        {
+            const SoftParticleThermalStateGPU &state = thermalStates[particleIndex];
+            const float temperature =
+                std::isfinite(state.temperatureC) ? state.temperatureC : 0.0f;
+            const float damage = std::clamp(state.damage, 0.0f, 1.0f);
+            const float water = std::clamp(state.waterFraction, 0.0f, 1.0f);
+            const float charFraction = std::clamp(state.charFraction, 0.0f, 1.0f);
+
+            temperatureSum += temperature;
+            damageSum += damage;
+            waterSum += water;
+            charSum += charFraction;
+            outCounters.minimumTemperatureC =
+                std::min(outCounters.minimumTemperatureC, temperature);
+            outCounters.maximumTemperatureC =
+                std::max(outCounters.maximumTemperatureC, temperature);
+            outCounters.maximumThermalDamage =
+                std::max(outCounters.maximumThermalDamage, damage);
+            outCounters.minimumWaterFraction =
+                std::min(outCounters.minimumWaterFraction, water);
+            outCounters.maximumCharFraction =
+                std::max(outCounters.maximumCharFraction, charFraction);
+            if (damage >= kThermalDamageDebugThreshold)
+            {
+                ++outCounters.particlesAboveDamageThreshold;
+            }
+        }
+        const float invParticleCount = 1.0f / static_cast<float>(mSoftParticleCount);
+        outCounters.averageTemperatureC = temperatureSum * invParticleCount;
+        outCounters.averageThermalDamage = damageSum * invParticleCount;
+        outCounters.averageWaterFraction = waterSum * invParticleCount;
+        outCounters.averageCharFraction = charSum * invParticleCount;
+        computeContext->UnmapBuffer(mReadbackSoftEdges.thermalStateBuffer, Diligent::MAP_READ);
+    }
+
+    const auto *gpuCounters = static_cast<const std::uint32_t *>(mappedCounters);
+    outCounters.numToolEdgeCandidates = gpuCounters[0];
+    outCounters.numNewlyCutEdges = gpuCounters[1];
+    outCounters.numAlreadyDisabledEdges = gpuCounters[2];
+    outCounters.numActiveEdgesAfterCut = gpuCounters[3];
     computeContext->UnmapBuffer(mReadbackSoftEdges.toolCountersBuffer, Diligent::MAP_READ);
     return true;
 }
@@ -4682,6 +4846,11 @@ Diligent::IBuffer *PhysicsSceneGpuState::softThermalStateReadBuffer() const noex
                : mPersistentSoftThermal.thermalStateBufferB.RawPtr();
 }
 
+std::uint32_t PhysicsSceneGpuState::softThermalStateReadBufferIndex() const noexcept
+{
+    return mSoftThermalReadBufferIndex;
+}
+
 Diligent::IBuffer *PhysicsSceneGpuState::softThermalStateWriteBuffer() const noexcept
 {
     return mSoftThermalReadBufferIndex == 0u
@@ -4843,6 +5012,8 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.suturingPathNodesBuffer       = mPersistentSuturing.pathNodesBuffer;
     view.soft.renderPositionsBuffer         = mPersistentSoftTopology.softBodyRenderPositionsBuffer;
     view.soft.renderNormalsBuffer           = mPersistentSoftTopology.softBodyRenderNormalsBuffer;
+    view.soft.renderThermalStateBuffer =
+        mPersistentSoftTopology.softBodyRenderThermalStateBuffer;
     view.soft.worldAabbsBuffer              = mPersistentSoftTopology.softBodyWorldAabbsBuffer;
     view.soft.softBodyCount                 = mSoftBodyCount;
     view.soft.edgeCount                     = mSoftEdgeCount;

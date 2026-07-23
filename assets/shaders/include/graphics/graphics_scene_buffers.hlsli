@@ -172,6 +172,7 @@ CRESSIM_STRUCTURED_BUFFER(VisiblePairInstance, g_VisiblePairs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyRenderPositions);
 #if !defined(CRESSIM_CAMERA_DEPTH_PASS)
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyVertexNormals);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyRenderThermalState);
 #endif
 #endif
 #if defined(CRESSIM_PROGRAM_FAMILY_CURVE)

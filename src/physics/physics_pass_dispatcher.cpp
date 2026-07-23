@@ -319,7 +319,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initSolverConfigPass(mSolveParticleRigidContactVelocitiesPass,
                               kSolveParticleRigidContactVelocities) ||
         !initPass(mApplyParticleContactVelocitiesPass, kApplyParticleContactVelocities) ||
-        !initPass(mSkinSoftRenderVerticesPass, kSkinSoftRenderVertices) ||
+        !initPass(mSkinSoftRenderVerticesPass, kSkinSoftRenderVertices, 2u) ||
         !initPass(mUpdateSoftTriangleNormalsPass, kUpdateSoftTriangleNormals) ||
         !initPass(mUpdateSoftRenderNormalsPass, kUpdateSoftRenderNormals) ||
         !initPass(mUpdateCurveRenderDataPass, kUpdateCurveRenderData) ||
@@ -3784,21 +3784,33 @@ bool PhysicsPassDispatcher::skinSoftRenderVertices(Diligent::IDeviceContext *com
     const GpuSoftRenderDispatchConstants constants{renderVertexCount, 0u, 0u, 0u};
     const auto &softParticles = sceneState.persistentParticles();
     const auto &softTopology  = sceneState.persistentSoftTopology();
+    Diligent::IBuffer *thermalStateBuffer = sceneState.softThermalStateReadBuffer();
+    if (thermalStateBuffer == nullptr || softTopology.softBodyRenderThermalStateBuffer == nullptr)
+    {
+        return false;
+    }
     const std::array bindings{
         gpu::GpuBufferBinding{"PhysicsSoftRenderDispatchConstantsBuffer",
                               mSoftRenderDispatchConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftThermalState", thermalStateBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftRenderVertexBindings", softTopology.renderVertexBindingsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftBodyRenderPositionsRW",
                               softTopology.softBodyRenderPositionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SoftBodyRenderThermalStateRW",
+                              softTopology.softBodyRenderThermalStateBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     return writeSoftRenderDispatchConstants(computeContext, constants) &&
-           mSkinSoftRenderVerticesPass.dispatch(computeContext, kDefaultVariant, bindings,
+           mSkinSoftRenderVerticesPass.dispatch(computeContext,
+                                                sceneState.softThermalStateReadBufferIndex(),
+                                                bindings,
                                                 dispatchGroupCount(renderVertexCount));
 }
 

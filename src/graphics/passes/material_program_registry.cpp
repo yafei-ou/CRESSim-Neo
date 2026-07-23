@@ -107,6 +107,7 @@ std::vector<Diligent::ShaderResourceVariableDesc> buildResourceLayoutVariables(
     {
         appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions");
         appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexNormals");
+        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderThermalState");
     }
     else if (programFamily == MaterialProgramFamily::CurveLit)
     {
