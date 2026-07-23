@@ -9,7 +9,7 @@
 *.lo
 *.o
 *.obj
-!examples/**/*.obj
+!assets/**/*.obj
 
 # Precompiled Headers
 *.gch

@@ -76,7 +76,7 @@ else()
 endif()
 file(RELATIVE_PATH CRESSIM_NEO_SHADER_INSTALL_RELATIVE_DIR
     "${CRESSIM_NEO_SHADER_INSTALL_ANCHOR_DIR}"
-    "${CMAKE_INSTALL_FULL_DATADIR}/cressim-neo/shaders")
+    "${CMAKE_INSTALL_FULL_DATADIR}/cressim-neo/assets/shaders")
 target_compile_definitions(${TARGET_NAME} PRIVATE
     CRESSIM_NEO_SHADER_INSTALL_RELATIVE_DIR="${CRESSIM_NEO_SHADER_INSTALL_RELATIVE_DIR}")
 target_compile_definitions(${TARGET_NAME} PUBLIC
@@ -151,7 +151,7 @@ set_target_properties(${TARGET_NAME}
 add_custom_target(cressim_neo_shader_package
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CRESSIM_NEO_SHADER_PACKAGE_DIR}"
-            "${CMAKE_BINARY_DIR}/bin/shaders"
+            "${CMAKE_BINARY_DIR}/bin/assets/shaders"
     DEPENDS ${CRESSIM_NEO_SHADER_PACKAGE_FILES}
 )
 add_dependencies(${TARGET_NAME} cressim_neo_shader_package)

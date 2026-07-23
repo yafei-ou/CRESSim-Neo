@@ -199,16 +199,21 @@ def _find_psm_urdf_path(
     explicit_root = _normalize_optional_path(resolve_root)
     if explicit_root is not None:
         search_roots.append(explicit_root)
+        search_roots.append(explicit_root / "assets")
+
+    asset_root = _normalize_optional_path(os.environ.get("CRESSIM_NEO_ASSET_DIR"))
+    if asset_root is not None:
+        search_roots.append(asset_root)
 
     env_root = _normalize_optional_path(os.environ.get("CRESSIM_NEO_PSM_RESOLVE_ROOT"))
     if env_root is not None:
         search_roots.append(env_root)
+        search_roots.append(env_root / "assets")
 
-    current = Path(__file__).resolve()
-    search_roots.extend(current.parents)
+    search_roots.append(Path(__file__).resolve().parent / "assets")
 
     for root in search_roots:
-        local_candidate = root / "examples" / "models" / "psm" / candidate_filename
+        local_candidate = root / "models" / "psm" / candidate_filename
         if local_candidate.exists():
             return local_candidate
 
@@ -223,10 +228,10 @@ def _find_psm_urdf_path(
 
     raise RuntimeError(
         f"Failed to locate the PSM URDF for tool type {normalized_tool_type!r}: "
-        f"examples/models/psm/{candidate_filename} or "
+        f"assets/models/psm/{candidate_filename} or "
         f"extern/SurRoL/surrol/assets/psm/{candidate_filename}. "
         "Pass `resolve_root=...`, `urdf_path=...`, or set "
-        "`CRESSIM_NEO_PSM_RESOLVE_ROOT`."
+        "`CRESSIM_NEO_ASSET_DIR`."
     )
 
 

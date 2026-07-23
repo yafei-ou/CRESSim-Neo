@@ -3,6 +3,7 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
+#include "helpers/asset_paths.h"
 #include "helpers/example_cli.h"
 #include "helpers/shape_meshes.h"
 #include "helpers/skybox_example.h"
@@ -56,7 +57,7 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
 EnvironmentIblDesc loadSkyboxIbl(cressim::neo::graphics::RenderResourceManager &resources)
 {
     const std::filesystem::path skyboxDir =
-        std::filesystem::path(__FILE__).parent_path() / "skybox";
+        cressim::neo::examples::helpers::assetPath("environments/skybox");
 
     EnvironmentIblBakeOptions options{};
     options.irradianceSize = 16u;

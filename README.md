@@ -108,19 +108,29 @@ build with both components enabled:
 ```bash
 cmake --build build/linux-release --parallel
 cmake --install build/linux-release --component CXXSDK
+cmake --install build/linux-release --component Examples
 cmake --install build/linux-release --component Python
 ```
 
-The project defines two install components:
+The project defines three install components:
 
 - `CXXSDK` installs the shared C++ libraries, public headers (including the
-  Diligent headers exposed by the public API), shaders, and the CMake package.
+  Diligent headers exposed by the public API), standard models, environment
+  maps, shaders, their authoring sources, and the CMake package. Assets are
+  installed under `share/cressim-neo/assets`.
+- `Examples` installs the enabled standalone C++ example executables. Install
+  `CXXSDK` alongside it so their default asset paths resolve.
 - `Python` installs the `cressim_neo` module, its native runtime libraries,
-  Python sources, and shaders.
+  Python sources, shaders, models, and environment maps.
 
 Pass `--prefix "$HOME/.local"` to either install command when a custom prefix
 is needed. Static C++ SDK installation is not currently a supported public
 workflow.
+
+All runtime assets resolve through one root: set `CRESSIM_NEO_ASSET_DIR` to use
+a custom asset directory; otherwise C++ resolves the installed asset tree and
+Python resolves its package-local `cressim_neo/assets` directory. Explicit
+shader or model paths still take precedence where supported.
 
 ### Manual CMake configuration
 

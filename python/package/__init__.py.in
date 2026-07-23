@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from ._cressim_neo import *  # noqa: F401,F403
@@ -60,7 +61,9 @@ from .psm_env import PsmEnv
 
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
-_SHADERS_DIR = _PACKAGE_DIR / "shaders"
+_PACKAGE_ASSET_DIR = _PACKAGE_DIR / "assets"
+_ASSET_DIR = Path(os.environ.get("CRESSIM_NEO_ASSET_DIR", _PACKAGE_ASSET_DIR)).expanduser()
+_SHADERS_DIR = _ASSET_DIR / "shaders"
 _runtime_initialize = Runtime.initialize
 
 

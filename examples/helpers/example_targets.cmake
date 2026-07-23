@@ -28,6 +28,9 @@ function(add_cressim_example)
         Diligent-TextureLoader
     )
 
+    target_compile_definitions(${target_name} PRIVATE
+        "CRESSIM_NEO_EXAMPLE_ASSET_DIR=\"${CMAKE_INSTALL_FULL_DATADIR}/cressim-neo/assets\"")
+
     if(EXAMPLE_COMPILE_DEFINITIONS)
         target_compile_definitions(${target_name} PRIVATE
             ${EXAMPLE_COMPILE_DEFINITIONS}
@@ -40,4 +43,7 @@ function(add_cressim_example)
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
+
+    install(TARGETS ${target_name}
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT Examples)
 endfunction()

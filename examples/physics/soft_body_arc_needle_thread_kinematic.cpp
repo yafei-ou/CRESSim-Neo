@@ -2,6 +2,7 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
+#include "helpers/asset_paths.h"
 #include "helpers/example_cli.h"
 #include "helpers/shape_meshes.h"
 #include "helpers/skybox_example.h"
@@ -51,7 +52,7 @@ using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kPi = 3.14159265358979323846f;
 constexpr const char *kSuturingSkyboxCrossPath =
-    "examples/cubemaps/Cubemap/Cubemap_Sky_23-512x512.png";
+    "environments/cubemaps/Cubemap/Cubemap_Sky_23-512x512.png";
 constexpr float kGroundCenterY = -1.1f;
 constexpr float kGroundHalfHeight = 0.08f;
 constexpr Diligent::float3 kSoftBodySize = {2.0f, 1.0f, 1.8f};
@@ -60,8 +61,7 @@ constexpr float kSoftBodyParticleRadius = 0.09f;
 EnvironmentIblDesc loadSuturingSkyboxIbl(cressim::neo::graphics::RenderResourceManager &resources)
 {
     const std::filesystem::path crossPath =
-        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
-        kSuturingSkyboxCrossPath;
+        cressim::neo::examples::helpers::assetPath(kSuturingSkyboxCrossPath);
 
     EnvironmentIblBakeOptions options{};
     options.irradianceSize = 16u;

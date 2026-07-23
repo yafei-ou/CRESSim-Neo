@@ -37,10 +37,10 @@ def component_for(path: str) -> str:
         return "extern/DiligentEngine"
     if len(parts) >= 2 and parts[0] == "extern":
         return "/".join(parts[:2])
-    if parts[:3] == ["examples", "models", "psm"]:
-        return "examples/models/psm"
-    if parts[:2] == ["examples", "cubemaps"]:
-        return "examples/cubemaps"
+    if parts[:3] == ["assets", "models", "psm"]:
+        return "assets/models/psm"
+    if parts[:3] == ["assets", "environments", "cubemaps"]:
+        return "assets/environments/cubemaps"
     if parts[:3] == ["examples", "physics", "fixtures"]:
         return "examples/physics/fixtures"
     return "project files with third-party clues"

@@ -2,6 +2,7 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
+#include "helpers/asset_paths.h"
 #include "helpers/viewer_example.h"
 #include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
@@ -49,7 +50,7 @@ using cressim::neo::viewer::DebugViewerCameraBinding;
 constexpr float kEnvSpacing              = 96.0f;
 constexpr std::uint32_t kDefaultEnvCount = 4u;
 constexpr const char *kToroidSkyboxCrossPath =
-    "examples/cubemaps/Cubemap/Cubemap_Sky_05-512x512.png";
+    "environments/cubemaps/Cubemap/Cubemap_Sky_05-512x512.png";
 
 struct SceneMaterials
 {
@@ -322,8 +323,7 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
 EnvironmentIblDesc loadToroidSkyboxIbl(cressim::neo::graphics::RenderResourceManager &resources)
 {
     const std::filesystem::path crossPath =
-        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
-        kToroidSkyboxCrossPath;
+        cressim::neo::examples::helpers::assetPath(kToroidSkyboxCrossPath);
 
     EnvironmentIblBakeOptions options{};
     options.irradianceSize = 16u;

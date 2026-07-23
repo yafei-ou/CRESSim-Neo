@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 import struct
 from pathlib import Path
 
@@ -357,16 +358,21 @@ def _probe_orientation() -> neo.Quaternion:
     return quat
 
 
-def _resolve_repo_root(resolve_root: str | Path | None) -> Path:
+def _resolve_asset_root(resolve_root: str | Path | None) -> Path:
     search_roots: list[Path] = []
     if resolve_root is not None:
-        search_roots.append(Path(resolve_root).expanduser().resolve())
-    search_roots.extend(Path(__file__).resolve().parents)
+        explicit_root = Path(resolve_root).expanduser().resolve()
+        search_roots.extend((explicit_root, explicit_root / "assets"))
+    asset_root = os.environ.get("CRESSIM_NEO_ASSET_DIR")
+    if asset_root:
+        search_roots.append(Path(asset_root).expanduser().resolve())
+    search_roots.append(Path(__file__).resolve().parent / "assets")
     for candidate in search_roots:
-        if (candidate / "examples" / "models" / "Linear Probe.obj").exists():
+        if (candidate / "models" / "Linear Probe.obj").exists():
             return candidate
     raise RuntimeError(
-        "Failed to locate examples/models/Linear Probe.obj. Pass resolve_root=... to the env constructor."
+        "Failed to locate assets/models/Linear Probe.obj. Pass resolve_root=... or set "
+        "CRESSIM_NEO_ASSET_DIR."
     )
 _PROBE_BODY_HALF_HEIGHT = 0.06
 _PROBE_BODY_DEPTH = 0.08
@@ -551,7 +557,7 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         self.enable_rgb_observation = enable_rgb_observation
         self.render_width = max(1, int(render_width))
         self.render_height = max(1, int(render_height))
-        self.repo_root = _resolve_repo_root(resolve_root)
+        self.asset_root = _resolve_asset_root(resolve_root)
         self.debug_logging = debug_logging
 
         config = neo.RuntimeConfig()
@@ -642,7 +648,7 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             )
         )
         probe_mesh_desc = _load_linear_probe_visual_mesh(
-            self.repo_root / "examples" / "models" / "Linear Probe.obj",
+            self.asset_root / "models" / "Linear Probe.obj",
             "UltrasoundCentering.RenderLinearProbeObj",
             scanline_spacing=self.probe_scanline_spacing,
             num_scanlines=self.probe_num_scanlines,
