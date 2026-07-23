@@ -26,6 +26,8 @@ struct ShaderSourceConfig
 class CRESSIM_NEO_GPU_API ShaderSourceProvider
 {
 public:
+    // With no explicit source directory, the provider resolves shaders from
+    // CRESSIM_NEO_ASSET_DIR/shaders or the asset directory beside its module.
     explicit ShaderSourceProvider(ShaderSourceConfig config);
     // Compatibility shorthand: uses <shaderDirectory>/include as the sole include root.
     explicit ShaderSourceProvider(std::string shaderDirectory);

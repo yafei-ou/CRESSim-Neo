@@ -151,7 +151,7 @@ set_target_properties(${TARGET_NAME}
 add_custom_target(cressim_neo_shader_package
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CRESSIM_NEO_SHADER_PACKAGE_DIR}"
-            "${CMAKE_BINARY_DIR}/bin/shaders"
+            "${CMAKE_BINARY_DIR}/bin/assets/shaders"
     DEPENDS ${CRESSIM_NEO_SHADER_PACKAGE_FILES}
 )
 add_dependencies(${TARGET_NAME} cressim_neo_shader_package)

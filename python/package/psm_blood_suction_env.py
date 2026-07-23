@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 import struct
 from pathlib import Path
 
@@ -844,15 +845,20 @@ def _find_asset_root(
     resolve_root: str | Path | None,
     required_relative_path: str,
 ) -> Path:
-    search_roots: list[Path] = [Path(__file__).resolve().parent / "assets"]
+    search_roots: list[Path] = []
     if resolve_root is not None:
         explicit_root = Path(resolve_root).expanduser().resolve()
         search_roots.extend((explicit_root, explicit_root / "assets"))
+    asset_root = os.environ.get("CRESSIM_NEO_ASSET_DIR")
+    if asset_root:
+        search_roots.append(Path(asset_root).expanduser().resolve())
+    search_roots.append(Path(__file__).resolve().parent / "assets")
     for root in search_roots:
         if (root / required_relative_path).exists():
             return root
     raise RuntimeError(
-        f"Failed to locate {required_relative_path}. Pass resolve_root=... to the env constructor."
+        f"Failed to locate {required_relative_path}. Pass resolve_root=... or set "
+        "CRESSIM_NEO_ASSET_DIR."
     )
 
 

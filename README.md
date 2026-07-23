@@ -127,6 +127,11 @@ Pass `--prefix "$HOME/.local"` to either install command when a custom prefix
 is needed. Static C++ SDK installation is not currently a supported public
 workflow.
 
+All runtime assets resolve through one root: set `CRESSIM_NEO_ASSET_DIR` to use
+a custom asset directory; otherwise C++ resolves the installed asset tree and
+Python resolves its package-local `cressim_neo/assets` directory. Explicit
+shader or model paths still take precedence where supported.
+
 ### Manual CMake configuration
 
 Use this equivalent workflow when scripting, automating, or choosing CMake

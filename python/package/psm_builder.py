@@ -195,17 +195,22 @@ def _find_psm_urdf_path(
     normalized_tool_type = _normalize_psm_tool_type(tool_type)
     candidate_filename = _PSM_TOOL_URDF_FILENAMES[normalized_tool_type]
 
-    package_assets = Path(__file__).resolve().parent / "assets"
-    search_roots: list[Path] = [package_assets]
+    search_roots: list[Path] = []
     explicit_root = _normalize_optional_path(resolve_root)
     if explicit_root is not None:
         search_roots.append(explicit_root)
         search_roots.append(explicit_root / "assets")
 
+    asset_root = _normalize_optional_path(os.environ.get("CRESSIM_NEO_ASSET_DIR"))
+    if asset_root is not None:
+        search_roots.append(asset_root)
+
     env_root = _normalize_optional_path(os.environ.get("CRESSIM_NEO_PSM_RESOLVE_ROOT"))
     if env_root is not None:
         search_roots.append(env_root)
         search_roots.append(env_root / "assets")
+
+    search_roots.append(Path(__file__).resolve().parent / "assets")
 
     for root in search_roots:
         local_candidate = root / "models" / "psm" / candidate_filename
@@ -226,7 +231,7 @@ def _find_psm_urdf_path(
         f"assets/models/psm/{candidate_filename} or "
         f"extern/SurRoL/surrol/assets/psm/{candidate_filename}. "
         "Pass `resolve_root=...`, `urdf_path=...`, or set "
-        "`CRESSIM_NEO_PSM_RESOLVE_ROOT`."
+        "`CRESSIM_NEO_ASSET_DIR`."
     )
 
 

@@ -7,6 +7,7 @@
 #include "DiligentEngine/DiligentCore/Common/interface/RefCountedObjectImpl.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/include/DefaultShaderSourceStreamFactory.h"
 
+#include <cstdlib>
 #include <filesystem>
 #include <utility>
 #include <vector>
@@ -248,15 +249,20 @@ bool ShaderSourceProvider::Impl::resolveConfig()
     else
     {
         std::vector<std::filesystem::path> candidates;
-        candidates.emplace_back("shaders");
+        if (const char *assetRoot = std::getenv("CRESSIM_NEO_ASSET_DIR");
+            assetRoot != nullptr && assetRoot[0] != '\0')
+        {
+            candidates.emplace_back(std::filesystem::path{assetRoot} / "shaders");
+        }
 
-#ifdef CRESSIM_NEO_SHADER_INSTALL_RELATIVE_DIR
         const std::filesystem::path moduleDirectory = shaderModuleDirectory();
         if (!moduleDirectory.empty())
         {
+            candidates.push_back(moduleDirectory / "assets" / "shaders");
+#ifdef CRESSIM_NEO_SHADER_INSTALL_RELATIVE_DIR
             candidates.push_back(moduleDirectory / CRESSIM_NEO_SHADER_INSTALL_RELATIVE_DIR);
-        }
 #endif
+        }
 
         for (const auto &candidate : candidates)
         {

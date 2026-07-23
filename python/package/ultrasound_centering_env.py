@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 import struct
 from pathlib import Path
 
@@ -358,15 +359,20 @@ def _probe_orientation() -> neo.Quaternion:
 
 
 def _resolve_asset_root(resolve_root: str | Path | None) -> Path:
-    search_roots: list[Path] = [Path(__file__).resolve().parent / "assets"]
+    search_roots: list[Path] = []
     if resolve_root is not None:
         explicit_root = Path(resolve_root).expanduser().resolve()
         search_roots.extend((explicit_root, explicit_root / "assets"))
+    asset_root = os.environ.get("CRESSIM_NEO_ASSET_DIR")
+    if asset_root:
+        search_roots.append(Path(asset_root).expanduser().resolve())
+    search_roots.append(Path(__file__).resolve().parent / "assets")
     for candidate in search_roots:
         if (candidate / "models" / "Linear Probe.obj").exists():
             return candidate
     raise RuntimeError(
-        "Failed to locate assets/models/Linear Probe.obj. Pass resolve_root=... to the env constructor."
+        "Failed to locate assets/models/Linear Probe.obj. Pass resolve_root=... or set "
+        "CRESSIM_NEO_ASSET_DIR."
     )
 _PROBE_BODY_HALF_HEIGHT = 0.06
 _PROBE_BODY_DEPTH = 0.08
