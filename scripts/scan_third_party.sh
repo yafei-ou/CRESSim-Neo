@@ -73,7 +73,8 @@ done
 command -v scancode >/dev/null 2>&1 || die \
     "ScanCode Toolkit is required. Install it, then make sure 'scancode' is on PATH."
 if [[ ! -f "${REPO_ROOT}/extern/DiligentEngine/CMakeLists.txt" ||
-      ! -f "${REPO_ROOT}/extern/CRESSim-Ultrasound/CMakeLists.txt" ]]; then
+      ! -f "${REPO_ROOT}/extern/CRESSim-Ultrasound/CMakeLists.txt" ||
+      ! -f "${REPO_ROOT}/extern/pybind11/CMakeLists.txt" ]]; then
     die "Submodules are not initialized. Run: git submodule update --init --recursive"
 fi
 

@@ -193,27 +193,14 @@ endif()
 
 if(CRESSIM_NEO_BUILD_PYTHON)
     find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
-    find_package(pybind11 CONFIG QUIET)
-
-    if(NOT pybind11_FOUND)
-        include(FetchContent)
-        set(CRESSIM_NEO_PYBIND11_SOURCE_DIR "${PROJECT_SOURCE_DIR}/extern/pybind11")
-        if(EXISTS "${CRESSIM_NEO_PYBIND11_SOURCE_DIR}/CMakeLists.txt")
-            add_subdirectory("${CRESSIM_NEO_PYBIND11_SOURCE_DIR}"
-                             "${CMAKE_BINARY_DIR}/extern/pybind11")
-        else()
-            message(STATUS "Fetching pybind11 into ${CRESSIM_NEO_PYBIND11_SOURCE_DIR}")
-            FetchContent_Declare(
-                pybind11
-                GIT_REPOSITORY https://github.com/pybind/pybind11.git
-                GIT_TAG v2.13.6
-                GIT_SHALLOW TRUE
-                SOURCE_DIR "${CRESSIM_NEO_PYBIND11_SOURCE_DIR}"
-                BINARY_DIR "${CMAKE_BINARY_DIR}/extern/pybind11"
-            )
-            FetchContent_MakeAvailable(pybind11)
-        endif()
+    set(CRESSIM_NEO_PYBIND11_SOURCE_DIR "${PROJECT_SOURCE_DIR}/extern/pybind11")
+    if(NOT EXISTS "${CRESSIM_NEO_PYBIND11_SOURCE_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "CRESSIM_NEO_BUILD_PYTHON requires the pinned extern/pybind11 submodule. "
+            "Run: git submodule update --init --recursive")
     endif()
+    add_subdirectory("${CRESSIM_NEO_PYBIND11_SOURCE_DIR}"
+                     "${CMAKE_BINARY_DIR}/extern/pybind11")
 endif()
 
 add_subdirectory(src)
