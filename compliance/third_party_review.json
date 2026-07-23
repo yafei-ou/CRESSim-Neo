@@ -1402,6 +1402,56 @@
       "notice_files": [],
       "notice_sources": [],
       "scan_suggested_notice_sources": []
+    },
+    "extern/pybind11": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/pybind11/.github/CONTRIBUTING.md",
+          "start_line": 43,
+          "end_line": 51,
+          "detected_license_expression": "(BSD-3-Clause AND LicenseRef-scancode-generic-cla) AND LicenseRef-scancode-generic-cla"
+        },
+        {
+          "path": "extern/pybind11/CMakeLists.txt",
+          "start_line": 3,
+          "end_line": 26,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/pybind11/LICENSE",
+          "start_line": 3,
+          "end_line": 26,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/pybind11/README.rst",
+          "start_line": 3,
+          "end_line": 26,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/pybind11/pybind11/setup_helpers.py",
+          "start_line": 8,
+          "end_line": 31,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/pybind11/pyproject.toml",
+          "start_line": 3,
+          "end_line": 26,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/pybind11/tools/FindPythonLibsNew.cmake",
+          "start_line": 24,
+          "end_line": 50,
+          "detected_license_expression": "BSD-3-Clause"
+        }
+      ]
     }
   }
 }
