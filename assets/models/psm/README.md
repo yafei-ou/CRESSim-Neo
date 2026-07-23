@@ -1,5 +1,12 @@
 ### dVRK PSM
 
+This asset directory was obtained from the [SurRoL project](https://github.com/med-air/surrol),
+whose repository is licensed under the MIT License. The corresponding license text is retained in
+[`LICENSE-SurRoL.txt`](LICENSE-SurRoL.txt). CRESSim-Neo includes locally modified model/topology
+data and locally authored Blender files in this directory; those modifications do not change the
+attribution or license notice for the imported SurRoL material. The upstream model provenance
+below is also retained.
+
 <p align="center">
    <img src="blender_files/psm.png" alt="SurRoL PSM"/>
 </p>
