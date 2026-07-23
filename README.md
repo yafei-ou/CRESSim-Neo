@@ -17,6 +17,12 @@ instructions are in [`docs/README.md`](docs/README.md).
   bindings
 - A Vulkan-capable graphics driver/runtime for running Vulkan-backed programs
 
+By default, configuration downloads the pinned DXC runtime release
+(`v1.9.2602.24`) with a SHA-256 check. This is the runtime used by released
+Linux and Windows artifacts; it is copied beside build products and installed
+with the C++ SDK and Python package. CMake needs network access the first time
+it populates this build-directory cache.
+
 The repository checkout must include the `extern/DiligentEngine` dependency
 tree.  For Python-enabled CMake builds, CMake first looks for a pybind11 CMake
 package on its configured search paths (for example, one supplied through
@@ -105,6 +111,10 @@ Useful optional CMake switches are:
 - `-DCRESSIM_NEO_ENABLE_CUDA_INTEROP=ON` — require and enable CUDAToolkit.
 - `-DCRESSIM_NEO_ENABLE_ULTRASOUND=ON` — enable CRESSim-Ultrasound.  This also
   requires CUDA interop and a working CUDA compiler.
+- `-DCRESSIM_NEO_DXC_PROVIDER=SYSTEM` — use DXC found through the local SDKs
+  instead of the pinned runtime. This is intended only for local development.
+- `-DCRESSIM_NEO_DXC_PROVIDER=OFF` — do not provision DXC. Vulkan falls back
+  from DXC-only features and the Windows D3D12 shader path is unsupported.
 
 ### Consuming an installed C++ SDK
 

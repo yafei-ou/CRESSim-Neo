@@ -156,12 +156,28 @@ add_custom_target(cressim_neo_shader_package
 )
 add_dependencies(${TARGET_NAME} cressim_neo_shader_package)
 
-if(WIN32 AND CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH AND EXISTS "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
-    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}"
-            "$<TARGET_FILE_DIR:${TARGET_NAME}>/spv_dxcompiler.dll"
-    )
+if(WIN32)
+    if(CRESSIM_NEO_DXC_RUNTIME_PATH AND EXISTS "${CRESSIM_NEO_DXC_RUNTIME_PATH}")
+        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CRESSIM_NEO_DXC_RUNTIME_PATH}"
+                "$<TARGET_FILE_DIR:${TARGET_NAME}>/dxcompiler.dll"
+        )
+    endif()
+    if(CRESSIM_NEO_DXIL_RUNTIME_PATH AND EXISTS "${CRESSIM_NEO_DXIL_RUNTIME_PATH}")
+        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CRESSIM_NEO_DXIL_RUNTIME_PATH}"
+                "$<TARGET_FILE_DIR:${TARGET_NAME}>/dxil.dll"
+        )
+    endif()
+    if(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH AND EXISTS "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
+        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}"
+                "$<TARGET_FILE_DIR:${TARGET_NAME}>/spv_dxcompiler.dll"
+        )
+    endif()
 elseif(UNIX AND CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH AND EXISTS "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
     add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

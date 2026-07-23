@@ -42,6 +42,9 @@ option(CRESSIM_NEO_ENABLE_CUDA_INTEROP "Enable optional CUDA interop support in 
 option(CRESSIM_NEO_ENABLE_ULTRASOUND "Enable optional CRESSim-Ultrasound integration" OFF)
 option(CRESSIM_NEO_BUILD_PYTHON "Build optional Python bindings and tests" OFF)
 
+include(cmake/CressimNeoDXC.cmake)
+cressim_neo_configure_dxc_provider()
+
 if(CRESSIM_NEO_BUILD_PYTHON)
     # The Python extension is a shared module; keep static engine libraries PIC-capable.
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -127,6 +130,11 @@ if(MSVC)
 endif()
 add_subdirectory(extern/DiligentEngine EXCLUDE_FROM_ALL)
 
+# SYSTEM is deliberately opt-in.  Resolve it only after Diligent has inspected
+# the locally installed Windows/Vulkan SDK, while BUNDLED remains independent
+# of whatever SDK happened to be installed on the build host.
+cressim_neo_finalize_dxc_system_provider()
+
 set(DILIGENT_INSTALL_TOOLS OFF CACHE BOOL "Install DiligentTools module headers and libraries" FORCE)
 set(DILIGENT_TOOLS_DIR "DiligentTools" CACHE INTERNAL "DiligentTools relative source dir")
 add_subdirectory(extern/DiligentEngine/DiligentTools/ThirdParty
@@ -181,11 +189,6 @@ if(CRESSIM_NEO_ENABLE_ULTRASOUND)
     add_subdirectory(extern/CRESSim-Ultrasound EXCLUDE_FROM_ALL)
     set(BUILD_TESTING ${CRESSIM_NEO_PREV_BUILD_TESTING})
     set(CRESSIM_NEO_HAS_ULTRASOUND ON)
-endif()
-
-if(NOT DEFINED CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
-    set(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH "${DILIGENT_DXCOMPILER_FOR_SPIRV_PATH}" CACHE FILEPATH
-        "Path to the Vulkan DXC runtime library copied next to CRESSim-Neo binaries")
 endif()
 
 if(CRESSIM_NEO_BUILD_PYTHON)
@@ -263,6 +266,29 @@ if(NOT ENGINE_STATIC)
     if(CRESSIM_NEO_HAS_ULTRASOUND AND TARGET cru_interface)
         install(FILES "$<TARGET_FILE:cru_interface>"
             DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            COMPONENT CXXSDK)
+    endif()
+    if(WIN32 AND CRESSIM_NEO_DXC_RUNTIME_PATH AND CRESSIM_NEO_DXIL_RUNTIME_PATH)
+        install(FILES
+            "${CRESSIM_NEO_DXC_RUNTIME_PATH}"
+            "${CRESSIM_NEO_DXIL_RUNTIME_PATH}"
+            DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            COMPONENT CXXSDK)
+        if(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
+            install(FILES "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}"
+                DESTINATION "${CMAKE_INSTALL_BINDIR}"
+                RENAME "spv_dxcompiler.dll"
+                COMPONENT CXXSDK)
+        endif()
+    elseif(UNIX AND NOT APPLE AND CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
+        install(FILES "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            RENAME "libdxcompiler.so"
+            COMPONENT CXXSDK)
+    endif()
+    if(CRESSIM_NEO_DXC_LICENSE_FILES)
+        install(FILES ${CRESSIM_NEO_DXC_LICENSE_FILES}
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/cressim-neo/licenses"
             COMPONENT CXXSDK)
     endif()
     install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
