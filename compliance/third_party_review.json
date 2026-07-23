@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "components": {
+    "first-party": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "examples/cubemaps": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": [
+        "examples/cubemaps/License.txt"
+      ]
+    },
+    "examples/models/psm": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "examples/physics/fixtures": {
+      "status": "pending",
+      "notes": "",
+      "notice_files": []
+    },
+    "extern/CRESSim-Ultrasound": {
+      "status": "include",
+      "notes": "",
+      "notice_files": [
+        "extern/CRESSim-Ultrasound/LICENSE",
+        "extern/CRESSim-Ultrasound/THIRD_PARTY_NOTICES.md"
+      ]
+    }
+  }
+}

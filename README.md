@@ -29,6 +29,49 @@ package on its configured search paths (for example, one supplied through
 `CMAKE_PREFIX_PATH`).  Otherwise it uses `extern/pybind11` when present, or
 fetches pybind11 there during the first configure.
 
+### Third-party compliance inventory
+
+Generate a full source-level candidate inventory, including initialized
+submodules and fetched dependency sources, with [ScanCode Toolkit](https://scancode-toolkit.readthedocs.io/):
+
+```bash
+scripts/scan_third_party.sh
+```
+
+The script writes pretty-printed `build/compliance/scancode.json` with ScanCode
+license, copyright, email, and URL findings, omitting files with no findings.
+It detects licenses without copying every matched license passage into the report. Use
+`--include-license-text` only for a targeted rescan of shortlisted third-party
+paths. This report identifies candidates, not the shipped notice. Review it
+against each supported C++ SDK and Python install profile, then retain the
+required notices for code, headers, assets, and binaries actually distributed.
+The initial scan excludes the large DiligentEngine submodule; add
+`--include-diligent` when preparing the complete inventory.
+Create or refresh `build/compliance/third_party_review.md`, a compact dashboard
+grouped by component, separately:
+
+```bash
+scripts/summarize_third_party_scan.sh
+```
+
+Record each review decision in
+`compliance/third_party_review.json` as `pending`, `include`, or `exclude`; the
+file is preserved and extended when later scans discover new components.
+
+After review, generate a draft notice from the canonical upstream notice files
+declared in each included component's `notice_files` array:
+
+```bash
+scripts/generate_third_party_notice.py
+```
+
+The draft is written to `build/compliance/THIRD_PARTY_NOTICES.draft.md`. The
+generator refuses to run when an included component has no canonical notice
+file, so ScanCode matches cannot accidentally substitute for required license
+text.
+CUDA is a user-provided build and runtime prerequisite and is not bundled by
+the current install rules, so it is not part of the shipped third-party notice.
+
 On Linux, create and activate a virtual environment before working with the
 Python bindings:
 
