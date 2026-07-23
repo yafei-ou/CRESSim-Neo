@@ -87,6 +87,7 @@ def source_evidence(resource: dict[str, object]) -> dict[str, object] | None:
     """Keep all useful ScanCode findings, without ScanCode's presentation noise."""
     references: set[tuple[int, int]] = set()
     licenses: set[str] = set()
+    license_matches: set[tuple[str, int, int]] = set()
     detections = resource.get("license_detections")
     if isinstance(detections, list):
         for detection in detections:
@@ -95,7 +96,16 @@ def source_evidence(resource: dict[str, object]) -> dict[str, object] | None:
             expression = detection.get("license_expression_spdx") or detection.get("license_expression")
             if isinstance(expression, str) and expression:
                 licenses.add(expression)
-            add_line_references(references, detection.get("matches"))
+            matches = detection.get("matches")
+            add_line_references(references, matches)
+            if isinstance(matches, list):
+                for match in matches:
+                    if not isinstance(match, dict) or not isinstance(expression, str):
+                        continue
+                    start_line = match.get("start_line")
+                    end_line = match.get("end_line", start_line)
+                    if isinstance(start_line, int) and isinstance(end_line, int):
+                        license_matches.add((expression, start_line, end_line))
     expression = resource.get("detected_license_expression_spdx") or resource.get(
         "detected_license_expression"
     )
@@ -126,6 +136,10 @@ def source_evidence(resource: dict[str, object]) -> dict[str, object] | None:
         "kinds": kinds,
         "line_ranges": [list(line_range) for line_range in sorted(references)],
         "licenses": sorted(licenses),
+        "license_matches": [
+            {"expression": expression, "start_line": start_line, "end_line": end_line}
+            for expression, start_line, end_line in sorted(license_matches)
+        ],
         "copyrights": sorted(copyrights),
         "holders": sorted(holders),
         "authors": sorted(authors),
@@ -207,6 +221,33 @@ def evidence_summary(sources: list[dict[str, object]]) -> dict[str, object]:
             for source in sorted(url_only_sources, key=source_sort_key)[:MAX_EXAMPLES_PER_VALUE]
         ],
     }
+
+
+def suggested_notice_sources(sources: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Offer substantial ScanCode license matches for human approval, never auto-use them."""
+    suggestions: set[tuple[str, int, int, str]] = set()
+    for source in sources:
+        matches = source["license_matches"]
+        assert isinstance(matches, list)
+        for match in matches:
+            if not isinstance(match, dict):
+                continue
+            start_line = match.get("start_line")
+            end_line = match.get("end_line")
+            expression = match.get("expression")
+            # A multi-line match is a useful candidate for an embedded notice.
+            # Short matches are often identifiers or incidental phrases.
+            if isinstance(start_line, int) and isinstance(end_line, int) and end_line - start_line >= 4 and isinstance(expression, str):
+                suggestions.add((str(source["path"]), start_line, end_line, expression))
+    return [
+        {
+            "path": path.removeprefix("CRESSim-Neo/"),
+            "start_line": start_line,
+            "end_line": end_line,
+            "detected_license_expression": expression,
+        }
+        for path, start_line, end_line, expression in sorted(suggestions)[:MAX_SUMMARY_VALUES]
+    ]
 
 
 def default_review_entry(component: str) -> dict[str, object]:
@@ -304,6 +345,10 @@ def main() -> int:
             raise ValueError(f"Invalid status {status!r} for {component}; expected one of {sorted(VALID_STATUSES)}")
         entry.setdefault("notes", "")
         entry.setdefault("notice_files", [])
+        entry.setdefault("notice_sources", [])
+        # This field is generated on every run. Unlike notice_sources, it is
+        # not a decision and the notice generator never consumes it.
+        entry["scan_suggested_notice_sources"] = suggested_notice_sources(sources)
         component_summaries[component] = evidence_summary(sources)
 
     write_json(arguments.review, review)
@@ -359,6 +404,14 @@ def main() -> int:
             lines.append("License expressions: " + display_values(summary["license_expressions"]))
         if summary["copyright_examples"]:
             lines.append("Copyright examples: " + display_values(summary["copyright_examples"]))
+        suggestions = tracked_components[name].get("scan_suggested_notice_sources", [])
+        if suggestions:
+            lines.append("Scan-excerpt candidates (copy a reviewed entry to `notice_sources` to use it):")
+            for source in suggestions:
+                lines.append(
+                    f"- `{source['path']}:L{source['start_line']}-L{source['end_line']}` "
+                    f"({source['detected_license_expression']})"
+                )
         if summary["url_only_examples"]:
             lines.append("URL-only examples:")
             for source in summary["url_only_examples"]:

@@ -25,6 +25,23 @@ def repository_file(relative_path: str) -> Path:
     return candidate
 
 
+def source_excerpt(source: object, component: str) -> tuple[str, str]:
+    """Return a deliberately selected, verbatim source range for a notice."""
+    if not isinstance(source, dict):
+        raise ValueError(f"Notice source for {component!r} must be an object.")
+    relative_path = source.get("path")
+    start_line = source.get("start_line")
+    end_line = source.get("end_line")
+    if not isinstance(relative_path, str):
+        raise ValueError(f"Notice source for {component!r} must declare a string path.")
+    if not isinstance(start_line, int) or not isinstance(end_line, int) or start_line < 1 or end_line < start_line:
+        raise ValueError(f"Notice source for {component!r} must declare a valid start_line and end_line.")
+    lines = repository_file(relative_path).read_text(encoding="utf-8").splitlines()
+    if end_line > len(lines):
+        raise ValueError(f"Notice source range for {component!r} exceeds {relative_path}.")
+    return f"{relative_path}:L{start_line}-L{end_line}", "\n".join(lines[start_line - 1 : end_line])
+
+
 def rebase_markdown_headings(text: str, levels: int = 2) -> str:
     """Place an imported Markdown document beneath a component heading."""
     rebased_lines: list[str] = []
@@ -67,8 +84,11 @@ def main() -> int:
             raise ValueError(f"Invalid status {status!r} for {name}; expected one of {sorted(VALID_STATUSES)}")
         if status == "include":
             notice_files = entry.get("notice_files")
-            if not isinstance(notice_files, list) or not notice_files:
-                raise ValueError(f"Included component {name!r} must declare one or more notice_files.")
+            notice_sources = entry.get("notice_sources", [])
+            if not isinstance(notice_files, list) or not isinstance(notice_sources, list):
+                raise ValueError(f"Included component {name!r} must declare list-valued notice_files and notice_sources.")
+            if not notice_files and not notice_sources:
+                raise ValueError(f"Included component {name!r} must declare one or more notice_files or notice_sources.")
             included_components.append((name, entry))
 
     lines = [
@@ -100,6 +120,18 @@ def main() -> int:
                     f"_Source: `{relative_path}`_",
                     "",
                     rebase_markdown_headings(text).rstrip(),
+                ]
+            )
+        for selected_source in entry.get("notice_sources", []):
+            source_label, excerpt = source_excerpt(selected_source, name)
+            lines.extend(
+                [
+                    "",
+                    f"_Verbatim excerpt: `{source_label}`_",
+                    "",
+                    "```text",
+                    excerpt,
+                    "```",
                 ]
             )
 

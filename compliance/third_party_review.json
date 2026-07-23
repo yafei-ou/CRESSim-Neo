@@ -3,260 +3,1405 @@
   "components": {
     "examples/cubemaps": {
       "status": "pending",
-      "notes": "",
+      "notes": "Example assets are built but not installed by the current CMake rules; decide separately for a source checkout or an examples distribution.",
       "notice_files": [
         "examples/cubemaps/License.txt"
-      ]
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": []
     },
     "examples/models/psm": {
       "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "notes": "Model assets are built only with examples and are not installed by the current SDK rules; their URL-only clues require provenance review.",
+      "notice_files": [],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": []
     },
     "examples/physics/fixtures": {
       "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "notes": "Example fixtures are not installed by the current SDK rules; decide separately if examples or source assets are distributed.",
+      "notice_files": [],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": []
     },
     "extern/CRESSim-Ultrasound": {
       "status": "include",
-      "notes": "",
+      "notes": "Optional integration, OFF by default. Include for a profile that enables CRESSIM_NEO_ENABLE_ULTRASOUND or distributes this submodule's source.",
       "notice_files": [
         "extern/CRESSim-Ultrasound/LICENSE",
         "extern/CRESSim-Ultrasound/THIRD_PARTY_NOTICES.md"
+      ],
+      "notice_sources": [
+        {
+          "path": "extern/CRESSim-Ultrasound/include/utils/array.h",
+          "start_line": 2,
+          "end_line": 32
+        }
+      ],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/CRESSim-Ultrasound/LICENSE",
+          "start_line": 3,
+          "end_line": 11,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/CRESSim-Ultrasound/THIRD_PARTY_NOTICES.md",
+          "start_line": 5,
+          "end_line": 33,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/CRESSim-Ultrasound/THIRD_PARTY_NOTICES.md",
+          "start_line": 38,
+          "end_line": 67,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/CRESSim-Ultrasound/include/utils/array.h",
+          "start_line": 4,
+          "end_line": 28,
+          "detected_license_expression": "BSD-3-Clause"
+        }
       ]
     },
     "extern/DiligentEngine": {
       "status": "include",
-      "notes": "",
+      "notes": "DiligentCore is compiled into the shipped libraries. The Diligent module license files are byte-identical; use the one canonical Apache-2.0 text. Third-party dependencies are reviewed as separate components.",
       "notice_files": [
-        "extern/DiligentEngine/DiligentCore/License.txt",
-        "extern/DiligentEngine/DiligentFX/License.txt",
-        "extern/DiligentEngine/DiligentSamples/License.txt",
-        "extern/DiligentEngine/DiligentSamples/Samples/Asteroids/license.txt",
-        "extern/DiligentEngine/DiligentTools/License.txt",
-        "extern/DiligentEngine/DiligentTools/NativeApp/Apple/LICENSE.txt",
         "extern/DiligentEngine/License.txt"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/BuildTools/.NET/dotnet-build-package.py",
+          "start_line": 4,
+          "end_line": 14,
+          "detected_license_expression": "Apache-2.0 AND LicenseRef-scancode-warranty-disclaimer"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/BuildTools/Android/gradlew",
+          "start_line": 6,
+          "end_line": 16,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/BuildTools/Android/gradlew.bat",
+          "start_line": 4,
+          "end_line": 14,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/BuildTools/File2Include/script.py",
+          "start_line": 4,
+          "end_line": 14,
+          "detected_license_expression": "Apache-2.0 AND LicenseRef-scancode-warranty-disclaimer"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/BuildTools/FormatValidation/clang-format-validate-license",
+          "start_line": 5,
+          "end_line": 21,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/Common/include/pch.h",
+          "start_line": 5,
+          "end_line": 15,
+          "detected_license_expression": "Apache-2.0 AND LicenseRef-scancode-warranty-disclaimer"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/Common/interface/AdvancedMath.hpp",
+          "start_line": 5,
+          "end_line": 15,
+          "detected_license_expression": "Apache-2.0 AND LicenseRef-scancode-warranty-disclaimer"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/Common/interface/Align.hpp",
+          "start_line": 5,
+          "end_line": 15,
+          "detected_license_expression": "Apache-2.0 AND LicenseRef-scancode-warranty-disclaimer"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/abseil-cpp": {
       "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "notes": "Current checkout has only a URL-bearing CMake placeholder; no headers were found for the broad DiligentCore header install. Keep pending in case the submodule is populated or build settings change.",
+      "notice_files": [],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": []
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/dawn": {
       "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "notes": "WebGPU is forcibly disabled and the current checkout contains only a URL-bearing placeholder. Keep pending for a future WebGPU-enabled or fully populated source profile.",
+      "notice_files": [],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": []
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler": {
       "status": "include",
-      "notes": "",
+      "notes": "The default BUNDLED DXC provider fetches, copies, and installs its runtime; DiligentCore also copies DXC headers. Both the main license and third-party notices are required review sources.",
       "notice_files": [
-        "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/LICENSE.TXT"
+        "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/LICENSE.TXT",
+        "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/ThirdPartyNotices.txt"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/LICENSE.TXT",
+          "start_line": 18,
+          "end_line": 43,
+          "detected_license_expression": "NCSA"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/LICENSE.TXT",
+          "start_line": 48,
+          "end_line": 57,
+          "detected_license_expression": "NCSA"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/ThirdPartyNotices.txt",
+          "start_line": 3,
+          "end_line": 10,
+          "detected_license_expression": "LicenseRef-scancode-unknown-license-reference AND NCSA"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/ThirdPartyNotices.txt",
+          "start_line": 18,
+          "end_line": 43,
+          "detected_license_expression": "NCSA"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/ThirdPartyNotices.txt",
+          "start_line": 32,
+          "end_line": 57,
+          "detected_license_expression": "NCSA"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/ThirdPartyNotices.txt",
+          "start_line": 48,
+          "end_line": 57,
+          "detected_license_expression": "NCSA"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/ThirdPartyNotices.txt",
+          "start_line": 62,
+          "end_line": 71,
+          "detected_license_expression": "NCSA"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/ThirdPartyNotices.txt",
+          "start_line": 102,
+          "end_line": 127,
+          "detected_license_expression": "NCSA"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/FSR": {
-      "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "status": "include",
+      "notes": "Nine FSR headers are copied by the broad DiligentCore header install. The selected ScanCode range is the complete embedded MIT grant and is emitted verbatim.",
+      "notice_files": [],
+      "notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_common_types.h",
+          "start_line": 3,
+          "end_line": 20
+        }
+      ],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_common_types.h",
+          "start_line": 5,
+          "end_line": 20,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_core.h",
+          "start_line": 5,
+          "end_line": 20,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_core_cpu.h",
+          "start_line": 5,
+          "end_line": 20,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_core_glsl.h",
+          "start_line": 5,
+          "end_line": 20,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_core_gpu_common.h",
+          "start_line": 5,
+          "end_line": 20,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_core_gpu_common_half.h",
+          "start_line": 5,
+          "end_line": 20,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_core_hlsl.h",
+          "start_line": 5,
+          "end_line": 20,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_core_portability.h",
+          "start_line": 5,
+          "end_line": 20,
+          "detected_license_expression": "MIT"
+        }
+      ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/glew": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "OpenGL is disabled, but 18 GLEW headers are still copied by the broad DiligentCore header install. Include until that install rule is narrowed.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/glew/LICENSE.txt"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glew/LICENSE.txt",
+          "start_line": 7,
+          "end_line": 28,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glew/LICENSE.txt",
+          "start_line": 36,
+          "end_line": 51,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glew/LICENSE.txt",
+          "start_line": 56,
+          "end_line": 73,
+          "detected_license_expression": "LicenseRef-scancode-khronos"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glew/Makefile",
+          "start_line": 8,
+          "end_line": 29,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glew/auto/src/glew.rc",
+          "start_line": 50,
+          "end_line": 69,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glew/auto/src/glew_license.h",
+          "start_line": 9,
+          "end_line": 30,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glew/auto/src/glewinfo.rc",
+          "start_line": 38,
+          "end_line": 57,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glew/auto/src/header.html",
+          "start_line": 10,
+          "end_line": 31,
+          "detected_license_expression": "BSD-3-Clause"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/glslang": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "Vulkan is enabled and DILIGENT_NO_GLSLANG is not forced; glslang is built for shader compilation. Its headers are also copied by the DiligentCore install.",
       "notice_files": [
-        "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/LICENSE.txt",
-        "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/license-checker.cfg"
+        "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/LICENSE.txt"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/.github/dependabot.yml",
+          "start_line": 3,
+          "end_line": 13,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/.gn",
+          "start_line": 5,
+          "end_line": 32,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/Android.mk",
+          "start_line": 5,
+          "end_line": 32,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/BUILD.gn",
+          "start_line": 5,
+          "end_line": 32,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/CMakeLists.txt",
+          "start_line": 5,
+          "end_line": 32,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/DEPS",
+          "start_line": 5,
+          "end_line": 32,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/External/CMakeLists.txt",
+          "start_line": 5,
+          "end_line": 32,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/LICENSE.txt",
+          "start_line": 33,
+          "end_line": 60,
+          "detected_license_expression": "BSD-3-Clause"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/googletest": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "Diligent tests are disabled, but 49 googletest headers are copied by the broad DiligentCore header install. Include until that install rule is narrowed.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/LICENSE"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/BUILD.bazel",
+          "start_line": 5,
+          "end_line": 29,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/LICENSE",
+          "start_line": 4,
+          "end_line": 28,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/MODULE.bazel",
+          "start_line": 5,
+          "end_line": 29,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/WORKSPACE",
+          "start_line": 5,
+          "end_line": 29,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/WORKSPACE.bzlmod",
+          "start_line": 5,
+          "end_line": 29,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/ci/linux-presubmit.sh",
+          "start_line": 6,
+          "end_line": 30,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/ci/macos-presubmit.sh",
+          "start_line": 6,
+          "end_line": 30,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/googlemock/include/gmock/gmock-actions.h",
+          "start_line": 4,
+          "end_line": 28,
+          "detected_license_expression": "BSD-3-Clause"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/GPUOpenShaderUtils": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "Its checksum source is compiled by Diligent ShaderTools when a D3D backend is enabled, and its header is copied by the broad DiligentCore header install. Include for the current multi-platform SDK.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/GPUOpenShaderUtils/License.txt"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/GPUOpenShaderUtils/DXBCChecksum.cpp",
+          "start_line": 52,
+          "end_line": 68,
+          "detected_license_expression": "RSA-MD"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/GPUOpenShaderUtils/DXBCChecksum.h",
+          "start_line": 51,
+          "end_line": 67,
+          "detected_license_expression": "RSA-MD"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/GPUOpenShaderUtils/License.txt",
+          "start_line": 3,
+          "end_line": 19,
+          "detected_license_expression": "MIT"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/OpenXR-SDK": {
       "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "notes": "OpenXR is not enabled by this project and the current checkout has no OpenXR headers. Keep pending for an OpenXR-enabled or fully populated source profile.",
+      "notice_files": [],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": []
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "Built by Diligent's active Vulkan/SPIR-V toolchain and 25 headers are copied by the DiligentCore install.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSE",
         "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSES/LicenseRef-KhronosFreeUse.txt"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/CMakeLists.txt",
+          "start_line": 4,
+          "end_line": 14,
+          "detected_license_expression": "(Apache-2.0 OR MIT) AND Apache-2.0 AND MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSE",
+          "start_line": 2,
+          "end_line": 202,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSES/Apache-2.0.txt",
+          "start_line": 1,
+          "end_line": 208,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSES/CC-BY-4.0.txt",
+          "start_line": 1,
+          "end_line": 324,
+          "detected_license_expression": "CC-BY-4.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSES/LicenseRef-KhronosFreeUse.txt",
+          "start_line": 3,
+          "end_line": 23,
+          "detected_license_expression": "MIT-Khronos-old"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSES/MIT.txt",
+          "start_line": 3,
+          "end_line": 19,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/NonSemanticShaderDebugInfo100.h",
+          "start_line": 3,
+          "end_line": 23,
+          "detected_license_expression": "MIT-Khronos-old"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/gn/BUILD.gn",
+          "start_line": 4,
+          "end_line": 14,
+          "detected_license_expression": "Apache-2.0"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "Vulkan is enabled; this interface dependency is exposed to consumers and 34 headers are copied by the DiligentCore install.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSE"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSE",
+          "start_line": 4,
+          "end_line": 26,
+          "detected_license_expression": "MIT-Khronos-old"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSE",
+          "start_line": 33,
+          "end_line": 50,
+          "detected_license_expression": "LicenseRef-scancode-khronos"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSE",
+          "start_line": 59,
+          "end_line": 77,
+          "detected_license_expression": "LicenseRef-scancode-public-domain OR MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSE",
+          "start_line": 82,
+          "end_line": 100,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSE",
+          "start_line": 107,
+          "end_line": 501,
+          "detected_license_expression": "CC-BY-4.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSES/CC-BY-4.0.txt",
+          "start_line": 1,
+          "end_line": 156,
+          "detected_license_expression": "CC-BY-4.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSES/MIT.txt",
+          "start_line": 5,
+          "end_line": 18,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/README.md",
+          "start_line": 203,
+          "end_line": 225,
+          "detected_license_expression": "MIT-Khronos-old"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "Built for the active Vulkan shader toolchain and 446 headers are copied by the DiligentCore install.",
       "notice_files": [
-        "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/LICENSE",
-        "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/utils/vscode/src/lsp/LICENSE"
+        "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/LICENSE"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/.github/dependabot.yml",
+          "start_line": 3,
+          "end_line": 13,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/.gn",
+          "start_line": 3,
+          "end_line": 13,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/BUILD.gn",
+          "start_line": 3,
+          "end_line": 13,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/CMakeLists.txt",
+          "start_line": 3,
+          "end_line": 13,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/LICENSE",
+          "start_line": 2,
+          "end_line": 202,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/PRESUBMIT.py",
+          "start_line": 3,
+          "end_line": 13,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/README.md",
+          "start_line": 802,
+          "end_line": 812,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/android_test/test.cpp",
+          "start_line": 3,
+          "end_line": 13,
+          "detected_license_expression": "Apache-2.0"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/stb": {
-      "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "status": "include",
+      "notes": "stb_image_write.h is copied by the DiligentCore install, and Diligent unconditionally installs its accompanying license text.",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentCore/ThirdParty/stb/stb_image_write_license.txt"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/stb/stb_image_write.h",
+          "start_line": 1686,
+          "end_line": 1722,
+          "detected_license_expression": "MIT OR Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/stb/stb_image_write_license.txt",
+          "start_line": 2,
+          "end_line": 38,
+          "detected_license_expression": "MIT OR Unlicense"
+        }
+      ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/volk": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "Vulkan is enabled, volk is built and linked by the GPU target, and its header is copied by the DiligentCore install.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/volk/LICENSE.md"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/volk/LICENSE.md",
+          "start_line": 3,
+          "end_line": 19,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/volk/volk.h",
+          "start_line": 3417,
+          "end_line": 3433,
+          "detected_license_expression": "MIT"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "Vulkan is enabled; this interface dependency is exposed to consumers and 47 headers are copied by the DiligentCore install.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/LICENSE.md"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/LICENSES/Apache-2.0.txt",
+          "start_line": 2,
+          "end_line": 202,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/LICENSES/MIT.txt",
+          "start_line": 5,
+          "end_line": 9,
+          "detected_license_expression": "MIT"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "xxHash is linked by Diligent GraphicsTools and its headers are copied by the DiligentCore install.",
       "notice_files": [
-        "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/LICENSE",
-        "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/cli/COPYING",
-        "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/tests/bench/LICENSE",
-        "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/tests/collisions/LICENSE"
+        "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/LICENSE"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/LICENSE",
+          "start_line": 7,
+          "end_line": 26,
+          "detected_license_expression": "BSD-2-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/Makefile",
+          "start_line": 5,
+          "end_line": 19,
+          "detected_license_expression": "GPL-2.0-or-later"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/cli/COPYING",
+          "start_line": 1,
+          "end_line": 339,
+          "detected_license_expression": "GPL-2.0-only"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/cli/xsum_arch.c",
+          "start_line": 5,
+          "end_line": 19,
+          "detected_license_expression": "GPL-2.0-or-later"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/cli/xsum_arch.h",
+          "start_line": 5,
+          "end_line": 19,
+          "detected_license_expression": "GPL-2.0-or-later"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/cli/xsum_bench.c",
+          "start_line": 5,
+          "end_line": 19,
+          "detected_license_expression": "GPL-2.0-or-later"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/cli/xsum_bench.h",
+          "start_line": 5,
+          "end_line": 19,
+          "detected_license_expression": "GPL-2.0-or-later"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/cli/xsum_config.h",
+          "start_line": 5,
+          "end_line": 19,
+          "detected_license_expression": "GPL-2.0-or-later"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw": {
       "status": "pending",
-      "notes": "",
+      "notes": "DiligentSamples is forcibly disabled and this directory is not installed by the current SDK rules. Keep pending for source or examples distributions.",
       "notice_files": [
         "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/LICENSE.md"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/LICENSE.md",
+          "start_line": 5,
+          "end_line": 22,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/deps/getopt.c",
+          "start_line": 4,
+          "end_line": 24,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/deps/getopt.h",
+          "start_line": 4,
+          "end_line": 24,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/deps/glad/gl.h",
+          "start_line": 1488,
+          "end_line": 1505,
+          "detected_license_expression": "LicenseRef-scancode-khronos"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/deps/glad/gles2.h",
+          "start_line": 477,
+          "end_line": 494,
+          "detected_license_expression": "LicenseRef-scancode-khronos"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/deps/mingw/dinput.h",
+          "start_line": 4,
+          "end_line": 16,
+          "detected_license_expression": "LGPL-2.1-or-later"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/deps/mingw/xinput.h",
+          "start_line": 5,
+          "end_line": 17,
+          "detected_license_expression": "LGPL-2.1-or-later"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/deps/nuklear.h",
+          "start_line": 25430,
+          "end_line": 25444,
+          "detected_license_expression": "LicenseRef-scancode-unknown AND MIT"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear": {
       "status": "pending",
-      "notes": "",
+      "notes": "DiligentSamples is forcibly disabled and this directory is not installed by the current SDK rules. Keep pending for source or examples distributions.",
       "notice_files": [
         "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/LICENSE",
         "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/src/LICENSE"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/LICENSE",
+          "start_line": 2,
+          "end_line": 38,
+          "detected_license_expression": "MIT OR Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/Readme.md",
+          "start_line": 2,
+          "end_line": 38,
+          "detected_license_expression": "MIT OR Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/demo/common/filebrowser/stb_image.h",
+          "start_line": 7949,
+          "end_line": 7985,
+          "detected_license_expression": "MIT OR Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/demo/rawfb/nuklear_rawfb.h",
+          "start_line": 6,
+          "end_line": 22,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/demo/rawfb/x11/main.c",
+          "start_line": 6,
+          "end_line": 22,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/demo/rawfb/x11/nuklear_xlib.h",
+          "start_line": 6,
+          "end_line": 22,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/demo/xcb_cairo/nuklear_xcb.h",
+          "start_line": 9,
+          "end_line": 25,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentSamples/ThirdParty/Nuklear/nuklear.h",
+          "start_line": 11723,
+          "end_line": 11759,
+          "detected_license_expression": "MIT OR Unlicense"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/args": {
       "status": "pending",
-      "notes": "",
+      "notes": "The owning DiligentTools targets are disabled; this header is used by disabled tools, although its license is installed by Diligent's ThirdParty CMake. Keep pending for source or future tools profiles.",
       "notice_files": [
         "extern/DiligentEngine/DiligentTools/ThirdParty/args/LICENSE"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/args/.ycm_extra_conf.py",
+          "start_line": 7,
+          "end_line": 30,
+          "detected_license_expression": "Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/args/CMakeLists.txt",
+          "start_line": 4,
+          "end_line": 20,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/args/LICENSE",
+          "start_line": 4,
+          "end_line": 8,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/args/args.hxx",
+          "start_line": 8,
+          "end_line": 24,
+          "detected_license_expression": "MIT"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/imgui": {
       "status": "pending",
-      "notes": "",
+      "notes": "The Diligent ImGui target is disabled and its headers are not copied by this project's install rules. Keep pending for source or viewer/tooling profiles.",
       "notice_files": [
         "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/LICENSE.txt",
         "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/examples/libs/glfw/COPYING.txt"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/LICENSE.txt",
+          "start_line": 5,
+          "end_line": 21,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/backends/imgui_impl_opengl3_loader.h",
+          "start_line": 32,
+          "end_line": 53,
+          "detected_license_expression": "Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/examples/libs/glfw/COPYING.txt",
+          "start_line": 4,
+          "end_line": 21,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/examples/libs/glfw/include/GLFW/glfw3.h",
+          "start_line": 8,
+          "end_line": 25,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/examples/libs/glfw/include/GLFW/glfw3native.h",
+          "start_line": 8,
+          "end_line": 25,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/examples/libs/usynergy/uSynergy.c",
+          "start_line": 7,
+          "end_line": 24,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/examples/libs/usynergy/uSynergy.h",
+          "start_line": 8,
+          "end_line": 25,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/imgui/imgui.cpp",
+          "start_line": 5,
+          "end_line": 21,
+          "detected_license_expression": "MIT"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/imgui_v1.85": {
       "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "notes": "Only used by the disabled Diligent ImGui target; no current SDK install path was found.",
+      "notice_files": [],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": []
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/imGuIZMO.quat": {
       "status": "pending",
-      "notes": "",
+      "notes": "No active CRESSim target uses this disabled DiligentTools helper; its license is nevertheless installed by Diligent's ThirdParty CMake. Keep pending for source or tooling profiles.",
       "notice_files": [
         "extern/DiligentEngine/DiligentTools/ThirdParty/imGuIZMO.quat/license.txt"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/imGuIZMO.quat/license.txt",
+          "start_line": 6,
+          "end_line": 25,
+          "detected_license_expression": "BSD-2-Clause"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/json": {
       "status": "pending",
-      "notes": "",
+      "notes": "The JSON interface target is configured, but its consumers are disabled DiligentTools features. Keep pending until a staged install proves it is part of the shipped SDK.",
       "notice_files": [
         "extern/DiligentEngine/DiligentTools/ThirdParty/json/LICENSE.MIT",
         "extern/DiligentEngine/DiligentTools/ThirdParty/json/docs/mkdocs/docs/home/license.md"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/json/LICENSE.MIT",
+          "start_line": 5,
+          "end_line": 21,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/json/LICENSES/Apache-2.0.txt",
+          "start_line": 1,
+          "end_line": 73,
+          "detected_license_expression": "Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/json/LICENSES/BSD-3-Clause.txt",
+          "start_line": 3,
+          "end_line": 11,
+          "detected_license_expression": "BSD-3-Clause"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/json/LICENSES/GPL-3.0-only.txt",
+          "start_line": 1,
+          "end_line": 232,
+          "detected_license_expression": "GPL-3.0-only"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/json/LICENSES/MIT.txt",
+          "start_line": 5,
+          "end_line": 9,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/json/README.md",
+          "start_line": 1325,
+          "end_line": 1329,
+          "detected_license_expression": "MIT AND CC0-1.0 AND Apache-2.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/json/docs/mkdocs/docs/home/license.md",
+          "start_line": 9,
+          "end_line": 13,
+          "detected_license_expression": "MIT AND CC0-1.0"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/json/tests/abi/include/nlohmann/json_v3_10_5.hpp",
+          "start_line": 11,
+          "end_line": 27,
+          "detected_license_expression": "MIT"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e": {
-      "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "status": "include",
+      "notes": "Built by the manually added DiligentTools ThirdParty tree and linked into the TextureLoader used by cressim_neo_graphics. README contains the upstream IJG license terms.",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e/README"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e/Makefile.in",
+          "start_line": 6,
+          "end_line": 13,
+          "detected_license_expression": "FSFULLRWD"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e/README",
+          "start_line": 100,
+          "end_line": 110,
+          "detected_license_expression": "IJG AND LicenseRef-scancode-ijg-2020"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e/README",
+          "start_line": 107,
+          "end_line": 147,
+          "detected_license_expression": "IJG AND LicenseRef-scancode-ijg-2020"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e/aclocal.m4",
+          "start_line": 5,
+          "end_line": 12,
+          "detected_license_expression": "FSFULLRWD"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e/aclocal.m4",
+          "start_line": 34,
+          "end_line": 53,
+          "detected_license_expression": "FSFULLR AND GPL-2.0-or-later WITH Libtool-exception"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e/aclocal.m4",
+          "start_line": 9494,
+          "end_line": 9498,
+          "detected_license_expression": "FSFULLRSD"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e/ar-lib",
+          "start_line": 10,
+          "end_line": 26,
+          "detected_license_expression": "GPL-2.0-or-later WITH Autoconf-exception-generic"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libjpeg-9e/cderror.h",
+          "start_line": 100,
+          "end_line": 110,
+          "detected_license_expression": "IJG AND LicenseRef-scancode-ijg-2020"
+        }
+      ]
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/libpng": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "Built and linked into the TextureLoader used by cressim_neo_graphics. The main project license is the relevant canonical notice for the built library.",
       "notice_files": [
-        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/LICENSE",
-        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/ci/LICENSE_MIT.txt",
-        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/contrib/gregbook/COPYING",
-        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/contrib/gregbook/LICENSE",
-        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/contrib/pngexif/LICENSE_MIT.txt",
-        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/contrib/pngminus/LICENSE.txt"
+        "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/LICENSE"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/LICENSE",
+          "start_line": 13,
+          "end_line": 36,
+          "detected_license_expression": "Libpng AND libpng-1.6.35"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/LICENSE",
+          "start_line": 39,
+          "end_line": 134,
+          "detected_license_expression": "Libpng AND libpng-1.6.35"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/Makefile.am",
+          "start_line": 35,
+          "end_line": 58,
+          "detected_license_expression": "Libpng AND libpng-1.6.35"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/Makefile.am",
+          "start_line": 61,
+          "end_line": 156,
+          "detected_license_expression": "Libpng AND libpng-1.6.35"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/Makefile.in",
+          "start_line": 6,
+          "end_line": 13,
+          "detected_license_expression": "FSFULLRWD"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/Makefile.in",
+          "start_line": 35,
+          "end_line": 58,
+          "detected_license_expression": "Libpng AND libpng-1.6.35"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/Makefile.in",
+          "start_line": 61,
+          "end_line": 156,
+          "detected_license_expression": "Libpng AND libpng-1.6.35"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libpng/aclocal.m4",
+          "start_line": 5,
+          "end_line": 12,
+          "detected_license_expression": "FSFULLRWD"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff": {
-      "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "status": "include",
+      "notes": "Built and linked into the TextureLoader used by cressim_neo_graphics. COPYRIGHT is the upstream canonical notice file.",
+      "notice_files": [
+        "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff/COPYRIGHT"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff/COPYRIGHT",
+          "start_line": 4,
+          "end_line": 21,
+          "detected_license_expression": "libtiff"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff/Makefile.am",
+          "start_line": 5,
+          "end_line": 22,
+          "detected_license_expression": "libtiff"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff/Makefile.in",
+          "start_line": 6,
+          "end_line": 13,
+          "detected_license_expression": "FSFULLRWD"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff/Makefile.in",
+          "start_line": 21,
+          "end_line": 38,
+          "detected_license_expression": "libtiff"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff/Makefile.lcc",
+          "start_line": 7,
+          "end_line": 24,
+          "detected_license_expression": "libtiff"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff/Makefile.vc",
+          "start_line": 3,
+          "end_line": 20,
+          "detected_license_expression": "libtiff"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff/SConstruct",
+          "start_line": 5,
+          "end_line": 22,
+          "detected_license_expression": "libtiff"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/libtiff/mkg3states.c",
+          "start_line": 5,
+          "end_line": 22,
+          "detected_license_expression": "libtiff"
+        }
+      ]
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/stb": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "TextureLoader directly compiles stb_image and stb_dxt into the library used by cressim_neo_graphics.",
       "notice_files": [
-        "extern/DiligentEngine/DiligentTools/ThirdParty/stb/LICENSE",
-        "extern/DiligentEngine/DiligentTools/ThirdParty/stb/data/herringbone/license.txt"
+        "extern/DiligentEngine/DiligentTools/ThirdParty/stb/LICENSE"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/stb/LICENSE",
+          "start_line": 1,
+          "end_line": 37,
+          "detected_license_expression": "MIT OR Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/stb/README.md",
+          "start_line": 56,
+          "end_line": 62,
+          "detected_license_expression": "LicenseRef-scancode-public-domain OR MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/stb/deprecated/stb.h",
+          "start_line": 13073,
+          "end_line": 13109,
+          "detected_license_expression": "MIT OR Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/stb/deprecated/stb_image_resize.h",
+          "start_line": 2596,
+          "end_line": 2632,
+          "detected_license_expression": "MIT OR Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/stb/deprecated/stretchy_buffer.h",
+          "start_line": 225,
+          "end_line": 261,
+          "detected_license_expression": "MIT OR Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/stb/stb_c_lexer.h",
+          "start_line": 902,
+          "end_line": 938,
+          "detected_license_expression": "MIT OR Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/stb/stb_connected_components.h",
+          "start_line": 1011,
+          "end_line": 1047,
+          "detected_license_expression": "MIT OR Unlicense"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/stb/stb_divide.h",
+          "start_line": 395,
+          "end_line": 431,
+          "detected_license_expression": "MIT OR Unlicense"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/tinygltf": {
       "status": "pending",
-      "notes": "",
+      "notes": "Used by the disabled Diligent AssetLoader target; no current SDK install path was found.",
       "notice_files": [
         "extern/DiligentEngine/DiligentTools/ThirdParty/tinygltf/LICENSE"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/tinygltf/LICENSE",
+          "start_line": 5,
+          "end_line": 21,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/tinygltf/tiny_gltf.h",
+          "start_line": 10,
+          "end_line": 26,
+          "detected_license_expression": "MIT"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/tinygltf/tiny_gltf.h",
+          "start_line": 2266,
+          "end_line": 2282,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/tinygltf/tiny_gltf.h",
+          "start_line": 2406,
+          "end_line": 2426,
+          "detected_license_expression": "BSL-1.0"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty/zlib": {
-      "status": "pending",
-      "notes": "",
+      "status": "include",
+      "notes": "Built and linked into the TextureLoader used by cressim_neo_graphics. The main zlib license is the relevant canonical notice for the built library.",
       "notice_files": [
-        "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/LICENSE",
-        "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/contrib/dotzlib/LICENSE_1_0.txt",
-        "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/contrib/minizip/LICENSE.Info-Zip"
+        "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/LICENSE"
+      ],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/BUILD.bazel",
+          "start_line": 6,
+          "end_line": 35,
+          "detected_license_expression": "LicenseRef-scancode-protobuf"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/LICENSE",
+          "start_line": 5,
+          "end_line": 22,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/Makefile.in",
+          "start_line": 6,
+          "end_line": 23,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/README",
+          "start_line": 86,
+          "end_line": 103,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/adler32.c",
+          "start_line": 6,
+          "end_line": 23,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/compress.c",
+          "start_line": 6,
+          "end_line": 23,
+          "detected_license_expression": "Zlib"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/contrib/ada/zlib.ads",
+          "start_line": 6,
+          "end_line": 25,
+          "detected_license_expression": "GPL-2.0-or-later WITH GNAT-exception"
+        },
+        {
+          "path": "extern/DiligentEngine/DiligentTools/ThirdParty/zlib/contrib/blast/blast.c",
+          "start_line": 5,
+          "end_line": 19,
+          "detected_license_expression": "Zlib"
+        }
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty": {
       "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "notes": "CMake metadata only: it contains URLs to optional upstream dependencies, not a separately shipped component.",
+      "notice_files": [],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": []
     },
     "extern/DiligentEngine/DiligentTools/ThirdParty": {
       "status": "pending",
-      "notes": "",
-      "notice_files": []
+      "notes": "CMake metadata combines several dependencies; review the individual entries rather than treating this as a component.",
+      "notice_files": [],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": []
     },
     "project files with third-party clues": {
       "status": "pending",
       "notes": "Review whether these are only references or contain distributed third-party material.",
-      "notice_files": []
+      "notice_files": [],
+      "notice_sources": [],
+      "scan_suggested_notice_sources": []
     }
   }
 }

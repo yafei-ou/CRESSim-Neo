@@ -62,8 +62,11 @@ Generated ScanCode evidence stays out of that tracked decision file: the raw
 report remains `scancode.json`, while the regrouped evidence remains
 `third_party_evidence.json`.
 
-After review, generate a draft notice from the canonical upstream notice files
-declared in each included component's `notice_files` array:
+After review, generate a draft notice from canonical upstream notice files
+declared in each included component's `notice_files` array. For an upstream
+component whose complete notice appears only in a source header, a reviewed
+`notice_sources` entry may instead declare its `path`, `start_line`, and
+`end_line`; the generator emits that exact range verbatim:
 
 ```bash
 scripts/generate_third_party_notice.py
