@@ -25,13 +25,16 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
 
-if(NOT TARGET glfw)
-    add_subdirectory(
-        ${PROJECT_SOURCE_DIR}/extern/DiligentEngine/DiligentSamples/ThirdParty/glfw
-        ${CMAKE_BINARY_DIR}/extern/glfw
-        EXCLUDE_FROM_ALL
-    )
+if(TARGET glfw)
+    message(FATAL_ERROR
+        "cressim_neo_viewer requires the pinned extern/glfw dependency, but a different glfw target already exists.")
 endif()
+
+add_subdirectory(
+    ${PROJECT_SOURCE_DIR}/extern/glfw
+    ${CMAKE_BINARY_DIR}/extern/glfw
+    EXCLUDE_FROM_ALL
+)
 
 if(ENGINE_STATIC)
     add_library(${TARGET_NAME} STATIC ${TARGET_SOURCE})

@@ -8,6 +8,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
 
+if(MINGW)
+    message(FATAL_ERROR "MinGW is not a supported CRESSim-Neo toolchain.")
+endif()
+
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
