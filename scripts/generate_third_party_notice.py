@@ -124,6 +124,11 @@ def main() -> int:
         type=Path,
         help="Configured CMake build directory containing downloaded artifact notices.",
     )
+    parser.add_argument(
+        "--include-notes",
+        action="store_true",
+        help="Include internal review notes beneath each component heading.",
+    )
     arguments = parser.parse_args()
 
     with arguments.review.open(encoding="utf-8") as review_file:
@@ -155,7 +160,7 @@ def main() -> int:
     lines = [
         "# Third-Party Notices (Draft)",
         "",
-        "This file is generated from `compliance/third_party_review.json`. Do not edit it directly; update the review registry and regenerate it.",
+        "This file is generated from `compliance/third_party_review.json` and, for downloaded artifacts, `compliance/third_party_artifacts.json`. Do not edit it directly; update the tracked compliance registries and regenerate it.",
     ]
     if not included_components:
         lines.extend(["", "No components have been marked `include`."])
@@ -164,7 +169,7 @@ def main() -> int:
     for name, entry, artifact_files in included_components:
         lines.extend(["", f"## {name}"])
         notes = entry.get("notes")
-        if isinstance(notes, str) and notes:
+        if arguments.include_notes and isinstance(notes, str) and notes:
             lines.extend(["", notes])
         for relative_path in entry["notice_files"]:
             if not isinstance(relative_path, str):

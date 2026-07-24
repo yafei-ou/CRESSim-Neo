@@ -90,6 +90,9 @@ python3 scripts/generate_third_party_notice.py \
 
 This does not run from CMake. The command fails if the selected build has not
 downloaded the expected DXC license files.
+
+Generated notices omit internal review notes by default. Pass `--include-notes`
+only when preparing a review-oriented draft rather than a distributed notice.
 CUDA is a user-provided build and runtime prerequisite and is not bundled by
 the current install rules, so it is not part of the shipped third-party notice.
 
