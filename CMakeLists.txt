@@ -275,11 +275,9 @@ if(NOT ENGINE_STATIC)
             RENAME "libdxcompiler.so"
             COMPONENT CXXSDK)
     endif()
-    if(CRESSIM_NEO_DXC_LICENSE_FILES)
-        install(FILES ${CRESSIM_NEO_DXC_LICENSE_FILES}
-            DESTINATION "${CMAKE_INSTALL_DATADIR}/cressim-neo/licenses"
-            COMPONENT CXXSDK)
-    endif()
+    install(FILES "${PROJECT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/cressim-neo"
+        COMPONENT CXXSDK)
     install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
         COMPONENT CXXSDK)

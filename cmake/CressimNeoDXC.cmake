@@ -19,7 +19,6 @@ set(CRESSIM_NEO_DXIL_RUNTIME_PATH "" CACHE FILEPATH
     "Path to the DXIL runtime used with DXC (dxil.dll on Windows)")
 set(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH "" CACHE FILEPATH
     "Path to the Vulkan DXC runtime copied next to CRESSim-Neo binaries")
-set(CRESSIM_NEO_DXC_LICENSE_FILES "" CACHE STRING "DXC license notices")
 
 function(cressim_neo_find_single_file root pattern result)
     file(GLOB_RECURSE matches LIST_DIRECTORIES FALSE "${root}/${pattern}")
@@ -36,7 +35,6 @@ function(cressim_neo_configure_dxc_provider)
         set(CRESSIM_NEO_DXC_RUNTIME_PATH "" CACHE FILEPATH "" FORCE)
         set(CRESSIM_NEO_DXIL_RUNTIME_PATH "" CACHE FILEPATH "" FORCE)
         set(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH "" CACHE FILEPATH "" FORCE)
-        set(CRESSIM_NEO_DXC_LICENSE_FILES "" CACHE STRING "" FORCE)
         message(STATUS "DXC runtime provider: OFF")
         return()
     endif()
@@ -47,7 +45,6 @@ function(cressim_neo_configure_dxc_provider)
         set(CRESSIM_NEO_DXC_RUNTIME_PATH "" CACHE FILEPATH "" FORCE)
         set(CRESSIM_NEO_DXIL_RUNTIME_PATH "" CACHE FILEPATH "" FORCE)
         set(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH "" CACHE FILEPATH "" FORCE)
-        set(CRESSIM_NEO_DXC_LICENSE_FILES "" CACHE STRING "" FORCE)
         message(STATUS "DXC runtime provider: SYSTEM")
         return()
     endif()
@@ -92,16 +89,11 @@ function(cressim_neo_configure_dxc_provider)
         set(dxil_runtime "")
         set(vulkan_dxc_runtime "${dxc_runtime}")
     endif()
-    cressim_neo_find_single_file("${cressim_neo_dxc_SOURCE_DIR}" "LICENSE-LLVM.txt" dxc_llvm_license)
-    cressim_neo_find_single_file("${cressim_neo_dxc_SOURCE_DIR}" "LICENSE-MS.txt" dxc_ms_license)
-
     # FORCE is intentional: the bundled provider is the project runtime
     # contract and must take precedence over a system SDK discovered by Diligent.
     set(CRESSIM_NEO_DXC_RUNTIME_PATH "${dxc_runtime}" CACHE FILEPATH "" FORCE)
     set(CRESSIM_NEO_DXIL_RUNTIME_PATH "${dxil_runtime}" CACHE FILEPATH "" FORCE)
     set(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH "${vulkan_dxc_runtime}" CACHE FILEPATH "" FORCE)
-    set(CRESSIM_NEO_DXC_LICENSE_FILES "${dxc_llvm_license};${dxc_ms_license}"
-        CACHE STRING "" FORCE)
     message(STATUS "DXC runtime provider: BUNDLED ${CRESSIM_NEO_DXC_VERSION}")
 endfunction()
 
