@@ -1,4 +1,5 @@
 #include "common/logger.h"
+#include "helpers/asset_paths.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "helpers/example_cli.h"
@@ -52,9 +53,9 @@ struct MeshfreeDebugOptions
     bool pinToGround = true;
     bool vSync = false;
     std::filesystem::path cloudPath =
-        std::filesystem::path(__FILE__).parent_path() / "fixtures" / "cube_particles.bin";
+        cressim::neo::examples::helpers::assetPath("physics/fixtures/cube_particles.bin");
     std::filesystem::path surfacePath =
-        std::filesystem::path(__FILE__).parent_path() / "fixtures" / "Cube.obj";
+        cressim::neo::examples::helpers::assetPath("physics/fixtures/Cube.obj");
     std::uint32_t neighbourCount = 12u;
     std::uint32_t substeps = 0u;
     std::uint32_t softInternalIterations = 0u;

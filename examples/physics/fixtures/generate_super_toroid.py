@@ -6,9 +6,15 @@ Tetrahedralize a super toroid surface.
 
 """
 
+from pathlib import Path
+
 # sphinx_gallery_thumbnail_number = 2
 import pyvista as pv
 import tetgen
+
+
+output_dir = Path(__file__).resolve().parents[3] / "assets" / "physics" / "fixtures"
+output_dir.mkdir(parents=True, exist_ok=True)
 
 ###############################################################################
 # Create and tetrahedralize a super torid.
@@ -57,7 +63,7 @@ subgrid.plot(
 grid = tet.grid
 
 # Write TetGen-format files via meshio/PyVista
-pv.save_meshio("toroid.node", grid)
+pv.save_meshio(output_dir / "toroid.node", grid)
 
 # Export a consistently oriented visual surface mesh for the viewer test.
 surface = grid.extract_surface().triangulate()
@@ -70,4 +76,4 @@ surface = surface.compute_normals(
     split_vertices=False,
     inplace=False,
 )
-surface.save("toroid_surface.obj")
+surface.save(output_dir / "toroid_surface.obj")

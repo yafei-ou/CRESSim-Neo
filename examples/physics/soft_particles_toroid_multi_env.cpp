@@ -292,7 +292,7 @@ MeshResourceDesc loadObjMesh(const std::filesystem::path &path)
 
 std::filesystem::path fixturePath(const char *name)
 {
-    return std::filesystem::path(__FILE__).parent_path() / "fixtures" / name;
+    return cressim::neo::examples::helpers::assetPath(std::filesystem::path{"physics/fixtures"} / name);
 }
 
 Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
