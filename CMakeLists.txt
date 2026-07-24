@@ -154,9 +154,7 @@ if(CRESSIM_NEO_DILIGENT_PUBLIC_DEFINITIONS)
 endif()
 target_include_directories(cressim_neo_build_settings INTERFACE
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/extern>
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/include>)
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 set(CRESSIM_NEO_HAS_CUDA_INTEROP OFF)
 if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
@@ -285,6 +283,10 @@ if(NOT ENGINE_STATIC)
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/DiligentEngine/DiligentCore"
         COMPONENT CXXSDK
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl"
+        # CRESSim's public headers use Diligent interfaces, but neither they nor
+        # those interface headers include DiligentCore/ThirdParty. Keep vendored
+        # build-only, test, and tool headers out of the installed SDK.
+        PATTERN "ThirdParty" EXCLUDE
     )
     set(CRESSIM_NEO_CMAKE_INSTALL_DIR
         "${CMAKE_INSTALL_LIBDIR}/cmake/CRESSimNeo")

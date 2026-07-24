@@ -17,11 +17,18 @@
         "assets/models/psm/LICENSE-SurRoL.txt"
       ],
       "notice_sources": [],
-      "scan_suggested_notice_sources": []
+      "scan_suggested_notice_sources": [
+        {
+          "path": "assets/models/psm/LICENSE-SurRoL.txt",
+          "start_line": 5,
+          "end_line": 21,
+          "detected_license_expression": "MIT"
+        }
+      ]
     },
     "extern/CRESSim-Ultrasound": {
       "status": "include",
-      "notes": "Optional integration, OFF by default. Include for a profile that enables CRESSIM_NEO_ENABLE_ULTRASOUND or distributes this submodule's source.",
+      "notes": "Included in the maximum-inclusion notice. This submodule's BSD-3-Clause license and its retained OpenBCSim and PhysX notices are distributed when its source is included; CUDA runtime components remain user-provided and are not shipped.",
       "notice_files": [
         "extern/CRESSim-Ultrasound/LICENSE",
         "extern/CRESSim-Ultrasound/THIRD_PARTY_NOTICES.md"
@@ -62,7 +69,7 @@
     },
     "extern/DiligentEngine": {
       "status": "include",
-      "notes": "DiligentCore is compiled into the shipped libraries. The Diligent module license files are byte-identical; use the one canonical Apache-2.0 text. Third-party dependencies are reviewed as separate components.",
+      "notes": "DiligentCore and DiligentTools TextureLoader are compiled into the shipped libraries; DiligentTools generally is disabled. The SDK installs the DiligentCore headers required by CRESSim's current public API, but excludes DiligentCore/ThirdParty. The Diligent module license files are byte-identical; use the one canonical Apache-2.0 text. Bundled third-party dependencies are reviewed as separate components.",
       "notice_files": [
         "extern/DiligentEngine/License.txt"
       ],
@@ -119,26 +126,23 @@
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/abseil-cpp": {
-      "status": "pending",
-      "notes": "Current checkout has only a URL-bearing CMake placeholder; no headers were found for the broad DiligentCore header install. Keep pending in case the submodule is populated or build settings change.",
+      "status": "exclude",
+      "notes": "Fetched by Diligent's CMake configuration, but not compiled, linked, copied as headers, or present in the CXXSDK install manifest for the configured Linux release build. Revisit if a future configuration links Abseil or installs its source/headers.",
       "notice_files": [],
       "notice_sources": [],
       "scan_suggested_notice_sources": []
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/dawn": {
-      "status": "pending",
-      "notes": "WebGPU is forcibly disabled and the current checkout contains only a URL-bearing placeholder. Keep pending for a future WebGPU-enabled or fully populated source profile.",
+      "status": "exclude",
+      "notes": "WebGPU is forcibly disabled. This checkout contains only a FetchContent recipe; the configured Linux release build has no Dawn source/build directory and no Dawn install-manifest entry. Diligent's dormant WebGPU headers are installed under Diligent's Apache-2.0 license, not as Dawn code. Revisit if WebGPU is enabled.",
       "notice_files": [],
       "notice_sources": [],
       "scan_suggested_notice_sources": []
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler": {
-      "status": "include",
-      "notes": "The default BUNDLED DXC provider fetches, copies, and installs its runtime; DiligentCore also copies DXC headers. Both the main license and third-party notices are required review sources.",
-      "notice_files": [
-        "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/LICENSE.TXT",
-        "extern/DiligentEngine/DiligentCore/ThirdParty/DirectXShaderCompiler/ThirdPartyNotices.txt"
-      ],
+      "status": "exclude",
+      "notes": "Vendored DXC headers are not part of the installed SDK. CRESSim's separate bundled-DXC CMake path installs a DXC runtime; that runtime must be tracked as a separate external-build-artifact component using its artifact-specific license files.",
+      "notice_files": [],
       "notice_sources": [],
       "scan_suggested_notice_sources": [
         {
@@ -192,16 +196,10 @@
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/FSR": {
-      "status": "include",
-      "notes": "Nine FSR headers are copied by the broad DiligentCore header install. The selected ScanCode range is the complete embedded MIT grant and is emitted verbatim.",
+      "status": "exclude",
+      "notes": "FSR shader headers are not part of the installed SDK, and the configured Linux release build does not compile Diligent SuperResolution. Revisit if a shipped configuration enables and links the FSR implementation.",
       "notice_files": [],
-      "notice_sources": [
-        {
-          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_common_types.h",
-          "start_line": 3,
-          "end_line": 20
-        }
-      ],
+      "notice_sources": [],
       "scan_suggested_notice_sources": [
         {
           "path": "extern/DiligentEngine/DiligentCore/ThirdParty/FSR/shaders/ffx_common_types.h",
@@ -254,11 +252,9 @@
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/glew": {
-      "status": "include",
-      "notes": "OpenGL is disabled, but 18 GLEW headers are still copied by the broad DiligentCore header install. Include until that install rule is narrowed.",
-      "notice_files": [
-        "extern/DiligentEngine/DiligentCore/ThirdParty/glew/LICENSE.txt"
-      ],
+      "status": "exclude",
+      "notes": "OpenGL is disabled, no GLEW binary is built, and DiligentCore/ThirdParty headers are not part of the installed SDK. Revisit if a shipped configuration enables OpenGL/GLEW.",
+      "notice_files": [],
       "notice_sources": [],
       "scan_suggested_notice_sources": [
         {
@@ -313,7 +309,7 @@
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/glslang": {
       "status": "include",
-      "notes": "Vulkan is enabled and DILIGENT_NO_GLSLANG is not forced; glslang is built for shader compilation. Its headers are also copied by the DiligentCore install.",
+      "notes": "Vulkan is enabled and DILIGENT_NO_GLSLANG is not forced; glslang is built for shader compilation and linked into the shipped Diligent shader toolchain. Its vendored headers are not installed.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/glslang/LICENSE.txt"
       ],
@@ -370,11 +366,9 @@
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/googletest": {
-      "status": "include",
-      "notes": "Diligent tests are disabled, but 49 googletest headers are copied by the broad DiligentCore header install. Include until that install rule is narrowed.",
-      "notice_files": [
-        "extern/DiligentEngine/DiligentCore/ThirdParty/googletest/LICENSE"
-      ],
+      "status": "exclude",
+      "notes": "Diligent tests are disabled and DiligentCore/ThirdParty headers are not part of the installed SDK. No GoogleTest code or headers are shipped in the configured SDK.",
+      "notice_files": [],
       "notice_sources": [],
       "scan_suggested_notice_sources": [
         {
@@ -429,7 +423,7 @@
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/GPUOpenShaderUtils": {
       "status": "include",
-      "notes": "Its checksum source is compiled by Diligent ShaderTools when a D3D backend is enabled, and its header is copied by the broad DiligentCore header install. Include for the current multi-platform SDK.",
+      "notes": "Its checksum source is compiled by Diligent ShaderTools when a D3D backend is enabled. Its vendored header is not installed, but retain it in the single maximum-inclusion notice for shipped multi-platform builds.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/GPUOpenShaderUtils/License.txt"
       ],
@@ -456,17 +450,18 @@
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/OpenXR-SDK": {
-      "status": "pending",
-      "notes": "OpenXR is not enabled by this project and the current checkout has no OpenXR headers. Keep pending for an OpenXR-enabled or fully populated source profile.",
+      "status": "exclude",
+      "notes": "OpenXR is not enabled. This checkout contains only a FetchContent recipe, and no fetched OpenXR SDK headers, binaries, or license files are present in the configured build or install manifest. The installed dormant Diligent OpenXR helper headers are Diligent code, not OpenXR-SDK code. Revisit if OpenXR is enabled.",
       "notice_files": [],
       "notice_sources": [],
       "scan_suggested_notice_sources": []
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross": {
       "status": "include",
-      "notes": "Built by Diligent's active Vulkan/SPIR-V toolchain and 25 headers are copied by the DiligentCore install.",
+      "notes": "Built by Diligent's active Vulkan/SPIR-V toolchain and linked into the shipped shader tooling. Its vendored headers are not installed.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSE",
+        "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSES/MIT.txt",
         "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Cross/LICENSES/LicenseRef-KhronosFreeUse.txt"
       ],
       "notice_sources": [],
@@ -523,11 +518,15 @@
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers": {
       "status": "include",
-      "notes": "Vulkan is enabled; this interface dependency is exposed to consumers and 34 headers are copied by the DiligentCore install.",
-      "notice_files": [
-        "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSE"
+      "notes": "Vulkan is enabled, so Diligent uses SPIRV-Headers as an internal interface dependency for its SPIR-V toolchain. Its headers are not installed. The selected Khronos license section applies to the compiled header material; the JsonCpp build-tool and CC-BY documentation sections are not shipped or compiled.",
+      "notice_files": [],
+      "notice_sources": [
+        {
+          "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSE",
+          "start_line": 1,
+          "end_line": 26
+        }
       ],
-      "notice_sources": [],
       "scan_suggested_notice_sources": [
         {
           "path": "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Headers/LICENSE",
@@ -581,7 +580,7 @@
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools": {
       "status": "include",
-      "notes": "Built for the active Vulkan shader toolchain and 446 headers are copied by the DiligentCore install.",
+      "notes": "Built for the active Vulkan shader toolchain and linked into the shipped Diligent libraries. Its vendored headers are not installed.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/SPIRV-Tools/LICENSE"
       ],
@@ -638,11 +637,9 @@
       ]
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/stb": {
-      "status": "include",
-      "notes": "stb_image_write.h is copied by the DiligentCore install, and Diligent unconditionally installs its accompanying license text.",
-      "notice_files": [
-        "extern/DiligentEngine/DiligentCore/ThirdParty/stb/stb_image_write_license.txt"
-      ],
+      "status": "exclude",
+      "notes": "stb_image_write is used only by Diligent's GPU test framework, which is not built here. Its header is not part of the installed SDK. An upstream-installed license file alone does not make the code a shipped component.",
+      "notice_files": [],
       "notice_sources": [],
       "scan_suggested_notice_sources": [
         {
@@ -661,7 +658,7 @@
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/volk": {
       "status": "include",
-      "notes": "Vulkan is enabled, volk is built and linked by the GPU target, and its header is copied by the DiligentCore install.",
+      "notes": "Vulkan is enabled, and volk is built and linked by the Diligent Vulkan GPU target. Its vendored header is not installed.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/volk/LICENSE.md"
       ],
@@ -683,9 +680,10 @@
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers": {
       "status": "include",
-      "notes": "Vulkan is enabled; this interface dependency is exposed to consumers and 47 headers are copied by the DiligentCore install.",
+      "notes": "Vulkan is enabled and Diligent uses this header-only interface dependency internally to compile its Vulkan backend. Its vendored headers are not installed. This is distinct from the system Vulkan loader/runtime, which CRESSim does not bundle. Apache-2.0 is a valid license choice for the code used here; LICENSE.md identifies the file licensing and the selected Apache text provides the complete license.",
       "notice_files": [
-        "extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/LICENSE.md"
+        "extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/LICENSE.md",
+        "extern/DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers/LICENSES/Apache-2.0.txt"
       ],
       "notice_sources": [],
       "scan_suggested_notice_sources": [
@@ -705,7 +703,7 @@
     },
     "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash": {
       "status": "include",
-      "notes": "xxHash is linked by Diligent GraphicsTools and its headers are copied by the DiligentCore install.",
+      "notes": "The BSD-2-Clause xxHash library is linked by Diligent GraphicsTools. The installed SDK does not contain the unrelated GPL-2.0-or-later xxhsum CLI or test headers. The BSD xxHash LICENSE is sufficient.",
       "notice_files": [
         "extern/DiligentEngine/DiligentCore/ThirdParty/xxHash/LICENSE"
       ],
@@ -762,8 +760,8 @@
       ]
     },
     "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw": {
-      "status": "pending",
-      "notes": "DiligentSamples is forcibly disabled and this directory is not installed by the current SDK rules. Keep pending for source or examples distributions.",
+      "status": "include",
+      "notes": "CRESSim's viewer directly configures this GLFW source tree and links the resulting static library privately into the installed cressim_neo_viewer library. DiligentSamples itself is disabled, but this vendored GLFW copy is an active CRESSim dependency. LICENSE.md contains the complete GLFW zlib license.",
       "notice_files": [
         "extern/DiligentEngine/DiligentSamples/ThirdParty/glfw/LICENSE.md"
       ],
