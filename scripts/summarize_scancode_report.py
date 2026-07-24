@@ -41,6 +41,8 @@ def component_for(path: str) -> str:
         return "assets/models/psm"
     if parts[:3] == ["assets", "environments", "cubemaps"]:
         return "assets/environments/cubemaps"
+    if parts[:3] == ["assets", "environments", "skybox"]:
+        return "assets/environments/skybox"
     if parts[:3] == ["examples", "physics", "fixtures"]:
         return "examples/physics/fixtures"
     return "project files with third-party clues"
