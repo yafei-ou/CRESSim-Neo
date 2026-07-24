@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "artifacts": {
+    "bundled-dxc": {
+      "name": "DirectXShaderCompiler",
+      "version": "v1.9.2602.24",
+      "notice_root": "_deps/cressim_neo_dxc-src",
+      "notice_files": [
+        "LICENSE-LLVM.txt",
+        "LICENSE-MS.txt"
+      ]
+    }
+  }
+}

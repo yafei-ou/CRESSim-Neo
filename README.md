@@ -76,6 +76,20 @@ The draft is written to `build/compliance/THIRD_PARTY_NOTICES.draft.md`. The
 generator refuses to run when an included component has no canonical notice
 file, so ScanCode matches cannot accidentally substitute for required license
 text.
+
+For a configured build using the bundled DXC provider, include the exact
+license files from its downloaded, hash-pinned archive by passing that build
+directory. `compliance/third_party_artifacts.json` records the expected archive
+paths and is tracked alongside the review registry:
+
+```bash
+python3 scripts/generate_third_party_notice.py \
+  --build-dir build/linux-release \
+  --output build/linux-release/compliance/THIRD_PARTY_NOTICES.md
+```
+
+This does not run from CMake. The command fails if the selected build has not
+downloaded the expected DXC license files.
 CUDA is a user-provided build and runtime prerequisite and is not bundled by
 the current install rules, so it is not part of the shipped third-party notice.
 

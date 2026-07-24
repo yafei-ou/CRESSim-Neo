@@ -375,7 +375,7 @@ def main() -> int:
         "",
         "This dashboard is generated from ScanCode findings. The full grouped evidence, including exact source paths and line ranges, is in `build/compliance/third_party_evidence.json`; the untouched ScanCode report remains the authoritative raw record.",
         "",
-        "Edit `compliance/third_party_review.json` only to set a component's `status`, explain `notes`, and select canonical `notice_files` for included components. Regenerating never overwrites those fields.",
+        "Edit `compliance/third_party_review.json` only to set a component's `status`, explain `notes`, and select canonical `notice_files` for included source components. Downloaded artifacts use an `artifact_notice_id` resolved through `compliance/third_party_artifacts.json`. Regenerating never overwrites those fields.",
         "",
         f"Components: {len(grouped_sources)} — pending: {counts['pending']}, include: {counts['include']}, exclude: {counts['exclude']}.",
         "",

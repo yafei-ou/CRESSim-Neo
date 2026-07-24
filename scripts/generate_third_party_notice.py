@@ -14,6 +14,43 @@ REVIEW_SCHEMA_VERSIONS = {1, 2}
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 
 
+def artifact_notice_files(registry_path: Path, build_dir: Path | None) -> dict[str, list[tuple[str, Path]]]:
+    """Resolve notices supplied by configured, downloaded build artifacts."""
+    if not registry_path.is_file():
+        raise ValueError(f"Artifact registry does not exist: {registry_path}")
+    with registry_path.open(encoding="utf-8") as registry_file:
+        registry = json.load(registry_file)
+    artifacts = registry.get("artifacts")
+    if registry.get("schema_version") != 1 or not isinstance(artifacts, dict):
+        raise ValueError(f"Unsupported artifact registry: {registry_path}")
+    if build_dir is None:
+        return {}
+
+    resolved_artifacts: dict[str, list[tuple[str, Path]]] = {}
+    for artifact_id, artifact in artifacts.items():
+        if not isinstance(artifact_id, str) or not isinstance(artifact, dict):
+            raise ValueError(f"Invalid artifact entry in {registry_path}")
+        name = artifact.get("name")
+        version = artifact.get("version")
+        notice_root = artifact.get("notice_root")
+        notice_files = artifact.get("notice_files")
+        if not all(isinstance(value, str) for value in (name, version, notice_root)) or not isinstance(notice_files, list):
+            raise ValueError(f"Invalid artifact entry {artifact_id!r} in {registry_path}")
+        files: list[tuple[str, Path]] = []
+        for relative_path in notice_files:
+            if not isinstance(relative_path, str):
+                raise ValueError(f"Invalid notice file for artifact {artifact_id!r}")
+            source_path = (build_dir / notice_root / relative_path).resolve()
+            if not source_path.is_file():
+                raise ValueError(
+                    f"Artifact notice file does not exist: {source_path}. "
+                    f"Configure the build with the matching artifact provider first."
+                )
+            files.append((f"{name} {version}/{relative_path}", source_path))
+        resolved_artifacts[artifact_id] = files
+    return resolved_artifacts
+
+
 def repository_file(relative_path: str) -> Path:
     candidate = (REPOSITORY_ROOT / relative_path).resolve()
     try:
@@ -58,6 +95,13 @@ def rebase_markdown_headings(text: str, levels: int = 2) -> str:
     return "\n".join(rebased_lines)
 
 
+def format_notice_text(source_path: Path, text: str) -> str:
+    """Preserve plain-text notices without letting Markdown reinterpret them."""
+    if source_path.suffix.lower() in {".md", ".markdown"}:
+        return rebase_markdown_headings(text).rstrip()
+    return "```text\n" + text.rstrip() + "\n```"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -70,6 +114,16 @@ def main() -> int:
         type=Path,
         default=REPOSITORY_ROOT / "build/compliance/THIRD_PARTY_NOTICES.draft.md",
     )
+    parser.add_argument(
+        "--artifact-registry",
+        type=Path,
+        default=REPOSITORY_ROOT / "compliance/third_party_artifacts.json",
+    )
+    parser.add_argument(
+        "--build-dir",
+        type=Path,
+        help="Configured CMake build directory containing downloaded artifact notices.",
+    )
     arguments = parser.parse_args()
 
     with arguments.review.open(encoding="utf-8") as review_file:
@@ -77,7 +131,8 @@ def main() -> int:
     if review.get("schema_version") not in REVIEW_SCHEMA_VERSIONS or not isinstance(review.get("components"), dict):
         raise ValueError(f"Unsupported review file: {arguments.review}")
 
-    included_components: list[tuple[str, dict[str, object]]] = []
+    artifacts = artifact_notice_files(arguments.artifact_registry, arguments.build_dir)
+    included_components: list[tuple[str, dict[str, object], list[tuple[str, Path]]]] = []
     for name, entry in sorted(review["components"].items()):
         status = entry.get("status")
         if status not in VALID_STATUSES:
@@ -85,11 +140,17 @@ def main() -> int:
         if status == "include":
             notice_files = entry.get("notice_files")
             notice_sources = entry.get("notice_sources", [])
+            artifact_notice_id = entry.get("artifact_notice_id")
             if not isinstance(notice_files, list) or not isinstance(notice_sources, list):
                 raise ValueError(f"Included component {name!r} must declare list-valued notice_files and notice_sources.")
-            if not notice_files and not notice_sources:
+            if artifact_notice_id is not None and not isinstance(artifact_notice_id, str):
+                raise ValueError(f"Included component {name!r} must declare artifact_notice_id as a string.")
+            artifact_files = artifacts.get(artifact_notice_id, []) if artifact_notice_id else []
+            if not notice_files and not notice_sources and not artifact_files:
+                if artifact_notice_id and arguments.build_dir is None:
+                    continue
                 raise ValueError(f"Included component {name!r} must declare one or more notice_files or notice_sources.")
-            included_components.append((name, entry))
+            included_components.append((name, entry, artifact_files))
 
     lines = [
         "# Third-Party Notices (Draft)",
@@ -100,7 +161,7 @@ def main() -> int:
         lines.extend(["", "No components have been marked `include`."])
 
     written_files: set[Path] = set()
-    for name, entry in included_components:
+    for name, entry, artifact_files in included_components:
         lines.extend(["", f"## {name}"])
         notes = entry.get("notes")
         if isinstance(notes, str) and notes:
@@ -119,7 +180,7 @@ def main() -> int:
                     "",
                     f"_Source: `{relative_path}`_",
                     "",
-                    rebase_markdown_headings(text).rstrip(),
+                    format_notice_text(source_path, text),
                 ]
             )
         for selected_source in entry.get("notice_sources", []):
@@ -132,6 +193,20 @@ def main() -> int:
                     "```text",
                     excerpt,
                     "```",
+                ]
+            )
+        for source_label, source_path in artifact_files:
+            if source_path in written_files:
+                lines.extend(["", f"The canonical notice `{source_label}` is included above."])
+                continue
+            written_files.add(source_path)
+            text = source_path.read_text(encoding="utf-8")
+            lines.extend(
+                [
+                    "",
+                    f"_Source: `{source_label}`_",
+                    "",
+                    format_notice_text(source_path, text),
                 ]
             )
 
