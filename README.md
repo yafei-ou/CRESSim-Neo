@@ -29,73 +29,6 @@ package on its configured search paths (for example, one supplied through
 `CMAKE_PREFIX_PATH`).  Otherwise it uses `extern/pybind11` when present, or
 fetches pybind11 there during the first configure.
 
-### Third-party compliance inventory
-
-Generate a full source-level candidate inventory, including initialized
-submodules and fetched dependency sources, with [ScanCode Toolkit](https://scancode-toolkit.readthedocs.io/):
-
-```bash
-scripts/scan_third_party.sh
-```
-
-The script writes pretty-printed `build/compliance/scancode.json` with ScanCode
-license, copyright, email, and URL findings, omitting files with no findings.
-It detects licenses without copying every matched license passage into the report. Use
-`--include-license-text` only for a targeted rescan of shortlisted third-party
-paths. This report identifies candidates, not the shipped notice. Review it
-against each supported C++ SDK and Python install profile, then retain the
-required notices for code, headers, assets, and binaries actually distributed.
-The initial scan excludes the large DiligentEngine submodule; add
-`--include-diligent` when preparing the complete inventory.
-Create or refresh `build/compliance/third_party_review.md`, a compact dashboard,
-and `build/compliance/third_party_evidence.json`, the grouped source paths and
-line ranges behind it:
-
-```bash
-scripts/summarize_third_party_scan.sh
-```
-
-Record each review decision in
-`compliance/third_party_review.json` as `pending`, `include`, or `exclude`; the
-file is preserved and extended when later scans discover new components.
-Generated ScanCode evidence stays out of that tracked decision file: the raw
-report remains `scancode.json`, while the regrouped evidence remains
-`third_party_evidence.json`.
-
-After review, generate a draft notice from canonical upstream notice files
-declared in each included component's `notice_files` array. For an upstream
-component whose complete notice appears only in a source header, a reviewed
-`notice_sources` entry may instead declare its `path`, `start_line`, and
-`end_line`; the generator emits that exact range verbatim:
-
-```bash
-scripts/generate_third_party_notice.py
-```
-
-The draft is written to `build/compliance/THIRD_PARTY_NOTICES.draft.md`. The
-generator refuses to run when an included component has no canonical notice
-file, so ScanCode matches cannot accidentally substitute for required license
-text.
-
-For a configured build using the bundled DXC provider, include the exact
-license files from its downloaded, hash-pinned archive by passing that build
-directory. `compliance/third_party_artifacts.json` records the expected archive
-paths and is tracked alongside the review registry:
-
-```bash
-python3 scripts/generate_third_party_notice.py \
-  --build-dir build/linux-release \
-  --output build/linux-release/compliance/THIRD_PARTY_NOTICES.md
-```
-
-This does not run from CMake. The command fails if the selected build has not
-downloaded the expected DXC license files.
-
-Generated notices omit internal review notes by default. Pass `--include-notes`
-only when preparing a review-oriented draft rather than a distributed notice.
-CUDA is a user-provided build and runtime prerequisite and is not bundled by
-the current install rules, so it is not part of the shipped third-party notice.
-
 On Linux, create and activate a virtual environment before working with the
 Python bindings:
 
@@ -269,3 +202,48 @@ scripts/build_docs.sh
 
 See [`docs/README.md`](docs/README.md) for the full documentation prerequisites
 and standalone build commands.
+
+## Third-party compliance
+
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) is the tracked notice shipped
+with the C++ SDK and Python package. It contains the reviewed license and notice
+text for third-party code, assets, headers, and bundled binaries distributed by
+the project.
+
+Use [ScanCode Toolkit](https://scancode-toolkit.readthedocs.io/) to refresh the
+source inventory. A full review includes the Diligent submodule:
+
+```bash
+scripts/scan_third_party.sh --include-diligent
+scripts/summarize_third_party_scan.sh
+```
+
+The scan writes `build/compliance/scancode.json`. The summary command writes a
+compact review dashboard at `build/compliance/third_party_review.md` and grouped
+evidence, including source paths and line ranges, at
+`build/compliance/third_party_evidence.json`. ScanCode findings are candidates
+for review; they do not by themselves identify material that is distributed.
+Use `--include-license-text` with the scan script when reviewing license text in
+a specific candidate area.
+
+Record the decision for each component in
+`compliance/third_party_review.json` as `pending`, `include`, or `exclude`.
+Included components declare canonical `notice_files` or exact `notice_sources`.
+The review registry retains decisions across scans; generated scan reports and
+evidence are separate build artifacts.
+
+Generate the tracked notice after updating the review registry. Pass the build
+directory for a release that bundles DXC so the generator can read the pinned
+archive notice files declared in `compliance/third_party_artifacts.json`:
+
+```bash
+python3 scripts/generate_third_party_notice.py \
+  --build-dir build/linux-release \
+  --output THIRD_PARTY_NOTICES.md
+```
+
+Review and commit the updated notice with the corresponding registry changes.
+The generated notice excludes internal review notes by default; use
+`--include-notes` only for a review draft. CUDA is supplied by the user and is
+not included in the distributed notice unless a future package bundles CUDA
+components.
