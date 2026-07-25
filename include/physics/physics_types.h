@@ -451,6 +451,7 @@ struct SoftBodyState
     float particleRadius   = 0.125f;   ///< Collision radius per particle.
     float edgeCompliance   = 0.0f;     ///< Distance/elastic edge constraint compliance.
     float volumeCompliance = 0.0f;     ///< Tetrahedral hydrostatic volume constraint compliance.
+    SoftBodyShapeMatchingDesc shapeMatching{}; ///< Shape-matching cluster settings.
     bool selfCollisionEnabled =
         false; ///< Whether particles of this soft body collide with one another.
     std::uint32_t contactMaterialIndex = 0u;     ///< Index into contact material table.

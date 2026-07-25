@@ -48,6 +48,7 @@ struct MeshfreeDebugOptions
 {
     CommonExampleOptions common{};
     bool drawConstraintEdges = false;
+    bool drawShapeClusters = false;
     bool debugParticlesExplicit = false;
     bool showDebugParticles = false;
     bool pinToGround = true;
@@ -60,6 +61,7 @@ struct MeshfreeDebugOptions
     std::uint32_t substeps = 0u;
     std::uint32_t softInternalIterations = 0u;
     std::uint32_t softContactIterations = 0u;
+    cressim::neo::physics::SoftBodyShapeMatchingDesc shapeMatching{};
     float cloudScale = 0.35f;
     float particleRadius = 0.035f;
     float particleMass = 0.0f;
@@ -86,6 +88,9 @@ void printUsage(const char *appName)
         " [--particle-mass M] [--compliance C] [--damping D] [--substeps N]"
         " [--soft-iterations N] [--contact-iterations N] [--rotation-degrees X Y Z]"
         " [--rotate-x DEG] [--rotate-y DEG] [--rotate-z DEG] [--pin-band B] [--drop]"
+        " [--enable-shape-matching] [--shape-cluster-size N] [--shape-memberships N]"
+        " [--shape-iterations N] [--shape-stiffness S] [--draw-shape-clusters]"
+        " [--disable-cut-aware-clusters]"
         " [--show-particles] [--hide-particles] [--draw-edges] [--vsync]",
         false);
 }
@@ -467,6 +472,56 @@ int main(int argc, char **argv)
                     "--contact-iterations");
                 continue;
             }
+            if (arg == "--enable-shape-matching")
+            {
+                options.shapeMatching.enabled = true;
+                continue;
+            }
+            if (arg == "--shape-cluster-size")
+            {
+                options.shapeMatching.targetClusterSize = parsePositiveUint32(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--shape-cluster-size"),
+                    "--shape-cluster-size");
+                continue;
+            }
+            if (arg == "--shape-memberships")
+            {
+                options.shapeMatching.minimumMembershipsPerParticle = parsePositiveUint32(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--shape-memberships"),
+                    "--shape-memberships");
+                continue;
+            }
+            if (arg == "--shape-iterations")
+            {
+                options.shapeMatching.solverIterations = parsePositiveUint32(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--shape-iterations"),
+                    "--shape-iterations");
+                continue;
+            }
+            if (arg == "--shape-stiffness")
+            {
+                options.shapeMatching.stiffnessPerPass = parseNonNegativeFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--shape-stiffness"),
+                    "--shape-stiffness");
+                continue;
+            }
+            if (arg == "--draw-shape-clusters")
+            {
+                options.drawShapeClusters = true;
+                options.drawConstraintEdges = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
+            if (arg == "--disable-cut-aware-clusters")
+            {
+                options.shapeMatching.cutAware = false;
+                continue;
+            }
             if (arg == "--rotation-degrees")
             {
                 options.rotationDegrees = parseFloat3(argc, argv, i, "--rotation-degrees");
@@ -705,6 +760,7 @@ int main(int argc, char **argv)
     softBody.compliance                      = options.compliance >= 0.0f
                                                    ? options.compliance
                                                    : 2.0e-5f;
+    softBody.shapeMatching                   = options.shapeMatching;
     softBody.material.contact.friction       = 0.45f;
     softBody.material.contact.staticFriction = 0.60f;
     softBody.material.contact.damping        = options.damping >= 0.0f
@@ -751,6 +807,18 @@ int main(int argc, char **argv)
                          ", particle mass=", softBody.particleMass,
                          ", rotation degrees=(", options.rotationDegrees.x, ", ",
                          options.rotationDegrees.y, ", ", options.rotationDegrees.z, ").\n");
+        CRESSIM_LOG_INFO("Meshfree shape matching: ",
+                         softBody.shapeMatching.enabled ? "enabled" : "disabled",
+                         ", cluster size=", softBody.shapeMatching.targetClusterSize,
+                         ", memberships=",
+                         softBody.shapeMatching.minimumMembershipsPerParticle,
+                         ", iterations=", softBody.shapeMatching.solverIterations,
+                         ", stiffness=", softBody.shapeMatching.stiffnessPerPass,
+                         ", cut-aware=",
+                         softBody.shapeMatching.cutAware ? "true" : "false",
+                         options.drawShapeClusters
+                             ? " (cluster debug requested; particle graph overlay enabled).\n"
+                             : ".\n");
         CRESSIM_LOG_INFO("Meshfree XPBD pinning: ",
                          options.pinToGround ? "enabled" : "disabled",
                          ", static particles=", softBody.staticParticleIndices.size(),
