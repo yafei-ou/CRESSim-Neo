@@ -1627,6 +1627,7 @@ bool World::setMeshfreeSoftBody(common::EntityId entityId,
     state.particleRadius                                 = component.particleRadius;
     state.edgeCompliance                                 = component.compliance;
     state.volumeCompliance                               = 0.0f;
+    state.shapeMatching                                  = component.shapeMatching;
     state.selfCollisionEnabled                           = component.selfCollisionEnabled;
     state.collisionLayer                                 = component.collisionLayer;
     state.collisionMask                                  = component.collisionMask;

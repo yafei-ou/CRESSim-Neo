@@ -4,6 +4,7 @@
 #include "common/math_utils_runtime.h"
 #include "physics/particle_phase.h"
 #include "physics/soft_body_authoring.h"
+#include "physics/soft_body_shape_matching.h"
 
 #include <algorithm>
 #include <array>
@@ -649,6 +650,18 @@ bool equalFluidSourceDesc(const FluidSourceDesc &lhs, const FluidSourceDesc &rhs
     return false;
 }
 
+bool equalSoftBodyShapeMatchingDesc(const SoftBodyShapeMatchingDesc &lhs,
+                                    const SoftBodyShapeMatchingDesc &rhs) noexcept
+{
+    return lhs.enabled == rhs.enabled && lhs.cutAware == rhs.cutAware &&
+           lhs.targetClusterSize == rhs.targetClusterSize &&
+           lhs.minimumMembershipsPerParticle == rhs.minimumMembershipsPerParticle &&
+           lhs.maximumClusterSize == rhs.maximumClusterSize &&
+           lhs.solverIterations == rhs.solverIterations &&
+           lhs.stiffnessPerPass == rhs.stiffnessPerPass &&
+           lhs.maximumCorrection == rhs.maximumCorrection;
+}
+
 } // namespace
 
 struct PhysicsWorld::Impl
@@ -685,6 +698,8 @@ struct PhysicsWorld::Impl
         std::vector<std::vector<std::uint32_t>> adjacencyLists;
         std::vector<std::vector<std::uint32_t>> incidentTetLists;
         std::vector<std::uint32_t> staticParticleIndices;
+        std::vector<SoftBodyShapeMatchingCluster> shapeMatchingClusters;
+        std::vector<std::uint32_t> shapeMatchingMembershipCounts;
     };
 
     struct FluidDerivedCache
@@ -3802,6 +3817,17 @@ void PhysicsWorld::Impl::normalizeSoftBodyState(SoftBodyState &state) noexcept
     state.particleRadius   = std::max(state.particleRadius, 1.0e-4f);
     state.edgeCompliance   = std::max(state.edgeCompliance, 0.0f);
     state.volumeCompliance = std::max(state.volumeCompliance, 0.0f);
+    state.shapeMatching.targetClusterSize =
+        std::max<std::uint32_t>(4u, state.shapeMatching.targetClusterSize);
+    state.shapeMatching.maximumClusterSize =
+        std::max(state.shapeMatching.targetClusterSize, state.shapeMatching.maximumClusterSize);
+    state.shapeMatching.minimumMembershipsPerParticle =
+        std::max<std::uint32_t>(1u, state.shapeMatching.minimumMembershipsPerParticle);
+    state.shapeMatching.solverIterations =
+        std::max<std::uint32_t>(1u, state.shapeMatching.solverIterations);
+    state.shapeMatching.stiffnessPerPass =
+        std::clamp(state.shapeMatching.stiffnessPerPass, 0.0f, 1.0f);
+    state.shapeMatching.maximumCorrection = std::max(state.shapeMatching.maximumCorrection, 0.0f);
 
     const auto clampScale = [](float value) -> float
     {
@@ -3913,7 +3939,8 @@ PhysicsWorld::Impl::SoftBodyChangeKind PhysicsWorld::Impl::classifySoftBodyChang
 {
     if (!equalSoftBodySourceDesc(previousState.source, candidate.source) ||
         previousState.restTransform != candidate.restTransform ||
-        previousState.supportsSuturing != candidate.supportsSuturing)
+        previousState.supportsSuturing != candidate.supportsSuturing ||
+        !equalSoftBodyShapeMatchingDesc(previousState.shapeMatching, candidate.shapeMatching))
     {
         return SoftBodyChangeKind::TopologyRebuild;
     }
@@ -4039,6 +4066,7 @@ void PhysicsWorld::Impl::applySoftBodyRuntimeProperties(
     softBody.particleRadius                      = normalizedState.particleRadius;
     softBody.edgeCompliance                      = normalizedState.edgeCompliance;
     softBody.volumeCompliance                    = normalizedState.volumeCompliance;
+    softBody.shapeMatching                       = normalizedState.shapeMatching;
     softBody.selfCollisionEnabled                = normalizedState.selfCollisionEnabled;
     softBody.supportsSuturing                    = normalizedState.supportsSuturing;
 
@@ -6668,6 +6696,20 @@ bool PhysicsWorld::Impl::prepareSoftBodyStateForInsert(const SoftBodyState &cand
     derivedCache.boundaryFaces         = std::move(resolvedTopology.boundaryFaces);
     derivedCache.adjacencyLists        = std::move(resolvedTopology.adjacencyLists);
     derivedCache.staticParticleIndices = std::move(resolvedTopology.staticParticleIndices);
+    if (candidate.shapeMatching.enabled)
+    {
+        SoftBodyShapeMatchingBuildResult shapeClusters =
+            buildOverlappingShapeMatchingClusters(derivedCache.restPositions,
+                                                  derivedCache.adjacencyLists,
+                                                  candidate.shapeMatching);
+        derivedCache.shapeMatchingClusters         = std::move(shapeClusters.clusters);
+        derivedCache.shapeMatchingMembershipCounts = std::move(shapeClusters.membershipCounts);
+    }
+    else
+    {
+        derivedCache.shapeMatchingClusters.clear();
+        derivedCache.shapeMatchingMembershipCounts.clear();
+    }
     if (candidate.supportsSuturing)
     {
         derivedCache.incidentTetLists.assign(derivedCache.restPositions.size(), {});

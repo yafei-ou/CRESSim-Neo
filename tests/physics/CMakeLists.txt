@@ -200,3 +200,10 @@ add_cressim_test(
     SOURCE physics_soft_revision_tracking.cpp
     LIBS cressim_neo_engine
 )
+
+add_cressim_test(
+    SUITE physics
+    NAME shape_matching_cpu_reference
+    SOURCE physics_shape_matching_cpu_reference.cpp
+    LIBS cressim_neo_physics
+)

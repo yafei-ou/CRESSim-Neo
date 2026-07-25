@@ -223,6 +223,20 @@ struct SoftBodySourceDesc
     SoftBodyMeshfreeParticleSource meshfreeParticles;
 };
 
+struct SoftBodyShapeMatchingDesc
+{
+    bool enabled  = false;
+    bool cutAware = false;
+
+    std::uint32_t targetClusterSize             = 12u;
+    std::uint32_t minimumMembershipsPerParticle = 3u;
+    std::uint32_t maximumClusterSize            = 16u;
+    std::uint32_t solverIterations              = 2u;
+
+    float stiffnessPerPass  = 0.15f;
+    float maximumCorrection = 0.0f;
+};
+
 struct FluidRegularGridSource
 {
     Diligent::float3 size{1.0f, 1.0f, 1.0f};
@@ -354,6 +368,7 @@ struct SoftBodyState
     float particleRadius               = 0.125f;
     float edgeCompliance               = 0.0f;
     float volumeCompliance             = 0.0f;
+    SoftBodyShapeMatchingDesc shapeMatching{};
     bool selfCollisionEnabled          = false;
     std::uint32_t contactMaterialIndex = 0u;
     std::uint32_t particleOffset       = 0u;

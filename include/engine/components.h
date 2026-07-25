@@ -174,6 +174,7 @@ struct MeshfreeSoftBodyComponent
     float particleMass           = 0.001f;
     std::uint32_t neighbourCount = 12u;
     float compliance             = 1.0e-6f;
+    physics::SoftBodyShapeMatchingDesc shapeMatching{};
     bool selfCollisionEnabled    = false;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
