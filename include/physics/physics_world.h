@@ -180,6 +180,7 @@ public:
     const std::vector<StrandSoftSuturingPair> &suturingPairs() const noexcept;
     const std::vector<std::uint32_t> &suturingParticleIndices() const noexcept;
     const SoftRenderDataHost &softRenderData() const noexcept;
+    const ShapeMatchingDataHost &shapeMatchingData() const noexcept;
     void setSoftRenderData(const SoftRenderDataHost &data);
     const CurveRenderDataHost &curveRenderData() const noexcept;
     void setCurveRenderData(const CurveRenderDataHost &data);

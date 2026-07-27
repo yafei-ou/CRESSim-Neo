@@ -273,12 +273,110 @@ bool testOverlappingClusterConstruction()
     return true;
 }
 
+bool testShapeMatchingGpuFlattening()
+{
+    using namespace cressim::neo::physics;
+    const std::vector<Diligent::float3> rest = makeShapeMatchingReferenceCube();
+    SoftBodyShapeMatchingDesc desc{};
+    desc.enabled = true;
+    desc.targetClusterSize = 12u;
+    desc.maximumClusterSize = 16u;
+    desc.minimumMembershipsPerParticle = 3u;
+    desc.stiffnessPerPass = 0.2f;
+
+    const SoftBodyShapeMatchingBuildResult built =
+        buildOverlappingShapeMatchingClusters(rest, makeCubeGraph(5u), desc);
+    const ShapeMatchingDataHost gpuData =
+        buildShapeMatchingGpuData(rest, built.clusters, desc, 0u,
+                                  static_cast<std::uint32_t>(rest.size()));
+
+    if (gpuData.clusters.size() != built.clusters.size() ||
+        gpuData.poses.size() != gpuData.clusters.size() ||
+        gpuData.particleMembershipRanges.size() != rest.size())
+    {
+        CRESSIM_LOG_ERROR("Flattened shape matching buffer sizes were inconsistent.\n");
+        return false;
+    }
+
+    std::vector<float> blendSums(rest.size(), 0.0f);
+    for (const ShapeClusterGPU &cluster : gpuData.clusters)
+    {
+        if ((cluster.flags & ShapeCluster_Active) == 0u ||
+            std::abs(cluster.stiffness - desc.stiffnessPerPass) > kTolerance)
+        {
+            CRESSIM_LOG_ERROR("Flattened cluster metadata was not initialized correctly.\n");
+            return false;
+        }
+        if (cluster.memberOffset + cluster.memberCount > gpuData.members.size())
+        {
+            CRESSIM_LOG_ERROR("Flattened cluster member range exceeded the member buffer.\n");
+            return false;
+        }
+
+        const Diligent::float3 restCenter{cluster.restCenterAndMass.x,
+                                          cluster.restCenterAndMass.y,
+                                          cluster.restCenterAndMass.z};
+        for (std::uint32_t i = 0u; i < cluster.memberCount; ++i)
+        {
+            const ShapeClusterMemberGPU &member = gpuData.members[cluster.memberOffset + i];
+            if (member.particleIndex >= rest.size())
+            {
+                CRESSIM_LOG_ERROR("Flattened member referenced an invalid particle.\n");
+                return false;
+            }
+
+            const Diligent::float3 expectedOffset = rest[member.particleIndex] - restCenter;
+            const Diligent::float3 actualOffset{member.restOffset.x, member.restOffset.y,
+                                                member.restOffset.z};
+            if (length(actualOffset - expectedOffset) > kTolerance)
+            {
+                CRESSIM_LOG_ERROR("Flattened member rest offset was incorrect.\n");
+                return false;
+            }
+            blendSums[member.particleIndex] += member.blendWeight;
+        }
+    }
+
+    for (std::uint32_t particle = 0u; particle < static_cast<std::uint32_t>(rest.size());
+         ++particle)
+    {
+        const ParticleShapeMembershipRangeGPU range =
+            gpuData.particleMembershipRanges[particle];
+        if (range.count < desc.minimumMembershipsPerParticle ||
+            range.offset + range.count > gpuData.particleMembershipIndices.size())
+        {
+            CRESSIM_LOG_ERROR("Flattened reverse membership range was invalid.\n");
+            return false;
+        }
+        for (std::uint32_t i = 0u; i < range.count; ++i)
+        {
+            const std::uint32_t memberIndex =
+                gpuData.particleMembershipIndices[range.offset + i];
+            if (memberIndex >= gpuData.members.size() ||
+                gpuData.members[memberIndex].particleIndex != particle)
+            {
+                CRESSIM_LOG_ERROR("Flattened reverse membership index was invalid.\n");
+                return false;
+            }
+        }
+        if (std::abs(blendSums[particle] - 1.0f) > 1.0e-3f)
+        {
+            CRESSIM_LOG_ERROR("Flattened blend weights were not normalized; sum was ",
+                              blendSums[particle], ".\n");
+            return false;
+        }
+    }
+
+    return true;
+}
+
 } // namespace
 
 int main()
 {
     if (!testTranslationInvariance() || !testRotationInvariance() || !testLocalDeformation() ||
-        !testStaticParticles() || !testOverlappingClusterConstruction())
+        !testStaticParticles() || !testOverlappingClusterConstruction() ||
+        !testShapeMatchingGpuFlattening())
     {
         return 1;
     }

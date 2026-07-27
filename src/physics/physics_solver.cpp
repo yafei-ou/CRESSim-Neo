@@ -216,11 +216,12 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
         world.routedCableConstraints();
     const std::vector<RoutedCableRoutePoint> &routedCableRoutePoints =
         world.routedCableRoutePoints();
-    const SoftRenderDataHost &softRenderData   = world.softRenderData();
-    const CurveRenderDataHost &curveRenderData = world.curveRenderData();
-    const RigidJointSceneHost &rigidJoints     = world.rigidJointScene();
-    const std::uint32_t fluidCount             = world.fluidCount();
-    const std::uint32_t particleCount          = static_cast<std::uint32_t>(particles.size());
+    const SoftRenderDataHost &softRenderData      = world.softRenderData();
+    const ShapeMatchingDataHost &shapeMatchingData = world.shapeMatchingData();
+    const CurveRenderDataHost &curveRenderData    = world.curveRenderData();
+    const RigidJointSceneHost &rigidJoints        = world.rigidJointScene();
+    const std::uint32_t fluidCount                = world.fluidCount();
+    const std::uint32_t particleCount             = static_cast<std::uint32_t>(particles.size());
     const std::uint32_t softEdgeCount      = static_cast<std::uint32_t>(distanceConstraints.size());
     const std::uint32_t softBendCount      = static_cast<std::uint32_t>(bendConstraints.size());
     const std::uint32_t softTetCount       = static_cast<std::uint32_t>(volumeConstraints.size());
@@ -271,7 +272,10 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
             computeBackend.renderDevice, rigidBodyCount, colliderCount, particleCount, fluidCount,
             static_cast<std::uint32_t>(world.particleContactMaterials().size()),
             static_cast<std::uint32_t>(fluidMaterials.size()), softEdgeCount, softBendCount,
-            softTetCount, strandSegmentCount, strandJointCount, strandDistanceCount, ballJointCount,
+            softTetCount, static_cast<std::uint32_t>(shapeMatchingData.clusters.size()),
+            static_cast<std::uint32_t>(shapeMatchingData.members.size()),
+            static_cast<std::uint32_t>(shapeMatchingData.particleMembershipIndices.size()),
+            strandSegmentCount, strandJointCount, strandDistanceCount, ballJointCount,
             sphericalJointCount, hingeJointCount, sliderJointCount, rigidParticleAttachmentCount,
             strandRigidAttachmentCount, rigidDistanceConstraintCount,
             static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),

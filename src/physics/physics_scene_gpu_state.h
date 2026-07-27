@@ -131,6 +131,11 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandJointsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandDistanceConstraintsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentStatesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeClustersBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeClusterMembersBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleShapeMembershipRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleShapeMembershipIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeClusterPosesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleEdgeRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentEdgesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleBendRangesBuffer;
@@ -375,6 +380,8 @@ public:
         std::uint32_t particleCount, std::uint32_t fluidCount,
         std::uint32_t particleContactMaterialCount, std::uint32_t fluidMaterialCount,
         std::uint32_t softEdgeCount, std::uint32_t softBendCount, std::uint32_t softTetCount,
+        std::uint32_t shapeClusterCount, std::uint32_t shapeClusterMemberCount,
+        std::uint32_t particleShapeMembershipIndexCount,
         std::uint32_t strandSegmentCount, std::uint32_t strandJointCount,
         std::uint32_t strandDistanceCount, std::uint32_t ballJointCount,
         std::uint32_t sphericalJointCount, std::uint32_t hingeJointCount,
@@ -400,6 +407,7 @@ public:
         const std::vector<DeformableDistanceConstraint> &distanceConstraints,
         const std::vector<DeformableBendConstraint> &bendConstraints,
         const std::vector<DeformableVolumeConstraint> &volumeConstraints,
+        const ShapeMatchingDataHost &shapeMatchingData,
         const std::vector<StrandSegmentConstraint> &strandSegments,
         const std::vector<StrandJointConstraint> &strandJoints,
         const std::vector<StrandDistanceConstraint> &strandDistanceConstraints,
@@ -502,6 +510,7 @@ private:
         const std::vector<DeformableDistanceConstraint> &distanceConstraints,
         const std::vector<DeformableBendConstraint> &bendConstraints,
         const std::vector<DeformableVolumeConstraint> &volumeConstraints,
+        const ShapeMatchingDataHost &shapeMatchingData,
         const std::vector<StrandSegmentConstraint> &strandSegments,
         const std::vector<StrandJointConstraint> &strandJoints,
         const std::vector<StrandDistanceConstraint> &strandDistanceConstraints,
@@ -550,6 +559,9 @@ private:
     std::uint32_t mSoftEdgeCapacity                                    = 0;
     std::uint32_t mSoftBendCapacity                                    = 0;
     std::uint32_t mSoftTetCapacity                                     = 0;
+    std::uint32_t mShapeClusterCapacity                                = 0;
+    std::uint32_t mShapeClusterMemberCapacity                          = 0;
+    std::uint32_t mParticleShapeMembershipIndexCapacity                = 0;
     std::uint32_t mStrandSegmentCapacity                               = 0;
     std::uint32_t mStrandJointCapacity                                 = 0;
     std::uint32_t mStrandDistanceCapacity                              = 0;
@@ -569,6 +581,9 @@ private:
     std::uint32_t mSoftEdgeCount                                       = 0;
     std::uint32_t mSoftBendCount                                       = 0;
     std::uint32_t mSoftTetCount                                        = 0;
+    std::uint32_t mShapeClusterCount                                   = 0;
+    std::uint32_t mShapeClusterMemberCount                             = 0;
+    std::uint32_t mParticleShapeMembershipIndexCount                   = 0;
     std::uint32_t mStrandSegmentCount                                  = 0;
     std::uint32_t mStrandJointCount                                    = 0;
     std::uint32_t mStrandDistanceCount                                 = 0;

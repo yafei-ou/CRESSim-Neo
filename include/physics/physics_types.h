@@ -226,7 +226,7 @@ struct SoftBodySourceDesc
 struct SoftBodyShapeMatchingDesc
 {
     bool enabled  = false;
-    bool cutAware = false;
+    bool cutAware = true;
 
     std::uint32_t targetClusterSize             = 12u;
     std::uint32_t minimumMembershipsPerParticle = 3u;
@@ -235,6 +235,74 @@ struct SoftBodyShapeMatchingDesc
 
     float stiffnessPerPass  = 0.15f;
     float maximumCorrection = 0.0f;
+};
+
+enum ShapeClusterFlags : std::uint32_t
+{
+    ShapeCluster_Active = 1u << 0u,
+};
+
+struct ShapeClusterGPU
+{
+    std::uint32_t memberOffset = 0u;
+    std::uint32_t memberCount  = 0u;
+    std::uint32_t linkOffset   = 0u;
+    std::uint32_t linkCount    = 0u;
+
+    Diligent::float4 restCenterAndMass{0.0f, 0.0f, 0.0f, 0.0f};
+
+    std::uint32_t flags = 0u;
+    float stiffness     = 0.0f;
+    float compliance    = 0.0f;
+    std::uint32_t padding = 0u;
+};
+
+static_assert(sizeof(ShapeClusterGPU) == 48u);
+
+struct ShapeClusterMemberGPU
+{
+    std::uint32_t particleIndex = 0u;
+    float fittingWeight         = 1.0f;
+    float blendWeight           = 0.0f;
+    std::uint32_t padding0      = 0u;
+
+    Diligent::float4 restOffset{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+static_assert(sizeof(ShapeClusterMemberGPU) == 32u);
+
+struct ParticleShapeMembershipRangeGPU
+{
+    std::uint32_t offset = 0u;
+    std::uint32_t count  = 0u;
+};
+
+static_assert(sizeof(ParticleShapeMembershipRangeGPU) == 8u);
+
+struct ShapeClusterPoseGPU
+{
+    Diligent::float4 rotationQuaternion{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 currentCenterAndStatus{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+static_assert(sizeof(ShapeClusterPoseGPU) == 32u);
+
+struct ShapeMatchingDataHost
+{
+    std::vector<ShapeClusterGPU> clusters;
+    std::vector<ShapeClusterMemberGPU> members;
+    std::vector<ParticleShapeMembershipRangeGPU> particleMembershipRanges;
+    std::vector<std::uint32_t> particleMembershipIndices;
+    std::vector<ShapeClusterPoseGPU> poses;
+
+    void clear() noexcept
+    {
+        clusters.clear();
+        members.clear();
+        particleMembershipRanges.clear();
+        particleMembershipIndices.clear();
+        poses.clear();
+    }
 };
 
 struct FluidRegularGridSource
