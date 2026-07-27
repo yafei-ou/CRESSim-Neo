@@ -54,6 +54,13 @@ CRESSIM_NEO_PHYSICS_API SoftBodyShapeMatchingBuildResult buildOverlappingShapeMa
     const std::vector<std::vector<std::uint32_t>> &adjacencyLists,
     const SoftBodyShapeMatchingDesc &desc) noexcept;
 
+CRESSIM_NEO_PHYSICS_API ShapeMatchingDataHost buildShapeMatchingGpuData(
+    const std::vector<Diligent::float3> &restPositions,
+    const std::vector<SoftBodyShapeMatchingCluster> &clusters,
+    const SoftBodyShapeMatchingDesc &desc,
+    std::uint32_t globalParticleOffset,
+    std::uint32_t globalParticleCount) noexcept;
+
 CRESSIM_NEO_PHYSICS_API std::vector<Diligent::float3> makeShapeMatchingReferenceCube(
     std::uint32_t sideCount = 5u, float spacing = 1.0f) noexcept;
 

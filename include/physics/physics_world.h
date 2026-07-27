@@ -650,6 +650,10 @@ public:
     /// @return Const reference to SoftRenderDataHost.
     const SoftRenderDataHost &softRenderData() const noexcept;
 
+    /// @brief Gets host shape-matching cluster data.
+    /// @return Const reference to ShapeMatchingDataHost.
+    const ShapeMatchingDataHost &shapeMatchingData() const noexcept;
+
     /// @brief Sets host soft-body skinning and rendering mesh bindings.
     /// @param data Skinning and surface vertex binding data.
     void setSoftRenderData(const SoftRenderDataHost &data);

@@ -794,6 +794,9 @@ struct PhysicsWorld::Impl
     void applyRigidJointChange(RigidJointChangeKind changeKind) noexcept;
     void applySoftBodyRuntimeProperties(std::uint32_t index,
                                         const SoftBodyState &normalizedState) noexcept;
+    static void appendShapeMatchingDataForSoftBody(const SoftBodyState &softBody,
+                                                   const SoftBodyDerivedCache &topology,
+                                                   ShapeMatchingDataHost &data) noexcept;
     void applyStrandRuntimeProperties(std::uint32_t index,
                                       const StrandState &normalizedState) noexcept;
     void recomputeParticleGridCellSize() noexcept;
@@ -879,6 +882,7 @@ struct PhysicsWorld::Impl
     std::vector<RoutedCableConstraint> mRoutedCableConstraints{};
     std::vector<RoutedCableRoutePoint> mRoutedCableRoutePoints{};
     SoftRenderDataHost mSoftRenderData{};
+    ShapeMatchingDataHost mShapeMatchingData{};
     CurveRenderDataHost mCurveRenderData{};
     std::vector<std::uint32_t> mRigidBodyDirtyIndices{};
     std::vector<std::uint32_t> mColliderDirtyIndices{};
@@ -1037,6 +1041,7 @@ void PhysicsWorld::clear()
     mImpl->mStrandJoints.clear();
     mImpl->mStrandDistanceConstraints.clear();
     mImpl->mStrandSegmentStates.clear();
+    mImpl->mShapeMatchingData.clear();
     mImpl->mRigidParticleAttachments.clear();
     mImpl->mStrandRigidAttachments.clear();
     mImpl->mRigidDistanceConstraints.clear();
@@ -3178,6 +3183,13 @@ const SoftRenderDataHost &PhysicsWorld::softRenderData() const noexcept
     return mImpl->mSoftRenderData;
 }
 
+const ShapeMatchingDataHost &PhysicsWorld::shapeMatchingData() const noexcept
+{
+    const_cast<PhysicsWorld *>(this)->mImpl->ensureRebuildDomainsUpToDate(
+        PhysicsRebuildFlags::SoftParticleLayout | PhysicsRebuildFlags::SoftConstraintData);
+    return mImpl->mShapeMatchingData;
+}
+
 void PhysicsWorld::setSoftRenderData(const SoftRenderDataHost &data)
 {
     mImpl->mSoftRenderData = data;
@@ -4115,6 +4127,61 @@ void PhysicsWorld::Impl::applySoftBodyRuntimeProperties(
     }
 }
 
+void PhysicsWorld::Impl::appendShapeMatchingDataForSoftBody(
+    const SoftBodyState &softBody, const SoftBodyDerivedCache &topology,
+    ShapeMatchingDataHost &data) noexcept
+{
+    const std::uint32_t particleEnd = softBody.particleOffset + softBody.particleCount;
+    data.particleMembershipRanges.resize(
+        std::max<std::size_t>(data.particleMembershipRanges.size(), particleEnd));
+    if (!softBody.shapeMatching.enabled || topology.shapeMatchingClusters.empty() ||
+        topology.restPositions.empty() || softBody.particleCount == 0u)
+    {
+        return;
+    }
+
+    ShapeMatchingDataHost bodyData = buildShapeMatchingGpuData(
+        topology.restPositions, topology.shapeMatchingClusters, softBody.shapeMatching,
+        softBody.particleOffset, particleEnd);
+
+    const std::uint32_t memberBase = static_cast<std::uint32_t>(data.members.size());
+    for (ShapeClusterGPU cluster : bodyData.clusters)
+    {
+        cluster.memberOffset += memberBase;
+        data.clusters.push_back(cluster);
+    }
+    data.members.insert(data.members.end(), bodyData.members.begin(), bodyData.members.end());
+    data.poses.insert(data.poses.end(), bodyData.poses.begin(), bodyData.poses.end());
+
+    for (std::uint32_t localParticle = 0u; localParticle < softBody.particleCount; ++localParticle)
+    {
+        const std::uint32_t globalParticle = softBody.particleOffset + localParticle;
+        if (globalParticle >= data.particleMembershipRanges.size() ||
+            globalParticle >= bodyData.particleMembershipRanges.size())
+        {
+            continue;
+        }
+
+        const ParticleShapeMembershipRangeGPU srcRange =
+            bodyData.particleMembershipRanges[globalParticle];
+        ParticleShapeMembershipRangeGPU &dstRange =
+            data.particleMembershipRanges[globalParticle];
+        dstRange.offset = static_cast<std::uint32_t>(data.particleMembershipIndices.size());
+        dstRange.count  = srcRange.count;
+        const std::uint32_t srcEnd =
+            std::min<std::uint32_t>(srcRange.offset + srcRange.count,
+                                    static_cast<std::uint32_t>(
+                                        bodyData.particleMembershipIndices.size()));
+        for (std::uint32_t srcIndex = srcRange.offset; srcIndex < srcEnd; ++srcIndex)
+        {
+            data.particleMembershipIndices.push_back(
+                memberBase + bodyData.particleMembershipIndices[srcIndex]);
+        }
+        dstRange.count = static_cast<std::uint32_t>(data.particleMembershipIndices.size()) -
+                         dstRange.offset;
+    }
+}
+
 void PhysicsWorld::Impl::applyStrandRuntimeProperties(std::uint32_t index,
                                                       const StrandState &normalizedState) noexcept
 {
@@ -4713,6 +4780,7 @@ void PhysicsWorld::Impl::rebuildSoftParticleLayout() noexcept
     mStrandJoints.clear();
     mStrandDistanceConstraints.clear();
     mStrandSegmentStates.clear();
+    mShapeMatchingData.clear();
     std::vector<std::vector<std::uint32_t>> adjacencyLists;
 
     const std::uint32_t softBodyPhaseGroupBase = 0u;
@@ -4934,6 +5002,7 @@ void PhysicsWorld::Impl::rebuildSoftParticleLayout() noexcept
 
         softBody.edgeCount = static_cast<std::uint32_t>(mSoftEdges.size()) - softBody.edgeOffset;
         softBody.tetCount  = static_cast<std::uint32_t>(mSoftTets.size()) - softBody.tetOffset;
+        appendShapeMatchingDataForSoftBody(softBody, topology, mShapeMatchingData);
     }
 
     for (std::uint32_t strandIndex = 0u; strandIndex < mStrandSnapshot.size(); ++strandIndex)
@@ -5489,6 +5558,7 @@ void PhysicsWorld::Impl::rebuildSoftParticleLayout() noexcept
         }
     }
 
+    mShapeMatchingData.particleMembershipRanges.resize(mParticles.size());
     mParticles.adjacencyOffsets.resize(adjacencyLists.size());
     mParticles.adjacencyCounts.resize(adjacencyLists.size());
     mParticles.adjacencyIndices.clear();
@@ -5523,6 +5593,8 @@ void PhysicsWorld::Impl::rebuildSoftConstraintData() noexcept
     mStrandJoints.clear();
     mStrandDistanceConstraints.clear();
     mStrandSegmentStates.clear();
+    mShapeMatchingData.clear();
+    mShapeMatchingData.particleMembershipRanges.resize(mParticles.size());
 
     std::vector<std::vector<std::uint32_t>> adjacencyLists(mParticles.size());
 
@@ -5617,6 +5689,7 @@ void PhysicsWorld::Impl::rebuildSoftConstraintData() noexcept
 
         softBody.edgeCount = static_cast<std::uint32_t>(mSoftEdges.size()) - softBody.edgeOffset;
         softBody.tetCount  = static_cast<std::uint32_t>(mSoftTets.size()) - softBody.tetOffset;
+        appendShapeMatchingDataForSoftBody(softBody, topology, mShapeMatchingData);
     }
 
     for (std::uint32_t strandIndex = 0u; strandIndex < mStrandSnapshot.size(); ++strandIndex)

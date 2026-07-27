@@ -654,6 +654,100 @@ SoftBodyShapeMatchingBuildResult buildOverlappingShapeMatchingClusters(
     return result;
 }
 
+ShapeMatchingDataHost buildShapeMatchingGpuData(
+    const std::vector<Diligent::float3> &restPositions,
+    const std::vector<SoftBodyShapeMatchingCluster> &clusters,
+    const SoftBodyShapeMatchingDesc &desc,
+    const std::uint32_t globalParticleOffset,
+    const std::uint32_t globalParticleCount) noexcept
+{
+    ShapeMatchingDataHost data{};
+    data.particleMembershipRanges.resize(globalParticleCount);
+    if (!desc.enabled || restPositions.empty() || clusters.empty() ||
+        globalParticleOffset >= globalParticleCount)
+    {
+        return data;
+    }
+
+    const std::uint32_t localParticleCapacity =
+        std::min<std::uint32_t>(static_cast<std::uint32_t>(restPositions.size()),
+                                globalParticleCount - globalParticleOffset);
+    std::vector<std::vector<std::uint32_t>> reverseMemberships(localParticleCapacity);
+    data.clusters.reserve(clusters.size());
+    data.poses.reserve(clusters.size());
+
+    for (const SoftBodyShapeMatchingCluster &cluster : clusters)
+    {
+        const std::uint32_t memberOffset = static_cast<std::uint32_t>(data.members.size());
+        const std::uint32_t memberCount =
+            static_cast<std::uint32_t>(std::min(cluster.particles.size(),
+                                                cluster.blendWeights.size()));
+        if (memberCount == 0u)
+        {
+            continue;
+        }
+
+        ShapeClusterGPU gpuCluster{};
+        gpuCluster.memberOffset      = memberOffset;
+        gpuCluster.memberCount       = memberCount;
+        gpuCluster.linkOffset        = 0u;
+        gpuCluster.linkCount         = 0u;
+        gpuCluster.restCenterAndMass = Diligent::float4{
+            cluster.restCenter.x, cluster.restCenter.y, cluster.restCenter.z,
+            static_cast<float>(memberCount)};
+        gpuCluster.flags      = ShapeCluster_Active;
+        gpuCluster.stiffness  = desc.stiffnessPerPass;
+        gpuCluster.compliance = 0.0f;
+
+        for (std::uint32_t memberSlot = 0u; memberSlot < memberCount; ++memberSlot)
+        {
+            const std::uint32_t localParticle = cluster.particles[memberSlot];
+            if (localParticle >= localParticleCapacity)
+            {
+                continue;
+            }
+
+            const Diligent::float3 restOffset = restPositions[localParticle] - cluster.restCenter;
+            ShapeClusterMemberGPU member{};
+            member.particleIndex  = globalParticleOffset + localParticle;
+            member.fittingWeight  = 1.0f;
+            member.blendWeight    = cluster.blendWeights[memberSlot];
+            member.restOffset     = Diligent::float4{restOffset.x, restOffset.y, restOffset.z, 0.0f};
+            reverseMemberships[localParticle].push_back(
+                static_cast<std::uint32_t>(data.members.size()));
+            data.members.push_back(member);
+        }
+
+        gpuCluster.memberCount = static_cast<std::uint32_t>(data.members.size()) - memberOffset;
+        if (gpuCluster.memberCount == 0u)
+        {
+            data.members.resize(memberOffset);
+            continue;
+        }
+
+        ShapeClusterPoseGPU pose{};
+        pose.rotationQuaternion  = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
+        pose.currentCenterAndStatus =
+            Diligent::float4{cluster.restCenter.x, cluster.restCenter.y, cluster.restCenter.z, 1.0f};
+
+        data.clusters.push_back(gpuCluster);
+        data.poses.push_back(pose);
+    }
+
+    for (std::uint32_t localParticle = 0u; localParticle < localParticleCapacity; ++localParticle)
+    {
+        const std::uint32_t globalParticle = globalParticleOffset + localParticle;
+        ParticleShapeMembershipRangeGPU &range = data.particleMembershipRanges[globalParticle];
+        range.offset = static_cast<std::uint32_t>(data.particleMembershipIndices.size());
+        range.count  = static_cast<std::uint32_t>(reverseMemberships[localParticle].size());
+        data.particleMembershipIndices.insert(data.particleMembershipIndices.end(),
+                                              reverseMemberships[localParticle].begin(),
+                                              reverseMemberships[localParticle].end());
+    }
+
+    return data;
+}
+
 std::vector<Diligent::float3> makeShapeMatchingReferenceCube(const std::uint32_t sideCount,
                                                             const float spacing) noexcept
 {
