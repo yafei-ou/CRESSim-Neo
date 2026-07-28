@@ -154,6 +154,13 @@ public:
     bool solveSoftTetConstraints(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState, std::uint32_t softTetCount,
                                  const GpuParticleDispatchConstants &constants);
+    bool computeShapeClusterPoses(Diligent::IDeviceContext *computeContext,
+                                  const PhysicsSceneGpuState &sceneState,
+                                  std::uint32_t shapeClusterCount,
+                                  const GpuParticleDispatchConstants &constants);
+    bool applyShapeMatching(Diligent::IDeviceContext *computeContext,
+                            const PhysicsSceneGpuState &sceneState,
+                            const GpuParticleDispatchConstants &constants);
     bool applySoftEdgeCorrections(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
                                   const GpuParticleDispatchConstants &constants);
@@ -508,6 +515,8 @@ private:
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
     gpu::GpuComputePass mSolveSoftBendConstraintsPass;
     gpu::GpuComputePass mSolveSoftTetConstraintsPass;
+    gpu::GpuComputePass mComputeShapeClusterPosesPass;
+    gpu::GpuComputePass mApplyShapeMatchingPass;
     gpu::GpuComputePass mApplySoftEdgeCorrectionsPass;
     gpu::GpuComputePass mApplySoftBendCorrectionsPass;
     gpu::GpuComputePass mApplySoftTetCorrectionsPass;

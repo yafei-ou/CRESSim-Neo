@@ -18,6 +18,7 @@ namespace
 {
 
 constexpr std::uint32_t kComputeThreadGroupSize = 64u;
+constexpr std::uint32_t kShapeMatchingThreadGroupSize = 128u;
 constexpr std::uint32_t kNarrowPhaseChunkSize   = 128u;
 constexpr std::uint32_t kMaxPreparedScanLevels  = 8u;
 
@@ -27,6 +28,11 @@ constexpr std::size_t kAltVariant     = 1u;
 std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
 {
     return (threadCount + kComputeThreadGroupSize - 1u) / kComputeThreadGroupSize;
+}
+
+std::uint32_t dispatchShapeMatchingGroupCount(std::uint32_t threadCount)
+{
+    return (threadCount + kShapeMatchingThreadGroupSize - 1u) / kShapeMatchingThreadGroupSize;
 }
 
 Diligent::Uint64 indirectArgsOffset(GpuPhysicsIndirectDispatchSlot slot)
@@ -273,6 +279,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initSolverConfigPass(mSolveSoftEdgeConstraintsPass, kSolveSoftEdgeConstraints) ||
         !initSolverConfigPass(mSolveSoftBendConstraintsPass, kSolveSoftBendConstraints) ||
         !initSolverConfigPass(mSolveSoftTetConstraintsPass, kSolveSoftTetConstraints) ||
+        !initPass(mComputeShapeClusterPosesPass, kComputeShapeClusterPoses) ||
+        !initPass(mApplyShapeMatchingPass, kApplyShapeMatching) ||
         !initPass(mApplySoftEdgeCorrectionsPass, kApplySoftEdgeCorrections) ||
         !initPass(mApplySoftBendCorrectionsPass, kApplySoftBendCorrections) ||
         !initPass(mApplySoftTetCorrectionsPass, kApplySoftTetCorrections) ||
@@ -2166,6 +2174,77 @@ bool PhysicsPassDispatcher::solveSoftTetConstraints(Diligent::IDeviceContext *co
     return writeParticleDispatchConstants(computeContext, constants) &&
            mSolveSoftTetConstraintsPass.dispatch(computeContext, kDefaultVariant, solveBindings,
                                                  dispatchGroupCount(softTetCount));
+}
+
+bool PhysicsPassDispatcher::computeShapeClusterPoses(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t shapeClusterCount, const GpuParticleDispatchConstants &constants)
+{
+    if (shapeClusterCount == 0u || constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ShapeClusters", softTopology.shapeClustersBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ShapeClusterMembers", softTopology.shapeClusterMembersBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ShapeClusterPoses", softTopology.shapeClusterPosesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mComputeShapeClusterPosesPass.dispatch(
+               computeContext, kDefaultVariant, bindings,
+               dispatchShapeMatchingGroupCount(shapeClusterCount));
+}
+
+bool PhysicsPassDispatcher::applyShapeMatching(Diligent::IDeviceContext *computeContext,
+                                               const PhysicsSceneGpuState &sceneState,
+                                               const GpuParticleDispatchConstants &constants)
+{
+    if (constants.particleCount == 0u || constants.shapeClusterCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_ParticleShapeMembershipRanges",
+                              softTopology.particleShapeMembershipRangesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleShapeMembershipIndices",
+                              softTopology.particleShapeMembershipIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_MembershipShapeClusterIndices",
+                              softTopology.membershipShapeClusterIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ShapeClusters", softTopology.shapeClustersBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ShapeClusterMembers", softTopology.shapeClusterMembersBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ShapeClusterPoses", softTopology.shapeClusterPosesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mApplyShapeMatchingPass.dispatch(
+               computeContext, kDefaultVariant, bindings,
+               dispatchShapeMatchingGroupCount(constants.particleCount));
 }
 
 bool PhysicsPassDispatcher::applySoftEdgeCorrections(Diligent::IDeviceContext *computeContext,

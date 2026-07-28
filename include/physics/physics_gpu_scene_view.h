@@ -192,6 +192,8 @@ struct PhysicsGpuSoftSceneView
         nullptr; ///< GPU buffer of per-particle membership ranges.
     Diligent::IBuffer *particleShapeMembershipIndicesBuffer =
         nullptr; ///< GPU buffer of per-particle membership indices.
+    Diligent::IBuffer *membershipShapeClusterIndicesBuffer =
+        nullptr; ///< GPU buffer mapping memberships to shape clusters.
     Diligent::IBuffer *shapeClusterPosesBuffer = nullptr; ///< GPU buffer of cluster poses.
     Diligent::IBuffer *segmentStrandJointRangesBuffer =
         nullptr; ///< GPU buffer of joint ranges incident to strand segments.

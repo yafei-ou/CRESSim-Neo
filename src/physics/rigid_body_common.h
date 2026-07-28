@@ -264,6 +264,8 @@ struct GpuParticleDispatchConstants
     std::uint32_t softEdgeCount                      = 0;
     std::uint32_t softBendCount                      = 0;
     std::uint32_t softTetCount                       = 0;
+    std::uint32_t shapeClusterCount                  = 0;
+    std::uint32_t shapeRotationIterations            = 3;
     std::uint32_t strandSegmentCount                 = 0;
     std::uint32_t strandJointCount                   = 0;
     std::uint32_t strandDistanceCount                = 0;
@@ -276,6 +278,8 @@ struct GpuParticleDispatchConstants
     std::uint32_t suturingParticleCount              = 0;
     std::uint32_t maxSuturingCandidatesPerParticle   = 0;
     std::uint32_t maxSuturingNodesPerPath            = 0;
+    float maximumShapeCorrection                     = 0.0f;
+    std::uint32_t particleShapeMembershipIndexCount  = 0;
     std::uint32_t reserved0                          = 0;
     std::uint32_t reserved1                          = 0;
     Diligent::float4 gravity{0.0f, -9.81f, 0.0f, 0.0f};
@@ -814,7 +818,7 @@ static_assert(sizeof(GpuSphericalJoint) == 144u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
-static_assert(sizeof(GpuParticleDispatchConstants) == 112u);
+static_assert(sizeof(GpuParticleDispatchConstants) == 128u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
 static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);

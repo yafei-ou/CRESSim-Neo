@@ -24,6 +24,7 @@ static const uint kParticleRigidDedupCacheSize = 16u;
 static const uint kParticleRigidColliderIterationCap = 64u;
 static const uint kParticlePhaseGroupMask = 0x7fffffffu;
 static const uint kParticlePhaseSelfCollideFlag = 0x80000000u;
+static const uint kShapeClusterActive = 1u;
 
 struct GpuParticleBroadPhaseEntry
 {
@@ -138,6 +139,40 @@ struct GpuSoftBend
     uint reserved0;
     uint reserved1;
     uint reserved2;
+};
+
+struct GpuShapeCluster
+{
+    uint memberOffset;
+    uint memberCount;
+    uint linkOffset;
+    uint linkCount;
+    float4 restCenterAndMass;
+    uint flags;
+    float stiffness;
+    float compliance;
+    uint padding;
+};
+
+struct GpuShapeClusterMember
+{
+    uint particleIndex;
+    float fittingWeight;
+    float blendWeight;
+    uint padding0;
+    float4 restOffset;
+};
+
+struct GpuParticleShapeMembershipRange
+{
+    uint offset;
+    uint count;
+};
+
+struct GpuShapeClusterPose
+{
+    float4 rotationQuaternion;
+    float4 currentCenterAndStatus;
 };
 
 struct GpuSoftConstraintRange

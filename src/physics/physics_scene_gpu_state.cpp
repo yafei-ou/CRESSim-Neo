@@ -447,6 +447,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentSoftTopology.particleShapeMembershipRangesBuffer.RawPtr();
     const auto particleShapeIndicesBefore =
         mPersistentSoftTopology.particleShapeMembershipIndicesBuffer.RawPtr();
+    const auto membershipShapeClustersBefore =
+        mPersistentSoftTopology.membershipShapeClusterIndicesBuffer.RawPtr();
     const auto shapePosesBefore = mPersistentSoftTopology.shapeClusterPosesBuffer.RawPtr();
     const auto strandSegmentsBefore = mPersistentSoftTopology.strandSegmentsBuffer.RawPtr();
     const auto strandJointsBefore   = mPersistentSoftTopology.strandJointsBuffer.RawPtr();
@@ -542,6 +544,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentSoftTopology.shapeClusterMembersBuffer != nullptr &&
         mPersistentSoftTopology.particleShapeMembershipRangesBuffer != nullptr &&
         mPersistentSoftTopology.particleShapeMembershipIndicesBuffer != nullptr &&
+        mPersistentSoftTopology.membershipShapeClusterIndicesBuffer != nullptr &&
         mPersistentSoftTopology.shapeClusterPosesBuffer != nullptr &&
         mPersistentSoftTopology.strandSegmentsBuffer != nullptr &&
         mPersistentSoftTopology.strandJointsBuffer != nullptr &&
@@ -1234,6 +1237,12 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.particleShapeMembershipIndicesBuffer) ||
+        !ensureStructuredBuffer(renderDevice,
+                                "CRESSimNeo.Physics.MembershipShapeClusterIndices",
+                                sizeof(std::uint32_t), newShapeClusterMemberCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftTopology.membershipShapeClusterIndicesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ShapeClusterPoses",
                                 sizeof(ShapeClusterPoseGPU), newShapeClusterCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -2351,6 +2360,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
             mPersistentSoftTopology.particleShapeMembershipRangesBuffer.RawPtr() ||
         particleShapeIndicesBefore !=
             mPersistentSoftTopology.particleShapeMembershipIndicesBuffer.RawPtr() ||
+        membershipShapeClustersBefore !=
+            mPersistentSoftTopology.membershipShapeClusterIndicesBuffer.RawPtr() ||
         shapePosesBefore != mPersistentSoftTopology.shapeClusterPosesBuffer.RawPtr() ||
         strandSegmentsBefore != mPersistentSoftTopology.strandSegmentsBuffer.RawPtr() ||
         strandJointsBefore != mPersistentSoftTopology.strandJointsBuffer.RawPtr() ||
@@ -3561,6 +3572,10 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
                shapeMatchingData.particleMembershipIndices, 0u,
                static_cast<std::uint32_t>(
                    shapeMatchingData.particleMembershipIndices.size())) &&
+           updateStructuredBufferRange(
+               computeContext, mPersistentSoftTopology.membershipShapeClusterIndicesBuffer,
+               shapeMatchingData.membershipClusterIndices, 0u,
+               static_cast<std::uint32_t>(shapeMatchingData.membershipClusterIndices.size())) &&
            updateStructuredBufferRange(computeContext,
                                        mPersistentSoftTopology.shapeClusterPosesBuffer,
                                        shapeMatchingData.poses, 0u,
@@ -4509,6 +4524,8 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
         mPersistentSoftTopology.particleShapeMembershipRangesBuffer;
     view.soft.particleShapeMembershipIndicesBuffer =
         mPersistentSoftTopology.particleShapeMembershipIndicesBuffer;
+    view.soft.membershipShapeClusterIndicesBuffer =
+        mPersistentSoftTopology.membershipShapeClusterIndicesBuffer;
     view.soft.shapeClusterPosesBuffer = mPersistentSoftTopology.shapeClusterPosesBuffer;
     view.soft.segmentStrandJointRangesBuffer =
         mPersistentSoftTopology.segmentStrandJointRangesBuffer;

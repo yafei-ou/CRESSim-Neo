@@ -366,6 +366,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         world.routedCableConstraints();
     const RigidJointSceneHost &rigidJoints     = world.rigidJointScene();
     const SoftRenderDataHost &softRenderData   = world.softRenderData();
+    const ShapeMatchingDataHost &shapeMatchingData = world.shapeMatchingData();
     const CurveRenderDataHost &curveRenderData = world.curveRenderData();
     const std::uint32_t fluidCount             = world.fluidCount();
     const std::uint32_t particleCount          = static_cast<std::uint32_t>(particles.size());
@@ -391,6 +392,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         static_cast<std::uint32_t>(rigidDistanceConstraints.size());
     const std::uint32_t softRenderTriangleCount =
         static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+    const std::uint32_t shapeClusterCount =
+        static_cast<std::uint32_t>(shapeMatchingData.clusters.size());
+    const std::uint32_t particleShapeMembershipIndexCount =
+        static_cast<std::uint32_t>(shapeMatchingData.particleMembershipIndices.size());
     const std::uint32_t curveRenderCount =
         static_cast<std::uint32_t>(curveRenderData.descriptors.size());
     const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
@@ -410,8 +415,12 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         resolveIterations(mImpl->mDesc.rigidJointIterations, defaultIterations);
     const std::uint32_t rigidContactIterations =
         resolveIterations(mImpl->mDesc.rigidRigidContactIterations, defaultIterations);
+    const std::uint32_t shapeIterations =
+        shapeClusterCount > 0u ? std::max<std::uint32_t>(shapeMatchingData.solverIterations, 1u)
+                               : 0u;
     const std::uint32_t maxPositionPhaseIterations =
-        std::max(std::max(std::max(fluidIterations, softInternalIterations), softContactIterations),
+        std::max(std::max(std::max(std::max(fluidIterations, softInternalIterations),
+                                   softContactIterations), shapeIterations),
                  std::max(rigidJointIterations, rigidContactIterations));
     const float substepDt = frameContext.deltaSeconds / static_cast<float>(substeps);
 
@@ -450,6 +459,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.softEdgeCount       = softEdgeCount;
         particleConstants.softBendCount       = softBendCount;
         particleConstants.softTetCount        = softTetCount;
+        particleConstants.shapeClusterCount   = shapeClusterCount;
+        particleConstants.shapeRotationIterations = 3u;
         particleConstants.strandSegmentCount  = strandSegmentCount;
         particleConstants.strandJointCount    = strandJointCount;
         particleConstants.strandDistanceCount = strandDistanceCount;
@@ -461,6 +472,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.suturingParticleCount   = suturingParticleCount;
         particleConstants.maxSuturingCandidatesPerParticle = kMaxSuturingCandidatesPerParticle;
         particleConstants.maxSuturingNodesPerPath          = world.maxSuturingNodesPerPath();
+        particleConstants.maximumShapeCorrection = shapeMatchingData.maximumCorrection;
+        particleConstants.particleShapeMembershipIndexCount = particleShapeMembershipIndexCount;
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
@@ -469,6 +482,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             particleCount > 0u &&
             (softEdgeCount > 0u || softBendCount > 0u || softTetCount > 0u ||
              strandSegmentCount > 0u || strandJointCount > 0u || strandDistanceCount > 0u);
+        const bool hasShapeMatchingWork =
+            particleCount > 0u && shapeClusterCount > 0u && particleShapeMembershipIndexCount > 0u;
         const bool hasSoftContactSolveWork       = softContactIterations > 0u;
         const bool hasSoftSoftContactWork        = hasSoftContactSolveWork && particleCount > 1u;
         const bool hasParticleRigidCandidateWork = particleCount > 0u && colliderCount > 0u;
@@ -820,6 +835,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
         const bool hasAnyPositionSolveWork =
             hasFluidWork || (hasSoftInternalWork && softInternalIterations > 0u) ||
+            (hasShapeMatchingWork && shapeIterations > 0u) ||
             (hasSoftSoftContactWork && softContactIterations > 0u) ||
             (hasSoftRigidContactWork && softContactIterations > 0u) || hasSuturingCouplingWork ||
             hasRoutedCableWork || hasRigidParticleAttachmentWork || hasStrandRigidAttachmentWork ||
@@ -834,6 +850,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 particleConstants.iterationIndex = iteration;
                 const bool runSoftInternal =
                     hasSoftInternalWork && iteration < softInternalIterations;
+                const bool runShapeMatching =
+                    hasShapeMatchingWork && iteration < shapeIterations;
                 const bool runSoftContacts =
                     hasSoftSoftContactWork && iteration < softContactIterations;
                 const bool runSoftRigidContacts =
@@ -994,6 +1012,23 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: ApplySoftTetCorrections dispatch.");
+                    return false;
+                }
+                if (runShapeMatching &&
+                    !mImpl->passDispatcher.computeShapeClusterPoses(
+                        computeBackend.computeContext, mImpl->sceneState, shapeClusterCount,
+                        particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: ComputeShapeClusterPoses dispatch.");
+                    return false;
+                }
+                if (runShapeMatching &&
+                    !mImpl->passDispatcher.applyShapeMatching(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: ApplyShapeMatching dispatch.");
                     return false;
                 }
                 if (runSoftContacts &&

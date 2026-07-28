@@ -714,6 +714,38 @@ constexpr Diligent::ShaderResourceVariableDesc kApplySoftTetCorrectionsVars[] = 
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kComputeShapeClusterPosesVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeClusters",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeClusterMembers",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeClusterPoses",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kApplyShapeMatchingVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleShapeMembershipRanges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleShapeMembershipIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_MembershipShapeClusterIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeClusters",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeClusterMembers",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeClusterPoses",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kSolveStrandSegmentConstraintsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2410,6 +2442,22 @@ const gpu::GpuComputePassDefinition kSolveSoftTetConstraints{
     "CRESSimNeo.Physics.SolveSoftTetConstraints.PSO",
     kSolveSoftTetConstraintsVars,
     std::size(kSolveSoftTetConstraintsVars),
+};
+
+const gpu::GpuComputePassDefinition kComputeShapeClusterPoses{
+    "physics/soft/solver/physics_soft_compute_shape_cluster_poses.cs.hlsl",
+    "CRESSimNeo.Physics.ComputeShapeClusterPoses.CS",
+    "CRESSimNeo.Physics.ComputeShapeClusterPoses.PSO",
+    kComputeShapeClusterPosesVars,
+    std::size(kComputeShapeClusterPosesVars),
+};
+
+const gpu::GpuComputePassDefinition kApplyShapeMatching{
+    "physics/soft/solver/physics_soft_apply_shape_matching.cs.hlsl",
+    "CRESSimNeo.Physics.ApplyShapeMatching.CS",
+    "CRESSimNeo.Physics.ApplyShapeMatching.PSO",
+    kApplyShapeMatchingVars,
+    std::size(kApplyShapeMatchingVars),
 };
 
 const gpu::GpuComputePassDefinition kApplySoftEdgeCorrections{

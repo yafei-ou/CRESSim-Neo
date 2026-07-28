@@ -135,6 +135,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeClusterMembersBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleShapeMembershipRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleShapeMembershipIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> membershipShapeClusterIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeClusterPosesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleEdgeRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentEdgesBuffer;
