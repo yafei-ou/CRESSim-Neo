@@ -17,6 +17,24 @@ instructions are in [`docs/README.md`](docs/README.md).
   bindings
 - A Vulkan-capable graphics driver/runtime for running Vulkan-backed programs
 
+On **Ubuntu / Debian**, install system dependencies via `apt`:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  build-essential \
+  clang \
+  clang++ \
+  cmake \
+  ninja-build \
+  python3-dev \
+  python3-venv \
+  python3-pip \
+  git \
+  libvulkan-dev \
+  vulkan-tools
+```
+
 By default, configuration downloads the pinned DXC runtime release
 (`v1.9.2602.24`) with a SHA-256 check. This is the runtime used by released
 Linux and Windows artifacts; it is copied beside build products and installed
