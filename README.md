@@ -26,6 +26,24 @@ instructions are in [`docs/README.md`](docs/README.md).
 - Python development headers when building Python bindings
 - A Vulkan-capable graphics driver/runtime for running Vulkan-backed programs
 
+On **Ubuntu / Debian**, install system dependencies via `apt`:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  build-essential \
+  clang \
+  clang++ \
+  cmake \
+  ninja-build \
+  python3-dev \
+  python3-venv \
+  python3-pip \
+  git \
+  libvulkan-dev \
+  vulkan-tools
+```
+
 By default, Linux and Windows configuration downloads a pinned DXC runtime release with a
 SHA-256 check. The managed Linux wheel lane uses DXC `v1.8.2505.1`, the newest
 official Linux binary compatible with its `manylinux_2_34` ABI floor. The same
