@@ -27,24 +27,27 @@ struct UltrasoundProbeComponent;
 struct UltrasoundRendererComponent;
 struct UltrasoundProbeLayout;
 
+/// @brief Configuration descriptor for initializing the CRESSim-Neo engine runtime.
 struct RuntimeConfig
 {
-    gpu::GpuDeviceDesc gpuDeviceDesc{};
-    common::SceneLayoutDesc sceneLayout{};
-    graphics::RendererDesc rendererDesc{};
-    physics::PhysicsSolverDesc physicsDesc{};
+    gpu::GpuDeviceDesc gpuDeviceDesc{};      ///< Desired GPU device configuration.
+    common::SceneLayoutDesc sceneLayout{};   ///< Scene layout capacity settings.
+    graphics::RendererDesc rendererDesc{};   ///< Graphics renderer parameters.
+    physics::PhysicsSolverDesc physicsDesc{}; ///< Physics solver parameters.
 };
 
+/// @brief Information structure holding engine version and optional feature support flags.
 struct RuntimeInfo
 {
-    std::string engineVersion;
-    std::uint32_t engineVersionMajor = 0u;
-    std::uint32_t engineVersionMinor = 0u;
-    std::uint32_t engineVersionPatch = 0u;
-    bool cudaInteropSupported        = false;
-    bool ultrasoundSupported         = false;
+    std::string engineVersion;            ///< Full semver engine version string.
+    std::uint32_t engineVersionMajor = 0u; ///< Major version number.
+    std::uint32_t engineVersionMinor = 0u; ///< Minor version number.
+    std::uint32_t engineVersionPatch = 0u; ///< Patch version number.
+    bool cudaInteropSupported        = false; ///< True if CUDA interop is enabled and available.
+    bool ultrasoundSupported         = false; ///< True if CRESSim-Ultrasound integration is available.
 };
 
+/// @brief Main engine runtime coordinator managing GPU devices, physics solvers, graphics, and custom compute passes.
 class CRESSIM_NEO_ENGINE_API Runtime
 {
 public:
@@ -56,7 +59,12 @@ public:
     Runtime(Runtime &&)                 = delete;
     Runtime &operator=(Runtime &&)      = delete;
 
+    /// @brief Initializes the engine runtime with the specified configuration parameters.
+    /// @param config Runtime configuration options including GPU, physics, and renderer settings.
+    /// @return True if initialization succeeds; false otherwise.
     bool initialize(const RuntimeConfig &config = RuntimeConfig{});
+
+    /// @brief Shuts down the engine runtime and releases allocated GPU/physics resources.
     void shutdown();
 
     // Staged entry points require the caller to explicitly prepare authored state and
