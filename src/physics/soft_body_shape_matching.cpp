@@ -669,6 +669,8 @@ ShapeMatchingDataHost buildShapeMatchingGpuData(
         return data;
     }
 
+    data.solverIterations  = std::max<std::uint32_t>(1u, desc.solverIterations);
+    data.maximumCorrection = std::max(desc.maximumCorrection, 0.0f);
     const std::uint32_t localParticleCapacity =
         std::min<std::uint32_t>(static_cast<std::uint32_t>(restPositions.size()),
                                 globalParticleCount - globalParticleOffset);
@@ -678,6 +680,7 @@ ShapeMatchingDataHost buildShapeMatchingGpuData(
 
     for (const SoftBodyShapeMatchingCluster &cluster : clusters)
     {
+        const std::uint32_t gpuClusterIndex = static_cast<std::uint32_t>(data.clusters.size());
         const std::uint32_t memberOffset = static_cast<std::uint32_t>(data.members.size());
         const std::uint32_t memberCount =
             static_cast<std::uint32_t>(std::min(cluster.particles.size(),
@@ -716,12 +719,14 @@ ShapeMatchingDataHost buildShapeMatchingGpuData(
             reverseMemberships[localParticle].push_back(
                 static_cast<std::uint32_t>(data.members.size()));
             data.members.push_back(member);
+            data.membershipClusterIndices.push_back(gpuClusterIndex);
         }
 
         gpuCluster.memberCount = static_cast<std::uint32_t>(data.members.size()) - memberOffset;
         if (gpuCluster.memberCount == 0u)
         {
             data.members.resize(memberOffset);
+            data.membershipClusterIndices.resize(memberOffset);
             continue;
         }
 

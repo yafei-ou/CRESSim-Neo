@@ -292,6 +292,7 @@ bool testShapeMatchingGpuFlattening()
 
     if (gpuData.clusters.size() != built.clusters.size() ||
         gpuData.poses.size() != gpuData.clusters.size() ||
+        gpuData.membershipClusterIndices.size() != gpuData.members.size() ||
         gpuData.particleMembershipRanges.size() != rest.size())
     {
         CRESSIM_LOG_ERROR("Flattened shape matching buffer sizes were inconsistent.\n");
@@ -324,6 +325,12 @@ bool testShapeMatchingGpuFlattening()
                 CRESSIM_LOG_ERROR("Flattened member referenced an invalid particle.\n");
                 return false;
             }
+            const std::uint32_t memberIndex = cluster.memberOffset + i;
+            if (gpuData.membershipClusterIndices[memberIndex] >= gpuData.clusters.size())
+            {
+                CRESSIM_LOG_ERROR("Flattened membership-to-cluster index was invalid.\n");
+                return false;
+            }
 
             const Diligent::float3 expectedOffset = rest[member.particleIndex] - restCenter;
             const Diligent::float3 actualOffset{member.restOffset.x, member.restOffset.y,
@@ -353,7 +360,8 @@ bool testShapeMatchingGpuFlattening()
             const std::uint32_t memberIndex =
                 gpuData.particleMembershipIndices[range.offset + i];
             if (memberIndex >= gpuData.members.size() ||
-                gpuData.members[memberIndex].particleIndex != particle)
+                gpuData.members[memberIndex].particleIndex != particle ||
+                gpuData.membershipClusterIndices[memberIndex] >= gpuData.clusters.size())
             {
                 CRESSIM_LOG_ERROR("Flattened reverse membership index was invalid.\n");
                 return false;

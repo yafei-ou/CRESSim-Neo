@@ -293,7 +293,10 @@ struct ShapeMatchingDataHost
     std::vector<ShapeClusterMemberGPU> members;
     std::vector<ParticleShapeMembershipRangeGPU> particleMembershipRanges;
     std::vector<std::uint32_t> particleMembershipIndices;
+    std::vector<std::uint32_t> membershipClusterIndices;
     std::vector<ShapeClusterPoseGPU> poses;
+    std::uint32_t solverIterations = 0u;
+    float maximumCorrection        = 0.0f;
 
     void clear() noexcept
     {
@@ -301,7 +304,10 @@ struct ShapeMatchingDataHost
         members.clear();
         particleMembershipRanges.clear();
         particleMembershipIndices.clear();
+        membershipClusterIndices.clear();
         poses.clear();
+        solverIterations   = 0u;
+        maximumCorrection  = 0.0f;
     }
 };
 

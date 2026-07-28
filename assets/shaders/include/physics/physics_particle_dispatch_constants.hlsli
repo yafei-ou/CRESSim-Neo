@@ -13,6 +13,8 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint softEdgeCount;
     uint softBendCount;
     uint softTetCount;
+    uint shapeClusterCount;
+    uint shapeRotationIterations;
     uint strandSegmentCount;
     uint strandJointCount;
     uint strandDistanceCount;
@@ -25,6 +27,8 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint suturingParticleCount;
     uint maxSuturingCandidatesPerParticle;
     uint maxSuturingNodesPerPath;
+    float maximumShapeCorrection;
+    uint particleShapeMembershipIndexCount;
     uint reserved0;
     uint reserved1;
     float4 gravity;

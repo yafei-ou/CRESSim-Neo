@@ -4144,6 +4144,10 @@ void PhysicsWorld::Impl::appendShapeMatchingDataForSoftBody(
         topology.restPositions, topology.shapeMatchingClusters, softBody.shapeMatching,
         softBody.particleOffset, particleEnd);
 
+    data.solverIterations =
+        std::max(data.solverIterations, std::max<std::uint32_t>(1u, bodyData.solverIterations));
+    data.maximumCorrection = std::max(data.maximumCorrection, bodyData.maximumCorrection);
+    const std::uint32_t clusterBase = static_cast<std::uint32_t>(data.clusters.size());
     const std::uint32_t memberBase = static_cast<std::uint32_t>(data.members.size());
     for (ShapeClusterGPU cluster : bodyData.clusters)
     {
@@ -4151,6 +4155,12 @@ void PhysicsWorld::Impl::appendShapeMatchingDataForSoftBody(
         data.clusters.push_back(cluster);
     }
     data.members.insert(data.members.end(), bodyData.members.begin(), bodyData.members.end());
+    data.membershipClusterIndices.reserve(data.membershipClusterIndices.size() +
+                                          bodyData.membershipClusterIndices.size());
+    for (const std::uint32_t localClusterIndex : bodyData.membershipClusterIndices)
+    {
+        data.membershipClusterIndices.push_back(clusterBase + localClusterIndex);
+    }
     data.poses.insert(data.poses.end(), bodyData.poses.begin(), bodyData.poses.end());
 
     for (std::uint32_t localParticle = 0u; localParticle < softBody.particleCount; ++localParticle)
