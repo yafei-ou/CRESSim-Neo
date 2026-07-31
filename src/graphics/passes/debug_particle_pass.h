@@ -46,10 +46,14 @@ private:
         std::uint32_t targetLayer = 0u;
         std::uint32_t envIndex    = 0u;
         std::uint32_t flags       = 0u;
-        float fallbackRadius      = 0.15f;
-        float padding0            = 0.0f;
-        float padding1            = 0.0f;
-        float padding2            = 0.0f;
+        std::uint32_t shapeModes         = 0u;
+        std::uint32_t shapePrimitiveMode = 0u;
+        std::uint32_t maxMembershipCount = 1u;
+        std::uint32_t padding0           = 0u;
+        float fallbackRadius             = 0.15f;
+        float shapeCenterRadius          = 0.055f;
+        float shapeAxisLength            = 0.09f;
+        float shapeCorrectionScale       = 40.0f;
     };
 
     struct PipelineKey

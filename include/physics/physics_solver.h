@@ -142,6 +142,18 @@ struct PhysicsSolverDesc
                                         ///< state back to CPU host memory.
 };
 
+struct ShapeMatchingSolverStats
+{
+    std::uint32_t clusterCount                  = 0u;
+    std::uint32_t totalMemberships              = 0u;
+    std::uint32_t maximumMembershipsPerParticle = 0u;
+    std::uint32_t inactiveClusterCount          = 0u;
+    std::uint32_t degenerateRotationCount       = 0u;
+    float meanMembershipsPerParticle            = 0.0f;
+    float maximumShapeCorrection                = 0.0f;
+    float averageShapeCorrection                = 0.0f;
+};
+
 /// @brief Primary GPU-accelerated XPBD physics simulation engine.
 ///
 /// Manages GPU compute passes, scene buffers, broadphase spatial partitioning,
@@ -188,6 +200,9 @@ public:
     /// @brief Sets the global gravitational acceleration vector.
     /// @param gravity 3D gravity vector (m/s^2).
     void setGravity(const Diligent::float3 &gravity) noexcept;
+
+    /// @brief Gets shape-matching statistics from the last solver step.
+    ShapeMatchingSolverStats lastShapeMatchingStats() const noexcept;
 
     /// @brief Retrieves the current non-owning GPU buffer views for rigid, joint, soft, and curve
     /// scenes.

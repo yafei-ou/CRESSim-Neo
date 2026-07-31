@@ -195,6 +195,8 @@ struct PhysicsGpuSoftSceneView
     Diligent::IBuffer *membershipShapeClusterIndicesBuffer =
         nullptr; ///< GPU buffer mapping memberships to shape clusters.
     Diligent::IBuffer *shapeClusterPosesBuffer = nullptr; ///< GPU buffer of cluster poses.
+    Diligent::IBuffer *shapeCorrectionMagnitudesBuffer =
+        nullptr; ///< GPU buffer of per-particle shape-correction magnitudes.
     Diligent::IBuffer *segmentStrandJointRangesBuffer =
         nullptr; ///< GPU buffer of joint ranges incident to strand segments.
     Diligent::IBuffer *segmentIncidentStrandJointsBuffer =

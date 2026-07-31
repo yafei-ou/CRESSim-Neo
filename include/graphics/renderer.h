@@ -34,6 +34,17 @@ enum class ToneMapper : std::uint32_t
     Filmic   = 2u, ///< ACES filmic S-curve tonemapping.
 };
 
+enum DebugShapeMatchingMode : std::uint32_t
+{
+    DebugShapeMatching_Centers             = 1u << 0u,
+    DebugShapeMatching_Members             = 1u << 1u,
+    DebugShapeMatching_LocalAxes           = 1u << 2u,
+    DebugShapeMatching_MembershipCount     = 1u << 3u,
+    DebugShapeMatching_ActiveClusters      = 1u << 4u,
+    DebugShapeMatching_CutDisabledClusters = 1u << 5u,
+    DebugShapeMatching_CorrectionMagnitude = 1u << 6u,
+};
+
 /// @brief Global configuration descriptor for creating the forward renderer.
 struct RendererDesc
 {
@@ -83,7 +94,11 @@ struct RenderFrameOptions
         bool highlightStaticParticles = true; ///< Visually tint static particles differently.
         bool drawConstraintEdges =
             false;                    ///< Draw wireframe edges between constrained particle pairs.
+        std::uint32_t shapeMaxMembershipCount = 1u; ///< Maximum memberships for debug normalization.
         float fallbackRadius = 0.15f; ///< Fallback radius in world units if unassigned.
+        float shapeCenterRadius = 0.055f;    ///< Shape-cluster center marker radius.
+        float shapeAxisLength = 0.09f;       ///< Shape-cluster local-axis length.
+        float shapeCorrectionScale = 40.0f;  ///< Shape-correction visualization scale.
     };
 
     /// @brief Debug visualization options for routed cable paths.

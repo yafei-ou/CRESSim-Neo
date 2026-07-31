@@ -2239,6 +2239,9 @@ bool PhysicsPassDispatcher::applyShapeMatching(Diligent::IDeviceContext *compute
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ShapeClusterPoses", softTopology.shapeClusterPosesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ShapeCorrectionMagnitudes",
+                              softTopology.shapeCorrectionMagnitudesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     return writeParticleDispatchConstants(computeContext, constants) &&
