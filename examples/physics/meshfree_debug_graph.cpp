@@ -54,15 +54,15 @@ struct MeshfreeDebugOptions
     bool pinToGround = true;
     bool vSync = false;
     std::filesystem::path cloudPath =
-        cressim::neo::examples::helpers::assetPath("physics/fixtures/gallbladder_particles.bin");
+        cressim::neo::examples::helpers::assetPath("physics/fixtures/cube_particles.bin");
     std::filesystem::path surfacePath =
-        cressim::neo::examples::helpers::assetPath("physics/fixtures/Gallbladder.obj");
-    std::uint32_t neighbourCount = 14u;
+        cressim::neo::examples::helpers::assetPath("physics/fixtures/Cube.obj");
+    std::uint32_t neighbourCount = 12u;
     std::uint32_t substeps = 0u;
     std::uint32_t softInternalIterations = 0u;
     std::uint32_t softContactIterations = 0u;
     cressim::neo::physics::SoftBodyShapeMatchingDesc shapeMatching{};
-    float cloudScale = 0.035f;
+    float cloudScale = 0.35f;
     float particleRadius = 0.035f;
     float particleMass = 0.0f;
     float compliance = -1.0f;
@@ -808,16 +808,16 @@ int main(int argc, char **argv)
     softBody.particleRadius                  = configuredParticleRadius;
     softBody.particleMass                    = options.particleMass > 0.0f
                                                    ? options.particleMass
-                                                   : 0.0002f;
+                                                   : 0.04f;
     softBody.compliance                      = options.compliance >= 0.0f
                                                    ? options.compliance
-                                                   : 5.0e-3f;
+                                                   : 2.0e-5f;
     softBody.shapeMatching                   = options.shapeMatching;
     softBody.material.contact.friction       = 0.45f;
     softBody.material.contact.staticFriction = 0.60f;
     softBody.material.contact.damping        = options.damping >= 0.0f
                                                    ? options.damping
-                                                   : 4.20f;
+                                                   : 0.60f;
     softBody.selfCollisionEnabled            = false;
     softBody.collisionLayer                  = 0x2u;
     softBody.collisionMask                   = 0x1u;
