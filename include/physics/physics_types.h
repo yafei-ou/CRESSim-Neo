@@ -239,7 +239,9 @@ struct SoftBodyShapeMatchingDesc
 
 enum ShapeClusterFlags : std::uint32_t
 {
-    ShapeCluster_Active = 1u << 0u,
+    ShapeCluster_Active      = 1u << 0u,
+    ShapeCluster_CutDisabled = 1u << 1u,
+    ShapeCluster_Degenerate  = 1u << 2u,
 };
 
 struct ShapeClusterGPU

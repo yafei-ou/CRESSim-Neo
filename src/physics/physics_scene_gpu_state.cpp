@@ -450,6 +450,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const auto membershipShapeClustersBefore =
         mPersistentSoftTopology.membershipShapeClusterIndicesBuffer.RawPtr();
     const auto shapePosesBefore = mPersistentSoftTopology.shapeClusterPosesBuffer.RawPtr();
+    const auto shapeCorrectionMagnitudesBefore =
+        mPersistentSoftTopology.shapeCorrectionMagnitudesBuffer.RawPtr();
     const auto strandSegmentsBefore = mPersistentSoftTopology.strandSegmentsBuffer.RawPtr();
     const auto strandJointsBefore   = mPersistentSoftTopology.strandJointsBuffer.RawPtr();
     const auto strandDistanceBefore =
@@ -546,6 +548,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentSoftTopology.particleShapeMembershipIndicesBuffer != nullptr &&
         mPersistentSoftTopology.membershipShapeClusterIndicesBuffer != nullptr &&
         mPersistentSoftTopology.shapeClusterPosesBuffer != nullptr &&
+        mPersistentSoftTopology.shapeCorrectionMagnitudesBuffer != nullptr &&
         mPersistentSoftTopology.strandSegmentsBuffer != nullptr &&
         mPersistentSoftTopology.strandJointsBuffer != nullptr &&
         mPersistentSoftTopology.strandDistanceConstraintsBuffer != nullptr &&
@@ -717,6 +720,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mReadbackParticles.positionsBuffer != nullptr &&
         mReadbackParticles.previousPositionsBuffer != nullptr &&
         mReadbackParticles.velocitiesBuffer != nullptr &&
+        mReadbackParticles.shapeCorrectionMagnitudesBuffer != nullptr &&
         mReadbackParticles.neighborMetaBuffer != nullptr;
     const std::uint32_t newRigidBodyCapacity    = std::max<std::uint32_t>(bodyCount, 64u);
     const std::uint32_t newColliderCapacity     = std::max<std::uint32_t>(colliderCount, 64u);
@@ -1248,6 +1252,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.shapeClusterPosesBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ShapeCorrectionMagnitudes", sizeof(float),
+            newSoftParticleCapacity, Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+            mPersistentSoftTopology.shapeCorrectionMagnitudesBuffer) ||
         !ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.StrandSegments", sizeof(StrandSegmentConstraint),
             newStrandSegmentCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -2069,6 +2078,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
             renderDevice, "CRESSimNeo.Physics.SoftVelocities.Readback", sizeof(Diligent::float4),
             newSoftParticleCapacity, Diligent::BIND_NONE, Diligent::USAGE_STAGING,
             Diligent::CPU_ACCESS_READ, contextMask, mReadbackParticles.velocitiesBuffer) ||
+        !ensureStructuredBuffer(renderDevice,
+                                "CRESSimNeo.Physics.ShapeCorrectionMagnitudes.Readback",
+                                sizeof(float), newSoftParticleCapacity, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackParticles.shapeCorrectionMagnitudesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftNeighborMeta.Readback",
                                 sizeof(GpuParticleNeighborMeta), 1u, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
@@ -2363,6 +2377,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         membershipShapeClustersBefore !=
             mPersistentSoftTopology.membershipShapeClusterIndicesBuffer.RawPtr() ||
         shapePosesBefore != mPersistentSoftTopology.shapeClusterPosesBuffer.RawPtr() ||
+        shapeCorrectionMagnitudesBefore !=
+            mPersistentSoftTopology.shapeCorrectionMagnitudesBuffer.RawPtr() ||
         strandSegmentsBefore != mPersistentSoftTopology.strandSegmentsBuffer.RawPtr() ||
         strandJointsBefore != mPersistentSoftTopology.strandJointsBuffer.RawPtr() ||
         strandDistanceBefore != mPersistentSoftTopology.strandDistanceConstraintsBuffer.RawPtr() ||
@@ -3544,6 +3560,7 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
     std::vector<ParticleShapeMembershipRangeGPU> shapeParticleMembershipRanges =
         shapeMatchingData.particleMembershipRanges;
     shapeParticleMembershipRanges.resize(particleCount);
+    const std::vector<float> zeroShapeCorrectionMagnitudes(particleCount, 0.0f);
 
     return updateStructuredBufferRange(computeContext, mPersistentSoftTopology.edgesBuffer,
                                        distanceConstraints, 0u,
@@ -3581,6 +3598,9 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
                                        shapeMatchingData.poses, 0u,
                                        static_cast<std::uint32_t>(
                                            shapeMatchingData.poses.size())) &&
+           updateStructuredBufferRange(
+               computeContext, mPersistentSoftTopology.shapeCorrectionMagnitudesBuffer,
+               zeroShapeCorrectionMagnitudes, 0u, particleCount) &&
            updateStructuredBufferRange(computeContext, mPersistentSoftTopology.strandSegmentsBuffer,
                                        strandSegments, 0u,
                                        static_cast<std::uint32_t>(strandSegments.size())) &&
@@ -4246,6 +4266,29 @@ bool PhysicsSceneGpuState::readbackSoftNeighborMetaBlocking(
     return true;
 }
 
+bool PhysicsSceneGpuState::readbackShapeCorrectionMagnitudesBlocking(
+    Diligent::IDeviceContext *computeContext, std::uint32_t particleCount,
+    std::vector<float> &outMagnitudes)
+{
+    outMagnitudes.clear();
+    if (computeContext == nullptr ||
+        mPersistentSoftTopology.shapeCorrectionMagnitudesBuffer == nullptr ||
+        mReadbackParticles.shapeCorrectionMagnitudesBuffer == nullptr)
+    {
+        return false;
+    }
+    if (particleCount == 0u)
+    {
+        return true;
+    }
+
+    outMagnitudes.resize(particleCount);
+    return readbackBufferRangeBlocking(computeContext,
+                                       mPersistentSoftTopology.shapeCorrectionMagnitudesBuffer,
+                                       mReadbackParticles.shapeCorrectionMagnitudesBuffer, 0u,
+                                       particleCount, outMagnitudes.data());
+}
+
 const PhysicsSceneGpuState::PersistentRigidBodyBuffers &PhysicsSceneGpuState::
     persistentRigidBodies() const noexcept
 {
@@ -4527,6 +4570,8 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.membershipShapeClusterIndicesBuffer =
         mPersistentSoftTopology.membershipShapeClusterIndicesBuffer;
     view.soft.shapeClusterPosesBuffer = mPersistentSoftTopology.shapeClusterPosesBuffer;
+    view.soft.shapeCorrectionMagnitudesBuffer =
+        mPersistentSoftTopology.shapeCorrectionMagnitudesBuffer;
     view.soft.segmentStrandJointRangesBuffer =
         mPersistentSoftTopology.segmentStrandJointRangesBuffer;
     view.soft.segmentIncidentStrandJointsBuffer =

@@ -6,7 +6,9 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <memory>
+#include <vector>
 
 namespace cressim::neo::physics
 {
@@ -77,6 +79,35 @@ bool hasPhysicsGpuBackend(gpu::GpuDevice &device)
            graphicsContext.renderDevice != nullptr && graphicsContext.graphicsContext != nullptr;
 }
 
+ShapeMatchingSolverStats makeShapeMatchingStats(const ShapeMatchingDataHost &data,
+                                                std::uint32_t particleCount) noexcept
+{
+    ShapeMatchingSolverStats stats{};
+    stats.clusterCount                  = static_cast<std::uint32_t>(data.clusters.size());
+    stats.totalMemberships              = static_cast<std::uint32_t>(data.members.size());
+    stats.meanMembershipsPerParticle    = particleCount > 0u
+                                               ? static_cast<float>(data.members.size()) /
+                                                     static_cast<float>(particleCount)
+                                               : 0.0f;
+    for (const ParticleShapeMembershipRangeGPU &range : data.particleMembershipRanges)
+    {
+        stats.maximumMembershipsPerParticle =
+            std::max(stats.maximumMembershipsPerParticle, range.count);
+    }
+    for (const ShapeClusterGPU &cluster : data.clusters)
+    {
+        if ((cluster.flags & ShapeCluster_Active) == 0u)
+        {
+            ++stats.inactiveClusterCount;
+        }
+        if ((cluster.flags & ShapeCluster_Degenerate) != 0u)
+        {
+            ++stats.degenerateRotationCount;
+        }
+    }
+    return stats;
+}
+
 } // namespace
 
 struct PhysicsSolver::Impl
@@ -94,6 +125,7 @@ struct PhysicsSolver::Impl
     bool lastStepHadSoftPairWork                    = false;
     std::uint64_t lastAppliedRigidBindingGeneration = 0u;
     std::uint64_t lastAppliedSoftBindingGeneration  = 0u;
+    ShapeMatchingSolverStats lastShapeStats{};
     bool mInitialized                               = false;
 };
 
@@ -423,6 +455,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                                    softContactIterations), shapeIterations),
                  std::max(rigidJointIterations, rigidContactIterations));
     const float substepDt = frameContext.deltaSeconds / static_cast<float>(substeps);
+    ShapeMatchingSolverStats shapeStats =
+        makeShapeMatchingStats(shapeMatchingData, particleCount);
 
     if (!mImpl->passDispatcher.updateSolverConfig(computeBackend.computeContext,
                                                   makeSolverConfig(mImpl->mDesc)))
@@ -1265,6 +1299,25 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateParticleVelocities dispatch.");
             return false;
         }
+        if (hasShapeMatchingWork && mImpl->mDesc.enableBlockingReadback)
+        {
+            std::vector<float> correctionMagnitudes;
+            if (mImpl->sceneState.readbackShapeCorrectionMagnitudesBlocking(
+                    computeBackend.computeContext, particleCount, correctionMagnitudes))
+            {
+                double correctionSum = 0.0;
+                for (const float magnitude : correctionMagnitudes)
+                {
+                    shapeStats.maximumShapeCorrection =
+                        std::max(shapeStats.maximumShapeCorrection, magnitude);
+                    correctionSum += static_cast<double>(magnitude);
+                }
+                shapeStats.averageShapeCorrection =
+                    particleCount > 0u
+                        ? static_cast<float>(correctionSum / static_cast<double>(particleCount))
+                        : 0.0f;
+            }
+        }
         if (hasFluidWork &&
             !mImpl->passDispatcher.projectFluidBoundaryVelocities(
                 computeBackend.computeContext, mImpl->sceneState, particleConstants))
@@ -1394,6 +1447,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
     if (!mImpl->mDesc.enableBlockingReadback)
     {
+        mImpl->lastShapeStats = shapeStats;
         return true;
     }
 
@@ -1410,6 +1464,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         return false;
     }
 
+    mImpl->lastShapeStats = shapeStats;
     return true;
 }
 
@@ -1507,6 +1562,11 @@ bool PhysicsSolver::validateGpuMetaBlocking()
 void PhysicsSolver::setGravity(const Diligent::float3 &gravity) noexcept
 {
     mImpl->mDesc.gravity = gravity;
+}
+
+ShapeMatchingSolverStats PhysicsSolver::lastShapeMatchingStats() const noexcept
+{
+    return mImpl != nullptr ? mImpl->lastShapeStats : ShapeMatchingSolverStats{};
 }
 
 PhysicsGpuSceneView PhysicsSolver::gpuSceneView() const noexcept

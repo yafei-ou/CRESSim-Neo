@@ -54,20 +54,21 @@ struct MeshfreeDebugOptions
     bool pinToGround = true;
     bool vSync = false;
     std::filesystem::path cloudPath =
-        cressim::neo::examples::helpers::assetPath("physics/fixtures/cube_particles.bin");
+        cressim::neo::examples::helpers::assetPath("physics/fixtures/gallbladder_particles.bin");
     std::filesystem::path surfacePath =
-        cressim::neo::examples::helpers::assetPath("physics/fixtures/Cube.obj");
-    std::uint32_t neighbourCount = 12u;
+        cressim::neo::examples::helpers::assetPath("physics/fixtures/Gallbladder.obj");
+    std::uint32_t neighbourCount = 14u;
     std::uint32_t substeps = 0u;
     std::uint32_t softInternalIterations = 0u;
     std::uint32_t softContactIterations = 0u;
     cressim::neo::physics::SoftBodyShapeMatchingDesc shapeMatching{};
-    float cloudScale = 0.35f;
+    float cloudScale = 0.035f;
     float particleRadius = 0.035f;
     float particleMass = 0.0f;
     float compliance = -1.0f;
     float damping = -1.0f;
     float pinBand = 0.01f;
+    float shapeCorrectionDebugScale = 40.0f;
     Diligent::float3 rotationDegrees{0.0f, 0.0f, 0.0f};
 };
 
@@ -77,6 +78,18 @@ struct ParticleBounds
     Diligent::float3 max{};
     Diligent::float3 center{};
     Diligent::float3 extent{};
+};
+
+struct ShapeMatchingTopologyStats
+{
+    std::uint32_t clusterCount                  = 0u;
+    std::uint32_t totalMemberships              = 0u;
+    std::uint32_t maximumMembershipsPerParticle = 0u;
+    std::uint32_t minimumClusterSize            = 0u;
+    std::uint32_t maximumClusterSize            = 0u;
+    std::uint32_t inactiveClusterCount          = 0u;
+    std::uint32_t degenerateClusterCount        = 0u;
+    float meanMembershipsPerParticle            = 0.0f;
 };
 
 void printUsage(const char *appName)
@@ -90,7 +103,7 @@ void printUsage(const char *appName)
         " [--rotate-x DEG] [--rotate-y DEG] [--rotate-z DEG] [--pin-band B] [--drop]"
         " [--enable-shape-matching] [--shape-cluster-size N] [--shape-memberships N]"
         " [--shape-iterations N] [--shape-stiffness S] [--draw-shape-clusters]"
-        " [--disable-cut-aware-clusters]"
+        " [--shape-correction-debug-scale S] [--disable-cut-aware-clusters]"
         " [--show-particles] [--hide-particles] [--draw-edges] [--vsync]",
         false);
 }
@@ -358,18 +371,57 @@ std::vector<Diligent::float3> loadConfiguredParticles(const MeshfreeDebugOptions
 
 void applyDebugParticleGraphOptions(Runtime &runtime, const bool enabled,
                                     const bool drawConstraintEdges,
-                                    const float particleRadius)
+                                    const float particleRadius,
+                                    const std::uint32_t shapeMaxMembershipCount,
+                                    const float shapeCorrectionDebugScale)
 {
     cressim::neo::graphics::RenderFrameOptions renderOptions = runtime.renderFrameOptions();
     renderOptions.debugParticles.enabled                  = enabled;
     renderOptions.debugParticles.drawConstraintEdges      = drawConstraintEdges;
     renderOptions.debugParticles.highlightStaticParticles = true;
     renderOptions.debugParticles.useParticleRadii         = true;
+    renderOptions.debugParticles.shapeMaxMembershipCount  = shapeMaxMembershipCount;
+    renderOptions.debugParticles.shapeCorrectionScale     = shapeCorrectionDebugScale;
     renderOptions.debugParticles.color                    = {0.18f, 0.74f, 1.0f, 1.0f};
     renderOptions.debugParticles.staticColor              = {1.0f, 0.22f, 0.12f, 1.0f};
     renderOptions.debugParticles.edgeColor                = {1.0f, 0.86f, 0.18f, 1.0f};
     renderOptions.debugParticles.fallbackRadius           = particleRadius;
     runtime.setRenderFrameOptions(renderOptions);
+}
+
+ShapeMatchingTopologyStats computeShapeMatchingTopologyStats(
+    const cressim::neo::physics::ShapeMatchingDataHost &data,
+    const std::uint32_t particleCount)
+{
+    ShapeMatchingTopologyStats stats{};
+    stats.clusterCount     = static_cast<std::uint32_t>(data.clusters.size());
+    stats.totalMemberships = static_cast<std::uint32_t>(data.members.size());
+    stats.meanMembershipsPerParticle =
+        particleCount > 0u ? static_cast<float>(data.members.size()) / static_cast<float>(particleCount)
+                           : 0.0f;
+    for (const cressim::neo::physics::ParticleShapeMembershipRangeGPU &range :
+         data.particleMembershipRanges)
+    {
+        stats.maximumMembershipsPerParticle =
+            std::max(stats.maximumMembershipsPerParticle, range.count);
+    }
+    for (const cressim::neo::physics::ShapeClusterGPU &cluster : data.clusters)
+    {
+        stats.minimumClusterSize =
+            stats.minimumClusterSize == 0u
+                ? cluster.memberCount
+                : std::min(stats.minimumClusterSize, cluster.memberCount);
+        stats.maximumClusterSize = std::max(stats.maximumClusterSize, cluster.memberCount);
+        if ((cluster.flags & cressim::neo::physics::ShapeCluster_Active) == 0u)
+        {
+            ++stats.inactiveClusterCount;
+        }
+        if ((cluster.flags & cressim::neo::physics::ShapeCluster_Degenerate) != 0u)
+        {
+            ++stats.degenerateClusterCount;
+        }
+    }
+    return stats;
 }
 
 } // namespace
@@ -509,12 +561,12 @@ int main(int argc, char **argv)
                     "--shape-stiffness");
                 continue;
             }
-            if (arg == "--draw-shape-clusters")
+            if (arg == "--shape-correction-debug-scale")
             {
-                options.drawShapeClusters = true;
-                options.drawConstraintEdges = true;
-                options.showDebugParticles = true;
-                options.debugParticlesExplicit = true;
+                options.shapeCorrectionDebugScale = parseNonNegativeFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--shape-correction-debug-scale"),
+                    "--shape-correction-debug-scale");
                 continue;
             }
             if (arg == "--disable-cut-aware-clusters")
@@ -756,16 +808,16 @@ int main(int argc, char **argv)
     softBody.particleRadius                  = configuredParticleRadius;
     softBody.particleMass                    = options.particleMass > 0.0f
                                                    ? options.particleMass
-                                                   : 0.04f;
+                                                   : 0.0002f;
     softBody.compliance                      = options.compliance >= 0.0f
                                                    ? options.compliance
-                                                   : 2.0e-5f;
+                                                   : 5.0e-3f;
     softBody.shapeMatching                   = options.shapeMatching;
     softBody.material.contact.friction       = 0.45f;
     softBody.material.contact.staticFriction = 0.60f;
     softBody.material.contact.damping        = options.damping >= 0.0f
                                                    ? options.damping
-                                                   : 0.60f;
+                                                   : 4.20f;
     softBody.selfCollisionEnabled            = false;
     softBody.collisionLayer                  = 0x2u;
     softBody.collisionMask                   = 0x1u;
@@ -786,6 +838,10 @@ int main(int argc, char **argv)
     }
 
     world.physicsWorld().ensureDerivedStateUpToDate();
+    const cressim::neo::physics::ShapeMatchingDataHost &shapeMatchingData =
+        world.physicsWorld().shapeMatchingData();
+    const ShapeMatchingTopologyStats shapeStats = computeShapeMatchingTopologyStats(
+        shapeMatchingData, static_cast<std::uint32_t>(softBody.particles.size()));
     if (const cressim::neo::physics::SoftBodyState *softState =
             world.physicsWorld().tryGetSoftBody(softEntity))
     {
@@ -819,6 +875,18 @@ int main(int argc, char **argv)
                          options.drawShapeClusters
                              ? " (cluster debug requested; particle graph overlay enabled).\n"
                              : ".\n");
+        CRESSIM_LOG_INFO("Meshfree shape-matching debug stats: cluster count=",
+                         shapeStats.clusterCount,
+                         ", total memberships=", shapeStats.totalMemberships,
+                         ", mean memberships per particle=",
+                         shapeStats.meanMembershipsPerParticle,
+                         ", maximum memberships per particle=",
+                         shapeStats.maximumMembershipsPerParticle,
+                         ", minimum cluster size=", shapeStats.minimumClusterSize,
+                         ", maximum cluster size=", shapeStats.maximumClusterSize,
+                         ", inactive cluster count=", shapeStats.inactiveClusterCount,
+                         ", degenerate rotation count=", shapeStats.degenerateClusterCount,
+                         ".\n");
         CRESSIM_LOG_INFO("Meshfree XPBD pinning: ",
                          options.pinToGround ? "enabled" : "disabled",
                          ", static particles=", softBody.staticParticleIndices.size(),
@@ -828,15 +896,51 @@ int main(int argc, char **argv)
 
     applyDebugParticleGraphOptions(runtime, options.showDebugParticles,
                                    options.drawConstraintEdges,
-                                   options.particleRadius);
+                                   options.particleRadius,
+                                   shapeStats.maximumMembershipsPerParticle,
+                                   options.shapeCorrectionDebugScale);
 
     DebugViewerCallbacks callbacks{};
-    callbacks.beforeTick = [&options](const cressim::neo::common::FrameContext &,
-                                      Runtime &callbackRuntime)
+    callbacks.beforeTick = [&options, shapeStats](const cressim::neo::common::FrameContext &,
+                                                  Runtime &callbackRuntime)
     {
         applyDebugParticleGraphOptions(callbackRuntime, options.showDebugParticles,
                                        options.drawConstraintEdges,
-                                       options.particleRadius);
+                                       options.particleRadius,
+                                       shapeStats.maximumMembershipsPerParticle,
+                                       options.shapeCorrectionDebugScale);
+    };
+    callbacks.afterTick = [&viewerDesc](const cressim::neo::common::FrameContext &frame,
+                                        Runtime &callbackRuntime)
+    {
+        if (viewerDesc.statsIntervalFrames == 0u ||
+            (frame.frameIndex > 1u &&
+             frame.frameIndex % viewerDesc.statsIntervalFrames != 0u))
+        {
+            return;
+        }
+        const cressim::neo::physics::PhysicsSolver *solver =
+            callbackRuntime.getPhysicsSolver();
+        if (solver == nullptr)
+        {
+            return;
+        }
+        const cressim::neo::physics::ShapeMatchingSolverStats stats =
+            solver->lastShapeMatchingStats();
+        CRESSIM_LOG_INFO("Meshfree shape-matching runtime stats: cluster count=",
+                         stats.clusterCount,
+                         ", total memberships=", stats.totalMemberships,
+                         ", mean memberships per particle=",
+                         stats.meanMembershipsPerParticle,
+                         ", maximum memberships per particle=",
+                         stats.maximumMembershipsPerParticle,
+                         ", inactive cluster count=", stats.inactiveClusterCount,
+                         ", degenerate rotation count=", stats.degenerateRotationCount,
+                         ", maximum shape correction=",
+                         stats.maximumShapeCorrection,
+                         ", average shape correction=",
+                         stats.averageShapeCorrection,
+                         ".\n");
     };
 
     DebugViewerCameraBinding binding{};

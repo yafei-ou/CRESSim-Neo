@@ -9,6 +9,7 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_MembershipShapeClusterIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuShapeCluster, g_ShapeClusters);
 CRESSIM_STRUCTURED_BUFFER(GpuShapeClusterMember, g_ShapeClusterMembers);
 CRESSIM_STRUCTURED_BUFFER(GpuShapeClusterPose, g_ShapeClusterPoses);
+CRESSIM_RW_STRUCTURED_BUFFER(float, g_ShapeCorrectionMagnitudes);
 
 [numthreads(128, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -22,6 +23,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float4 positionInvMass = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
     if (positionInvMass.w <= kEpsilon)
     {
+        CRESSIM_SB_STORE(g_ShapeCorrectionMagnitudes, particleIndex, 0.0);
         return;
     }
 
@@ -75,6 +77,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     if (accumulatedWeight <= kEpsilon)
     {
+        CRESSIM_SB_STORE(g_ShapeCorrectionMagnitudes, particleIndex, 0.0);
         return;
     }
 
@@ -89,6 +92,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         }
     }
 
+    CRESSIM_SB_STORE(g_ShapeCorrectionMagnitudes, particleIndex, length(correction));
     CRESSIM_SB_STORE(g_ParticlePositionsInvMass, particleIndex,
                      float4(positionInvMass.xyz + correction, positionInvMass.w));
 }

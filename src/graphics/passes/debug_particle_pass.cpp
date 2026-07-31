@@ -14,6 +14,9 @@ namespace
 
 constexpr std::uint32_t kUseParticleRadiiFlag         = 1u << 0u;
 constexpr std::uint32_t kHighlightStaticParticlesFlag = 1u << 1u;
+constexpr std::uint32_t kShapePrimitiveCenters        = 0u;
+constexpr std::uint32_t kShapePrimitiveAxes           = 1u;
+constexpr std::uint32_t kShapePrimitiveMembers        = 2u;
 
 } // namespace
 
@@ -164,6 +167,10 @@ Diligent::IPipelineState *DebugParticlePass::getOrCreatePipeline(
         {Diligent::SHADER_TYPE_VERTEX, "g_ParticleRadii",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_ParticleEnvironmentIndices",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_VERTEX, "g_ParticleShapeMembershipRanges",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_VERTEX, "g_ShapeCorrectionMagnitudes",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -486,6 +493,13 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     {
         return false;
     }
+    if (!setBufferView(Diligent::SHADER_TYPE_VERTEX, "g_ParticleShapeMembershipRanges",
+                       physicsScene.soft.particleShapeMembershipRangesBuffer) ||
+        !setBufferView(Diligent::SHADER_TYPE_VERTEX, "g_ShapeCorrectionMagnitudes",
+                       physicsScene.soft.shapeCorrectionMagnitudesBuffer))
+    {
+        return false;
+    }
 
     const bool useParticleRadii = options.useParticleRadii && particles.radiiBuffer != nullptr;
     Diligent::IBuffer *radiiBuffer =
@@ -504,7 +518,12 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     constants.envIndex    = camera.envIndex;
     constants.flags       = useParticleRadii ? kUseParticleRadiiFlag : 0u;
     constants.flags |= options.highlightStaticParticles ? kHighlightStaticParticlesFlag : 0u;
-    constants.fallbackRadius = options.fallbackRadius;
+    constants.maxMembershipCount =
+        std::max<std::uint32_t>(options.shapeMaxMembershipCount, 1u);
+    constants.fallbackRadius        = options.fallbackRadius;
+    constants.shapeCenterRadius     = options.shapeCenterRadius;
+    constants.shapeAxisLength       = options.shapeAxisLength;
+    constants.shapeCorrectionScale  = options.shapeCorrectionScale;
 
     void *mapped = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,

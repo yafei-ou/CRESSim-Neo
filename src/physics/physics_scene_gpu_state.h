@@ -137,6 +137,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleShapeMembershipIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> membershipShapeClusterIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeClusterPosesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeCorrectionMagnitudesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleEdgeRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentEdgesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleBendRangesBuffer;
@@ -318,6 +319,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> previousPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> velocitiesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeCorrectionMagnitudesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> neighborMetaBuffer;
     };
 
@@ -432,6 +434,9 @@ public:
                                                 PhysicsWorld &world, std::uint32_t particleCount);
     bool readbackSoftNeighborMetaBlocking(Diligent::IDeviceContext *computeContext,
                                           GpuParticleNeighborMeta &outMeta);
+    bool readbackShapeCorrectionMagnitudesBlocking(Diligent::IDeviceContext *computeContext,
+                                                   std::uint32_t particleCount,
+                                                   std::vector<float> &outMagnitudes);
 
     const PersistentRigidBodyBuffers &persistentRigidBodies() const noexcept;
     const PersistentColliderBuffers &persistentColliders() const noexcept;

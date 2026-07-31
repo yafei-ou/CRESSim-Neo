@@ -29,6 +29,17 @@ enum class ToneMapper : std::uint32_t
     Filmic   = 2u,
 };
 
+enum DebugShapeMatchingMode : std::uint32_t
+{
+    DebugShapeMatching_Centers              = 1u << 0u,
+    DebugShapeMatching_Members              = 1u << 1u,
+    DebugShapeMatching_LocalAxes            = 1u << 2u,
+    DebugShapeMatching_MembershipCount      = 1u << 3u,
+    DebugShapeMatching_ActiveClusters       = 1u << 4u,
+    DebugShapeMatching_CutDisabledClusters  = 1u << 5u,
+    DebugShapeMatching_CorrectionMagnitude  = 1u << 6u,
+};
+
 struct RendererDesc
 {
     IblQualityTier iblQualityTier = IblQualityTier::Off;
@@ -67,7 +78,11 @@ struct RenderFrameOptions
         bool useParticleRadii         = true;
         bool highlightStaticParticles = true;
         bool drawConstraintEdges      = false;
+        std::uint32_t shapeMaxMembershipCount = 1u;
         float fallbackRadius          = 0.15f;
+        float shapeCenterRadius       = 0.055f;
+        float shapeAxisLength         = 0.09f;
+        float shapeCorrectionScale    = 40.0f;
     };
 
     struct DebugRoutedCableOptions

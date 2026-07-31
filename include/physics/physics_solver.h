@@ -100,6 +100,18 @@ struct PhysicsSolverDesc
     bool enableBlockingReadback = true;
 };
 
+struct ShapeMatchingSolverStats
+{
+    std::uint32_t clusterCount                  = 0u;
+    std::uint32_t totalMemberships              = 0u;
+    std::uint32_t maximumMembershipsPerParticle = 0u;
+    std::uint32_t inactiveClusterCount          = 0u;
+    std::uint32_t degenerateRotationCount       = 0u;
+    float meanMembershipsPerParticle            = 0.0f;
+    float maximumShapeCorrection                = 0.0f;
+    float averageShapeCorrection                = 0.0f;
+};
+
 class CRESSIM_NEO_PHYSICS_API PhysicsSolver
 {
 public:
@@ -112,6 +124,7 @@ public:
     bool syncWorldState(PhysicsWorld &world);
     bool validateGpuMetaBlocking();
     void setGravity(const Diligent::float3 &gravity) noexcept;
+    ShapeMatchingSolverStats lastShapeMatchingStats() const noexcept;
     PhysicsGpuSceneView gpuSceneView() const noexcept;
     const gpu::SharedExportBuffer *softPositionsInvMassSharedBuffer() const noexcept;
 

@@ -24,7 +24,9 @@ static const uint kParticleRigidDedupCacheSize = 16u;
 static const uint kParticleRigidColliderIterationCap = 64u;
 static const uint kParticlePhaseGroupMask = 0x7fffffffu;
 static const uint kParticlePhaseSelfCollideFlag = 0x80000000u;
-static const uint kShapeClusterActive = 1u;
+static const uint kShapeClusterActive = 1u << 0u;
+static const uint kShapeClusterCutDisabled = 1u << 1u;
+static const uint kShapeClusterDegenerate = 1u << 2u;
 
 struct GpuParticleBroadPhaseEntry
 {
