@@ -306,6 +306,7 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
             static_cast<std::uint32_t>(fluidMaterials.size()), softEdgeCount, softBendCount,
             softTetCount, static_cast<std::uint32_t>(shapeMatchingData.clusters.size()),
             static_cast<std::uint32_t>(shapeMatchingData.members.size()),
+            static_cast<std::uint32_t>(shapeMatchingData.links.size()),
             static_cast<std::uint32_t>(shapeMatchingData.particleMembershipIndices.size()),
             strandSegmentCount, strandJointCount, strandDistanceCount, ballJointCount,
             sphericalJointCount, hingeJointCount, sliderJointCount, rigidParticleAttachmentCount,
@@ -645,6 +646,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ApplySoftCuttingTool dispatch.");
+            return false;
+        }
+        if (hasShapeMatchingWork &&
+            !mImpl->passDispatcher.validateShapeClusters(
+                computeBackend.computeContext, mImpl->sceneState, shapeClusterCount,
+                particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ValidateShapeClusters dispatch.");
             return false;
         }
 
@@ -1303,6 +1312,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: EvaluateSoftFracture dispatch.");
+            return false;
+        }
+        if (hasShapeMatchingWork &&
+            !mImpl->passDispatcher.validateShapeClusters(
+                computeBackend.computeContext, mImpl->sceneState, shapeClusterCount,
+                particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ValidateShapeClusters dispatch.");
             return false;
         }
 

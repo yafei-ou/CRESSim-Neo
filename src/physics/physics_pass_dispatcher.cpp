@@ -278,6 +278,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mSolveSuturingNodePathConstraintsPass, kSolveSuturingNodePathConstraints) ||
         !initPass(mApplySoftCuttingToolPass, kApplySoftCuttingTool) ||
         !initPass(mEvaluateSoftFracturePass, kEvaluateSoftFracture) ||
+        !initPass(mValidateShapeClustersPass, kValidateShapeClusters) ||
         !initSolverConfigPass(mSolveSoftEdgeConstraintsPass, kSolveSoftEdgeConstraints) ||
         !initSolverConfigPass(mSolveSoftBendConstraintsPass, kSolveSoftBendConstraints) ||
         !initSolverConfigPass(mSolveSoftTetConstraintsPass, kSolveSoftTetConstraints) ||
@@ -2172,6 +2173,33 @@ bool PhysicsPassDispatcher::evaluateSoftFracture(
     return writeParticleDispatchConstants(computeContext, constants) &&
            mEvaluateSoftFracturePass.dispatch(computeContext, kDefaultVariant, bindings,
                                               dispatchGroupCount(softEdgeCount));
+}
+
+bool PhysicsPassDispatcher::validateShapeClusters(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t shapeClusterCount, const GpuParticleDispatchConstants &constants)
+{
+    if (shapeClusterCount == 0u || sceneState.sceneView().soft.shapeClusterLinkCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softTopology = sceneState.persistentSoftTopology();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ShapeClusters", softTopology.shapeClustersBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_ShapeClusterLinks", softTopology.shapeClusterLinksBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftEdges", softTopology.edgesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mValidateShapeClustersPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                               dispatchShapeMatchingGroupCount(shapeClusterCount));
 }
 
 bool PhysicsPassDispatcher::solveSoftBendConstraints(Diligent::IDeviceContext *computeContext,
@@ -5817,6 +5845,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
         mSolveSuturingNodePathConstraintsPass.forceRecreateAllVariants() &&
         mApplySoftCuttingToolPass.forceRecreateAllVariants() &&
         mEvaluateSoftFracturePass.forceRecreateAllVariants() &&
+        mValidateShapeClustersPass.forceRecreateAllVariants() &&
         mSolveSoftEdgeConstraintsPass.forceRecreateAllVariants() &&
         mSolveSoftBendConstraintsPass.forceRecreateAllVariants() &&
         mSolveSoftTetConstraintsPass.forceRecreateAllVariants() &&

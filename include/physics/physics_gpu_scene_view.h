@@ -116,6 +116,7 @@ struct PhysicsGpuSoftSceneView
     Diligent::IBuffer *strandSegmentStatesBuffer         = nullptr;
     Diligent::IBuffer *shapeClustersBuffer               = nullptr;
     Diligent::IBuffer *shapeClusterMembersBuffer         = nullptr;
+    Diligent::IBuffer *shapeClusterLinksBuffer           = nullptr;
     Diligent::IBuffer *particleShapeMembershipRangesBuffer  = nullptr;
     Diligent::IBuffer *particleShapeMembershipIndicesBuffer = nullptr;
     Diligent::IBuffer *membershipShapeClusterIndicesBuffer  = nullptr;
@@ -142,6 +143,7 @@ struct PhysicsGpuSoftSceneView
     std::uint32_t strandDistanceCount                    = 0;
     std::uint32_t shapeClusterCount                      = 0;
     std::uint32_t shapeClusterMemberCount                = 0;
+    std::uint32_t shapeClusterLinkCount                  = 0;
     std::uint32_t particleShapeMembershipIndexCount      = 0;
     std::uint32_t suturingPairCount                      = 0;
     std::uint32_t suturingPathHeaderCount                = 0;

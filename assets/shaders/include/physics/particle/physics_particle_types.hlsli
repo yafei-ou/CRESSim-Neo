@@ -174,6 +174,14 @@ struct GpuShapeClusterMember
     float4 restOffset;
 };
 
+struct GpuShapeClusterLink
+{
+    uint softEdgeIndex;
+    uint localParticleA;
+    uint localParticleB;
+    uint padding;
+};
+
 struct GpuParticleShapeMembershipRange
 {
     uint offset;

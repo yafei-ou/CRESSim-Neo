@@ -133,6 +133,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentStatesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeClustersBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeClusterMembersBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeClusterLinksBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleShapeMembershipRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleShapeMembershipIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> membershipShapeClusterIndicesBuffer;
@@ -391,7 +392,7 @@ public:
         std::uint32_t particleContactMaterialCount, std::uint32_t fluidMaterialCount,
         std::uint32_t softEdgeCount, std::uint32_t softBendCount, std::uint32_t softTetCount,
         std::uint32_t shapeClusterCount, std::uint32_t shapeClusterMemberCount,
-        std::uint32_t particleShapeMembershipIndexCount,
+        std::uint32_t shapeClusterLinkCount, std::uint32_t particleShapeMembershipIndexCount,
         std::uint32_t strandSegmentCount, std::uint32_t strandJointCount,
         std::uint32_t strandDistanceCount, std::uint32_t ballJointCount,
         std::uint32_t sphericalJointCount, std::uint32_t hingeJointCount,
@@ -579,6 +580,7 @@ private:
     std::uint32_t mSoftTetCapacity                                     = 0;
     std::uint32_t mShapeClusterCapacity                                = 0;
     std::uint32_t mShapeClusterMemberCapacity                          = 0;
+    std::uint32_t mShapeClusterLinkCapacity                            = 0;
     std::uint32_t mParticleShapeMembershipIndexCapacity                = 0;
     std::uint32_t mStrandSegmentCapacity                               = 0;
     std::uint32_t mStrandJointCapacity                                 = 0;
@@ -601,6 +603,7 @@ private:
     std::uint32_t mSoftTetCount                                        = 0;
     std::uint32_t mShapeClusterCount                                   = 0;
     std::uint32_t mShapeClusterMemberCount                             = 0;
+    std::uint32_t mShapeClusterLinkCount                               = 0;
     std::uint32_t mParticleShapeMembershipIndexCount                   = 0;
     std::uint32_t mStrandSegmentCount                                  = 0;
     std::uint32_t mStrandJointCount                                    = 0;

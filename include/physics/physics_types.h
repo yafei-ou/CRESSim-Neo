@@ -273,6 +273,16 @@ struct ShapeClusterMemberGPU
 
 static_assert(sizeof(ShapeClusterMemberGPU) == 32u);
 
+struct ShapeClusterLinkGPU
+{
+    std::uint32_t softEdgeIndex  = 0u;
+    std::uint32_t localParticleA = 0u;
+    std::uint32_t localParticleB = 0u;
+    std::uint32_t padding        = 0u;
+};
+
+static_assert(sizeof(ShapeClusterLinkGPU) == 16u);
+
 struct ParticleShapeMembershipRangeGPU
 {
     std::uint32_t offset = 0u;
@@ -293,6 +303,7 @@ struct ShapeMatchingDataHost
 {
     std::vector<ShapeClusterGPU> clusters;
     std::vector<ShapeClusterMemberGPU> members;
+    std::vector<ShapeClusterLinkGPU> links;
     std::vector<ParticleShapeMembershipRangeGPU> particleMembershipRanges;
     std::vector<std::uint32_t> particleMembershipIndices;
     std::vector<std::uint32_t> membershipClusterIndices;
@@ -304,6 +315,7 @@ struct ShapeMatchingDataHost
     {
         clusters.clear();
         members.clear();
+        links.clear();
         particleMembershipRanges.clear();
         particleMembershipIndices.clear();
         membershipClusterIndices.clear();

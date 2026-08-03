@@ -673,6 +673,17 @@ constexpr Diligent::ShaderResourceVariableDesc kEvaluateSoftFractureVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kValidateShapeClustersVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeClusters",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeClusterLinks",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kSolveSoftBendConstraintsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -746,8 +757,6 @@ constexpr Diligent::ShaderResourceVariableDesc kComputeShapeClusterPosesVars[] =
     {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeClusterMembers",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeClusterPoses",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ShapeCorrectionMagnitudes",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -2466,6 +2475,14 @@ const gpu::GpuComputePassDefinition kEvaluateSoftFracture{
     "CRESSimNeo.Physics.EvaluateSoftFracture.PSO",
     kEvaluateSoftFractureVars,
     std::size(kEvaluateSoftFractureVars),
+};
+
+const gpu::GpuComputePassDefinition kValidateShapeClusters{
+    "physics/soft/solver/physics_soft_validate_shape_clusters.cs.hlsl",
+    "CRESSimNeo.Physics.ValidateShapeClusters.CS",
+    "CRESSimNeo.Physics.ValidateShapeClusters.PSO",
+    kValidateShapeClustersVars,
+    std::size(kValidateShapeClustersVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftBendConstraints{
