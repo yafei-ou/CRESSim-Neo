@@ -308,7 +308,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     std::uint32_t particleContactMaterialCount, std::uint32_t fluidMaterialCount,
     std::uint32_t softEdgeCount, std::uint32_t softBendCount, std::uint32_t softTetCount,
     std::uint32_t shapeClusterCount, std::uint32_t shapeClusterMemberCount,
-    std::uint32_t particleShapeMembershipIndexCount,
+    std::uint32_t shapeClusterLinkCount, std::uint32_t particleShapeMembershipIndexCount,
     std::uint32_t strandSegmentCount, std::uint32_t strandJointCount,
     std::uint32_t strandDistanceCount, std::uint32_t ballJointCount,
     std::uint32_t sphericalJointCount, std::uint32_t hingeJointCount,
@@ -443,6 +443,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const auto softTetsBefore       = mPersistentSoftTopology.tetsBuffer.RawPtr();
     const auto shapeClustersBefore  = mPersistentSoftTopology.shapeClustersBuffer.RawPtr();
     const auto shapeMembersBefore   = mPersistentSoftTopology.shapeClusterMembersBuffer.RawPtr();
+    const auto shapeLinksBefore     = mPersistentSoftTopology.shapeClusterLinksBuffer.RawPtr();
     const auto particleShapeRangesBefore =
         mPersistentSoftTopology.particleShapeMembershipRangesBuffer.RawPtr();
     const auto particleShapeIndicesBefore =
@@ -544,6 +545,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentSoftTopology.tetsBuffer != nullptr &&
         mPersistentSoftTopology.shapeClustersBuffer != nullptr &&
         mPersistentSoftTopology.shapeClusterMembersBuffer != nullptr &&
+        mPersistentSoftTopology.shapeClusterLinksBuffer != nullptr &&
         mPersistentSoftTopology.particleShapeMembershipRangesBuffer != nullptr &&
         mPersistentSoftTopology.particleShapeMembershipIndicesBuffer != nullptr &&
         mPersistentSoftTopology.membershipShapeClusterIndicesBuffer != nullptr &&
@@ -739,6 +741,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         std::max<std::uint32_t>(shapeClusterCount, 1u);
     const std::uint32_t newShapeClusterMemberCapacity =
         std::max<std::uint32_t>(shapeClusterMemberCount, 1u);
+    const std::uint32_t newShapeClusterLinkCapacity =
+        std::max<std::uint32_t>(shapeClusterLinkCount, 1u);
     const std::uint32_t newParticleShapeMembershipIndexCapacity =
         std::max<std::uint32_t>(particleShapeMembershipIndexCount, 1u);
     const std::uint32_t newStrandSegmentCapacity = std::max<std::uint32_t>(strandSegmentCount, 64u);
@@ -846,6 +850,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSoftBendCapacity >= softBendCount && mSoftTetCapacity >= softTetCount &&
         mShapeClusterCapacity >= newShapeClusterCapacity &&
         mShapeClusterMemberCapacity >= newShapeClusterMemberCapacity &&
+        mShapeClusterLinkCapacity >= newShapeClusterLinkCapacity &&
         mParticleShapeMembershipIndexCapacity >= newParticleShapeMembershipIndexCapacity &&
         mStrandSegmentCapacity >= strandSegmentCount && mStrandJointCapacity >= strandJointCount &&
         mStrandDistanceCapacity >= strandDistanceCount &&
@@ -1225,14 +1230,19 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 mPersistentSoftTopology.tetsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ShapeClusters",
                                 sizeof(ShapeClusterGPU), newShapeClusterCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.shapeClustersBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ShapeClusterMembers",
                                 sizeof(ShapeClusterMemberGPU), newShapeClusterMemberCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.shapeClusterMembersBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ShapeClusterLinks",
+                                sizeof(ShapeClusterLinkGPU), newShapeClusterLinkCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftTopology.shapeClusterLinksBuffer) ||
         !ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.ParticleShapeMembershipRanges",
             sizeof(ParticleShapeMembershipRangeGPU), newSoftParticleCapacity,
@@ -2179,6 +2189,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSoftTetCapacity != newSoftTetCapacity ||
         mShapeClusterCapacity != newShapeClusterCapacity ||
         mShapeClusterMemberCapacity != newShapeClusterMemberCapacity ||
+        mShapeClusterLinkCapacity != newShapeClusterLinkCapacity ||
         mParticleShapeMembershipIndexCapacity != newParticleShapeMembershipIndexCapacity ||
         mStrandSegmentCapacity != newStrandSegmentCapacity ||
         mStrandJointCapacity != newStrandJointCapacity ||
@@ -2240,6 +2251,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     mSoftTetCapacity                           = newSoftTetCapacity;
     mShapeClusterCapacity                      = newShapeClusterCapacity;
     mShapeClusterMemberCapacity                = newShapeClusterMemberCapacity;
+    mShapeClusterLinkCapacity                  = newShapeClusterLinkCapacity;
     mParticleShapeMembershipIndexCapacity      = newParticleShapeMembershipIndexCapacity;
     mStrandSegmentCapacity                     = newStrandSegmentCapacity;
     mStrandJointCapacity                       = newStrandJointCapacity;
@@ -2387,6 +2399,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         softTetsBefore != mPersistentSoftTopology.tetsBuffer.RawPtr() ||
         shapeClustersBefore != mPersistentSoftTopology.shapeClustersBuffer.RawPtr() ||
         shapeMembersBefore != mPersistentSoftTopology.shapeClusterMembersBuffer.RawPtr() ||
+        shapeLinksBefore != mPersistentSoftTopology.shapeClusterLinksBuffer.RawPtr() ||
         particleShapeRangesBefore !=
             mPersistentSoftTopology.particleShapeMembershipRangesBuffer.RawPtr() ||
         particleShapeIndicesBefore !=
@@ -2656,6 +2669,7 @@ void PhysicsSceneGpuState::clearPublishedSceneCounts() noexcept
     mSoftTetCount                 = 0u;
     mShapeClusterCount            = 0u;
     mShapeClusterMemberCount      = 0u;
+    mShapeClusterLinkCount        = 0u;
     mParticleShapeMembershipIndexCount = 0u;
     mStrandSegmentCount           = 0u;
     mStrandJointCount             = 0u;
@@ -2709,6 +2723,7 @@ void PhysicsSceneGpuState::publishSceneCounts(
     mSoftTetCount                 = static_cast<std::uint32_t>(volumeConstraints.size());
     mShapeClusterCount            = static_cast<std::uint32_t>(shapeMatchingData.clusters.size());
     mShapeClusterMemberCount      = static_cast<std::uint32_t>(shapeMatchingData.members.size());
+    mShapeClusterLinkCount        = static_cast<std::uint32_t>(shapeMatchingData.links.size());
     mParticleShapeMembershipIndexCount =
         static_cast<std::uint32_t>(shapeMatchingData.particleMembershipIndices.size());
     mStrandSegmentCount           = static_cast<std::uint32_t>(strandSegments.size());
@@ -3598,6 +3613,11 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
                                        shapeMatchingData.members, 0u,
                                        static_cast<std::uint32_t>(
                                            shapeMatchingData.members.size())) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentSoftTopology.shapeClusterLinksBuffer,
+                                       shapeMatchingData.links, 0u,
+                                       static_cast<std::uint32_t>(
+                                           shapeMatchingData.links.size())) &&
            updateStructuredBufferRange(
                computeContext, mPersistentSoftTopology.particleShapeMembershipRangesBuffer,
                shapeParticleMembershipRanges, 0u, particleCount) &&
@@ -4673,6 +4693,7 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.strandSegmentStatesBuffer = mPersistentSoftTopology.strandSegmentStatesBuffer;
     view.soft.shapeClustersBuffer       = mPersistentSoftTopology.shapeClustersBuffer;
     view.soft.shapeClusterMembersBuffer = mPersistentSoftTopology.shapeClusterMembersBuffer;
+    view.soft.shapeClusterLinksBuffer   = mPersistentSoftTopology.shapeClusterLinksBuffer;
     view.soft.particleShapeMembershipRangesBuffer =
         mPersistentSoftTopology.particleShapeMembershipRangesBuffer;
     view.soft.particleShapeMembershipIndicesBuffer =
@@ -4707,6 +4728,7 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.strandDistanceCount           = mStrandDistanceCount;
     view.soft.shapeClusterCount             = mShapeClusterCount;
     view.soft.shapeClusterMemberCount       = mShapeClusterMemberCount;
+    view.soft.shapeClusterLinkCount         = mShapeClusterLinkCount;
     view.soft.particleShapeMembershipIndexCount = mParticleShapeMembershipIndexCount;
     view.soft.suturingPairCount             = mSuturingPairCount;
     view.soft.suturingPathHeaderCount       = mSuturingPathHeaderCount;

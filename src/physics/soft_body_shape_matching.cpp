@@ -584,9 +584,11 @@ SoftBodyShapeMatchingBuildResult buildOverlappingShapeMatchingClusters(
     }
 
     const std::uint32_t targetSize =
-        std::clamp(desc.targetClusterSize, 4u, std::max<std::uint32_t>(4u, particleCount));
+        std::clamp(desc.targetClusterSize, 4u,
+                   std::min<std::uint32_t>(16u, std::max<std::uint32_t>(4u, particleCount)));
     const std::uint32_t maximumSize =
-        std::clamp(desc.maximumClusterSize, targetSize, std::max(targetSize, particleCount));
+        std::clamp(desc.maximumClusterSize, targetSize,
+                   std::min<std::uint32_t>(16u, std::max(targetSize, particleCount)));
     const std::uint32_t minimumMemberships =
         std::max<std::uint32_t>(1u, desc.minimumMembershipsPerParticle);
     const std::uint32_t maxAttempts = particleCount * minimumMemberships * 8u + particleCount;

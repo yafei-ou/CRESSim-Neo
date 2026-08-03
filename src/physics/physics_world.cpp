@@ -735,6 +735,57 @@ bool equalSoftBodyShapeMatchingDesc(const SoftBodyShapeMatchingDesc &lhs,
            lhs.maximumCorrection == rhs.maximumCorrection;
 }
 
+bool clusterLinksConnectMemberMask(const std::uint32_t memberCount,
+                                   const std::vector<ShapeClusterLinkGPU> &links,
+                                   const std::uint32_t linkOffset,
+                                   const std::uint32_t linkCount) noexcept
+{
+    if (memberCount == 0u || memberCount > 16u)
+    {
+        return false;
+    }
+    if (memberCount == 1u)
+    {
+        return true;
+    }
+
+    std::array<std::uint32_t, 16u> adjacency{};
+    const std::uint32_t linkEnd =
+        std::min<std::uint32_t>(linkOffset + linkCount, static_cast<std::uint32_t>(links.size()));
+    for (std::uint32_t linkIndex = linkOffset; linkIndex < linkEnd; ++linkIndex)
+    {
+        const ShapeClusterLinkGPU &link = links[linkIndex];
+        if (link.localParticleA >= memberCount || link.localParticleB >= memberCount ||
+            link.localParticleA == link.localParticleB)
+        {
+            continue;
+        }
+        adjacency[link.localParticleA] |= 1u << link.localParticleB;
+        adjacency[link.localParticleB] |= 1u << link.localParticleA;
+    }
+
+    std::uint32_t visited = 1u;
+    for (std::uint32_t iteration = 0u; iteration < memberCount; ++iteration)
+    {
+        std::uint32_t expanded = visited;
+        for (std::uint32_t localIndex = 0u; localIndex < memberCount; ++localIndex)
+        {
+            if ((visited & (1u << localIndex)) != 0u)
+            {
+                expanded |= adjacency[localIndex];
+            }
+        }
+        if (expanded == visited)
+        {
+            break;
+        }
+        visited = expanded;
+    }
+
+    const std::uint32_t requiredMask = (1u << memberCount) - 1u;
+    return (visited & requiredMask) == requiredMask;
+}
+
 } // namespace
 
 struct PhysicsWorld::Impl
@@ -4156,9 +4207,10 @@ void PhysicsWorld::Impl::normalizeSoftBodyState(SoftBodyState &state) noexcept
     state.edgeCutResistance    = std::max(state.edgeCutResistance, 1.0e-6f);
     state.volumeCompliance     = std::max(state.volumeCompliance, 0.0f);
     state.shapeMatching.targetClusterSize =
-        std::max<std::uint32_t>(4u, state.shapeMatching.targetClusterSize);
+        std::clamp(state.shapeMatching.targetClusterSize, 4u, 16u);
     state.shapeMatching.maximumClusterSize =
-        std::max(state.shapeMatching.targetClusterSize, state.shapeMatching.maximumClusterSize);
+        std::clamp(state.shapeMatching.maximumClusterSize,
+                   state.shapeMatching.targetClusterSize, 16u);
     state.shapeMatching.minimumMembershipsPerParticle =
         std::max<std::uint32_t>(1u, state.shapeMatching.minimumMembershipsPerParticle);
     state.shapeMatching.solverIterations =
@@ -4478,17 +4530,90 @@ void PhysicsWorld::Impl::appendShapeMatchingDataForSoftBody(
         topology.restPositions, topology.shapeMatchingClusters, softBody.shapeMatching,
         softBody.particleOffset, particleEnd);
 
+    if (softBody.shapeMatching.cutAware)
+    {
+        for (ShapeClusterGPU &cluster : bodyData.clusters)
+        {
+            cluster.linkOffset = static_cast<std::uint32_t>(bodyData.links.size());
+            cluster.linkCount  = 0u;
+
+            std::array<std::uint32_t, 16u> localParticleSlots{};
+            localParticleSlots.fill(std::numeric_limits<std::uint32_t>::max());
+            for (std::uint32_t localMember = 0u; localMember < cluster.memberCount &&
+                                                localMember < localParticleSlots.size();
+                 ++localMember)
+            {
+                const std::uint32_t memberIndex = cluster.memberOffset + localMember;
+                if (memberIndex >= bodyData.members.size())
+                {
+                    continue;
+                }
+                const std::uint32_t globalParticle = bodyData.members[memberIndex].particleIndex;
+                if (globalParticle < softBody.particleOffset || globalParticle >= particleEnd)
+                {
+                    continue;
+                }
+                localParticleSlots[localMember] = globalParticle - softBody.particleOffset;
+            }
+
+            for (std::uint32_t edgeIndex = 0u;
+                 edgeIndex < static_cast<std::uint32_t>(topology.edges.size()); ++edgeIndex)
+            {
+                const auto &edge = topology.edges[edgeIndex];
+                std::uint32_t localA = std::numeric_limits<std::uint32_t>::max();
+                std::uint32_t localB = std::numeric_limits<std::uint32_t>::max();
+                for (std::uint32_t localMember = 0u; localMember < cluster.memberCount &&
+                                                    localMember < localParticleSlots.size();
+                     ++localMember)
+                {
+                    if (localParticleSlots[localMember] == edge[0])
+                    {
+                        localA = localMember;
+                    }
+                    else if (localParticleSlots[localMember] == edge[1])
+                    {
+                        localB = localMember;
+                    }
+                }
+
+                if (localA == std::numeric_limits<std::uint32_t>::max() ||
+                    localB == std::numeric_limits<std::uint32_t>::max())
+                {
+                    continue;
+                }
+
+                ShapeClusterLinkGPU link{};
+                link.softEdgeIndex  = softBody.edgeOffset + edgeIndex;
+                link.localParticleA = localA;
+                link.localParticleB = localB;
+                bodyData.links.push_back(link);
+            }
+
+            cluster.linkCount =
+                static_cast<std::uint32_t>(bodyData.links.size()) - cluster.linkOffset;
+            if (!clusterLinksConnectMemberMask(cluster.memberCount, bodyData.links,
+                                               cluster.linkOffset, cluster.linkCount))
+            {
+                cluster.flags &= ~ShapeCluster_Active;
+                cluster.flags |= ShapeCluster_Degenerate;
+            }
+        }
+    }
+
     data.solverIterations =
         std::max(data.solverIterations, std::max<std::uint32_t>(1u, bodyData.solverIterations));
     data.maximumCorrection = std::max(data.maximumCorrection, bodyData.maximumCorrection);
     const std::uint32_t clusterBase = static_cast<std::uint32_t>(data.clusters.size());
     const std::uint32_t memberBase = static_cast<std::uint32_t>(data.members.size());
+    const std::uint32_t linkBase = static_cast<std::uint32_t>(data.links.size());
     for (ShapeClusterGPU cluster : bodyData.clusters)
     {
         cluster.memberOffset += memberBase;
+        cluster.linkOffset += linkBase;
         data.clusters.push_back(cluster);
     }
     data.members.insert(data.members.end(), bodyData.members.begin(), bodyData.members.end());
+    data.links.insert(data.links.end(), bodyData.links.begin(), bodyData.links.end());
     data.membershipClusterIndices.reserve(data.membershipClusterIndices.size() +
                                           bodyData.membershipClusterIndices.size());
     for (const std::uint32_t localClusterIndex : bodyData.membershipClusterIndices)

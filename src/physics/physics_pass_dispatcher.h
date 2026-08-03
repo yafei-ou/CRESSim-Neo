@@ -151,6 +151,10 @@ public:
                               const PhysicsSceneGpuState &sceneState,
                               std::uint32_t softEdgeCount,
                               const GpuParticleDispatchConstants &constants);
+    bool validateShapeClusters(Diligent::IDeviceContext *computeContext,
+                               const PhysicsSceneGpuState &sceneState,
+                               std::uint32_t shapeClusterCount,
+                               const GpuParticleDispatchConstants &constants);
     bool solveSoftEdgeConstraints(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
                                   std::uint32_t softEdgeCount,
@@ -522,6 +526,7 @@ private:
     gpu::GpuComputePass mSolveSuturingNodePathConstraintsPass;
     gpu::GpuComputePass mApplySoftCuttingToolPass;
     gpu::GpuComputePass mEvaluateSoftFracturePass;
+    gpu::GpuComputePass mValidateShapeClustersPass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
     gpu::GpuComputePass mSolveSoftBendConstraintsPass;
     gpu::GpuComputePass mSolveSoftTetConstraintsPass;

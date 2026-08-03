@@ -188,6 +188,7 @@ struct PhysicsGpuSoftSceneView
         nullptr; ///< GPU buffer of StrandSegmentState dynamic orientations.
     Diligent::IBuffer *shapeClustersBuffer = nullptr; ///< GPU buffer of shape clusters.
     Diligent::IBuffer *shapeClusterMembersBuffer = nullptr; ///< GPU buffer of cluster members.
+    Diligent::IBuffer *shapeClusterLinksBuffer = nullptr; ///< GPU buffer of cluster edge links.
     Diligent::IBuffer *particleShapeMembershipRangesBuffer =
         nullptr; ///< GPU buffer of per-particle membership ranges.
     Diligent::IBuffer *particleShapeMembershipIndicesBuffer =
@@ -230,6 +231,7 @@ struct PhysicsGpuSoftSceneView
     std::uint32_t strandDistanceCount     = 0; ///< Number of strand distance constraints.
     std::uint32_t shapeClusterCount = 0; ///< Number of shape-matching clusters.
     std::uint32_t shapeClusterMemberCount = 0; ///< Number of cluster members.
+    std::uint32_t shapeClusterLinkCount = 0; ///< Number of cluster edge links.
     std::uint32_t particleShapeMembershipIndexCount = 0; ///< Number of membership indices.
     std::uint32_t suturingPairCount       = 0; ///< Number of active suturing interaction pairs.
     std::uint32_t suturingPathHeaderCount = 0; ///< Number of active suturing path headers.
