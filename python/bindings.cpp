@@ -209,8 +209,10 @@ using cressim::neo::physics::SoftBodySourceDesc;
 using cressim::neo::physics::SoftBodySourceKind;
 using cressim::neo::physics::SoftBodyTetGenSource;
 using cressim::neo::physics::SoftBodyTetMeshSource;
+using cressim::neo::physics::SoftThermalMaterialDesc;
 using cressim::neo::physics::SphericalJointState;
 using cressim::neo::physics::StrandMaterialDesc;
+using cressim::neo::physics::ThermalDamageModel;
 #ifdef CRESSIM_NEO_PYTHON_HAS_VIEWER
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerAppDesc;
@@ -824,6 +826,10 @@ PYBIND11_MODULE(_cressim_neo, m)
     py::enum_<FluidSourceKind>(m, "FluidSourceKind")
         .value("RegularGrid", FluidSourceKind::RegularGrid);
 
+    py::enum_<ThermalDamageModel>(m, "ThermalDamageModel")
+        .value("ThresholdRate", ThermalDamageModel::ThresholdRate)
+        .value("Arrhenius", ThermalDamageModel::Arrhenius);
+
     py::enum_<ParticleKind>(m, "ParticleKind")
         .value("SoftSolid", ParticleKind::SoftSolid)
         .value("Fluid", ParticleKind::Fluid);
@@ -1369,9 +1375,67 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("kind", &FluidSourceDesc::kind)
         .def_readwrite("regular_grid", &FluidSourceDesc::regularGrid);
 
+    py::class_<SoftThermalMaterialDesc>(m, "SoftThermalMaterialDesc")
+        .def(py::init<>())
+        .def_readwrite("body_temperature_c", &SoftThermalMaterialDesc::bodyTemperatureC)
+        .def_readwrite("maximum_temperature_c", &SoftThermalMaterialDesc::maximumTemperatureC)
+        .def_readwrite("meters_per_world_unit", &SoftThermalMaterialDesc::metersPerWorldUnit)
+        .def_readwrite("density_kg_per_m3", &SoftThermalMaterialDesc::densityKgPerM3)
+        .def_readwrite("specific_heat_j_per_kg_k",
+                       &SoftThermalMaterialDesc::specificHeatJPerKgK)
+        .def_readwrite("thermal_conductivity_w_per_m_k",
+                       &SoftThermalMaterialDesc::thermalConductivityWPerMK)
+        .def_readwrite("blood_density_kg_per_m3",
+                       &SoftThermalMaterialDesc::bloodDensityKgPerM3)
+        .def_readwrite("blood_specific_heat_j_per_kg_k",
+                       &SoftThermalMaterialDesc::bloodSpecificHeatJPerKgK)
+        .def_readwrite("blood_perfusion_per_second",
+                       &SoftThermalMaterialDesc::bloodPerfusionPerSecond)
+        .def_readwrite("blood_temperature_c", &SoftThermalMaterialDesc::bloodTemperatureC)
+        .def_readwrite("metabolic_heat_w_per_m3", &SoftThermalMaterialDesc::metabolicHeatWPerM3)
+        .def_readwrite("log_arrhenius_a", &SoftThermalMaterialDesc::logArrheniusA)
+        .def_readwrite("activation_energy_j_per_mol",
+                       &SoftThermalMaterialDesc::activationEnergyJPerMol)
+        .def_readwrite("coagulation_omega_start",
+                       &SoftThermalMaterialDesc::coagulationOmegaStart)
+        .def_readwrite("irreversible_damage_omega",
+                       &SoftThermalMaterialDesc::irreversibleDamageOmega)
+        .def_readwrite("thermal_cut_omega", &SoftThermalMaterialDesc::thermalCutOmega)
+        .def_readwrite("damage_model", &SoftThermalMaterialDesc::damageModel)
+        .def_readwrite("damage_start_temperature_c",
+                       &SoftThermalMaterialDesc::damageStartTemperatureC)
+        .def_readwrite("damage_full_temperature_c",
+                       &SoftThermalMaterialDesc::damageFullTemperatureC)
+        .def_readwrite("damage_rate", &SoftThermalMaterialDesc::damageRate)
+        .def_readwrite("evaporation_start_temperature_c",
+                       &SoftThermalMaterialDesc::evaporationStartTemperatureC)
+        .def_readwrite("evaporation_transition_width_c",
+                       &SoftThermalMaterialDesc::evaporationTransitionWidthC)
+        .def_readwrite("evaporation_rate", &SoftThermalMaterialDesc::evaporationRate)
+        .def_readwrite("char_start_temperature_c",
+                       &SoftThermalMaterialDesc::charStartTemperatureC)
+        .def_readwrite("char_full_temperature_c",
+                       &SoftThermalMaterialDesc::charFullTemperatureC)
+        .def_readwrite("char_rate", &SoftThermalMaterialDesc::charRate)
+        .def_readwrite("maximum_shrinkage", &SoftThermalMaterialDesc::maximumShrinkage)
+        .def_readwrite("shrinkage_rate", &SoftThermalMaterialDesc::shrinkageRate)
+        .def_readwrite("shrink_damage_start", &SoftThermalMaterialDesc::shrinkDamageStart)
+        .def_readwrite("shrink_damage_full", &SoftThermalMaterialDesc::shrinkDamageFull)
+        .def_readwrite("minimum_failure_threshold_scale",
+                       &SoftThermalMaterialDesc::minimumFailureThresholdScale)
+        .def_readwrite("minimum_cut_resistance_scale",
+                       &SoftThermalMaterialDesc::minimumCutResistanceScale)
+        .def_readwrite("thermal_cut_damage_threshold",
+                       &SoftThermalMaterialDesc::thermalCutDamageThreshold)
+        .def_readwrite("thermal_cut_water_threshold",
+                       &SoftThermalMaterialDesc::thermalCutWaterThreshold)
+        .def_readwrite("maximum_compliance_multiplier",
+                       &SoftThermalMaterialDesc::maximumComplianceMultiplier);
+
     py::class_<SoftBodyMaterialDesc>(m, "SoftBodyMaterialDesc")
         .def(py::init<>())
-        .def_readwrite("contact", &SoftBodyMaterialDesc::contact);
+        .def_readwrite("contact", &SoftBodyMaterialDesc::contact)
+        .def_readwrite("thermal", &SoftBodyMaterialDesc::thermal);
 
     py::class_<StrandMaterialDesc>(m, "StrandMaterialDesc")
         .def(py::init<>())

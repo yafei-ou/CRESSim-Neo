@@ -326,6 +326,29 @@ void normalizeSoftThermalMaterial(SoftThermalMaterialDesc &material) noexcept
                                                material.bodyTemperatureC);
     material.diffusionRate           = std::max(material.diffusionRate, 0.0f);
     material.coolingRate             = std::max(material.coolingRate, 0.0f);
+    material.metersPerWorldUnit      = std::max(material.metersPerWorldUnit, 1.0e-6f);
+    material.densityKgPerM3          = std::max(material.densityKgPerM3, 1.0e-6f);
+    material.specificHeatJPerKgK     = std::max(material.specificHeatJPerKgK, 1.0e-6f);
+    material.thermalConductivityWPerMK =
+        std::max(material.thermalConductivityWPerMK, 0.0f);
+    material.bloodDensityKgPerM3      = std::max(material.bloodDensityKgPerM3, 0.0f);
+    material.bloodSpecificHeatJPerKgK = std::max(material.bloodSpecificHeatJPerKgK, 0.0f);
+    material.bloodPerfusionPerSecond =
+        std::max(material.bloodPerfusionPerSecond, 0.0f);
+    material.bloodTemperatureC =
+        std::max(material.bloodTemperatureC, -273.15f);
+    material.logArrheniusA = std::isfinite(material.logArrheniusA)
+                                 ? material.logArrheniusA
+                                 : 0.0f;
+    material.activationEnergyJPerMol =
+        std::max(material.activationEnergyJPerMol, 0.0f);
+    material.coagulationOmegaStart =
+        std::max(material.coagulationOmegaStart, 0.0f);
+    material.irreversibleDamageOmega =
+        std::max(material.irreversibleDamageOmega,
+                 material.coagulationOmegaStart);
+    material.thermalCutOmega =
+        std::max(material.thermalCutOmega, material.irreversibleDamageOmega);
     material.damageStartTemperatureC = std::max(material.damageStartTemperatureC,
                                                material.bodyTemperatureC);
     material.damageFullTemperatureC =
@@ -3408,6 +3431,22 @@ void PhysicsWorld::setElectrocauteryTool(const ElectrocauteryToolGPU &tool) noex
     normalized.heatingRateCPerSecond = std::max(normalized.heatingRateCPerSecond, 0.0f);
     normalized.ablationInfluenceThreshold =
         std::clamp(normalized.ablationInfluenceThreshold, 0.0f, 1.0f);
+    auto normalizeModeParams =
+        [fallbackRadius = normalized.heatRadius](ElectrocauteryToolGPU::ModeThermalParams &params)
+    {
+        params.powerDensity = std::max(params.powerDensity, 0.0f);
+        params.heatingRadius =
+            params.heatingRadius > 0.0f ? params.heatingRadius : fallbackRadius;
+        params.falloffExponent = std::max(params.falloffExponent, 1.0e-5f);
+        params.thermalCutEnabled = params.thermalCutEnabled != 0u ? 1u : 0u;
+        params.shrinkageScale = std::max(params.shrinkageScale, 0.0f);
+        params.charScale = std::max(params.charScale, 0.0f);
+        params.waterLossScale = std::max(params.waterLossScale, 0.0f);
+    };
+    normalizeModeParams(normalized.cutMode);
+    normalizeModeParams(normalized.coagulationMode);
+    normalizeModeParams(normalized.blendMode);
+    normalized.coagulationMode.thermalCutEnabled = 0u;
     if (normalized.mode == static_cast<std::uint32_t>(ElectrocauteryToolMode::Disabled))
     {
         normalized.query.enabled = 0u;

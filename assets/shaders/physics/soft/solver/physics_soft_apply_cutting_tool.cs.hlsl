@@ -140,6 +140,30 @@ bool edgeIntersectsCuttingTool(float3 positionA, float3 positionB)
     return toolDistance <= cuttingToolRadius;
 }
 
+bool electrocauteryCuttingModeActive()
+{
+    return electrocauteryToolEnabled != 0u &&
+           electrocauteryToolMode == kElectrocauteryToolModeCut &&
+           electrocauteryCutThermalCutEnabled != 0u;
+}
+
+void severEdge(uint edgeIndex, inout GpuSoftEdge edge, bool thermalCut,
+               inout uint ignoredCounterValue)
+{
+    InterlockedAdd(CRESSIM_SB_REF(g_SoftEdgeToolCounters, kNewlyCutCounter),
+                   1u, ignoredCounterValue);
+    uint finalFlags = (edge.flags | kSoftEdgeCutFlag | kSoftEdgeDisabledFlag) &
+                      ~kSoftEdgeActiveFlag &
+                      ~kSoftEdgeThermallySeverableFlag;
+    if (thermalCut)
+    {
+        finalFlags |= kSoftEdgeThermalCutFlag;
+    }
+    edge.flags = finalFlags;
+    CRESSIM_SB_STORE(g_SoftEdges, edgeIndex, edge);
+    CRESSIM_SB_STORE(g_SoftEdgeLambdas, edgeIndex, 0.0);
+}
+
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -165,6 +189,15 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
+    if ((edge.flags & kSoftEdgeThermallySeverableFlag) != 0u &&
+        electrocauteryCuttingModeActive())
+    {
+        InterlockedAdd(CRESSIM_SB_REF(g_SoftEdgeToolCounters, kToolCandidateCounter),
+                       1u, ignoredCounterValue);
+        severEdge(edgeIndex, edge, true, ignoredCounterValue);
+        return;
+    }
+
     const bool toolEnabled = cuttingToolEnabled != 0u &&
                              (cuttingToolStrength > 0.0 || cuttingToolInstantCut != 0u);
     if (toolEnabled)
@@ -180,12 +213,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                 max(edge.cutResistance * cuttingToolCutResistanceScale, kEpsilon);
             if (cuttingToolInstantCut != 0u || edge.damage >= cutResistance)
             {
-                InterlockedAdd(CRESSIM_SB_REF(g_SoftEdgeToolCounters, kNewlyCutCounter),
-                               1u, ignoredCounterValue);
-                edge.flags = (edge.flags | kSoftEdgeCutFlag | kSoftEdgeDisabledFlag) &
-                             ~kSoftEdgeActiveFlag;
-                CRESSIM_SB_STORE(g_SoftEdges, edgeIndex, edge);
-                CRESSIM_SB_STORE(g_SoftEdgeLambdas, edgeIndex, 0.0);
+                severEdge(edgeIndex, edge, false, ignoredCounterValue);
                 return;
             }
         }

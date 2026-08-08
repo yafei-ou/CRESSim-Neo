@@ -357,10 +357,24 @@ struct SoftThermalMaterialDesc
     float maximumTemperatureC           = 250.0f;
     float diffusionRate                 = 0.25f;
     float coolingRate                   = 0.02f;
+    float metersPerWorldUnit            = 1.0f;
+    float densityKgPerM3                = 1060.0f;
+    float specificHeatJPerKgK           = 3600.0f;
+    float thermalConductivityWPerMK     = 0.5f;
+    float bloodDensityKgPerM3           = 1060.0f;
+    float bloodSpecificHeatJPerKgK      = 3617.0f;
+    float bloodPerfusionPerSecond       = 0.0f;
+    float bloodTemperatureC             = 37.0f;
+    float metabolicHeatWPerM3           = 0.0f;
+    float logArrheniusA                 = 226.79f;
+    float activationEnergyJPerMol       = 6.28e5f;
+    float coagulationOmegaStart         = 0.53f;
+    float irreversibleDamageOmega       = 1.0f;
+    float thermalCutOmega               = 1.9f;
     float damageStartTemperatureC       = 45.0f;
     float damageFullTemperatureC        = 100.0f;
     float damageRate                    = 1.0f;
-    ThermalDamageModel damageModel      = ThermalDamageModel::ThresholdRate;
+    ThermalDamageModel damageModel      = ThermalDamageModel::Arrhenius;
     float evaporationStartTemperatureC  = 100.0f;
     float evaporationTransitionWidthC   = 10.0f;
     float evaporationRate               = 0.5f;
@@ -380,10 +394,14 @@ struct SoftThermalMaterialDesc
 
 struct alignas(16) SoftParticleThermalStateGPU
 {
-    float temperatureC   = 37.0f;
-    float damage         = 0.0f;
-    float waterFraction  = 1.0f;
-    float charFraction   = 0.0f;
+    float temperatureC        = 37.0f;
+    float arrheniusOmega      = 0.0f;
+    float thermalDamage       = 0.0f;
+    float waterFraction       = 1.0f;
+    float maximumTemperatureC = 37.0f;
+    float charLevel           = 0.0f;
+    float reserved0           = 0.0f;
+    float reserved1           = 0.0f;
 };
 
 struct alignas(16) SoftThermalMaterialGPU
@@ -393,6 +411,26 @@ struct alignas(16) SoftThermalMaterialGPU
     float diffusionRate;
     float coolingRate;
 
+    float metersPerWorldUnit;
+    float densityKgPerM3;
+    float specificHeatJPerKgK;
+    float thermalConductivityWPerMK;
+
+    float bloodDensityKgPerM3;
+    float bloodSpecificHeatJPerKgK;
+    float bloodPerfusionPerSecond;
+    float bloodTemperatureC;
+
+    float metabolicHeatWPerM3;
+    float logArrheniusA;
+    float activationEnergyJPerMol;
+    float coagulationOmegaStart;
+
+    float irreversibleDamageOmega;
+    float thermalCutOmega;
+    float reserved0;
+    float reserved1;
+
     float damageStartTemperatureC;
     float damageFullTemperatureC;
     float damageRate;
@@ -401,12 +439,12 @@ struct alignas(16) SoftThermalMaterialGPU
     float evaporationStartTemperatureC;
     float evaporationTransitionWidthC;
     float evaporationRate;
-    float reserved0;
+    float reserved3;
 
     float charStartTemperatureC;
     float charFullTemperatureC;
     float charRate;
-    float reserved1;
+    float reserved4;
 
     float maximumShrinkage;
     float shrinkageRate;
@@ -419,13 +457,13 @@ struct alignas(16) SoftThermalMaterialGPU
     float thermalCutWaterThreshold;
 
     float maximumComplianceMultiplier;
-    float reserved2;
-    float reserved3;
-    float reserved4;
+    float reserved5;
+    float reserved6;
+    float reserved7;
 };
 
-static_assert(sizeof(SoftParticleThermalStateGPU) == 16u);
-static_assert(sizeof(SoftThermalMaterialGPU) == 112u);
+static_assert(sizeof(SoftParticleThermalStateGPU) == 32u);
+static_assert(sizeof(SoftThermalMaterialGPU) == 176u);
 
 struct SoftBodyMaterialDesc
 {
@@ -481,11 +519,12 @@ static_assert(sizeof(FluidMaterialGpu) == 48u);
 
 enum SoftEdgeFlags : std::uint32_t
 {
-    Edge_Active     = 1u << 0u,
-    Edge_Cut        = 1u << 1u,
-    Edge_Fractured  = 1u << 2u,
-    Edge_Disabled   = 1u << 3u,
-    Edge_ThermalCut = 1u << 4u,
+    Edge_Active             = 1u << 0u,
+    Edge_Cut                = 1u << 1u,
+    Edge_Fractured          = 1u << 2u,
+    Edge_Disabled           = 1u << 3u,
+    Edge_ThermalCut         = 1u << 4u,
+    Edge_ThermallySeverable = 1u << 5u,
 };
 
 enum class CuttingToolShape : std::uint32_t
@@ -573,11 +612,27 @@ struct alignas(16) ElectrocauteryToolGPU
     float heatingRateCPerSecond = 0.0f;
     float ablationInfluenceThreshold = 0.5f;
     float reserved2 = 0.0f;
+
+    struct alignas(16) ModeThermalParams
+    {
+        float powerDensity = 0.0f;
+        float heatingRadius = 0.0f;
+        float falloffExponent = 2.0f;
+        std::uint32_t thermalCutEnabled = 0u;
+        float shrinkageScale = 1.0f;
+        float charScale = 1.0f;
+        float waterLossScale = 1.0f;
+        float reserved1 = 0.0f;
+    };
+
+    ModeThermalParams cutMode{1.6e9f, 0.015f, 3.0f, 1u, 0.30f, 0.60f, 2.5f, 0.0f};
+    ModeThermalParams coagulationMode{7.0e8f, 0.05f, 2.0f, 0u, 1.25f, 1.35f, 1.25f, 0.0f};
+    ModeThermalParams blendMode{7.0e8f, 0.035f, 1.5f, 1u, 0.60f, 1.0f, 1.5f, 0.0f};
 };
 
 static_assert(sizeof(ToolQueryShapeGPU) == 144u);
 static_assert(sizeof(CuttingToolGPU) == 112u);
-static_assert(sizeof(ElectrocauteryToolGPU) == 176u);
+static_assert(sizeof(ElectrocauteryToolGPU) == 272u);
 
 struct SoftEdgeToolCounters
 {

@@ -459,16 +459,27 @@ float4 main(in VSOutput In) : SV_Target
 #endif
 
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+    const float peakTemperatureC = max(In.ThermalState.x, 37.0);
     const float damage = saturate(In.ThermalState.y);
+    const float dryness = saturate(1.0 - In.ThermalState.z);
     const float charLevel = saturate(In.ThermalState.w);
-    const float coagulation = damage * (1.0 - charLevel);
-    const float3 coagulatedTissueColor = float3(0.54, 0.25, 0.16);
+    const float heatHistory = smoothstep(48.0, 115.0, peakTemperatureC);
+    const float blanching = saturate(smoothstep(0.03, 0.38, damage) +
+                                     0.45 * smoothstep(55.0, 85.0, peakTemperatureC));
+    const float coagulation = saturate(smoothstep(0.20, 0.82, damage) +
+                                       0.30 * smoothstep(0.18, 0.70, dryness));
+    const float browning = saturate(smoothstep(0.35, 0.92, dryness) *
+                                    smoothstep(75.0, 145.0, peakTemperatureC) +
+                                    0.35 * heatHistory * damage);
+    const float3 blanchColor = float3(0.86, 0.74, 0.58);
+    const float3 coagulatedTissueColor = float3(0.62, 0.34, 0.20);
+    const float3 dryBrownColor = float3(0.35, 0.19, 0.10);
     const float3 charColor = float3(0.025, 0.018, 0.014);
-    const float charRoughnessIncrease = 0.35;
-    const float3 damagedAlbedo =
-        lerp(baseColor.rgb, coagulatedTissueColor, coagulation);
-    baseColor.rgb = lerp(damagedAlbedo, charColor, charLevel);
-    roughness = saturate(roughness + charLevel * charRoughnessIncrease);
+    float3 thermalAlbedo = lerp(baseColor.rgb, blanchColor, blanching * (1.0 - charLevel));
+    thermalAlbedo = lerp(thermalAlbedo, coagulatedTissueColor, coagulation * (1.0 - charLevel));
+    thermalAlbedo = lerp(thermalAlbedo, dryBrownColor, browning * (1.0 - charLevel));
+    baseColor.rgb = lerp(thermalAlbedo, charColor, charLevel);
+    roughness = saturate(roughness + 0.20 * blanching + 0.28 * dryness + 0.35 * charLevel);
 #endif
 
     PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, In.CameraIndex);

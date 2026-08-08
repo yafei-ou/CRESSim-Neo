@@ -2216,7 +2216,8 @@ bool PhysicsPassDispatcher::diffuseSoftTemperature(
     const PhysicsGpuSceneView sceneView = sceneState.sceneView();
     Diligent::IBuffer *thermalStateRead = sceneState.softThermalStateReadBuffer();
     Diligent::IBuffer *thermalStateWrite = sceneState.softThermalStateWriteBuffer();
-    if (softParticles.owningSoftBodyIndicesBuffer == nullptr ||
+    if (softParticles.positionsInvMassBuffer == nullptr ||
+        softParticles.owningSoftBodyIndicesBuffer == nullptr ||
         sceneView.soft.thermal.thermalMaterialsBuffer == nullptr ||
         sceneView.soft.thermal.particleEdgeRangesBuffer == nullptr ||
         sceneView.soft.thermal.particleIncidentEdgesBuffer == nullptr ||
@@ -2229,6 +2230,9 @@ bool PhysicsPassDispatcher::diffuseSoftTemperature(
     const std::array bindings{
         gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
                               mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass",
+                              softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleOwningSoftBodyIndices",
                               softParticles.owningSoftBodyIndicesBuffer,

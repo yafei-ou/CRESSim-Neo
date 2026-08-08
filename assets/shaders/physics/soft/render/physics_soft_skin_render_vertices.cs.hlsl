@@ -38,10 +38,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         const GpuSoftParticleThermalState particleThermalState =
             CRESSIM_SB_LOAD(g_SoftThermalState, particleId);
         skinnedThermalState +=
-            weight * float4(particleThermalState.temperatureC,
-                            particleThermalState.damage,
+            weight * float4(max(particleThermalState.temperatureC,
+                                particleThermalState.maximumTemperatureC),
+                            particleThermalState.thermalDamage,
                             particleThermalState.waterFraction,
-                            particleThermalState.charFraction);
+                            particleThermalState.charLevel);
     }
 
     CRESSIM_SB_STORE(g_SoftBodyRenderPositionsRW, vertexIndex, float4(skinnedPos, 1.0));

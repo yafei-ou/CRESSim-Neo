@@ -532,6 +532,11 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             !electrocauteryActive && particleConstants.cuttingTool.enabled != 0u &&
             particleConstants.cuttingTool.shape ==
                 static_cast<std::uint32_t>(CuttingToolShape::Blade);
+        const bool electrocauteryThermalCutActive =
+            electrocauteryActive &&
+            particleConstants.electrocauteryTool.mode ==
+                static_cast<std::uint32_t>(ElectrocauteryToolMode::ElectrosurgicalCut) &&
+            particleConstants.electrocauteryTool.cutMode.thermalCutEnabled != 0u;
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
@@ -687,7 +692,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
-        if (mechanicalBladeActive && softEdgeCount > 0u &&
+        if ((mechanicalBladeActive || electrocauteryThermalCutActive) && softEdgeCount > 0u &&
             !mImpl->passDispatcher.applySoftCuttingTool(
                 computeBackend.computeContext, mImpl->sceneState, softEdgeCount,
                 particleConstants))

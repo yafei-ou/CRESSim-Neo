@@ -32,6 +32,7 @@ static const uint kSoftEdgeCutFlag = 1u << 1u;
 static const uint kSoftEdgeFracturedFlag = 1u << 2u;
 static const uint kSoftEdgeDisabledFlag = 1u << 3u;
 static const uint kSoftEdgeThermalCutFlag = 1u << 4u;
+static const uint kSoftEdgeThermallySeverableFlag = 1u << 5u;
 
 struct GpuParticleBroadPhaseEntry
 {
@@ -135,9 +136,13 @@ struct GpuSoftEdge
 struct GpuSoftParticleThermalState
 {
     float temperatureC;
-    float damage;
+    float arrheniusOmega;
+    float thermalDamage;
     float waterFraction;
-    float charFraction;
+    float maximumTemperatureC;
+    float charLevel;
+    float reserved0;
+    float reserved1;
 };
 
 struct GpuSoftThermalMaterial
@@ -147,6 +152,26 @@ struct GpuSoftThermalMaterial
     float diffusionRate;
     float coolingRate;
 
+    float metersPerWorldUnit;
+    float densityKgPerM3;
+    float specificHeatJPerKgK;
+    float thermalConductivityWPerMK;
+
+    float bloodDensityKgPerM3;
+    float bloodSpecificHeatJPerKgK;
+    float bloodPerfusionPerSecond;
+    float bloodTemperatureC;
+
+    float metabolicHeatWPerM3;
+    float logArrheniusA;
+    float activationEnergyJPerMol;
+    float coagulationOmegaStart;
+
+    float irreversibleDamageOmega;
+    float thermalCutOmega;
+    float reserved0;
+    float reserved1;
+
     float damageStartTemperatureC;
     float damageFullTemperatureC;
     float damageRate;
@@ -155,12 +180,12 @@ struct GpuSoftThermalMaterial
     float evaporationStartTemperatureC;
     float evaporationTransitionWidthC;
     float evaporationRate;
-    float reserved0;
+    float reserved3;
 
     float charStartTemperatureC;
     float charFullTemperatureC;
     float charRate;
-    float reserved1;
+    float reserved4;
 
     float maximumShrinkage;
     float shrinkageRate;
@@ -173,9 +198,9 @@ struct GpuSoftThermalMaterial
     float thermalCutWaterThreshold;
 
     float maximumComplianceMultiplier;
-    float reserved2;
-    float reserved3;
-    float reserved4;
+    float reserved5;
+    float reserved6;
+    float reserved7;
 };
 
 static const uint kThermalDamageModelThresholdRate = 0u;

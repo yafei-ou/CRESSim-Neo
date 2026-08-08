@@ -100,15 +100,15 @@ struct MeshfreeDebugOptions
     ThermalVisualizationMode thermalVisualizationMode = ThermalVisualizationMode::PbrSurface;
     CuttingToolShape toolShape = CuttingToolShape::Blade;
     std::filesystem::path cloudPath =
-        cressim::neo::examples::helpers::assetPath("physics/fixtures/gallbladder_particles.bin");
+        cressim::neo::examples::helpers::assetPath("physics/fixtures/cube_particles.bin");
     std::filesystem::path surfacePath =
-        cressim::neo::examples::helpers::assetPath("physics/fixtures/Gallbladder.obj");
-    std::uint32_t neighbourCount = 24u;
+        cressim::neo::examples::helpers::assetPath("physics/fixtures/Cube.obj");
+    std::uint32_t neighbourCount = 14u;
     std::uint32_t substeps = 0u;
     std::uint32_t softInternalIterations = 0u;
     std::uint32_t softContactIterations = 0u;
     cressim::neo::physics::SoftBodyShapeMatchingDesc shapeMatching{};
-    float cloudScale = 0.035f;
+    float cloudScale = 0.35f;
     float particleRadius = 0.035f;
     float particleMass = 0.0f;
     float compliance = -1.0f;
@@ -980,7 +980,7 @@ ElectrocauteryDemoState makeElectrocauteryDemoState(
     const Diligent::float3 inward = -state.surfaceNormal;
 
     // 4. SINK IT DEEP: Push the tip past the visual surface so it pierces the large XPBD particles
-    const float deepSink = std::max(rotatedParticleBounds.extent.x * 0.15f, options.particleRadius * 1.5f);
+    const float deepSink = std::max(rotatedParticleBounds.extent.x * 0.2f, options.particleRadius * 0.5f);
     state.contactTip = state.contactTip + inward * deepSink;
 
     state.trocarShaftAxis = Diligent::normalize(state.entryTip - state.contactTip);
@@ -1051,10 +1051,10 @@ ElectrocauteryToolPose makeElectrocauteryToolPose(
         const float t = smooth01(static_cast<float>(phaseElapsed() / kCutPlungeDurationSeconds));
         
         // Sweep downwards AND pull deeply inward through the volume
-        Diligent::float3 plungeOffset = {0.1f, 0.0f, 0.0f}; 
+        Diligent::float3 plungeOffset = {0.2f, 0.1f, 0.0f}; 
         Diligent::float3 plungeTarget = state.contactTip;
         plungeTarget.y = state.groundTipY; 
-        plungeTarget = plungeTarget + plungeOffset - inward * (state.capsuleRadius * 5.0f); // Add a horizontal slicing sweep
+        plungeTarget = plungeTarget + plungeOffset - inward * (state.capsuleRadius * 8.0f); // Add a horizontal slicing sweep
         
         distalTip = lerp3(state.contactTip, plungeTarget, t);
         
@@ -1194,6 +1194,13 @@ ElectrocauteryToolGPU makeElectrocauteryTool(const MeshfreeDebugOptions &options
         tool.ablationRadius = std::max(0.55f * meanParticleSpacing, pose.capsuleRadius * 0.65f);
         tool.heatingRateCPerSecond = 420.0f;
         tool.ablationInfluenceThreshold = 0.22f;
+        tool.cutMode.powerDensity = 1.6e9f;
+        tool.cutMode.heatingRadius = std::max(tool.heatRadius, tool.ablationRadius * 2.2f);
+        tool.cutMode.falloffExponent = 2.4f;
+        tool.cutMode.thermalCutEnabled = 1u;
+        tool.cutMode.shrinkageScale = 0.30f;
+        tool.cutMode.charScale = 0.90f;
+        tool.cutMode.waterLossScale = 3.2f;
         break;
     case ThermalDebugMode::ElectrosurgicalCoagulation:
         tool.mode =
@@ -1203,6 +1210,13 @@ ElectrocauteryToolGPU makeElectrocauteryTool(const MeshfreeDebugOptions &options
         tool.ablationRadius = 0.0f;
         tool.heatingRateCPerSecond = 185.0f;
         tool.ablationInfluenceThreshold = 1.0f;
+        tool.coagulationMode.powerDensity = 7.0e8f;
+        tool.coagulationMode.heatingRadius = tool.heatRadius;
+        tool.coagulationMode.falloffExponent = 1.2f;
+        tool.coagulationMode.thermalCutEnabled = 0u;
+        tool.coagulationMode.shrinkageScale = 1.35f;
+        tool.coagulationMode.charScale = 1.8f;
+        tool.coagulationMode.waterLossScale = 1.45f;
         break;
     case ThermalDebugMode::ElectrosurgicalBlend:
         tool.mode = static_cast<std::uint32_t>(ElectrocauteryToolMode::ElectrosurgicalBlend);
@@ -1211,6 +1225,13 @@ ElectrocauteryToolGPU makeElectrocauteryTool(const MeshfreeDebugOptions &options
         tool.ablationRadius = std::max(0.65f * meanParticleSpacing, pose.capsuleRadius * 0.75f);
         tool.heatingRateCPerSecond = 185.0f;
         tool.ablationInfluenceThreshold = 0.5f;
+        tool.blendMode.powerDensity = 8.2e8f;
+        tool.blendMode.heatingRadius = std::max(tool.heatRadius, tool.ablationRadius * 2.0f);
+        tool.blendMode.falloffExponent = 1.6f;
+        tool.blendMode.thermalCutEnabled = 1u;
+        tool.blendMode.shrinkageScale = 0.65f;
+        tool.blendMode.charScale = 1.1f;
+        tool.blendMode.waterLossScale = 2.0f;
         break;
     case ThermalDebugMode::None:
         break;
@@ -1870,10 +1891,10 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options.common);
-    config.physicsDesc.substeps                    = 6u;
+    config.physicsDesc.substeps                    = 4u;
     config.physicsDesc.defaultIterations           = 16u;
-    config.physicsDesc.softInternalIterations      = 96u;
-    config.physicsDesc.softContactIterations       = 48u;
+    config.physicsDesc.softInternalIterations      = 32u;
+    config.physicsDesc.softContactIterations       = 12u;
     config.physicsDesc.rigidRigidContactIterations = 0u;
     if (options.substeps != 0u)
     {

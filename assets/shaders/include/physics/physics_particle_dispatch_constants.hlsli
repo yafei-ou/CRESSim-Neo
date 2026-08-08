@@ -77,6 +77,33 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     float electrocauteryToolHeatingRateCPerSecond;
     float electrocauteryToolAblationInfluenceThreshold;
     float electrocauteryToolReserved2;
+
+    float electrocauteryCutPowerDensity;
+    float electrocauteryCutHeatingRadius;
+    float electrocauteryCutFalloffExponent;
+    uint electrocauteryCutThermalCutEnabled;
+    float electrocauteryCutShrinkageScale;
+    float electrocauteryCutCharScale;
+    float electrocauteryCutWaterLossScale;
+    float electrocauteryCutReserved1;
+
+    float electrocauteryCoagulationPowerDensity;
+    float electrocauteryCoagulationHeatingRadius;
+    float electrocauteryCoagulationFalloffExponent;
+    uint electrocauteryCoagulationThermalCutEnabled;
+    float electrocauteryCoagulationShrinkageScale;
+    float electrocauteryCoagulationCharScale;
+    float electrocauteryCoagulationWaterLossScale;
+    float electrocauteryCoagulationReserved1;
+
+    float electrocauteryBlendPowerDensity;
+    float electrocauteryBlendHeatingRadius;
+    float electrocauteryBlendFalloffExponent;
+    uint electrocauteryBlendThermalCutEnabled;
+    float electrocauteryBlendShrinkageScale;
+    float electrocauteryBlendCharScale;
+    float electrocauteryBlendWaterLossScale;
+    float electrocauteryBlendReserved1;
 };
 
 static const float kSoftInternalRelaxation = 0.2;

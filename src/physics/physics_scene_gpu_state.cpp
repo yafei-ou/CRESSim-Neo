@@ -24,7 +24,7 @@ constexpr std::uint32_t kNarrowPhaseChunkSize    = 128u;
 constexpr std::uint32_t kSoftBodyBoundsChunkSize = 64u;
 constexpr float kPi                              = 3.14159265358979323846f;
 constexpr SoftParticleThermalStateGPU kInitialSoftParticleThermalState{
-    37.0f, 0.0f, 1.0f, 0.0f};
+    37.0f, 0.0f, 0.0f, 1.0f, 37.0f, 0.0f, 0.0f, 0.0f};
 
 std::uint32_t nextPowerOfTwo(std::uint32_t value) noexcept
 {
@@ -58,6 +58,22 @@ SoftThermalMaterialGPU toSoftThermalMaterialGpu(
         material.maximumTemperatureC,
         material.diffusionRate,
         material.coolingRate,
+        material.metersPerWorldUnit,
+        material.densityKgPerM3,
+        material.specificHeatJPerKgK,
+        material.thermalConductivityWPerMK,
+        material.bloodDensityKgPerM3,
+        material.bloodSpecificHeatJPerKgK,
+        material.bloodPerfusionPerSecond,
+        material.bloodTemperatureC,
+        material.metabolicHeatWPerM3,
+        material.logArrheniusA,
+        material.activationEnergyJPerMol,
+        material.coagulationOmegaStart,
+        material.irreversibleDamageOmega,
+        material.thermalCutOmega,
+        0.0f,
+        0.0f,
         material.damageStartTemperatureC,
         material.damageFullTemperatureC,
         material.damageRate,
@@ -3854,9 +3870,9 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
                std::vector<Diligent::float4> initialRenderThermalState(
                    softRenderData.vertexBindings.size(),
                    Diligent::float4{kInitialSoftParticleThermalState.temperatureC,
-                                    kInitialSoftParticleThermalState.damage,
+                                    kInitialSoftParticleThermalState.thermalDamage,
                                     kInitialSoftParticleThermalState.waterFraction,
-                                    kInitialSoftParticleThermalState.charFraction});
+                                    kInitialSoftParticleThermalState.charLevel});
                return updateStructuredBufferRange(
                    computeContext, mPersistentSoftTopology.softBodyRenderThermalStateBuffer,
                    initialRenderThermalState, 0u,
@@ -4586,9 +4602,9 @@ bool PhysicsSceneGpuState::readbackSoftEdgeDebugStateBlocking(
             const SoftParticleThermalStateGPU &state = thermalStates[particleIndex];
             const float temperature =
                 std::isfinite(state.temperatureC) ? state.temperatureC : 0.0f;
-            const float damage = std::clamp(state.damage, 0.0f, 1.0f);
+            const float damage = std::clamp(state.thermalDamage, 0.0f, 1.0f);
             const float water = std::clamp(state.waterFraction, 0.0f, 1.0f);
-            const float charFraction = std::clamp(state.charFraction, 0.0f, 1.0f);
+            const float charFraction = std::clamp(state.charLevel, 0.0f, 1.0f);
 
             temperatureSum += temperature;
             damageSum += damage;
