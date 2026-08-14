@@ -3,11 +3,18 @@
 Thanks for your interest in contributing to CRESSim-Neo.
 
 Before a contribution can be accepted, CRESSim-Neo must have a signed
-Contributor License Agreement (CLA) on file for every contributor. Download the
-project CLA [`CLA.pdf`](CLA.pdf), sign it, and email the completed agreement
-to the project maintainer [yafei+cressim-neo@yafei.dev](mailto:yafei+cressim-neo@yafei.dev).
-Attach the signed PDF and use the subject `CRESSim-Neo CLA: <GitHub username> <legal name>`.
-The GitHub username must be the account you will use to open pull requests.
+Contributor License Agreement (CLA) on file for every contributor. Choose and
+download the agreement that applies to your contribution:
+
+- [Individual CLA](CLA/CRESSim-Neo-Individual-CLA.pdf) — for contributions
+  made in your individual capacity.
+- [Entity CLA](CLA/CRESSim-Neo-Entity-CLA.pdf) — for contributions made on
+  behalf of a company or other legal entity.
+
+Sign the applicable agreement and email the completed PDF to the project
+maintainer [yafei+cressim-neo@yafei.dev](mailto:yafei+cressim-neo@yafei.dev).
+Use the subject `CRESSim-Neo CLA: <GitHub username> <legal name>`. The GitHub
+username must be the account you will use to open pull requests.
 
 You only need to submit a CLA once. A pull request cannot be merged until the
 maintainer has received the signed agreement.
