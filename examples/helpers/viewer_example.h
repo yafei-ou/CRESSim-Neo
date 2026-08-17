@@ -66,6 +66,23 @@ inline viewer::DebugViewerAppDesc makeViewerDesc(const CommonExampleOptions& opt
     desc.vSync = defaults.vSync;
     desc.maxFrames = options.maxFrames;
     desc.showStats = defaults.showStats;
+    desc.captureVideoPath = options.captureVideoPath;
+    desc.captureFps = options.captureFps;
+    desc.simulationFps = options.simulationFps;
+    desc.captureSwitchIntervalFrames = options.captureSwitchIntervalFrames;
+    if (!desc.captureVideoPath.empty())
+    {
+        desc.windowEnabled = false;
+        desc.windowVisible = false;
+        desc.useFixedTimestep = true;
+        desc.fixedDeltaSeconds = 1.0f / static_cast<float>(desc.simulationFps);
+        if (desc.maxFrames > 0u)
+        {
+            desc.maxFrames = (desc.maxFrames * desc.simulationFps + desc.captureFps - 1u) /
+                             desc.captureFps;
+        }
+        desc.showStats = false;
+    }
     return desc;
 }
 

@@ -11,6 +11,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <stdexcept>
@@ -55,6 +56,8 @@ constexpr const char *kSuturingSkyboxCrossPath =
     "environments/cubemaps/Cubemap/Cubemap_Sky_23-512x512.png";
 constexpr float kGroundCenterY = -1.1f;
 constexpr float kGroundHalfHeight = 0.08f;
+constexpr float kGroundFriction = 0.55f;
+constexpr float kGroundStaticFriction = 0.7f;
 constexpr Diligent::float3 kSoftBodySize = {2.0f, 1.0f, 1.8f};
 constexpr float kSoftBodyParticleRadius = 0.09f;
 
@@ -151,11 +154,24 @@ const char *modeWindowTitle(SuturingExampleMode mode)
     return "CRESSim Neo Suturing Example";
 }
 
+float parseNonNegativeFloat(const std::string &value, const char *optionName)
+{
+    const char *begin = value.c_str();
+    char *end = nullptr;
+    const float parsed = std::strtof(begin, &end);
+    if (end == begin || *end != '\0' || !std::isfinite(parsed) || parsed < 0.0f)
+    {
+        throw std::invalid_argument(std::string("Invalid ") + optionName + ": " + value);
+    }
+    return parsed;
+}
+
 void printUsage(const char *appName)
 {
     cressim::neo::examples::helpers::printUsage(
         appName,
         "  --mode needle|thread|strand  Select suturing demo variant (default: thread).\n"
+        "  --wire-ground-friction MU   Effective wire-ground friction (default: 0).\n"
         "  --debug-particles           Show debug particles instead of mesh presentation.\n",
         false);
 }
@@ -241,6 +257,7 @@ int main(int argc, char **argv)
     CommonExampleOptions options{};
     SuturingExampleMode mode = SuturingExampleMode::NeedleThread;
     bool debugParticles = false;
+    float wireGroundFriction = 0.0f;
 
     try
     {
@@ -254,6 +271,14 @@ int main(int argc, char **argv)
                     throw std::invalid_argument("--mode requires a value.");
                 }
                 mode = parseMode(argv[++i]);
+                continue;
+            }
+            if (arg == "--wire-ground-friction")
+            {
+                wireGroundFriction = parseNonNegativeFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--wire-ground-friction"),
+                    "wire-ground friction");
                 continue;
             }
             if (cressim::neo::examples::helpers::tryParseCommonArgument(
@@ -379,8 +404,8 @@ int main(int argc, char **argv)
     ColliderComponent groundCollider{};
     groundCollider.shapeType = ColliderShapeType::Box;
     groundCollider.shapeParams = {12.0f, kGroundHalfHeight, 12.0f, 0.0f};
-    groundCollider.friction = 0.55f;
-    groundCollider.staticFriction = 0.7f;
+    groundCollider.friction = kGroundFriction;
+    groundCollider.staticFriction = kGroundStaticFriction;
     world.addCollider(groundEntity, groundCollider);
 
     const auto softEntity = world.createEntity();
@@ -557,6 +582,13 @@ int main(int argc, char **argv)
         strand.particleRadius = 0.1f;
         strand.stretchShearCompliance = 0.000001f;
         strand.bendCompliance = 0.005f;
+        // Contact coefficients combine geometrically.  Scale the wire material so
+        // --wire-ground-friction specifies the effective wire/ground coefficient
+        // without changing the ground's contacts with the soft body.
+        strand.material.contact.friction =
+            wireGroundFriction * wireGroundFriction / kGroundFriction;
+        strand.material.contact.staticFriction =
+            wireGroundFriction * wireGroundFriction / kGroundStaticFriction;
         strand.selfCollisionEnabled = false;
         strand.suturingEnabled = false;
         strand.collisionLayer = 0x2u;

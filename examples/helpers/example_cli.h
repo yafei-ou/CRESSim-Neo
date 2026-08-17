@@ -28,6 +28,10 @@ struct CommonExampleOptions
     WindowMode windowMode = WindowMode::Windowed;
     std::uint32_t windowWidth = 0u;
     std::uint32_t windowHeight = 0u;
+    std::string captureVideoPath{};
+    std::uint32_t captureFps = 30u;
+    std::uint32_t simulationFps = 60u;
+    std::uint32_t captureSwitchIntervalFrames = 0u;
 };
 
 inline gpu::GpuBackend parseBackend(const std::string& value)
@@ -176,6 +180,33 @@ inline bool tryParseCommonArgument(int argc, char** argv, int& index,
         return true;
     }
 
+    if (arg == "--capture-video")
+    {
+        options.captureVideoPath = requireOptionValue(argc, argv, index, "--capture-video");
+        return true;
+    }
+
+    if (arg == "--capture-fps")
+    {
+        options.captureFps = parseWindowDimension(
+            requireOptionValue(argc, argv, index, "--capture-fps"), "capture fps");
+        return true;
+    }
+
+    if (arg == "--simulation-fps")
+    {
+        options.simulationFps = parseWindowDimension(
+            requireOptionValue(argc, argv, index, "--simulation-fps"), "simulation fps");
+        return true;
+    }
+
+    if (arg == "--capture-switch-interval")
+    {
+        options.captureSwitchIntervalFrames = parseFrameCount(
+            requireOptionValue(argc, argv, index, "--capture-switch-interval"));
+        return true;
+    }
+
     if (includeEnvs && arg == "--envs")
     {
         options.envCount = parseEnvCount(requireOptionValue(argc, argv, index, "--envs"));
@@ -191,6 +222,8 @@ inline void printUsage(const char* appName, const char* extraUsage, bool include
                       " [--backend vulkan|d3d12|null] [--frames N]",
                       " [--window windowed|windowed-full|full]",
                       " [--window-size WIDTHxHEIGHT]",
+                      " [--capture-video PATH] [--capture-fps FPS] [--simulation-fps FPS]",
+                      " [--capture-switch-interval FRAMES]",
                       includeEnvs ? " [--envs N]" : "", extraUsage != nullptr ? extraUsage : "",
                       "\n");
 }

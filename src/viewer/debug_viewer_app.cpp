@@ -3,6 +3,7 @@
 #include "common/logger.h"
 #include "common/math_utils_runtime.h"
 #include "engine/components.h"
+
 #if defined(__APPLE__)
 #include "viewer/macos_glfw_native_window.h"
 #endif
@@ -19,11 +20,16 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <optional>
 #include <sstream>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace cressim::neo::viewer
 {
@@ -33,6 +39,95 @@ namespace
 
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::TransformComponent;
+
+std::string shellQuote(const std::string &value)
+{
+    std::string quoted{"'"};
+    for (const char character : value)
+    {
+        if (character == '\'') quoted += "'\\\"'\\\"'";
+        else quoted += character;
+    }
+    return quoted + "'";
+}
+
+class FfmpegVideoWriter
+{
+public:
+    bool open(const std::filesystem::path &path, std::uint32_t width, std::uint32_t height,
+              std::uint32_t fps)
+    {
+        std::filesystem::create_directories(path.parent_path());
+        const std::string command = "ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s " +
+            std::to_string(width) + "x" + std::to_string(height) + " -r " +
+            std::to_string(fps) + " -i - -an -c:v libx264 -pix_fmt yuv420p -movflags +faststart " +
+            shellQuote(path.string());
+#if defined(_WIN32)
+        mPipe = _popen(command.c_str(), "wb");
+#else
+        mPipe = popen(command.c_str(), "w");
+#endif
+        return mPipe != nullptr;
+    }
+
+    bool write(const std::vector<std::uint8_t> &rgb)
+    {
+        return mPipe != nullptr && std::fwrite(rgb.data(), 1u, rgb.size(), mPipe) == rgb.size();
+    }
+
+    bool close()
+    {
+        if (mPipe == nullptr) return true;
+#if defined(_WIN32)
+        const int status = _pclose(mPipe);
+#else
+        const int status = pclose(mPipe);
+#endif
+        mPipe = nullptr;
+        return status == 0;
+    }
+
+    ~FfmpegVideoWriter() { (void)close(); }
+
+private:
+    FILE *mPipe = nullptr;
+};
+
+bool readbackToRgb(const gpu::GpuRenderTargetReadbackEvent &event, graphics::ToneMapper toneMapper,
+                   float exposure, std::vector<std::uint8_t> &outRgb)
+{
+    const std::uint32_t bytesPerPixel = event.colorFormat == Diligent::TEX_FORMAT_RGBA16_FLOAT ? 8u : 4u;
+    if (event.colorWidth == 0u || event.colorHeight == 0u ||
+        event.colorRowStrideBytes < event.colorWidth * bytesPerPixel || event.colorBytes.empty()) return false;
+    outRgb.resize(static_cast<std::size_t>(event.colorWidth) * event.colorHeight * 3u);
+    const auto halfToFloat = [](std::uint16_t value) {
+        const std::uint32_t sign = static_cast<std::uint32_t>(value & 0x8000u) << 16u;
+        std::uint32_t exponent = (value >> 10u) & 0x1fu, mantissa = value & 0x03ffu, bits = 0u;
+        if (exponent == 0u) { if (mantissa != 0u) { exponent = 113u; while ((mantissa & 0x400u) == 0u) { mantissa <<= 1u; --exponent; } bits = sign | (exponent << 23u) | ((mantissa & 0x3ffu) << 13u); } else bits = sign; }
+        else if (exponent == 31u) bits = sign | 0x7f800000u | (mantissa << 13u);
+        else bits = sign | ((exponent + 112u) << 23u) | (mantissa << 13u);
+        float result = 0.0f; std::memcpy(&result, &bits, sizeof(result)); return result;
+    };
+    const auto encode = [toneMapper, exposure](float value) {
+        value = std::max(value * exposure, 0.0f);
+        if (toneMapper == graphics::ToneMapper::Reinhard) value /= 1.0f + value;
+        return static_cast<std::uint8_t>(std::round(std::pow(std::clamp(value, 0.0f, 1.0f), 1.0f / 2.2f) * 255.0f));
+    };
+    for (std::uint32_t y = 0u; y < event.colorHeight; ++y) for (std::uint32_t x = 0u; x < event.colorWidth; ++x)
+    {
+        const auto *source = event.colorBytes.data() + static_cast<std::size_t>(y) * event.colorRowStrideBytes;
+        float red, green, blue;
+        if (event.colorFormat == Diligent::TEX_FORMAT_RGBA16_FLOAT) {
+            const auto half = [&](std::size_t offset) { return halfToFloat(static_cast<std::uint16_t>(source[offset]) | (static_cast<std::uint16_t>(source[offset + 1u]) << 8u)); };
+            red = encode(half(8u * x)); green = encode(half(8u * x + 2u)); blue = encode(half(8u * x + 4u));
+        } else if (event.colorFormat == Diligent::TEX_FORMAT_BGRA8_UNORM || event.colorFormat == Diligent::TEX_FORMAT_BGRA8_UNORM_SRGB) {
+            red = source[4u * x + 2u]; green = source[4u * x + 1u]; blue = source[4u * x];
+        } else { red = source[4u * x]; green = source[4u * x + 1u]; blue = source[4u * x + 2u]; }
+        const std::size_t target = (static_cast<std::size_t>(y) * event.colorWidth + x) * 3u;
+        outRgb[target] = static_cast<std::uint8_t>(red); outRgb[target + 1u] = static_cast<std::uint8_t>(green); outRgb[target + 2u] = static_cast<std::uint8_t>(blue);
+    }
+    return true;
+}
 
 enum class PresentedOutputMode
 {
@@ -285,6 +380,13 @@ public:
         mDesc.speedSlowScale   = common::runtime_math::clampPositive(mDesc.speedSlowScale, 0.35f);
         mDesc.fixedDeltaSeconds =
             common::runtime_math::clampPositive(mDesc.fixedDeltaSeconds, 1.0f / 60.0f);
+        mDesc.captureFps = std::max(mDesc.captureFps, 1u);
+        mDesc.simulationFps = std::max(mDesc.simulationFps, 1u);
+        if (!mDesc.captureVideoPath.empty() && mDesc.captureFps > mDesc.simulationFps)
+        {
+            CRESSIM_LOG_ERROR("DebugViewerApp: capture fps cannot exceed simulation fps.\n");
+            return false;
+        }
         mShowStats = mDesc.showStats;
 
         if (mDesc.startFullscreen && mDesc.startFullscreenWindowed)
@@ -495,6 +597,58 @@ public:
             }
         }
 
+        const bool captureEnabled = !mDesc.captureVideoPath.empty();
+        bool captureOk = true;
+        gpu::GpuRenderTargetHandle captureTarget{};
+        FfmpegVideoWriter captureWriter{};
+        std::vector<common::EntityId> captureCameraEntities{};
+        std::size_t captureCameraIndex = 0u;
+        std::uint64_t capturedVideoFrames = 0u;
+        if (captureEnabled)
+        {
+            gpu::GpuDevice *const device = runtime.getGpuDevice();
+            const std::optional<CameraComponent> camera = world.tryGetCamera(presentedCameraEntity);
+            if (device == nullptr || !camera.has_value())
+            {
+                CRESSIM_LOG_ERROR("DebugViewerApp: unable to initialize video capture.\n");
+                return false;
+            }
+            captureCameraEntities = sortedCameraEntities(world);
+            const auto captureCameraIt = std::find(captureCameraEntities.begin(),
+                                                   captureCameraEntities.end(),
+                                                   presentedCameraEntity);
+            if (captureCameraIt != captureCameraEntities.end())
+                captureCameraIndex = static_cast<std::size_t>(
+                    std::distance(captureCameraEntities.begin(), captureCameraIt));
+            gpu::GpuRenderTargetDesc targetDesc{};
+            targetDesc.width = mDesc.width;
+            targetDesc.height = mDesc.height;
+            // Fluid compositing creates array SRVs for the scene target, even
+            // when recording a single camera. Match explicit sensor targets.
+            targetDesc.arraySize = 1u;
+            targetDesc.layeredRendering = true;
+            targetDesc.colorFormat = Diligent::TEX_FORMAT_RGBA16_FLOAT;
+            targetDesc.debugName = "DebugViewerVideoCapture";
+            captureTarget = device->renderTargetSystem().createRenderTarget(targetDesc);
+            if (!device->renderTargetSystem().isValidRenderTarget(captureTarget) ||
+                !captureWriter.open(mDesc.captureVideoPath, mDesc.width, mDesc.height, mDesc.captureFps))
+            {
+                CRESSIM_LOG_ERROR("DebugViewerApp: failed to initialize FFmpeg video capture.\n");
+                if (device->renderTargetSystem().isValidRenderTarget(captureTarget))
+                    device->renderTargetSystem().destroyRenderTarget(captureTarget);
+                return false;
+            }
+            mPresentedCameraOverrides.emplace(
+                presentedCameraEntity,
+                CameraOutputSettings{camera->output, camera->outputWidth, camera->outputHeight});
+            CameraComponent captureCamera = *camera;
+            captureCamera.outputWidth = mDesc.width;
+            captureCamera.outputHeight = mDesc.height;
+            captureCamera.output.mode = gpu::RenderOutputMode::ExplicitSurface;
+            captureCamera.output.binding = {captureTarget, 0u, 1u};
+            world.setCamera(presentedCameraEntity, captureCamera);
+        }
+
         const auto refreshCameraStateFromPresentedEntity = [&](common::EntityId cameraEntity,
                                                                bool captureInitialState) -> bool
         {
@@ -518,6 +672,24 @@ public:
             return false;
         }
 
+        const auto switchCaptureCamera = [&](common::EntityId nextCamera) -> bool
+        {
+            restorePresentedCameraOutput(world, presentedCameraEntity);
+            const std::optional<CameraComponent> next = world.tryGetCamera(nextCamera);
+            if (!next.has_value()) return false;
+            mPresentedCameraOverrides.emplace(
+                nextCamera, CameraOutputSettings{next->output, next->outputWidth, next->outputHeight});
+            CameraComponent captureCamera = *next;
+            captureCamera.outputWidth = mDesc.width;
+            captureCamera.outputHeight = mDesc.height;
+            captureCamera.output.mode = gpu::RenderOutputMode::ExplicitSurface;
+            captureCamera.output.binding = {captureTarget, 0u, 1u};
+            world.setCamera(nextCamera, captureCamera);
+            presentedCameraEntity = nextCamera;
+            return refreshCameraStateFromPresentedEntity(nextCamera, true);
+        };
+
+        std::uint64_t captureFrameAccumulator = 0u;
         while (!mExitRequested.load())
         {
             if (mDesc.windowEnabled && mWindow != nullptr)
@@ -536,6 +708,29 @@ public:
             const float deltaSeconds = computeDeltaSeconds();
             frame.deltaSeconds       = deltaSeconds;
             frame.timeSeconds += static_cast<double>(deltaSeconds);
+
+            bool captureThisFrame = false;
+            if (captureEnabled)
+            {
+                captureFrameAccumulator += mDesc.captureFps;
+                if (captureFrameAccumulator >= mDesc.simulationFps)
+                {
+                    captureFrameAccumulator -= mDesc.simulationFps;
+                    captureThisFrame = true;
+                    if (mDesc.captureSwitchIntervalFrames > 0u && capturedVideoFrames > 0u &&
+                        capturedVideoFrames % mDesc.captureSwitchIntervalFrames == 0u &&
+                        captureCameraEntities.size() > 1u)
+                    {
+                        captureCameraIndex = (captureCameraIndex + 1u) % captureCameraEntities.size();
+                        if (!switchCaptureCamera(captureCameraEntities[captureCameraIndex]))
+                        {
+                            CRESSIM_LOG_ERROR("DebugViewerApp: failed to switch capture camera.\n");
+                            captureOk = false;
+                            break;
+                        }
+                    }
+                }
+            }
 
             if (consumeKeyPress(mDesc.keymap.toggleStats))
             {
@@ -840,7 +1035,43 @@ public:
                 (void)runtime.stepSimulationSensors(frame);
             }
             runtime.stepVisualSensors(frame);
+
+            // A target can be ended more than once in a visual-sensor step: opaque geometry is
+            // rendered first, followed by the fluid composite pass.  Render-target readback
+            // requests are fulfilled on the next endRenderTarget() for that target, so queue the
+            // request only after all visual passes have completed.  runtime.endFrame() then issues
+            // the copy and waits on its fence.
+            gpu::GpuRenderTargetReadbackRequest captureRequest{};
+            if (captureThisFrame)
+            {
+                captureRequest = runtime.getGpuDevice()->renderTargetSystem().requestRenderTargetReadback(
+                    {captureTarget, 0u, 1u});
+                if (captureRequest.id == 0u)
+                {
+                    CRESSIM_LOG_ERROR("DebugViewerApp: failed to queue video frame readback.\n");
+                    captureOk = false;
+                    break;
+                }
+            }
             runtime.endFrame(frame);
+
+            if (captureThisFrame)
+            {
+                gpu::GpuRenderTargetReadbackEvent captureEvent{};
+                std::vector<std::uint8_t> captureRgb;
+                const graphics::RenderFrameOptions captureOptions = runtime.renderFrameOptions();
+                if (!runtime.getGpuDevice()->renderTargetSystem().tryGetRenderTargetReadback(
+                        captureRequest, captureEvent) ||
+                    !readbackToRgb(captureEvent, captureOptions.toneMapper, captureOptions.exposure,
+                                   captureRgb) ||
+                    !captureWriter.write(captureRgb))
+                {
+                    CRESSIM_LOG_ERROR("DebugViewerApp: failed to encode video frame.\n");
+                    captureOk = false;
+                    break;
+                }
+                ++capturedVideoFrames;
+            }
 
             if (callbacks.afterTick)
             {
@@ -875,9 +1106,20 @@ public:
             glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
         restorePresentedCameraOutput(world, outputOverrideCameraEntity);
+        if (captureEnabled)
+        {
+            restorePresentedCameraOutput(world, presentedCameraEntity);
+            if (gpu::GpuDevice *const device = runtime.getGpuDevice(); device != nullptr)
+                device->renderTargetSystem().destroyRenderTarget(captureTarget);
+            if (!captureWriter.close())
+            {
+                CRESSIM_LOG_ERROR("DebugViewerApp: FFmpeg failed while finalizing video capture.\n");
+                captureOk = false;
+            }
+        }
         runtime.setRenderFrameOptions(graphics::RenderFrameOptions{});
         mLookActive = false;
-        return true;
+        return captureOk;
     }
 
     void requestExit()

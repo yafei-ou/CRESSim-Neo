@@ -68,6 +68,14 @@ struct DebugViewerAppDesc
     bool enableDebugParticles         = false;
     std::uint32_t statsIntervalFrames = 120;
 
+    // When set, stream off-screen RGB frames directly to FFmpeg as an MP4.
+    std::string captureVideoPath{};
+    std::uint32_t captureFps = 30;
+    // Simulation cadence during capture. Keep this independent from captureFps.
+    std::uint32_t simulationFps = 60;
+    // Rotate through authored environment cameras every N encoded frames; zero disables it.
+    std::uint32_t captureSwitchIntervalFrames = 0;
+
     DebugViewerKeymap keymap{};
 };
 

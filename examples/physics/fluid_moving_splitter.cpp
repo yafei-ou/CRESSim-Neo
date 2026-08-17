@@ -49,7 +49,7 @@ constexpr float kEnvSpacing               = 22.0f;
 constexpr std::uint32_t kDefaultEnvCount  = 4u;
 constexpr float kFluidParticleSpacing     = 0.18f;
 constexpr float kFluidParticleRadius      = 0.09f;
-constexpr float kDefaultFluidHeight       = 2.8f;
+constexpr float kDefaultFluidHeight       = 5.0f;
 constexpr float kFluidBottomY             = 4.0f;
 constexpr float kContainerHalfWidth       = 3.0f;
 constexpr float kContainerHalfDepth       = 2.35f;
@@ -240,28 +240,28 @@ cressim::neo::physics::FluidMaterialDesc fluidMaterialForEnv(std::uint32_t envIn
     {
     case 0u:
         material.viscosity = 1.0f;
-        material.cohesion = 0.2f;
+        material.cohesion = 1.5f;
         material.gravityScale = 0.85f;
         material.vorticityConfinement = 0.2f;
-        material.surfaceTension = 0.0f;
+        material.surfaceTension = 1.5f;
         break;
     case 1u:
         material.viscosity = 6.5f;
-        material.cohesion = 0.4f;
+        material.cohesion = 1.8f;
         material.gravityScale = 0.65f;
         material.vorticityConfinement = 0.35f;
         material.surfaceTension = 1.0f;
         break;
     case 2u:
         material.viscosity = 2.5f;
-        material.cohesion = 0.8f;
+        material.cohesion = 2.0f;
         material.gravityScale = 0.55f;
         material.vorticityConfinement = 0.1f;
         material.surfaceTension = 2.0f;
         break;
     default:
         material.viscosity = 0.35f;
-        material.cohesion = 1.6f;
+        material.cohesion = 2.5f;
         material.gravityScale = 1.05f;
         material.vorticityConfinement = 0.8f;
         material.surfaceTension = 4.0f;
@@ -416,7 +416,7 @@ int main(int argc, char **argv)
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options.common);
     config.rendererDesc.iblQualityTier = IblQualityTier::Full;
     config.sceneLayout.envCount = options.common.envCount;
-    config.physicsDesc.substeps = 1u;
+    config.physicsDesc.substeps = 2u;
     config.physicsDesc.defaultIterations = 10u;
     config.physicsDesc.fluidIterations = 10u;
     config.physicsDesc.softContactIterations = 0u;
@@ -429,6 +429,8 @@ int main(int argc, char **argv)
     viewerDefaults.vSync = false;
     auto viewerDesc =
         cressim::neo::examples::helpers::makeViewerDesc(options.common, viewerDefaults);
+    // Keep interactive playback deterministic and consistent with video capture.
+    viewerDesc.useFixedTimestep = true;
     viewerDesc.enableDebugParticles = debugParticles;
 
     if (!viewer.initialize(viewerDesc, config))
