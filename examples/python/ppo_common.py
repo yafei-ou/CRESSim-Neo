@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import math
 import time
 from dataclasses import dataclass
@@ -506,7 +507,21 @@ def benchmark_env_stepping(
         _synchronize_device(device)
         elapsed_seconds = max(time.perf_counter() - start_time, 1.0e-8)
     finally:
+        # Do not let output tensors backed by DLPack CUDA imports outlive the
+        # environment runtime.  This benchmark creates several environments
+        # in one Python process, so stale imports otherwise accumulate between
+        # environment counts.
+        observation = None
+        next_observation = None
+        terminated = None
+        truncated = None
+        action = None
+        _synchronize_device(device)
         env.close()
+        del env
+        gc.collect()
+        if device.type == "cuda":
+            torch.cuda.empty_cache()
 
     return StepBenchmarkResult(
         env_count=env_count,
@@ -683,7 +698,17 @@ def benchmark_ppo_training_throughput(
         if start_time is not None:
             elapsed_seconds = max(time.perf_counter() - start_time, 1.0e-8)
     finally:
+        observation = None
+        next_observation = None
+        reward = None
+        terminated = None
+        truncated = None
+        _synchronize_device(device)
         env.close()
+        del env
+        gc.collect()
+        if device.type == "cuda":
+            torch.cuda.empty_cache()
 
     return PPOBenchmarkResult(
         env_count=config.train_env_count,

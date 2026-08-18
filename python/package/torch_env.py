@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import gc
+
 try:
     import torch
 except ImportError as exc:
@@ -94,9 +96,26 @@ class TorchStagedVectorEnvBase:
     def close_runtime(self, runtime: neo.Runtime | None) -> None:
         if runtime is None:
             return
+        # Tensors created through DLPack retain CUDA imports of the runtime's
+        # shared Vulkan buffers.  Drop those tensors before the runtime and its
+        # CUDA interop objects are destroyed; otherwise a later collection can
+        # release an import whose owning Vulkan device no longer exists.
+        try:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+        except RuntimeError:
+            # Preserve close() as best-effort cleanup after a prior CUDA error.
+            pass
+        for attribute_name, value in tuple(vars(self).items()):
+            if isinstance(value, torch.Tensor):
+                setattr(self, attribute_name, None)
+        gc.collect()
         for handle in self._custom_pass_handles:
             if handle.is_valid():
                 runtime.destroy_custom_compute_pass(handle)
+        for handle in self._shared_handles:
+            if handle.is_valid():
+                runtime.destroy_shared_buffer(handle)
         runtime.shutdown()
         self._custom_pass_handles.clear()
         self._shared_handles.clear()
