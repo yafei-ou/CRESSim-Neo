@@ -8,6 +8,7 @@ from sphinx import addnodes
 
 project = "CRESSim-Neo"
 author = "CRESSim-Neo contributors"
+html_title = "CRESSim-Neo Documentation"
 
 extensions = [
     "breathe",
@@ -49,6 +50,11 @@ autodoc_default_options = {
 autosummary_generate = True
 
 html_theme = "pydata_sphinx_theme"
+html_theme_options = {
+    "logo": {
+        "text": "CRESSim-Neo Documentation",
+    },
+}
 html_static_path = []
 
 
