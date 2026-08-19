@@ -1,4 +1,58 @@
-# Batched Environments
+# Scene Model and Batching
+
+## Entities and Components
+
+On the host side, a scene is authored through a unified entity-component world.
+An entity is an ID created in a `World`; components attach the scene data needed
+for rendering, physics, and sensing. A `TransformComponent` provides an
+entity's authored position, orientation, and scale.
+
+```{note}
+“Entity-component” is used descriptively; the implementation is not an ECS.
+```
+
+| C++ | Python |
+| --- | --- |
+| {cpp:func}`World::createEntity <cressim::neo::engine::World::createEntity>` | {py:meth}`World.create_entity <cressim_neo.World.create_entity>` |
+| {cpp:struct}`TransformComponent <cressim::neo::engine::TransformComponent>` | {py:class}`TransformComponent <cressim_neo.TransformComponent>` |
+| {cpp:func}`World::setTransform <cressim::neo::engine::World::setTransform>` | {py:meth}`World.set_transform <cressim_neo.World.set_transform>` |
+
+::::{tab-set}
+
+:::{tab-item} C++
+
+```cpp
+const auto entity = world.createEntity(envIndex);
+
+TransformComponent transform{};
+transform.worldTransform.position = {0.0f, 1.0f, 0.0f};
+world.setTransform(entity, transform);
+```
+
+:::
+
+:::{tab-item} Python
+
+```python
+entity = world.create_entity(env_index=env_index)
+
+transform = neo.TransformComponent()
+transform.world_transform.position = neo.Float3(0.0, 1.0, 0.0)
+world.set_transform(entity, transform)
+```
+
+:::
+
+::::
+
+Entities may also carry mesh renderers, cameras, lights, rigid bodies,
+colliders, soft bodies, fluids, strands, or ultrasound-related components.
+Rendering and sensor components are described in {doc}`rendering-and-sensors`,
+and physics components and constraints are described in
+{doc}`physics-and-constraints`. After physics is stepped, the rendering and
+sensor stages use physics-updated GPU pose state.
+
+## Batched Environments
 
 CRESSim-Neo packs multiple environments into one batched scene. The scene-layout
 descriptor defines the number of environments and per-environment capacities for
@@ -9,7 +63,6 @@ with that environment.
 | C++ | Python |
 | --- | --- |
 | {cpp:struct}`SceneLayoutDesc <cressim::neo::common::SceneLayoutDesc>` | {py:class}`SceneLayoutDesc <cressim_neo.SceneLayoutDesc>` |
-| {cpp:func}`World::createEntity <cressim::neo::engine::World::createEntity>` | {py:meth}`World.create_entity <cressim_neo.World.create_entity>` |
 | {cpp:func}`World::setEntityEnvironment <cressim::neo::engine::World::setEntityEnvironment>` | {py:meth}`World.set_entity_environment <cressim_neo.World.set_entity_environment>` |
 
 For example, the following configures 64 environments, then creates an entity
@@ -55,16 +108,13 @@ entity = world.create_entity(env_index=17)
 
 ::::
 
-On the host side, the scene is authored through a unified entity-component
-world. Entities may carry transforms, mesh renderers, rigid bodies, colliders,
-soft bodies, fluids, strands, cameras, lights, or ultrasound-related
-components. During `prepare()` and `uploadWorld()`, this authored state is
-converted into GPU-resident scene and physics layouts together with mappings
-that preserve entity ownership and environment membership. For renderables,
-cameras, and lights, the runtime allocates fixed-capacity per-environment slots.
-For physics objects, including rigid bodies, colliders, soft bodies, fluids, and
-strands, the runtime stores environment indices and owner-to-buffer mappings
-rather than using the same fixed-slot scheme as rendering.
+During `prepare()` and `uploadWorld()`, authored state is converted into
+GPU-resident scene and physics layouts together with mappings that preserve
+entity ownership and environment membership. For renderables, cameras, and
+lights, the runtime allocates fixed-capacity per-environment slots. For physics
+objects, including rigid bodies, colliders, soft bodies, fluids, and strands,
+the runtime stores environment indices and owner-to-buffer mappings rather than
+using the same fixed-slot scheme as rendering.
 
 ```{figure} ../_static/batched-data-layout.png
 :alt: Batched CRESSim-Neo scene data layout with shared resources and per-environment state.
