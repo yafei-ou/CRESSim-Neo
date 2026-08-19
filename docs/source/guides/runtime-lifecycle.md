@@ -3,6 +3,20 @@
 The engine executes in a staged runtime model with two phases: authoring and
 stepping.
 
+## Startup and Shutdown
+
+Construct a {cpp:struct}`RuntimeConfig <cressim::neo::engine::RuntimeConfig>`
+or {py:class}`RuntimeConfig <cressim_neo.RuntimeConfig>`, then initialize the
+runtime with {cpp:func}`Runtime::initialize <cressim::neo::engine::Runtime::initialize>`
+or {py:meth}`Runtime.initialize <cressim_neo.Runtime.initialize>`. Handle an
+unsuccessful initialization result before authoring a scene.
+
+Call {cpp:func}`Runtime::shutdown <cressim::neo::engine::Runtime::shutdown>`
+or {py:meth}`Runtime.shutdown <cressim_neo.Runtime.shutdown>` when resources
+must be released before the runtime object reaches the end of its lifetime. In
+C++, the `Runtime` destructor calls `shutdown()`, so an explicit call is
+normally unnecessary.
+
 ## Scene Authoring
 
 A scene is configured by registering entities, components, and physics
@@ -10,9 +24,60 @@ constraints through the C++ or Python API. The engine compiles the required HLSL
 shaders, allocates device memory, and generates structural layout mapping
 caches.
 
+Configure the scene layout before initializing the runtime. Each entity is
+created with the environment index to which its simulation and rendering state
+belongs.
+
+| C++ | Python |
+| --- | --- |
+| {cpp:struct}`RuntimeConfig <cressim::neo::engine::RuntimeConfig>` | {py:class}`RuntimeConfig <cressim_neo.RuntimeConfig>` |
+| {cpp:struct}`SceneLayoutDesc <cressim::neo::common::SceneLayoutDesc>` | {py:class}`SceneLayoutDesc <cressim_neo.SceneLayoutDesc>` |
+| {cpp:func}`Runtime::initialize <cressim::neo::engine::Runtime::initialize>` | {py:meth}`Runtime.initialize <cressim_neo.Runtime.initialize>` |
+| {cpp:func}`Runtime::getWorld <cressim::neo::engine::Runtime::getWorld>` | {py:meth}`Runtime.world <cressim_neo.Runtime.world>` |
+| {cpp:func}`World::createEntity <cressim::neo::engine::World::createEntity>` | {py:meth}`World.create_entity <cressim_neo.World.create_entity>` |
+
 The authored world is prepared and uploaded at initialization and whenever
 host-authored scene state changes need to reach GPU resources. It is not
 required for an otherwise unchanged steady-state frame.
+
+| C++ | Python |
+| --- | --- |
+| {cpp:func}`Runtime::prepare <cressim::neo::engine::Runtime::prepare>` | {py:meth}`Runtime.prepare <cressim_neo.Runtime.prepare>` |
+| {cpp:func}`Runtime::uploadWorld <cressim::neo::engine::Runtime::uploadWorld>` | {py:meth}`Runtime.upload_world <cressim_neo.Runtime.upload_world>` |
+
+::::{tab-set}
+
+:::{tab-item} C++
+
+```cpp
+Runtime runtime;
+runtime.initialize(config);
+
+World& world = runtime.getWorld();
+// Register entities, components, constraints, and sensors.
+
+runtime.prepare();
+runtime.uploadWorld();
+```
+
+:::
+
+:::{tab-item} Python
+
+```python
+runtime = neo.Runtime()
+runtime.initialize(config)
+
+world = runtime.world()
+# Register entities, components, constraints, and sensors.
+
+runtime.prepare()
+runtime.upload_world()
+```
+
+:::
+
+::::
 
 ## Frame Stepping
 
@@ -32,38 +97,27 @@ loop:
 5. **Frame finalization** synchronizes the GPU and completes any requested data
    readbacks.
 
+| C++ | Python |
+| --- | --- |
+| {cpp:func}`Runtime::stepPhysics <cressim::neo::engine::Runtime::stepPhysics>` | {py:meth}`Runtime.step_physics <cressim_neo.Runtime.step_physics>` |
+| {cpp:func}`Runtime::stepSimulationSensors <cressim::neo::engine::Runtime::stepSimulationSensors>` | {py:meth}`Runtime.step_simulation_sensors <cressim_neo.Runtime.step_simulation_sensors>` |
+| {cpp:func}`Runtime::stepVisualSensors <cressim::neo::engine::Runtime::stepVisualSensors>` | {py:meth}`Runtime.step_visual_sensors <cressim_neo.Runtime.step_visual_sensors>` |
+| {cpp:func}`Runtime::executeCustomComputePass <cressim::neo::engine::Runtime::executeCustomComputePass>` | {py:meth}`Runtime.execute_custom_compute_pass <cressim_neo.Runtime.execute_custom_compute_pass>` |
+| {cpp:func}`Runtime::endFrame <cressim::neo::engine::Runtime::endFrame>` | {py:meth}`Runtime.end_frame <cressim_neo.Runtime.end_frame>` |
+
 ::::{tab-set}
 
 :::{tab-item} C++
 
 ```cpp
-// One-time authoring
-Runtime runtime;
-runtime.initialize(config);
-
-World& world = runtime.getWorld();
-// Register entities, components, constraints, and sensors.
-
-runtime.prepare();
-runtime.uploadWorld();
-
-// Steady-state frame loop
 while (running) {
-    runtime.prepare();
-    runtime.uploadWorld();
-
     runtime.stepPhysics(frame);
-
-    // Simulated sensors, e.g., ultrasound.
     runtime.stepSimulationSensors(frame);
-
-    // Visual sensors, e.g., color/depth.
     runtime.stepVisualSensors(frame);
 
-    // Optional custom compute pass.
-    runtime.executeCustomComputePass(pass);
+    // Optional: insert custom compute where the task requires it.
+    runtime.executeCustomComputePass(customPass);
 
-    // End-frame synchronize.
     runtime.endFrame(frame);
 }
 ```
@@ -73,33 +127,14 @@ while (running) {
 :::{tab-item} Python
 
 ```python
-# One-time authoring
-runtime = neo.Runtime()
-runtime.initialize(config)
-
-world = runtime.world()
-# Register entities, components, constraints, and sensors.
-
-runtime.prepare()
-runtime.upload_world()
-
-# Steady-state frame loop
 while running:
-    runtime.prepare()
-    runtime.upload_world()
-
     runtime.step_physics(frame)
-
-    # Simulated sensors, e.g., ultrasound.
     runtime.step_simulation_sensors(frame)
-
-    # Visual sensors, e.g., color/depth.
     runtime.step_visual_sensors(frame)
 
-    # Optional custom compute pass.
+    # Optional: insert custom compute where the task requires it.
     runtime.execute_custom_compute_pass(custom_pass)
 
-    # End-frame synchronize.
     runtime.end_frame(frame)
 ```
 
@@ -107,10 +142,8 @@ while running:
 
 ::::
 
-The code follows the execution-pipeline example in the framework figure. For an
-otherwise unchanged scene, omit the repeated `prepare` and upload calls; they
-are needed when host-authored scene changes must be prepared and uploaded.
-
 This design makes synchronization boundaries explicit and allows
 {doc}`custom GPU computations <gpu-integration-and-custom-compute>` to be
 interleaved with simulation in a straightforward manner.
+
+For a complete runnable-style example, see {doc}`../getting-started/first-scene`.
