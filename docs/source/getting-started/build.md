@@ -21,7 +21,6 @@ sudo apt update
 sudo apt install -y \
   build-essential \
   clang \
-  clang++ \
   cmake \
   ninja-build \
   python3-dev \
