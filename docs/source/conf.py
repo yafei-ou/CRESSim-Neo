@@ -13,6 +13,7 @@ html_title = "CRESSim-Neo Documentation"
 extensions = [
     "breathe",
     "myst_parser",
+    "sphinx_design",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
@@ -22,6 +23,7 @@ source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",
 }
+myst_enable_extensions = ["colon_fence"]
 
 python_package_dir = os.environ.get("CRESSIM_NEO_PYTHON_PACKAGE_DIR")
 if not python_package_dir:
