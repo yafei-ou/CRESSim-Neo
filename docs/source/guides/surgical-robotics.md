@@ -21,8 +21,7 @@ suction-irrigator tool interacts with fluid particles inside a deformable
 container, drawing nearby particles toward the tool and removing particles that
 reach the suction region. `UltrasoundScan` is a batched environment in which a
 linear ultrasound probe is moved over deformable tissue to center a target dark
-area in the ultrasound image. The sensor model is described in
-{doc}`rendering-and-sensors`.
+area in the ultrasound image.
 
 ```{figure} ../_static/tissue-retract.png
 :alt: TissueRetract surgical robotics task.
