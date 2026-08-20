@@ -121,6 +121,10 @@ Useful optional CMake switches are:
 - `-DCRESSIM_NEO_ENABLE_CUDA_INTEROP=ON` — require and enable CUDAToolkit.
 - `-DCRESSIM_NEO_ENABLE_ULTRASOUND=ON` — enable CRESSim-Ultrasound.  This also
   requires CUDA interop and a working CUDA compiler.
+- `-DCRESSIM_NEO_CUDA_RUNTIME_PROVIDER=SYSTEM` — use the system CUDA runtime
+  when a Python CUDA build is imported. This is the Arch Linux package/source
+  build setting. `AUTO` is the local-development default; `MANAGED` is reserved
+  for the published CUDA 12.6 wheel lane.
 - `-DCRESSIM_NEO_DXC_PROVIDER=SYSTEM` — use DXC found through the local SDKs
   instead of the pinned runtime. This is intended only for local development.
 - `-DCRESSIM_NEO_DXC_PROVIDER=OFF` — do not provision DXC. Vulkan falls back
@@ -185,11 +189,70 @@ parallelism when needed:
 CMAKE_BUILD_PARALLEL_LEVEL=4 python -m pip wheel --no-deps --wheel-dir dist .
 ```
 
-The current package requires NumPy.  PyTorch and Gymnasium are optional:
+The default wheel is CPU-only and requires NumPy. Gymnasium is optional:
 
 ```bash
-python -m pip install 'cressim-neo[torch,gymnasium]'
+python -m pip install 'cressim-neo[gymnasium]'
 ```
+
+## Linux CUDA and PyTorch
+
+CUDA Python packages are distributed in explicit CUDA-major lanes. The first
+managed lane is CUDA 12.6 (`cu126`) and includes CUDA interop and
+CRESSim-Ultrasound. It does not bundle NVIDIA libraries: it preloads the
+matching runtime from the active environment before importing the native
+extension. This prevents system CUDA from being selected accidentally when
+PyTorch uses its pip-installed NVIDIA packages.
+
+### Ubuntu 22.04+ managed environment
+
+Use Conda or micromamba for environment isolation and the official PyTorch pip
+wheel for CUDA 12.6. The pinned versions and package-index locations are kept
+in [`packaging/cuda126/release.toml`](packaging/cuda126/release.toml).
+
+```bash
+micromamba create -n cressim-cu126 -f packaging/cuda126/environment.yml
+micromamba activate cressim-cu126
+python -m pip install \
+  --index-url https://yafei-ou.github.io/CRESSim-Neo/whl/cu126 \
+  --extra-index-url https://pypi.org/simple \
+  cressim-neo
+```
+
+`scripts/create_cuda126_env.sh` performs the same setup. The CRESSim CUDA wheel
+declares the CUDA runtime, CUFFT, and CURAND dependencies it needs, so CRESSim
+and PyTorch may be installed in either order. Set
+`CRESSIM_NEO_CUDA_RUNTIME_PATH` to an explicit `libcudart.so.12` path only when
+debugging a nonstandard environment.
+
+### Arch Linux system Python
+
+Use the native package recipe at
+[`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD), rather than a managed
+wheel. It builds CRESSim against Arch's current `cuda` and `python-pytorch`
+packages and uses the normal system loader. This keeps CRESSim and PyTorch on
+the same rolling CUDA ABI. Build it in a clean chroot or with `makepkg -si`
+after updating the recipe's release checksum.
+
+Managed CUDA 12.6 wheels intentionally require `libcudart.so.12`; they are not
+promised to work after Arch advances its system CUDA/PyTorch stack to a new
+CUDA major. A source rebuild or updated Arch package is the supported upgrade
+path.
+
+### Maintainer wheel builds
+
+Build the reproducible CUDA 12.6 wheel lane with Docker and cibuildwheel:
+
+```bash
+python -m pip install cibuildwheel auditwheel
+scripts/build_cuda126_wheels.sh
+for wheel in dist/cu126/*.whl; do scripts/verify_cuda126_wheel.sh "$wheel"; done
+```
+
+The builder is defined in
+[`docker/manylinux-cu126/Dockerfile`](docker/manylinux-cu126/Dockerfile). Use
+[`docker/ubuntu-cu126/Dockerfile`](docker/ubuntu-cu126/Dockerfile) for the
+Ubuntu 22.04 CUDA development and GPU-test environment.
 
 ## Documentation
 

@@ -1,0 +1,18 @@
+# Single source of truth for the first managed Linux CUDA release lane.
+[cuda]
+lane = "cu126"
+toolkit = "12.6.3"
+runtime_major = 12
+minimum_runtime = 12060
+
+[python]
+abis = ["cp310", "cp311", "cp312", "cp313"]
+
+[pytorch]
+version = "2.6.0"
+index_url = "https://download.pytorch.org/whl/cu126"
+
+[distribution]
+index_url = "https://yafei-ou.github.io/CRESSim-Neo/whl/cu126"
+ubuntu_minimum = "22.04"
+manylinux = "manylinux_2_28"

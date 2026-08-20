@@ -1,0 +1,75 @@
+name: Linux packaging
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      build_cuda_wheels:
+        description: Build managed CUDA 12.6 wheels (requires Docker)
+        required: false
+        type: boolean
+        default: false
+      publish_pages:
+        description: Publish generated cu126 simple index to GitHub Pages
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  source-checks:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m compileall python/package scripts
+      - run: python tests/python/test_cuda_runtime_loader.py
+      - run: bash -n scripts/build_cuda126_wheels.sh scripts/create_cuda126_env.sh scripts/verify_cuda126_wheel.sh
+      - run: python scripts/generate_cuda126_index.py --help
+
+  cuda126-wheels:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_cuda_wheels
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install cibuildwheel auditwheel
+      - run: scripts/build_cuda126_wheels.sh
+      - run: for wheel in dist/cu126/*.whl; do scripts/verify_cuda126_wheel.sh "$wheel"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cu126-wheels
+          path: dist/cu126/*.whl
+
+  publish-cu126-index:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_cuda_wheels && inputs.publish_pages
+    needs: cuda126-wheels
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}whl/cu126/
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: cu126-wheels
+          path: dist/cu126
+      - run: python scripts/generate_cuda126_index.py --wheels dist/cu126 --output site/whl/cu126
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

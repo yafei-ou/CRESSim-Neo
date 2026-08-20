@@ -101,6 +101,7 @@ configure_native() {
         "-DCRESSIM_NEO_ENABLE_CLANG_TIDY=${CRESSIM_NEO_ENABLE_CLANG_TIDY}"
         "-DCRESSIM_NEO_ENABLE_CUDA_INTEROP=${CRESSIM_NEO_ENABLE_CUDA_INTEROP}"
         "-DCRESSIM_NEO_ENABLE_ULTRASOUND=${CRESSIM_NEO_ENABLE_ULTRASOUND}"
+        "-DCRESSIM_NEO_CUDA_RUNTIME_PROVIDER=${CRESSIM_NEO_CUDA_RUNTIME_PROVIDER}"
     )
     if [[ -n "${INSTALL_PREFIX}" ]]; then
         command+=("-DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX}")
@@ -156,6 +157,18 @@ ask_yes_no CRESSIM_NEO_ENABLE_ULTRASOUND "Enable CRESSim-Ultrasound?" OFF
 if [[ "${CRESSIM_NEO_ENABLE_ULTRASOUND}" == ON && "${CRESSIM_NEO_ENABLE_CUDA_INTEROP}" == OFF ]]; then
     CRESSIM_NEO_ENABLE_CUDA_INTEROP=ON
     echo "CUDA interop was enabled because CRESSim-Ultrasound requires it."
+fi
+
+CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=AUTO
+if [[ "${CRESSIM_NEO_ENABLE_CUDA_INTEROP}" == ON ]]; then
+    read -r -p "CUDA runtime provider (auto/system/managed; default: auto)? " cuda_provider_answer
+    cuda_provider_answer="${cuda_provider_answer:-auto}"
+    case "${cuda_provider_answer,,}" in
+        auto) CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=AUTO ;;
+        system) CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=SYSTEM ;;
+        managed) CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=MANAGED ;;
+        *) die "CUDA runtime provider must be auto, system, or managed." ;;
+    esac
 fi
 
 needs_new_generator=OFF

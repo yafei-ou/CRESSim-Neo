@@ -1,6 +1,11 @@
 import os
 from pathlib import Path
 
+from ._cuda_runtime import ensure_cuda_runtime as _ensure_cuda_runtime
+from ._cuda_runtime import get_cuda_runtime_diagnostics
+
+_ensure_cuda_runtime()
+
 from ._cressim_neo import *  # noqa: F401,F403
 
 try:

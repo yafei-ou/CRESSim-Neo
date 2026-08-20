@@ -1,0 +1,48 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.13"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "cressim-neo"
+version = "0.1.0"
+description = "GPU-accelerated surgical simulation engine with Python bindings (CUDA 12.6)"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "cuda-toolkit[cudart,cufft,curand]==12.6.3; platform_system == 'Linux'",
+]
+
+[project.optional-dependencies]
+gymnasium = ["gymnasium"]
+
+[tool.scikit-build]
+cmake.source-dir = "../.."
+cmake.build-type = "Release"
+wheel.packages = []
+install.components = ["Python"]
+
+[tool.scikit-build.cmake.define]
+CRESSIM_NEO_BUILD_PYTHON = true
+CRESSIM_NEO_BUILD_VIEWER = false
+CRESSIM_NEO_BUILD_EXAMPLES = false
+BUILD_TESTING = false
+CRESSIM_NEO_ENABLE_CUDA_INTEROP = true
+CRESSIM_NEO_ENABLE_ULTRASOUND = true
+CRESSIM_NEO_CUDA_RUNTIME_PROVIDER = "MANAGED"
+# This project enables CUDA after its top-level C/C++ project declaration.
+# Keep the release lane explicit so CheckLanguage(CUDA) does not depend on PATH.
+CMAKE_CUDA_COMPILER = "/usr/local/cuda-12.6/bin/nvcc"
+CMAKE_CUDA_HOST_COMPILER = "/opt/rh/gcc-toolset-13/root/usr/bin/g++"
+
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-*"
+skip = "*-musllinux_*"
+# Importing a CUDA build requires a driver/GPU. The dedicated self-hosted GPU
+# workflow performs runtime tests after the wheel is published.
+test-skip = "*"
+# NVIDIA runtime libraries are package dependencies selected by the Python
+# bootstrap, not wheel payload. Keep auditwheel from copying a second runtime.
+repair-wheel-command = "auditwheel repair --exclude libcudart.so.12 --exclude libcufft.so.11 --exclude libcurand.so.10 -w {dest_dir} {wheel}"
+
+[tool.cibuildwheel.linux]
+before-all = "python3 -m pip install --upgrade pip"

@@ -10,7 +10,6 @@ requires-python = ">=3.10"
 dependencies = ["numpy>=1.24"]
 
 [project.optional-dependencies]
-torch = ["torch"]
 gymnasium = ["gymnasium"]
 
 [tool.scikit-build]
