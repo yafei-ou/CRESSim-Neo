@@ -58,6 +58,10 @@ html_theme_options = {
     },
 }
 html_static_path = []
+templates_path = ["_templates"]
+html_sidebars = {
+    "**": ["components/sidebar-nav-bs.html"],
+}
 
 
 def _unlink_python_none_references(app, doctree):
