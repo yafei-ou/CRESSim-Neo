@@ -56,11 +56,16 @@ html_theme_options = {
     "logo": {
         "text": "CRESSim-Neo Documentation",
     },
+    "secondary_sidebar_items": {
+        "**": ["page-toc", "edit-this-page", "sourcelink"],
+        "index": [],
+    },
 }
 html_static_path = []
 templates_path = ["_templates"]
 html_sidebars = {
     "**": ["components/sidebar-nav-bs.html"],
+    "index": [],
 }
 
 
