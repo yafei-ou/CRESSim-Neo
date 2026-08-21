@@ -12,6 +12,14 @@ if(MINGW)
     message(FATAL_ERROR "MinGW is not a supported CRESSim-Neo toolchain.")
 endif()
 
+# Diligent changes CMAKE_INSTALL_PREFIX when CMake supplied its default.
+# Choose this project's local development default first, before
+# GNUInstallDirs derives the corresponding full install directories.
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install"
+        CACHE PATH "Installation path" FORCE)
+endif()
+
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
