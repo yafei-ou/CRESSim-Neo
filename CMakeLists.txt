@@ -106,17 +106,9 @@ if(WIN32)
 endif()
 
 if(APPLE)
-    # Keep shipped helper libraries relocatable by resolving them relative to the
-    # final binary/shared-library location at runtime on macOS.
     set(CMAKE_MACOSX_RPATH ON)
-    set(CMAKE_INSTALL_RPATH "@loader_path")
-    set(CMAKE_BUILD_RPATH "@loader_path")
 elseif(UNIX)
-    # Keep shipped helper libraries relocatable by resolving them relative to the
-    # final binary/shared-library location at runtime on ELF platforms.
     set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
-    set(CMAKE_INSTALL_RPATH "$ORIGIN")
-    set(CMAKE_BUILD_RPATH "$ORIGIN")
 endif()
 
 if(ENGINE_STATIC)
@@ -124,11 +116,33 @@ if(ENGINE_STATIC)
 endif()
 
 function(cressim_neo_configure_shared_library target_name)
+    if(APPLE)
+        set_target_properties(${target_name} PROPERTIES
+            BUILD_RPATH "@loader_path"
+            INSTALL_RPATH "@loader_path")
+    elseif(UNIX)
+        set_target_properties(${target_name} PROPERTIES
+            BUILD_RPATH "$ORIGIN"
+            INSTALL_RPATH "$ORIGIN")
+    endif()
+
     if(NOT WIN32)
         set_target_properties(${target_name} PROPERTIES
             CXX_VISIBILITY_PRESET hidden
             VISIBILITY_INLINES_HIDDEN YES
         )
+    endif()
+endfunction()
+
+function(cressim_neo_configure_runtime_executable target_name)
+    if(APPLE)
+        set_target_properties(${target_name} PROPERTIES
+            BUILD_RPATH "@loader_path"
+            INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
+    elseif(UNIX)
+        set_target_properties(${target_name} PROPERTIES
+            BUILD_RPATH "$ORIGIN"
+            INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
     endif()
 endfunction()
 

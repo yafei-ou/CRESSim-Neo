@@ -28,6 +28,7 @@ function(add_cressim_test)
     )
 
     cressim_neo_enable_clang_tidy(${target_name})
+    cressim_neo_configure_runtime_executable(${target_name})
 
     target_include_directories(${target_name} PRIVATE
         ${include_dirs}
