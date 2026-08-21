@@ -1,9 +1,17 @@
 cmake_minimum_required(VERSION 3.18)
 
 set(CMAKE_CXX_STANDARD 17)
-# Diligent claims that it doesn't work with O2/O3 using gcc
-set(CMAKE_C_COMPILER clang)
-set(CMAKE_CXX_COMPILER clang++)
+# Linux builds use Clang unless the configure invocation selects another
+# compiler. Windows toolchain selection belongs to the Visual Studio preset;
+# forcing a compiler there would make it disagree with MSVC.
+if(NOT WIN32)
+    if(NOT DEFINED CMAKE_C_COMPILER)
+        set(CMAKE_C_COMPILER clang)
+    endif()
+    if(NOT DEFINED CMAKE_CXX_COMPILER)
+        set(CMAKE_CXX_COMPILER clang++)
+    endif()
+endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
@@ -66,6 +74,11 @@ if(NOT CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "AUTO" AND
         "CRESSIM_NEO_CUDA_RUNTIME_PROVIDER must be AUTO, MANAGED, or SYSTEM; got "
         "'${CRESSIM_NEO_CUDA_RUNTIME_PROVIDER}'.")
 endif()
+
+# Diligent's enabled Vulkan/SPIR-V toolchain runs Python helpers while it is
+# configured. Require it here so native builds fail at the project boundary
+# with a direct prerequisite error rather than inside a third-party target.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 include(cmake/CressimNeoDXC.cmake)
 cressim_neo_configure_dxc_provider()

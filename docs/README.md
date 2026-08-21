@@ -32,10 +32,11 @@ Build the site with its dedicated Release Python API profile:
 scripts/build_docs.sh
 ```
 
-`build_docs.sh` owns `build/linux-docs-api`, which enables Python and viewer bindings
-while disabling examples, tests, CUDA interop, and ultrasound. It builds that
-package before configuring `build/docs-site`. This does not change any native
-development build directory.
+`build_docs.sh` configures the `linux-docs-api` preset, which owns
+`build/linux-docs-api`. It enables Python and viewer bindings while disabling
+examples, tests, CUDA interop, and ultrasound. It builds that package before
+configuring `build/docs-site`. This does not change any native development
+build directory.
 
 The generated site starts at `build/docs-site/html/index.html`. To serve it
 locally:
@@ -50,17 +51,8 @@ Use these commands when automating the documentation build or changing its
 profile. First configure and build the dedicated API package:
 
 ```bash
-cmake -S . -B build/linux-docs-api -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DENGINE_STATIC=OFF \
-  -DCRESSIM_NEO_BUILD_PYTHON=ON \
-  -DCRESSIM_NEO_BUILD_VIEWER=ON \
-  -DCRESSIM_NEO_BUILD_EXAMPLES=OFF \
-  -DBUILD_TESTING=OFF \
-  -DCRESSIM_NEO_ENABLE_CLANG_TIDY=OFF \
-  -DCRESSIM_NEO_ENABLE_CUDA_INTEROP=OFF \
-  -DCRESSIM_NEO_ENABLE_ULTRASOUND=OFF
-cmake --build build/linux-docs-api --target \
+cmake --preset linux-docs-api
+cmake --build --preset linux-docs-api --target \
   cressim_neo_python cressim_neo_python_package_files
 ```
 

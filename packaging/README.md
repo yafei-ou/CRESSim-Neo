@@ -14,8 +14,9 @@ python -m pip install --force-reinstall dist/cressim_neo-*.whl
 python -c "import cressim_neo; print(cressim_neo.Runtime().get_info())"
 ```
 
-For repeated C++ work, prefer `../scripts/configure_builds.sh`; its persistent
-CMake build tree avoids rebuilding the engine for every wheel.
+For repeated C++ work, prefer a persistent native preset build such as
+`cmake --preset linux-release`; it avoids rebuilding the engine for every
+wheel.
 
 ## Docker release lanes
 

@@ -36,32 +36,7 @@ for argument in "$@"; do
 done
 
 API_BUILD_DIR="${BUILD_ROOT}/linux-docs-api"
-API_CACHE_FILE="${API_BUILD_DIR}/CMakeCache.txt"
-configure_command=(cmake -S "${REPO_ROOT}" -B "${API_BUILD_DIR}")
-
-if [[ -f "${API_CACHE_FILE}" ]]; then
-    echo "Reusing dedicated documentation API build: ${API_BUILD_DIR}"
-else
-    if command -v ninja >/dev/null 2>&1; then
-        configure_command+=(-G Ninja)
-    else
-        configure_command+=(-G 'Unix Makefiles')
-    fi
-fi
-
-configure_command+=(
-    -DCMAKE_BUILD_TYPE=Release
-    -DENGINE_STATIC=OFF
-    -DCRESSIM_NEO_BUILD_PYTHON=ON
-    -DCRESSIM_NEO_BUILD_VIEWER=ON
-    -DCRESSIM_NEO_BUILD_EXAMPLES=OFF
-    -DBUILD_TESTING=OFF
-    -DCRESSIM_NEO_ENABLE_CLANG_TIDY=OFF
-    -DCRESSIM_NEO_ENABLE_CUDA_INTEROP=OFF
-    -DCRESSIM_NEO_ENABLE_ULTRASOUND=OFF
-)
-
-run_command "${configure_command[@]}"
+run_command cmake --preset linux-docs-api
 
 run_command cmake --build "${API_BUILD_DIR}" --target \
     cressim_neo_python cressim_neo_python_package_files
