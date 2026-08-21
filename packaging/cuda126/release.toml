@@ -12,6 +12,12 @@ abis = ["cp310", "cp311", "cp312", "cp313"]
 version = "2.6.0"
 index_url = "https://download.pytorch.org/whl/cu126"
 
+[nvidia]
+cuda_runtime = "12.6.77"
+cufft = "11.3.0.4"
+curand = "10.3.7.77"
+nvjitlink = "12.6.85"
+
 [distribution]
 index_url = "https://yafei-ou.github.io/CRESSim-Neo/whl/cu126"
 ubuntu_minimum = "22.04"

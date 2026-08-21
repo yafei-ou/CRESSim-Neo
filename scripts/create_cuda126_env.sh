@@ -13,4 +13,5 @@ micromamba run -n "${ENV_NAME}" python -m pip install \
     --index-url "${CUDA_INDEX_URL}" \
     --extra-index-url https://pypi.org/simple \
     cressim-neo
+micromamba run -n "${ENV_NAME}" python -m pip check
 echo "Environment '${ENV_NAME}' is ready. Activate it with: micromamba activate ${ENV_NAME}"

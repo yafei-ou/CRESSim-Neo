@@ -21,6 +21,7 @@ jobs:
       - run: docker build -f docker/ubuntu-cu126/Dockerfile -t cressim-neo/ubuntu-cu126:ci .
       - run: >-
           docker run --rm --gpus all
+          -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
           -e CRESSIM_NEO_CUDA_INDEX_URL='${{ inputs.cressim_index_url }}'
           -v "$PWD:/workspace" -w /workspace
           cressim-neo/ubuntu-cu126:ci

@@ -9,7 +9,15 @@ description = "GPU-accelerated surgical simulation engine with Python bindings (
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24",
-    "cuda-toolkit[cudart,cufft,curand]==12.6.3; platform_system == 'Linux'",
+    # Match the NVIDIA packages pinned by the selected PyTorch cu126 wheel.
+    # Do not depend on the cuda-toolkit umbrella: it currently pulls a newer
+    # nvjitlink package that conflicts with PyTorch's exact pin.
+    "nvidia-cuda-runtime-cu12==12.6.77; platform_system == 'Linux'",
+    "nvidia-cufft-cu12==11.3.0.4; platform_system == 'Linux'",
+    "nvidia-curand-cu12==10.3.7.77; platform_system == 'Linux'",
+    # CUFFT pulls nvjitlink transitively. Pin it directly so a later CRESSim
+    # install cannot replace the exact version required by PyTorch cu126.
+    "nvidia-nvjitlink-cu12==12.6.85; platform_system == 'Linux'",
 ]
 
 [project.optional-dependencies]
