@@ -13,6 +13,8 @@ instructions are in [`docs/README.md`](docs/README.md).
 - Clang and Clang++ with C++17 support (the top-level CMake project currently
   selects Clang explicitly)
 - A C++ build tool; Ninja is recommended
+- Linux viewer builds also require the X11 development packages for Xcursor,
+  Xext, Xi, Xinerama, and XRandR
 - Python 3.10 or newer, plus its development headers, when building Python
   bindings
 - A Vulkan-capable graphics driver/runtime for running Vulkan-backed programs
@@ -152,20 +154,16 @@ a wheel into a virtual environment, as shown below.
 
 ## Python package development and wheels
 
-`pyproject.toml` uses scikit-build-core to drive the same CMake project.  Its
-wheel configuration builds only the Python component, with viewer, examples,
-tests, CUDA interop, and ultrasound disabled.  This makes the initial public
-wheel baseline independent of a CUDA toolchain.
+`pyproject.toml` uses scikit-build-core to drive the same CMake project. Its
+wheel configuration builds the Python component and interactive viewer, while
+examples, tests, CUDA interop, and ultrasound remain disabled. This makes the
+initial public wheel baseline independent of a CUDA toolchain.
 
 Build a wheel:
 
 ```bash
-scripts/build_wheel.sh
+scripts/build_local_wheel.sh
 ```
-
-To build a local wheel with the interactive viewer bindings, use
-`scripts/build_wheel.sh --viewer`. Do not publish that artifact beside a
-headless wheel with the same package version and platform tag.
 
 Install and verify the resulting wheel:
 
@@ -254,6 +252,9 @@ The builder is defined in
 [`docker/manylinux-cu126/Dockerfile`](docker/manylinux-cu126/Dockerfile). Use
 [`docker/ubuntu-cu126/Dockerfile`](docker/ubuntu-cu126/Dockerfile) for the
 Ubuntu 22.04 CUDA development and GPU-test environment.
+
+For the complete maintainer release, CI, GPU-validation, and third-party-notice
+workflow, see [the packaging release guide](packaging/README.md).
 
 ## Documentation
 

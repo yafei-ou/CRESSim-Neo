@@ -7,7 +7,8 @@ arch=('x86_64')
 url='https://github.com/yafei-ou/CRESSim-Neo'
 license=('MIT')
 depends=('python' 'python-numpy' 'python-pytorch' 'cuda' 'vulkan-icd-loader')
-makedepends=('clang' 'cmake' 'git' 'ninja' 'python-pybind11')
+makedepends=('clang' 'cmake' 'git' 'ninja' 'python-pybind11'
+             'libx11' 'libxcursor' 'libxext' 'libxi' 'libxinerama' 'libxrandr')
 source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
 sha256sums=('SKIP')
 
@@ -15,7 +16,7 @@ build() {
     cmake -S "CRESSim-Neo-${pkgver}" -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCRESSIM_NEO_BUILD_PYTHON=ON \
-        -DCRESSIM_NEO_BUILD_VIEWER=OFF \
+        -DCRESSIM_NEO_BUILD_VIEWER=ON \
         -DCRESSIM_NEO_BUILD_EXAMPLES=OFF \
         -DCRESSIM_NEO_ENABLE_CUDA_INTEROP=ON \
         -DCRESSIM_NEO_ENABLE_ULTRASOUND=ON \

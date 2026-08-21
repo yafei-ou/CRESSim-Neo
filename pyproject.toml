@@ -19,7 +19,7 @@ install.components = ["Python"]
 
 [tool.scikit-build.cmake.define]
 CRESSIM_NEO_BUILD_PYTHON = true
-CRESSIM_NEO_BUILD_VIEWER = false
+CRESSIM_NEO_BUILD_VIEWER = true
 CRESSIM_NEO_BUILD_EXAMPLES = false
 BUILD_TESTING = false
 CRESSIM_NEO_ENABLE_CUDA_INTEROP = false
