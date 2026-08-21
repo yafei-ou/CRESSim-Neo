@@ -1,13 +1,12 @@
 # Packaging and release workflow
 
-The default wheel, managed CUDA wheel, and Arch package differ only in
-their CUDA-runtime contract.
+The default wheel and managed CUDA wheel differ only in their CUDA-runtime
+contract.
 
 | Artifact | Builder | CUDA runtime | Distribution |
 | --- | --- | --- | --- |
 | Default wheel | `../scripts/build_local_wheel.sh` | Disabled | Local developer wheel |
-| `cu126` wheel | `../scripts/build_cuda126_wheels.sh` | Managed NVIDIA Python packages | `cu126` simple index |
-| Arch package | `arch/PKGBUILD` | Current system CUDA | Native Arch package |
+| `cu126` wheel | `../scripts/build_cuda126_wheels.sh` | Managed NVIDIA Python packages | GitHub Release asset |
 
 ## Local development
 
@@ -66,20 +65,3 @@ docker run --rm --gpus all \
 The GPU smoke test validates the managed runtime loader, CUFFT/CURAND,
 Ultrasound initialization, Vulkan/CUDA external-memory interop, and a DLPack
 round trip with PyTorch.
-
-## CI and publication
-
-`../.github/workflows/linux-packaging.yml` runs source checks on pull requests
-and pushes. Its manual `build_cuda_wheels` dispatch builds and verifies CUDA
-wheels; enabling `publish_pages` publishes them as the static `cu126` PEP 503
-index.
-
-After publishing a candidate, dispatch
-`../.github/workflows/cuda126-gpu.yml` on a self-hosted Linux GPU runner with
-the candidate index URL. This installs CRESSim from the published index in a
-clean environment and runs the GPU smoke test.
-
-`../.github/workflows/arch-package.yml` manually builds `arch/PKGBUILD` in a
-clean Arch container. Arch users consume that native package or an equivalent
-source build; they do not use the managed CUDA wheel after a system CUDA-major
-update.

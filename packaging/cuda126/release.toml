@@ -19,6 +19,6 @@ curand = "10.3.7.77"
 nvjitlink = "12.6.85"
 
 [distribution]
-index_url = "https://yafei-ou.github.io/CRESSim-Neo/whl/cu126"
+github_releases_url = "https://github.com/yafei-ou/CRESSim-Neo/releases"
 ubuntu_minimum = "22.04"
 manylinux = "manylinux_2_34"
