@@ -15,4 +15,4 @@ index_url = "https://download.pytorch.org/whl/cu126"
 [distribution]
 index_url = "https://yafei-ou.github.io/CRESSim-Neo/whl/cu126"
 ubuntu_minimum = "22.04"
-manylinux = "manylinux_2_28"
+manylinux = "manylinux_2_34"

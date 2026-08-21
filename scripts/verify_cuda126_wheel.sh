@@ -30,5 +30,14 @@ if [[ "${found_cudart}" != ON ]]; then
 fi
 
 if command -v auditwheel >/dev/null; then
-    auditwheel show "${WHEEL}"
+    auditwheel_output="$(auditwheel show "${WHEEL}")"
+    printf '%s\n' "${auditwheel_output}"
+    # auditwheel versions differ in whether the first summary line reports the
+    # wheel's existing linux tag or its inferred manylinux tag. Require both
+    # the repaired filename tag and the authoritative ABI constraint instead.
+    if [[ "$(basename "${WHEEL}")" != *-manylinux_2_34_x86_64.whl ]] || \
+       ! grep -Fq 'constrains the platform tag to "manylinux_2_34_x86_64"' <<<"${auditwheel_output}"; then
+        echo "Managed CUDA wheel must be repaired to manylinux_2_34_x86_64" >&2
+        exit 1
+    fi
 fi

@@ -17,11 +17,12 @@ instructions are in [`docs/README.md`](docs/README.md).
   bindings
 - A Vulkan-capable graphics driver/runtime for running Vulkan-backed programs
 
-By default, configuration downloads the pinned DXC runtime release
-(`v1.9.2602.24`) with a SHA-256 check. This is the runtime used by released
-Linux and Windows artifacts; it is copied beside build products and installed
-with the C++ SDK and Python package. CMake needs network access the first time
-it populates this build-directory cache.
+By default, configuration downloads a pinned DXC runtime release with a
+SHA-256 check. The managed Linux wheel lane uses DXC `v1.8.2505.1`, the newest
+official Linux binary compatible with its `manylinux_2_34` ABI floor. The same
+DXC release is used on Windows. The selected runtime is copied beside build
+products and installed with the C++ SDK and Python package. CMake needs network
+access the first time it populates this build-directory cache.
 
 The repository checkout must include the `extern/DiligentEngine` dependency
 tree.  For Python-enabled CMake builds, CMake first looks for a pybind11 CMake
