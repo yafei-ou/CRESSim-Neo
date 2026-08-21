@@ -4,7 +4,7 @@ This file is generated from `compliance/third_party_review.json` and, for downlo
 
 ## DirectXShaderCompiler (bundled artifact)
 
-_Source: `DirectXShaderCompiler v1.9.2602.24/LICENSE-LLVM.txt`_
+_Source: `DirectXShaderCompiler v1.8.2505.1/LICENSE-LLVM.txt`_
 
 ```text
 ==============================================================================
@@ -52,7 +52,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS WITH THE
 SOFTWARE.
 ```
 
-_Source: `DirectXShaderCompiler v1.9.2602.24/LICENSE-MS.txt`_
+_Source: `DirectXShaderCompiler v1.8.2505.1/LICENSE-MS.txt`_
 
 ```text
 MICROSOFT SOFTWARE LICENSE TERMS
