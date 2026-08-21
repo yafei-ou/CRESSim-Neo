@@ -12,6 +12,14 @@ if(MINGW)
     message(FATAL_ERROR "MinGW is not a supported CRESSim-Neo toolchain.")
 endif()
 
+# Diligent changes CMAKE_INSTALL_PREFIX when CMake supplied its default.
+# Choose this project's local development default first, before
+# GNUInstallDirs derives the corresponding full install directories.
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install"
+        CACHE PATH "Installation path" FORCE)
+endif()
+
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
@@ -45,6 +53,19 @@ option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF
 option(CRESSIM_NEO_ENABLE_CUDA_INTEROP "Enable optional CUDA interop support in GPU helpers" OFF)
 option(CRESSIM_NEO_ENABLE_ULTRASOUND "Enable optional CRESSim-Ultrasound integration" OFF)
 option(CRESSIM_NEO_BUILD_PYTHON "Build optional Python bindings and tests" OFF)
+set(CRESSIM_NEO_CUDA_RUNTIME_PROVIDER "AUTO" CACHE STRING
+    "CUDA runtime provider for Python packages: AUTO, MANAGED, or SYSTEM")
+set_property(CACHE CRESSIM_NEO_CUDA_RUNTIME_PROVIDER PROPERTY STRINGS AUTO MANAGED SYSTEM)
+set(CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION "" CACHE STRING
+    "Required CUDA major.minor version for a MANAGED Python wheel (for example 12.6)")
+string(TOUPPER "${CRESSIM_NEO_CUDA_RUNTIME_PROVIDER}" CRESSIM_NEO_CUDA_RUNTIME_PROVIDER)
+if(NOT CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "AUTO" AND
+   NOT CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "MANAGED" AND
+   NOT CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "SYSTEM")
+    message(FATAL_ERROR
+        "CRESSIM_NEO_CUDA_RUNTIME_PROVIDER must be AUTO, MANAGED, or SYSTEM; got "
+        "'${CRESSIM_NEO_CUDA_RUNTIME_PROVIDER}'.")
+endif()
 
 include(cmake/CressimNeoDXC.cmake)
 cressim_neo_configure_dxc_provider()
@@ -161,10 +182,74 @@ target_include_directories(cressim_neo_build_settings INTERFACE
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 set(CRESSIM_NEO_HAS_CUDA_INTEROP OFF)
+set(CRESSIM_NEO_CUDA_RUNTIME_MAJOR 0)
+set(CRESSIM_NEO_CUDA_RUNTIME_MINIMUM 0)
+set(CRESSIM_NEO_CUDA_CUFFT_SONAME "libcufft.so.11")
+set(CRESSIM_NEO_CUDA_CURAND_SONAME "libcurand.so.10")
 if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
     find_package(CUDAToolkit QUIET)
     if(CUDAToolkit_FOUND)
         set(CRESSIM_NEO_HAS_CUDA_INTEROP ON)
+        string(REPLACE "." ";" CRESSIM_NEO_CUDA_TOOLKIT_VERSION_PARTS "${CUDAToolkit_VERSION}")
+        list(GET CRESSIM_NEO_CUDA_TOOLKIT_VERSION_PARTS 0 CRESSIM_NEO_CUDA_RUNTIME_MAJOR)
+        list(LENGTH CRESSIM_NEO_CUDA_TOOLKIT_VERSION_PARTS CRESSIM_NEO_CUDA_TOOLKIT_VERSION_PART_COUNT)
+        set(CRESSIM_NEO_CUDA_RUNTIME_MINOR 0)
+        if(CRESSIM_NEO_CUDA_TOOLKIT_VERSION_PART_COUNT GREATER 1)
+            list(GET CRESSIM_NEO_CUDA_TOOLKIT_VERSION_PARTS 1 CRESSIM_NEO_CUDA_RUNTIME_MINOR)
+        endif()
+        math(EXPR CRESSIM_NEO_CUDA_RUNTIME_MINIMUM
+            "${CRESSIM_NEO_CUDA_RUNTIME_MAJOR} * 1000 + ${CRESSIM_NEO_CUDA_RUNTIME_MINOR} * 10")
+        foreach(CRESSIM_NEO_CUDA_LIBRARY_NAME IN ITEMS cufft curand)
+            set(CRESSIM_NEO_CUDA_LIBRARY_SONAME "")
+            if(TARGET CUDA::${CRESSIM_NEO_CUDA_LIBRARY_NAME})
+                get_target_property(CRESSIM_NEO_CUDA_LIBRARY_PATH
+                    CUDA::${CRESSIM_NEO_CUDA_LIBRARY_NAME} IMPORTED_LOCATION)
+                if(CRESSIM_NEO_CUDA_LIBRARY_PATH)
+                    get_filename_component(CRESSIM_NEO_CUDA_LIBRARY_PATH
+                        "${CRESSIM_NEO_CUDA_LIBRARY_PATH}" REALPATH)
+                    find_program(CRESSIM_NEO_READELF_EXECUTABLE NAMES readelf llvm-readelf)
+                    if(CRESSIM_NEO_READELF_EXECUTABLE)
+                        execute_process(
+                            COMMAND "${CRESSIM_NEO_READELF_EXECUTABLE}" -d
+                                    "${CRESSIM_NEO_CUDA_LIBRARY_PATH}"
+                            OUTPUT_VARIABLE CRESSIM_NEO_CUDA_LIBRARY_DYNAMIC_SECTION
+                            ERROR_QUIET)
+                        string(REGEX MATCH "Library soname: \\[([^]]+)\\]"
+                            CRESSIM_NEO_CUDA_LIBRARY_SONAME_MATCH
+                            "${CRESSIM_NEO_CUDA_LIBRARY_DYNAMIC_SECTION}")
+                        if(CRESSIM_NEO_CUDA_LIBRARY_SONAME_MATCH)
+                            string(REGEX REPLACE ".*\\[([^]]+)\\].*" "\\1"
+                                CRESSIM_NEO_CUDA_LIBRARY_SONAME
+                                "${CRESSIM_NEO_CUDA_LIBRARY_SONAME_MATCH}")
+                        endif()
+                    endif()
+                    if(NOT CRESSIM_NEO_CUDA_LIBRARY_SONAME)
+                        # This fallback is only used on toolchains without readelf.
+                        # The CUDA imported target's filename is still loadable from
+                        # its configured provider directory in managed environments.
+                        get_filename_component(CRESSIM_NEO_CUDA_LIBRARY_SONAME
+                            "${CRESSIM_NEO_CUDA_LIBRARY_PATH}" NAME)
+                    endif()
+                    string(TOUPPER "${CRESSIM_NEO_CUDA_LIBRARY_NAME}"
+                        CRESSIM_NEO_CUDA_LIBRARY_UPPER_NAME)
+                    set(CRESSIM_NEO_CUDA_${CRESSIM_NEO_CUDA_LIBRARY_UPPER_NAME}_SONAME
+                        "${CRESSIM_NEO_CUDA_LIBRARY_SONAME}")
+                endif()
+            endif()
+        endforeach()
+        if(CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "MANAGED")
+            if(NOT CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION MATCHES "^[0-9]+\\.[0-9]+$")
+                message(FATAL_ERROR
+                    "MANAGED CUDA wheels require CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION "
+                    "to name their CUDA major.minor lane (for example 12.6).")
+            endif()
+            if(CUDAToolkit_VERSION VERSION_LESS "${CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION}" OR
+               CUDAToolkit_VERSION VERSION_GREATER_EQUAL "${CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION}.999")
+                message(FATAL_ERROR
+                    "MANAGED CUDA wheel requires CUDAToolkit "
+                    "${CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION}.x; found ${CUDAToolkit_VERSION}.")
+            endif()
+        endif()
         message(STATUS "CUDA interop enabled with CUDAToolkit ${CUDAToolkit_VERSION}.")
     else()
         message(FATAL_ERROR

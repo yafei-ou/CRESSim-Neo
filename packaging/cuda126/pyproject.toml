@@ -1,0 +1,57 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.13"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "cressim-neo"
+version = "0.1.0+cu126"
+description = "GPU-accelerated surgical simulation engine with Python bindings (CUDA 12.6)"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    # Match the NVIDIA packages pinned by the selected PyTorch cu126 wheel.
+    # Do not depend on the cuda-toolkit umbrella: it currently pulls a newer
+    # nvjitlink package that conflicts with PyTorch's exact pin.
+    "nvidia-cuda-runtime-cu12==12.6.77; platform_system == 'Linux'",
+    "nvidia-cufft-cu12==11.3.0.4; platform_system == 'Linux'",
+    "nvidia-curand-cu12==10.3.7.77; platform_system == 'Linux'",
+    # CUFFT pulls nvjitlink transitively. Pin it directly so a later CRESSim
+    # install cannot replace the exact version required by PyTorch cu126.
+    "nvidia-nvjitlink-cu12==12.6.85; platform_system == 'Linux'",
+]
+
+[project.optional-dependencies]
+gymnasium = ["gymnasium"]
+
+[tool.scikit-build]
+cmake.source-dir = "../.."
+cmake.build-type = "Release"
+wheel.packages = []
+install.components = ["Python"]
+
+[tool.scikit-build.cmake.define]
+CRESSIM_NEO_BUILD_PYTHON = true
+CRESSIM_NEO_BUILD_VIEWER = true
+CRESSIM_NEO_BUILD_EXAMPLES = false
+BUILD_TESTING = false
+CRESSIM_NEO_ENABLE_CUDA_INTEROP = true
+CRESSIM_NEO_ENABLE_ULTRASOUND = true
+CRESSIM_NEO_CUDA_RUNTIME_PROVIDER = "MANAGED"
+CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION = "12.6"
+# This project enables CUDA after its top-level C/C++ project declaration.
+# Keep the release lane explicit so CheckLanguage(CUDA) does not depend on PATH.
+CMAKE_CUDA_COMPILER = "/usr/local/cuda-12.6/bin/nvcc"
+CMAKE_CUDA_HOST_COMPILER = "/opt/rh/gcc-toolset-13/root/usr/bin/g++"
+
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-*"
+skip = "*-musllinux_*"
+# Importing a CUDA build requires a driver/GPU. The dedicated self-hosted GPU
+# workflow performs runtime tests after the wheel is published.
+test-skip = "*"
+# NVIDIA runtime libraries are package dependencies selected by the Python
+# bootstrap, not wheel payload. Keep auditwheel from copying a second runtime.
+repair-wheel-command = "auditwheel repair --exclude libcudart.so.12 --exclude libcufft.so.11 --exclude libcurand.so.10 -w {dest_dir} {wheel}"
+
+[tool.cibuildwheel.linux]
+before-all = "python3 -m pip install --upgrade pip"

@@ -13,15 +13,18 @@ instructions are in [`docs/README.md`](docs/README.md).
 - Clang and Clang++ with C++17 support (the top-level CMake project currently
   selects Clang explicitly)
 - A C++ build tool; Ninja is recommended
+- Linux viewer builds also require the X11 development packages for Xcursor,
+  Xext, Xi, Xinerama, and XRandR
 - Python 3.10 or newer, plus its development headers, when building Python
   bindings
 - A Vulkan-capable graphics driver/runtime for running Vulkan-backed programs
 
-By default, configuration downloads the pinned DXC runtime release
-(`v1.9.2602.24`) with a SHA-256 check. This is the runtime used by released
-Linux and Windows artifacts; it is copied beside build products and installed
-with the C++ SDK and Python package. CMake needs network access the first time
-it populates this build-directory cache.
+By default, configuration downloads a pinned DXC runtime release with a
+SHA-256 check. The managed Linux wheel lane uses DXC `v1.8.2505.1`, the newest
+official Linux binary compatible with its `manylinux_2_34` ABI floor. The same
+DXC release is used on Windows. The selected runtime is copied beside build
+products and installed with the C++ SDK and Python package. CMake needs network
+access the first time it populates this build-directory cache.
 
 The repository checkout must include the `extern/DiligentEngine` dependency
 tree.  For Python-enabled CMake builds, CMake first looks for a pybind11 CMake
@@ -121,6 +124,10 @@ Useful optional CMake switches are:
 - `-DCRESSIM_NEO_ENABLE_CUDA_INTEROP=ON` — require and enable CUDAToolkit.
 - `-DCRESSIM_NEO_ENABLE_ULTRASOUND=ON` — enable CRESSim-Ultrasound.  This also
   requires CUDA interop and a working CUDA compiler.
+- `-DCRESSIM_NEO_CUDA_RUNTIME_PROVIDER=SYSTEM` — use the system CUDA runtime
+  when a locally built Python CUDA extension is imported. `AUTO` is the
+  local-development default; `MANAGED` is reserved for distributed CUDA wheel
+  lanes.
 - `-DCRESSIM_NEO_DXC_PROVIDER=SYSTEM` — use DXC found through the local SDKs
   instead of the pinned runtime. This is intended only for local development.
 - `-DCRESSIM_NEO_DXC_PROVIDER=OFF` — do not provision DXC. Vulkan falls back
@@ -147,20 +154,16 @@ a wheel into a virtual environment, as shown below.
 
 ## Python package development and wheels
 
-`pyproject.toml` uses scikit-build-core to drive the same CMake project.  Its
-wheel configuration builds only the Python component, with viewer, examples,
-tests, CUDA interop, and ultrasound disabled.  This makes the initial public
-wheel baseline independent of a CUDA toolchain.
+`pyproject.toml` uses scikit-build-core to drive the same CMake project. Its
+wheel configuration builds the Python component and interactive viewer, while
+examples, tests, CUDA interop, and ultrasound remain disabled. This makes the
+initial public wheel baseline independent of a CUDA toolchain.
 
 Build a wheel:
 
 ```bash
-scripts/build_wheel.sh
+scripts/build_local_wheel.sh
 ```
-
-To build a local wheel with the interactive viewer bindings, use
-`scripts/build_wheel.sh --viewer`. Do not publish that artifact beside a
-headless wheel with the same package version and platform tag.
 
 Install and verify the resulting wheel:
 
@@ -185,11 +188,19 @@ parallelism when needed:
 CMAKE_BUILD_PARALLEL_LEVEL=4 python -m pip wheel --no-deps --wheel-dir dist .
 ```
 
-The current package requires NumPy.  PyTorch and Gymnasium are optional:
+The local wheel has no CUDA interop or Ultrasound dependency and requires
+NumPy. Gymnasium is optional:
 
 ```bash
-python -m pip install 'cressim-neo[torch,gymnasium]'
+python -m pip install 'cressim-neo[gymnasium]'
 ```
+
+## Release wheels
+
+Docker-based release lanes and their clean-environment tests are documented in
+[the wheel build guide](packaging/README.md). The active lanes are `base`
+(without CUDA interop or Ultrasound), `cu126` (CUDA 12.6 with Ultrasound),
+`cu130` (CUDA 13.0 with Ultrasound), and `cu132` (CUDA 13.2 with Ultrasound).
 
 ## Documentation
 

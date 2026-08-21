@@ -13,6 +13,7 @@ dependencies = ["numpy>=1.24"]
 gymnasium = ["gymnasium"]
 
 [tool.scikit-build]
+cmake.source-dir = "../.."
 cmake.build-type = "Release"
 wheel.packages = []
 install.components = ["Python"]
@@ -24,3 +25,11 @@ CRESSIM_NEO_BUILD_EXAMPLES = false
 BUILD_TESTING = false
 CRESSIM_NEO_ENABLE_CUDA_INTEROP = false
 CRESSIM_NEO_ENABLE_ULTRASOUND = false
+
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-*"
+skip = "*-musllinux_*"
+test-skip = "*"
+
+[tool.cibuildwheel.linux]
+before-all = "python3 -m pip install --upgrade pip"

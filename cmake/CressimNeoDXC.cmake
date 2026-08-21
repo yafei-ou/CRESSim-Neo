@@ -12,7 +12,10 @@ set(CRESSIM_NEO_DXC_PROVIDER "BUNDLED" CACHE STRING
     "DXC runtime provider: BUNDLED (pinned release), SYSTEM, or OFF")
 set_property(CACHE CRESSIM_NEO_DXC_PROVIDER PROPERTY STRINGS BUNDLED SYSTEM OFF)
 
-set(CRESSIM_NEO_DXC_VERSION "v1.9.2602.24" CACHE INTERNAL "Pinned DXC release")
+# DXC 1.8.2505.1 is the newest official Linux binary compatible with the
+# managed wheel's GLIBC 2.34 floor. Use the same pinned DXC release on every
+# supported platform so shader behavior is consistent across C++ packages.
+set(CRESSIM_NEO_DXC_VERSION "v1.8.2505.1" CACHE INTERNAL "Pinned DXC release")
 set(CRESSIM_NEO_DXC_RUNTIME_PATH "" CACHE FILEPATH
     "Path to the DXC runtime used for D3D12 (dxcompiler.dll on Windows)")
 set(CRESSIM_NEO_DXIL_RUNTIME_PATH "" CACHE FILEPATH
@@ -66,12 +69,12 @@ function(cressim_neo_configure_dxc_provider)
     include(FetchContent)
     if(WIN32)
         set(dxc_url
-            "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2602.24/dxc_2026_05_27.zip")
-        set(dxc_hash "SHA256=cf658aacf070d3045e31b8f1f8a696c2945f37c1095019481ef7c513368db3b4")
+            "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2505.1/dxc_2025_07_14.zip")
+        set(dxc_hash "SHA256=9ad895a6b039e3a8f8c22a1009f866800b840a74b50db9218d13319e215ea8a4")
     else()
         set(dxc_url
-            "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2602.24/linux_dxc_2026_05_26.x86_64.tar.gz")
-        set(dxc_hash "SHA256=928b3e9986d11dc4279050e02340950c29bcbd1e5efb9d3ded9669dade37639d")
+            "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2505.1/linux_dxc_2025_07_14.x86_64.tar.gz")
+        set(dxc_hash "SHA256=f2213da1fc99dc8778c8823078e16ba97c7f80f86a1d4520ab1adf4b462bc48c")
     endif()
 
     FetchContent_Declare(cressim_neo_dxc URL "${dxc_url}" URL_HASH "${dxc_hash}")
