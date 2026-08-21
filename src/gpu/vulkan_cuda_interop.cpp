@@ -309,9 +309,19 @@ void resetExportableStructuredBuffer(SharedBufferState &state) noexcept
         state.renderDevice->IdleGPU();
 
         const VkDevice vkDevice = renderDeviceVk->GetVkDevice();
-        if (vkDevice != VK_NULL_HANDLE && state.vkMemory != VK_NULL_HANDLE)
+        if (vkDevice != VK_NULL_HANDLE)
         {
-            vkFreeMemory(vkDevice, state.vkMemory, nullptr);
+            // CreateBufferFromVulkanResource() only wraps this handle; Diligent does not
+            // assume ownership of the VkBuffer. Destroy it after releasing the Diligent
+            // wrapper and waiting for the device to become idle.
+            if (state.vkBuffer != VK_NULL_HANDLE)
+            {
+                vkDestroyBuffer(vkDevice, state.vkBuffer, nullptr);
+            }
+            if (state.vkMemory != VK_NULL_HANDLE)
+            {
+                vkFreeMemory(vkDevice, state.vkMemory, nullptr);
+            }
         }
     }
 
