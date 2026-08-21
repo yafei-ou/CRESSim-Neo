@@ -46,12 +46,12 @@ def _managed_directories() -> list[Path]:
     if conda_prefix:
         directories.append(Path(conda_prefix) / "lib")
 
-    package_directories = {
+    package_directories = (
         "cuda_runtime",
         "cufft",
         "curand",
         f"cu{CUDA_RUNTIME_MAJOR}",
-    }
+    )
     for entry in map(Path, sys.path):
         if not entry.is_dir():
             continue

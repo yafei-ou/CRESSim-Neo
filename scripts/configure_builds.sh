@@ -161,13 +161,12 @@ fi
 
 CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=AUTO
 if [[ "${CRESSIM_NEO_ENABLE_CUDA_INTEROP}" == ON ]]; then
-    read -r -p "CUDA runtime provider (auto/system/managed; default: auto)? " cuda_provider_answer
+    read -r -p "CUDA runtime provider (auto/system; default: auto)? " cuda_provider_answer
     cuda_provider_answer="${cuda_provider_answer:-auto}"
     case "${cuda_provider_answer,,}" in
         auto) CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=AUTO ;;
         system) CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=SYSTEM ;;
-        managed) CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=MANAGED ;;
-        *) die "CUDA runtime provider must be auto, system, or managed." ;;
+        *) die "CUDA runtime provider must be auto or system." ;;
     esac
 fi
 

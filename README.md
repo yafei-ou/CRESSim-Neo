@@ -126,8 +126,8 @@ Useful optional CMake switches are:
   requires CUDA interop and a working CUDA compiler.
 - `-DCRESSIM_NEO_CUDA_RUNTIME_PROVIDER=SYSTEM` — use the system CUDA runtime
   when a locally built Python CUDA extension is imported. `AUTO` is the
-  local-development default; `MANAGED` is reserved for the distributed CUDA
-  12.6 wheel lane.
+  local-development default; `MANAGED` is reserved for distributed CUDA wheel
+  lanes.
 - `-DCRESSIM_NEO_DXC_PROVIDER=SYSTEM` — use DXC found through the local SDKs
   instead of the pinned runtime. This is intended only for local development.
 - `-DCRESSIM_NEO_DXC_PROVIDER=OFF` — do not provision DXC. Vulkan falls back
