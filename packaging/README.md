@@ -1,52 +1,100 @@
-# Packaging and release workflow
+# Python wheel builds
 
-The default wheel and managed CUDA wheel differ only in their CUDA-runtime
-contract.
+There are two distinct workflows: a host-local developer wheel and reproducible
+Docker release wheels. Do not use a local wheel as a release artifact.
 
-| Artifact | Builder | CUDA runtime | Distribution |
-| --- | --- | --- | --- |
-| Default wheel | `../scripts/build_local_wheel.sh` | Disabled | Local developer wheel |
-| `cu126` wheel | `../scripts/build_cuda126_wheels.sh` | Managed NVIDIA Python packages | GitHub Release asset |
+## Local developer wheel
 
-## Local development
-
-Use `../scripts/configure_builds.sh` for persistent native CMake build trees.
-It enables the viewer by default and is the fastest workflow for repeated C++
-iteration. Use `../scripts/build_local_wheel.sh` only when a local wheel artifact is
-needed; it builds the root package configuration and is not a portable CUDA
-release artifact.
-
-For a quick CUDA wheel iteration, build one CPython ABI from the repository
-root:
+Use the local script when iterating on Python bindings or when a wheel is needed
+for the current host:
 
 ```bash
-CIBW_BUILD='cp312-*' scripts/build_cuda126_wheels.sh
-scripts/verify_cuda126_wheel.sh dist/cu126/*cp312*.whl
+scripts/build_local_wheel.sh
+python -m pip install --force-reinstall dist/cressim_neo-*.whl
+python -c "import cressim_neo; print(cressim_neo.Runtime().get_info())"
 ```
 
-Use the unrestricted builder only for release candidates; it builds CPython
-3.10 through 3.13.
+For repeated C++ work, prefer `../scripts/configure_builds.sh`; its persistent
+CMake build tree avoids rebuilding the engine for every wheel.
 
-## CUDA 12.6 release candidate
+## Docker release lanes
 
-The authoritative CUDA lane configuration is `cuda126/release.toml`. Before
-publishing, run from the repository root:
+Release wheels are built in controlled manylinux containers and written to
+`dist/<lane>/`. The active lanes are:
+
+| Lane | CUDA interop | Ultrasound | Builder | Runtime test image |
+| --- | --- | --- | --- | --- |
+| `base` | No | No | `../docker/manylinux-base/Dockerfile` | `../docker/ubuntu-base/Dockerfile` |
+| `cu126` | CUDA 12.6 | Yes | `../docker/manylinux-cu126/Dockerfile` | `../docker/ubuntu-cu126/Dockerfile` |
+
+`cu130` and `cu132` are planned lanes, not supported build arguments yet. Each
+requires its own toolkit image, pinned PyTorch/NVIDIA dependency manifest, and
+end-to-end validation before it is added.
+
+Install the host tools once:
 
 ```bash
-rm -rf dist/cu126
-scripts/build_cuda126_wheels.sh
+python -m pip install cibuildwheel auditwheel
+```
+
+Build all configured CPython ABIs for a lane:
+
+```bash
+scripts/build_release_wheels.sh --lane base
+scripts/build_release_wheels.sh --lane cu126
+```
+
+Each build removes the previous `dist/<lane>/` directory first, so a release
+artifact directory contains only wheels from its current invocation.
+
+For a quick iteration, narrow cibuildwheel's ABI selection:
+
+```bash
+CIBW_BUILD='cp312-*' scripts/build_release_wheels.sh --lane base
+CIBW_BUILD='cp312-*' scripts/build_release_wheels.sh --lane cu126
+```
+
+After every release build, run the manual verification below. It checks the
+manylinux tag and build-path hygiene for every lane, rejects CUDA dependencies
+from `base`, and ensures `cu126` requests external `libcudart.so.12` without
+bundling NVIDIA runtime libraries.
+
+## Release-wheel verification
+
+Run this after building and again before attaching copied artifacts to a GitHub
+Release:
+
+```bash
+for wheel in dist/base/*.whl; do
+  scripts/verify_release_wheel.sh --lane base "$wheel"
+done
+
 for wheel in dist/cu126/*.whl; do
-  scripts/verify_cuda126_wheel.sh "$wheel"
+  scripts/verify_release_wheel.sh --lane cu126 "$wheel"
 done
 ```
 
-The verifier confirms that CUDA runtime libraries remain external, no
-build-machine paths are present, and the wheel is compatible with
-`manylinux_2_34_x86_64`.
+### Base lane test
 
-On an NVIDIA GPU host configured with NVIDIA Container Toolkit, validate a
-fresh Ubuntu environment. The test image selects NVIDIA's EGL Vulkan ICD for
-headless containers; this does not alter normal user installations.
+The base test runs in clean Ubuntu 22.04 with Mesa Vulkan and no CUDA Toolkit,
+NVIDIA driver, or NVIDIA Python packages:
+
+```bash
+docker build -f docker/ubuntu-base/Dockerfile -t cressim-neo/ubuntu-base:test .
+docker run --rm -v "$PWD:/workspace" -w /workspace cressim-neo/ubuntu-base:test \
+  bash -lc '
+    micromamba create -y -n base -f packaging/base/environment.yml
+    micromamba run -n base python -m pip install --force-reinstall dist/base/*cp312*.whl
+    micromamba run -n base python -m pip check
+    micromamba run -n base python scripts/test_base_wheel.py
+  '
+```
+
+### CUDA 12.6 lane test
+
+The `cu126` test requires an NVIDIA GPU host configured with NVIDIA Container
+Toolkit. It validates the managed runtime loader, CUFFT/CURAND, Ultrasound,
+Vulkan/CUDA external-memory interop, and a PyTorch DLPack round trip:
 
 ```bash
 docker build -f docker/ubuntu-cu126/Dockerfile -t cressim-neo/ubuntu-cu126:test .
@@ -61,7 +109,3 @@ docker run --rm --gpus all \
     micromamba run -n ci python scripts/test_cuda126_interop.py
   '
 ```
-
-The GPU smoke test validates the managed runtime loader, CUFFT/CURAND,
-Ultrasound initialization, Vulkan/CUDA external-memory interop, and a DLPack
-round trip with PyTorch.

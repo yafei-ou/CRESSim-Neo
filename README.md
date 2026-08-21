@@ -188,57 +188,18 @@ parallelism when needed:
 CMAKE_BUILD_PARALLEL_LEVEL=4 python -m pip wheel --no-deps --wheel-dir dist .
 ```
 
-The default wheel is CPU-only and requires NumPy. Gymnasium is optional:
+The local wheel has no CUDA interop or Ultrasound dependency and requires
+NumPy. Gymnasium is optional:
 
 ```bash
 python -m pip install 'cressim-neo[gymnasium]'
 ```
 
-## Linux CUDA and PyTorch
+## Release wheels
 
-CUDA Python packages are distributed in explicit CUDA-major lanes. The first
-managed lane is CUDA 12.6 (`cu126`) and includes CUDA interop and
-CRESSim-Ultrasound. It does not bundle NVIDIA libraries: it preloads the
-matching runtime from the active environment before importing the native
-extension. This prevents system CUDA from being selected accidentally when
-PyTorch uses its pip-installed NVIDIA packages.
-
-### Ubuntu 22.04+ managed environment
-
-Use Conda or micromamba for environment isolation and the official PyTorch pip
-wheel for CUDA 12.6. The pinned versions and GitHub Release location are kept
-in [`packaging/cuda126/release.toml`](packaging/cuda126/release.toml).
-
-```bash
-micromamba create -n cressim-cu126 -f packaging/cuda126/environment.yml
-micromamba activate cressim-cu126
-python -m pip install /path/to/cressim_neo-<version>-cp312-*-manylinux_2_34_x86_64.whl
-```
-
-Download the wheel matching the environment's Python ABI from the project's
-GitHub Release assets, then replace the path above with the downloaded file.
-The CRESSim CUDA wheel declares the CUDA runtime, CUFFT, and CURAND dependencies
-it needs, so CRESSim and PyTorch may be installed in either order. Set
-`CRESSIM_NEO_CUDA_RUNTIME_PATH` to an explicit `libcudart.so.12` path only when
-debugging a nonstandard environment.
-
-### Maintainer wheel builds
-
-Build the reproducible CUDA 12.6 wheel lane with Docker and cibuildwheel:
-
-```bash
-python -m pip install cibuildwheel auditwheel
-scripts/build_cuda126_wheels.sh
-for wheel in dist/cu126/*.whl; do scripts/verify_cuda126_wheel.sh "$wheel"; done
-```
-
-The builder is defined in
-[`docker/manylinux-cu126/Dockerfile`](docker/manylinux-cu126/Dockerfile). Use
-[`docker/ubuntu-cu126/Dockerfile`](docker/ubuntu-cu126/Dockerfile) for the
-Ubuntu 22.04 CUDA development and GPU-test environment.
-
-For the complete maintainer wheel-build and GPU-validation workflow, 
-see [the packaging release guide](packaging/README.md).
+Docker-based release lanes and their clean-environment tests are documented in
+[the wheel build guide](packaging/README.md). The active lanes are `base`
+(without CUDA interop or Ultrasound) and `cu126` (CUDA 12.6 with Ultrasound).
 
 ## Documentation
 
