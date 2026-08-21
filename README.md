@@ -199,7 +199,8 @@ python -m pip install 'cressim-neo[gymnasium]'
 
 Docker-based release lanes and their clean-environment tests are documented in
 [the wheel build guide](packaging/README.md). The active lanes are `base`
-(without CUDA interop or Ultrasound) and `cu126` (CUDA 12.6 with Ultrasound).
+(without CUDA interop or Ultrasound), `cu126` (CUDA 12.6 with Ultrasound),
+`cu130` (CUDA 13.0 with Ultrasound), and `cu132` (CUDA 13.2 with Ultrasound).
 
 ## Documentation
 

@@ -37,6 +37,7 @@ BUILD_TESTING = false
 CRESSIM_NEO_ENABLE_CUDA_INTEROP = true
 CRESSIM_NEO_ENABLE_ULTRASOUND = true
 CRESSIM_NEO_CUDA_RUNTIME_PROVIDER = "MANAGED"
+CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION = "12.6"
 # This project enables CUDA after its top-level C/C++ project declaration.
 # Keep the release lane explicit so CheckLanguage(CUDA) does not depend on PATH.
 CMAKE_CUDA_COMPILER = "/usr/local/cuda-12.6/bin/nvcc"

@@ -48,6 +48,8 @@ option(CRESSIM_NEO_BUILD_PYTHON "Build optional Python bindings and tests" OFF)
 set(CRESSIM_NEO_CUDA_RUNTIME_PROVIDER "AUTO" CACHE STRING
     "CUDA runtime provider for Python packages: AUTO, MANAGED, or SYSTEM")
 set_property(CACHE CRESSIM_NEO_CUDA_RUNTIME_PROVIDER PROPERTY STRINGS AUTO MANAGED SYSTEM)
+set(CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION "" CACHE STRING
+    "Required CUDA major.minor version for a MANAGED Python wheel (for example 12.6)")
 string(TOUPPER "${CRESSIM_NEO_CUDA_RUNTIME_PROVIDER}" CRESSIM_NEO_CUDA_RUNTIME_PROVIDER)
 if(NOT CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "AUTO" AND
    NOT CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "MANAGED" AND
@@ -227,11 +229,18 @@ if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
                 endif()
             endif()
         endforeach()
-        if(CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "MANAGED" AND
-           (CUDAToolkit_VERSION VERSION_LESS "12.6" OR CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.7"))
-            message(FATAL_ERROR
-                "MANAGED CUDA wheels are the CUDA 12.6 lane and require CUDAToolkit 12.6.x; "
-                "found ${CUDAToolkit_VERSION}.")
+        if(CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "MANAGED")
+            if(NOT CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION MATCHES "^[0-9]+\\.[0-9]+$")
+                message(FATAL_ERROR
+                    "MANAGED CUDA wheels require CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION "
+                    "to name their CUDA major.minor lane (for example 12.6).")
+            endif()
+            if(CUDAToolkit_VERSION VERSION_LESS "${CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION}" OR
+               CUDAToolkit_VERSION VERSION_GREATER_EQUAL "${CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION}.999")
+                message(FATAL_ERROR
+                    "MANAGED CUDA wheel requires CUDAToolkit "
+                    "${CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION}.x; found ${CUDAToolkit_VERSION}.")
+            endif()
         endif()
         message(STATUS "CUDA interop enabled with CUDAToolkit ${CUDAToolkit_VERSION}.")
     else()

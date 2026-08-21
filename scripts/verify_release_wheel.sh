@@ -6,7 +6,7 @@ LANE=""
 
 usage() {
     cat <<'EOF'
-Usage: scripts/verify_release_wheel.sh --lane base|cu126 path/to/wheel.whl
+Usage: scripts/verify_release_wheel.sh --lane base|cu126|cu130|cu132 path/to/wheel.whl
 EOF
 }
 
@@ -37,14 +37,14 @@ while (( $# > 0 )); do
 done
 
 case "${LANE}" in
-    base|cu126) ;;
+    base|cu126|cu130|cu132) ;;
     *)
-        echo "Unsupported release wheel lane: ${LANE}. Supported lanes: base, cu126." >&2
+        echo "Unsupported release wheel lane: ${LANE}. Supported lanes: base, cu126, cu130, cu132." >&2
         exit 2
         ;;
 esac
 
-: "${WHEEL:?Usage: scripts/verify_release_wheel.sh --lane base|cu126 path/to/wheel.whl}"
+: "${WHEEL:?Usage: scripts/verify_release_wheel.sh --lane base|cu126|cu130|cu132 path/to/wheel.whl}"
 [[ -f "${WHEEL}" ]] || { echo "Wheel does not exist: ${WHEEL}" >&2; exit 2; }
 
 WORK_DIR="$(mktemp -d)"
@@ -76,11 +76,16 @@ while IFS= read -r -d '' library; do
                 found_cudart=ON
             fi
             ;;
+        cu130|cu132)
+            if grep -q 'Shared library: \[libcudart.so.13\]' <<<"${dynamic}"; then
+                found_cudart=ON
+            fi
+            ;;
     esac
 done < <(find "${WORK_DIR}" -type f -name '*.so*' -print0)
 
-if [[ "${LANE}" == cu126 && "${found_cudart}" != ON ]]; then
-    echo "CUDA 12.6 wheel does not request libcudart.so.12" >&2
+if [[ "${LANE}" != base && "${found_cudart}" != ON ]]; then
+    echo "${LANE} wheel does not request its CUDA runtime soname" >&2
     exit 1
 fi
 

@@ -1,0 +1,20 @@
+[cuda]
+lane = "cu130"
+toolkit = "13.0.3"
+runtime_major = 13
+minimum_runtime = 13000
+
+[python]
+abis = ["cp310", "cp311", "cp312", "cp313"]
+
+[pytorch]
+version = "2.13.0"
+index_url = "https://download.pytorch.org/whl/cu130"
+
+[nvidia]
+cuda_toolkit = "13.0.3"
+
+[distribution]
+github_releases_url = "https://github.com/yafei-ou/CRESSim-Neo/releases"
+ubuntu_minimum = "22.04"
+manylinux = "manylinux_2_34"
