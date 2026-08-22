@@ -1034,10 +1034,14 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("EnvironmentCubemap", CameraComponent::BackgroundMode::EnvironmentCubemap,
                "Skybox / Image-Based Lighting cubemap background.");
 
-    py::enum_<cressim::neo::physics::RigidBodyType>(m, "RigidBodyType")
-        .value("Static", cressim::neo::physics::RigidBodyType::Static)
-        .value("Kinematic", cressim::neo::physics::RigidBodyType::Kinematic)
-        .value("Dynamic", cressim::neo::physics::RigidBodyType::Dynamic);
+    py::enum_<cressim::neo::physics::RigidBodyType>(m, "RigidBodyType",
+                                                     "Rigid body simulation types.")
+        .value("Static", cressim::neo::physics::RigidBodyType::Static,
+               "Static rigid body.")
+        .value("Kinematic", cressim::neo::physics::RigidBodyType::Kinematic,
+               "Kinematic rigid body.")
+        .value("Dynamic", cressim::neo::physics::RigidBodyType::Dynamic,
+               "Dynamically simulated rigid body.");
 
     py::enum_<cressim::neo::physics::ColliderShapeType>(m, "ColliderShapeType")
         .value("Sphere", cressim::neo::physics::ColliderShapeType::Sphere)
@@ -1893,53 +1897,95 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("cfl_coefficient", &FluidMaterialDesc::cflCoefficient,
                        "Coefficient used to derive the fluid CFL radius.");
 
-    py::class_<RigidBodyComponent>(m, "RigidBodyComponent")
-        .def(py::init<>())
-        .def_readwrite("linear_velocity", &RigidBodyComponent::linearVelocity)
-        .def_readwrite("angular_velocity", &RigidBodyComponent::angularVelocity)
-        .def_readwrite("inverse_inertia_local", &RigidBodyComponent::inverseInertiaLocal)
+    py::class_<RigidBodyComponent>(
+        m, "RigidBodyComponent",
+        "Rigid body component defining linear/angular velocity, mass properties, and kinematic targets.")
+        .def(py::init<>(), "Initializes the default rigid body component.")
+        .def_readwrite("linear_velocity", &RigidBodyComponent::linearVelocity,
+                       "Linear velocity vector.")
+        .def_readwrite("angular_velocity", &RigidBodyComponent::angularVelocity,
+                       "Angular velocity vector.")
+        .def_readwrite("inverse_inertia_local", &RigidBodyComponent::inverseInertiaLocal,
+                       "Local inverse inertia tensor diagonal.")
         .def_readwrite("proxy_particle_local_positions",
-                       &RigidBodyComponent::proxyParticleLocalPositions)
-        .def_readwrite("proxy_particle_material", &RigidBodyComponent::proxyParticleMaterial)
-        .def_readwrite("body_type", &RigidBodyComponent::bodyType)
-        .def_readwrite("inverse_mass", &RigidBodyComponent::inverseMass)
-        .def_readwrite("proxy_particle_radius", &RigidBodyComponent::proxyParticleRadius)
-        .def_readwrite("proxy_collision_layer", &RigidBodyComponent::proxyCollisionLayer)
-        .def_readwrite("proxy_collision_mask", &RigidBodyComponent::proxyCollisionMask)
-        .def_readwrite("suturing_enabled", &RigidBodyComponent::suturingEnabled)
-        .def_readwrite("needle_tip_proxy_index", &RigidBodyComponent::needleTipProxyIndex)
-        .def_readwrite("kinematic_target_position", &RigidBodyComponent::kinematicTargetPosition)
-        .def_readwrite("kinematic_target_rotation", &RigidBodyComponent::kinematicTargetRotation)
-        .def_readwrite("kinematic_target_enabled", &RigidBodyComponent::kinematicTargetEnabled);
+                       &RigidBodyComponent::proxyParticleLocalPositions,
+                       "Local positions of proxy particles.")
+        .def_readwrite("proxy_particle_material", &RigidBodyComponent::proxyParticleMaterial,
+                       "Proxy particle contact material properties.")
+        .def_readwrite("body_type", &RigidBodyComponent::bodyType,
+                       "Rigid body type (Dynamic, Static, Kinematic).")
+        .def_readwrite("inverse_mass", &RigidBodyComponent::inverseMass, "Inverse mass (1/kg).")
+        .def_readwrite("proxy_particle_radius", &RigidBodyComponent::proxyParticleRadius,
+                       "Radius of proxy collision particles.")
+        .def_readwrite("proxy_collision_layer", &RigidBodyComponent::proxyCollisionLayer,
+                       "Bitmask collision layer for proxy particles.")
+        .def_readwrite("proxy_collision_mask", &RigidBodyComponent::proxyCollisionMask,
+                       "Bitmask collision mask for proxy particles.")
+        .def_readwrite("suturing_enabled", &RigidBodyComponent::suturingEnabled,
+                       "Enable surgical suturing needle proxy interactions.")
+        .def_readwrite("needle_tip_proxy_index", &RigidBodyComponent::needleTipProxyIndex,
+                       "Proxy particle index representing needle tip.")
+        .def_readwrite("kinematic_target_position", &RigidBodyComponent::kinematicTargetPosition,
+                       "Kinematic target position for interpolation.")
+        .def_readwrite("kinematic_target_rotation", &RigidBodyComponent::kinematicTargetRotation,
+                       "Kinematic target orientation quaternion.")
+        .def_readwrite("kinematic_target_enabled", &RigidBodyComponent::kinematicTargetEnabled,
+                       "Enable kinematic target positioning.");
 
-    py::class_<SoftBodyComponent>(m, "SoftBodyComponent")
-        .def(py::init<>())
-        .def_readwrite("source", &SoftBodyComponent::source)
-        .def_readwrite("material", &SoftBodyComponent::material)
-        .def_readwrite("particle_mass", &SoftBodyComponent::particleMass)
-        .def_readwrite("particle_radius", &SoftBodyComponent::particleRadius)
-        .def_readwrite("edge_compliance", &SoftBodyComponent::edgeCompliance)
-        .def_readwrite("volume_compliance", &SoftBodyComponent::volumeCompliance)
-        .def_readwrite("self_collision_enabled", &SoftBodyComponent::selfCollisionEnabled)
-        .def_readwrite("supports_suturing", &SoftBodyComponent::supportsSuturing)
-        .def_readwrite("collision_layer", &SoftBodyComponent::collisionLayer)
-        .def_readwrite("collision_mask", &SoftBodyComponent::collisionMask);
+    py::class_<SoftBodyComponent>(
+        m, "SoftBodyComponent",
+        "Soft body component supporting tetrahedral and meshfree particle sources.")
+        .def(py::init<>(), "Initializes the default soft body component.")
+        .def_readwrite("source", &SoftBodyComponent::source,
+                       "Source mesh file or tetrahedral asset descriptor.")
+        .def_readwrite("material", &SoftBodyComponent::material,
+                       "Particle contact material parameters.")
+        .def_readwrite("particle_mass", &SoftBodyComponent::particleMass, "Mass per node particle.")
+        .def_readwrite("particle_radius", &SoftBodyComponent::particleRadius,
+                       "Collision radius per particle.")
+        .def_readwrite("edge_compliance", &SoftBodyComponent::edgeCompliance,
+                       "Extended Position Based Dynamics (XPBD) edge constraint compliance.")
+        .def_readwrite("volume_compliance", &SoftBodyComponent::volumeCompliance,
+                       "XPBD volume conservation constraint compliance.")
+        .def_readwrite("self_collision_enabled", &SoftBodyComponent::selfCollisionEnabled,
+                       "Enable internal self-collision handling.")
+        .def_readwrite("supports_suturing", &SoftBodyComponent::supportsSuturing,
+                       "Enable surgical thread suturing insertion.")
+        .def_readwrite("collision_layer", &SoftBodyComponent::collisionLayer,
+                       "Collision bitmask layer.")
+        .def_readwrite("collision_mask", &SoftBodyComponent::collisionMask,
+                       "Collision bitmask filter.");
 
-    py::class_<MeshfreeSoftBodyComponent>(m, "MeshfreeSoftBodyComponent")
-        .def(py::init<>())
-        .def_readwrite("particles", &MeshfreeSoftBodyComponent::particles)
-        .def_readwrite("surface_rest_positions", &MeshfreeSoftBodyComponent::surfaceRestPositions)
-        .def_readwrite("surface_normals", &MeshfreeSoftBodyComponent::surfaceNormals)
-        .def_readwrite("surface_triangles", &MeshfreeSoftBodyComponent::surfaceTriangles)
-        .def_readwrite("static_particle_indices", &MeshfreeSoftBodyComponent::staticParticleIndices)
-        .def_readwrite("material", &MeshfreeSoftBodyComponent::material)
-        .def_readwrite("particle_radius", &MeshfreeSoftBodyComponent::particleRadius)
-        .def_readwrite("particle_mass", &MeshfreeSoftBodyComponent::particleMass)
-        .def_readwrite("neighbour_count", &MeshfreeSoftBodyComponent::neighbourCount)
-        .def_readwrite("compliance", &MeshfreeSoftBodyComponent::compliance)
-        .def_readwrite("self_collision_enabled", &MeshfreeSoftBodyComponent::selfCollisionEnabled)
-        .def_readwrite("collision_layer", &MeshfreeSoftBodyComponent::collisionLayer)
-        .def_readwrite("collision_mask", &MeshfreeSoftBodyComponent::collisionMask);
+    py::class_<MeshfreeSoftBodyComponent>(
+        m, "MeshfreeSoftBodyComponent",
+        "Meshfree / particle-based soft body component for point cloud elastic simulation.")
+        .def(py::init<>(), "Initializes the default meshfree soft body component.")
+        .def_readwrite("particles", &MeshfreeSoftBodyComponent::particles,
+                       "Particle rest position list.")
+        .def_readwrite("surface_rest_positions", &MeshfreeSoftBodyComponent::surfaceRestPositions,
+                       "Surface mesh rest position coordinates.")
+        .def_readwrite("surface_normals", &MeshfreeSoftBodyComponent::surfaceNormals,
+                       "Surface mesh normal vectors.")
+        .def_readwrite("surface_triangles", &MeshfreeSoftBodyComponent::surfaceTriangles,
+                       "Surface mesh triangle indices.")
+        .def_readwrite("static_particle_indices", &MeshfreeSoftBodyComponent::staticParticleIndices,
+                       "Particle indices fixed in space.")
+        .def_readwrite("material", &MeshfreeSoftBodyComponent::material,
+                       "Material property descriptor.")
+        .def_readwrite("particle_radius", &MeshfreeSoftBodyComponent::particleRadius,
+                       "Particle radius.")
+        .def_readwrite("particle_mass", &MeshfreeSoftBodyComponent::particleMass,
+                       "Mass per particle.")
+        .def_readwrite("neighbour_count", &MeshfreeSoftBodyComponent::neighbourCount,
+                       "Particle neighbor interaction count.")
+        .def_readwrite("compliance", &MeshfreeSoftBodyComponent::compliance,
+                       "Constraint compliance parameter.")
+        .def_readwrite("self_collision_enabled", &MeshfreeSoftBodyComponent::selfCollisionEnabled,
+                       "Enable self-collision.")
+        .def_readwrite("collision_layer", &MeshfreeSoftBodyComponent::collisionLayer,
+                       "Collision layer.")
+        .def_readwrite("collision_mask", &MeshfreeSoftBodyComponent::collisionMask,
+                       "Collision mask.");
 
     py::class_<HingeJointState>(m, "HingeJointState")
         .def(py::init<>())
