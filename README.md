@@ -231,9 +231,9 @@ python -m pip install 'cressim-neo[gymnasium]'
 ```
 
 The local wheel workflow does not require PyTorch. Install PyTorch separately
-in the active environment when using integrations that need it. Windows CUDA
-Python/Ultrasound builds are not currently supported; CUDA release-wheel lanes
-are Linux-only.
+in the active environment when using integrations that need it. Local wheels
+do not include CUDA interop or Ultrasound; use the release-wheel workflow for
+those CUDA-enabled distributions on Linux or Windows.
 
 ## Release wheels
 
