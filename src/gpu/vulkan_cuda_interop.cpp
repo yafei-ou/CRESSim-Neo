@@ -473,7 +473,23 @@ bool createExportableTimelineSemaphore(Diligent::IRenderDevice *renderDevice, co
 
 void resetExportableTimelineSemaphore(TimelineSemaphoreState &state) noexcept
 {
-    state.fence        = nullptr;
+    Diligent::RefCntAutoPtr<Diligent::IRenderDeviceVk> renderDeviceVk;
+    const bool canDestroy = state.renderDevice != nullptr && state.vkSemaphore != VK_NULL_HANDLE &&
+                            getRenderDeviceVk(state.renderDevice, renderDeviceVk);
+
+    // CreateFenceFromVulkanResource() only wraps the semaphore. Release the
+    // wrapper before destroying the raw Vulkan object it does not own.
+    state.fence = nullptr;
+    if (canDestroy)
+    {
+        state.renderDevice->IdleGPU();
+        const VkDevice vkDevice = renderDeviceVk->GetVkDevice();
+        if (vkDevice != VK_NULL_HANDLE)
+        {
+            vkDestroySemaphore(vkDevice, state.vkSemaphore, nullptr);
+        }
+    }
+
     state.vkSemaphore  = VK_NULL_HANDLE;
     state.renderDevice = nullptr;
 }

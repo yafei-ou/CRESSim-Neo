@@ -79,7 +79,12 @@ def main() -> None:
             raise RuntimeError("Torch DLPack shared-buffer round trip failed.")
         if not runtime.sync_shared_buffer_from_cuda(handle):
             raise RuntimeError("Failed to synchronize the shared buffer from CUDA.")
-        runtime.destroy_shared_buffer(handle)
+        # The DLPack tensor owns a shared-buffer lease. Release it before the
+        # runtime handle so the CUDA/Vulkan interop resources are torn down
+        # while the Vulkan device is still alive.
+        del tensor
+        if not runtime.destroy_shared_buffer(handle):
+            raise RuntimeError("Failed to destroy the CUDA shared buffer.")
     finally:
         runtime.shutdown()
 
