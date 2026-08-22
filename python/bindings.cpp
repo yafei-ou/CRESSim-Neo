@@ -1023,9 +1023,11 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("SegmentationDepth", CameraComponent::Product::SegmentationDepth,
                "Semantic segmentation mask and depth output.");
 
-    py::enum_<UltrasoundProbeComponent::Geometry>(m, "UltrasoundProbeGeometry")
-        .value("Linear", UltrasoundProbeComponent::Geometry::Linear)
-        .value("Curvilinear", UltrasoundProbeComponent::Geometry::Curvilinear);
+    py::enum_<UltrasoundProbeComponent::Geometry>(
+        m, "UltrasoundProbeGeometry", "Ultrasound transducer probe array geometry type.")
+        .value("Linear", UltrasoundProbeComponent::Geometry::Linear, "Linear array transducer.")
+        .value("Curvilinear", UltrasoundProbeComponent::Geometry::Curvilinear,
+               "Convex / curvilinear array transducer.");
 
     py::enum_<CameraComponent::BackgroundMode>(m, "CameraBackgroundMode",
                                                "Background clear modes for camera rendering.")
@@ -1043,10 +1045,14 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Dynamic", cressim::neo::physics::RigidBodyType::Dynamic,
                "Dynamically simulated rigid body.");
 
-    py::enum_<cressim::neo::physics::ColliderShapeType>(m, "ColliderShapeType")
-        .value("Sphere", cressim::neo::physics::ColliderShapeType::Sphere)
-        .value("Box", cressim::neo::physics::ColliderShapeType::Box)
-        .value("Capsule", cressim::neo::physics::ColliderShapeType::Capsule);
+    py::enum_<cressim::neo::physics::ColliderShapeType>(m, "ColliderShapeType",
+                                                         "Collider primitive geometry types.")
+        .value("Sphere", cressim::neo::physics::ColliderShapeType::Sphere,
+               "Spherical collider primitive.")
+        .value("Box", cressim::neo::physics::ColliderShapeType::Box,
+               "Box collider primitive.")
+        .value("Capsule", cressim::neo::physics::ColliderShapeType::Capsule,
+               "Capsule collider primitive.");
 
     py::enum_<AuthoredParticleReferenceType>(m, "AuthoredParticleReferenceType")
         .value("SoftBodyParticle", AuthoredParticleReferenceType::SoftBodyParticle)
@@ -1080,11 +1086,15 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Strand", ParticleOwnerType::Strand)
         .value("RigidBody", ParticleOwnerType::RigidBody);
 
-    py::enum_<ParticleStrandRole>(m, "ParticleStrandRole")
-        .value("None", ParticleStrandRole::None)
-        .value("NeedleTip", ParticleStrandRole::NeedleTip)
-        .value("NeedleBody", ParticleStrandRole::NeedleBody)
-        .value("Thread", ParticleStrandRole::Thread);
+    py::enum_<ParticleStrandRole>(m, "ParticleStrandRole",
+                                  "Suturing roles assigned to particles.")
+        .value("None", ParticleStrandRole::None, "No suturing role.")
+        .value("NeedleTip", ParticleStrandRole::NeedleTip,
+               "Tip particle of a suturing sequence.")
+        .value("NeedleBody", ParticleStrandRole::NeedleBody,
+               "Non-tip needle particle of a suturing sequence.")
+        .value("Thread", ParticleStrandRole::Thread,
+               "Thread particle of a suturing sequence.");
 
     py::enum_<RigidJointDriveMode>(m, "RigidJointDriveMode",
                                    "Rigid-joint drive control modes; availability depends on joint type.")
@@ -2132,71 +2142,129 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("drive_target_velocity", &SliderJointState::driveTargetVelocity,
                        "Target velocity for velocity drive control.");
 
-    py::class_<ColliderComponent>(m, "ColliderComponent")
-        .def(py::init<>())
-        .def_readwrite("shape_type", &ColliderComponent::shapeType)
-        .def_readwrite("shape_params", &ColliderComponent::shapeParams)
-        .def_readwrite("local_position", &ColliderComponent::localPosition)
-        .def_readwrite("local_rotation", &ColliderComponent::localRotation)
-        .def_readwrite("enabled", &ColliderComponent::enabled)
-        .def_readwrite("friction", &ColliderComponent::friction)
-        .def_readwrite("static_friction", &ColliderComponent::staticFriction)
-        .def_readwrite("restitution", &ColliderComponent::restitution)
-        .def_readwrite("collision_layer", &ColliderComponent::collisionLayer)
-        .def_readwrite("collision_mask", &ColliderComponent::collisionMask);
+    py::class_<ColliderComponent>(
+        m, "ColliderComponent",
+        "Collider component attached to entities for physical collision queries and dynamics.")
+        .def(py::init<>(), "Initializes the default collider component.")
+        .def_readwrite("shape_type", &ColliderComponent::shapeType,
+                       "Collision primitive geometry shape type.")
+        .def_readwrite("shape_params", &ColliderComponent::shapeParams,
+                       "Shape dimensions (e.g. radius, box extents).")
+        .def_readwrite("local_position", &ColliderComponent::localPosition,
+                       "Local offset position relative to transform.")
+        .def_readwrite("local_rotation", &ColliderComponent::localRotation,
+                       "Local offset rotation relative to transform.")
+        .def_readwrite("enabled", &ColliderComponent::enabled, "Active collision state.")
+        .def_readwrite("friction", &ColliderComponent::friction,
+                       "Dynamic friction coefficient.")
+        .def_readwrite("static_friction", &ColliderComponent::staticFriction,
+                       "Static friction coefficient (-1 to reuse dynamic friction).")
+        .def_readwrite("restitution", &ColliderComponent::restitution,
+                       "Coefficient of restitution (bounciness).")
+        .def_readwrite("collision_layer", &ColliderComponent::collisionLayer,
+                       "Bitmask collision layer.")
+        .def_readwrite("collision_mask", &ColliderComponent::collisionMask,
+                       "Bitmask collision filtering mask.");
 
-    py::class_<StrandComponent>(m, "StrandComponent")
-        .def(py::init<>())
-        .def_readwrite("material", &StrandComponent::material)
-        .def_readwrite("rest_positions", &StrandComponent::restPositions)
-        .def_readwrite("static_particle_indices", &StrandComponent::staticParticleIndices)
-        .def_readwrite("particle_mass", &StrandComponent::particleMass)
-        .def_readwrite("particle_radius", &StrandComponent::particleRadius)
-        .def_readwrite("stretch_shear_compliance", &StrandComponent::stretchShearCompliance)
-        .def_readwrite("bend_compliance", &StrandComponent::bendCompliance)
-        .def_readwrite("twist_compliance", &StrandComponent::twistCompliance)
-        .def_readwrite("distance_compliance", &StrandComponent::distanceCompliance)
-        .def_readwrite("root_material_normal", &StrandComponent::rootMaterialNormal)
-        .def_readwrite("self_collision_enabled", &StrandComponent::selfCollisionEnabled)
-        .def_readwrite("suturing_enabled", &StrandComponent::suturingEnabled)
-        .def_readwrite("path_node_spacing", &StrandComponent::pathNodeSpacing)
-        .def_readwrite("collision_layer", &StrandComponent::collisionLayer)
-        .def_readwrite("collision_mask", &StrandComponent::collisionMask);
+    py::class_<StrandComponent>(m, "StrandComponent",
+                                "1D elastic strand component for surgical threads and sutures.")
+        .def(py::init<>(), "Initializes the default strand component.")
+        .def_readwrite("material", &StrandComponent::material,
+                       "Particle contact material parameters.")
+        .def_readwrite("rest_positions", &StrandComponent::restPositions,
+                       "Rest positions of strand particles.")
+        .def_readwrite("static_particle_indices", &StrandComponent::staticParticleIndices,
+                       "Fixed node particle indices.")
+        .def_readwrite("particle_mass", &StrandComponent::particleMass,
+                       "Mass per strand node particle.")
+        .def_readwrite("particle_radius", &StrandComponent::particleRadius,
+                       "Collision radius per strand node.")
+        .def_readwrite("stretch_shear_compliance", &StrandComponent::stretchShearCompliance,
+                       "Stretching and shearing constraint compliance.")
+        .def_readwrite("bend_compliance", &StrandComponent::bendCompliance,
+                       "Bending constraint compliance.")
+        .def_readwrite("twist_compliance", &StrandComponent::twistCompliance,
+                       "Torsional twisting compliance.")
+        .def_readwrite("distance_compliance", &StrandComponent::distanceCompliance,
+                       "Distance constraint compliance.")
+        .def_readwrite("root_material_normal", &StrandComponent::rootMaterialNormal,
+                       "Normal vector at strand root constraint.")
+        .def_readwrite("self_collision_enabled", &StrandComponent::selfCollisionEnabled,
+                       "Enable strand self-collision.")
+        .def_readwrite("suturing_enabled", &StrandComponent::suturingEnabled,
+                       "Enable suturing path tracking.")
+        .def_readwrite("path_node_spacing", &StrandComponent::pathNodeSpacing,
+                       "Node spacing along suturing path.")
+        .def_readwrite("collision_layer", &StrandComponent::collisionLayer,
+                       "Collision layer.")
+        .def_readwrite("collision_mask", &StrandComponent::collisionMask,
+                       "Collision mask.");
 
-    py::class_<FluidComponent>(m, "FluidComponent")
-        .def(py::init<>())
-        .def_readwrite("source", &FluidComponent::source)
-        .def_readwrite("material", &FluidComponent::material)
-        .def_readwrite("visual_color", &FluidComponent::visualColor)
-        .def_readwrite("particle_mass", &FluidComponent::particleMass)
-        .def_readwrite("particle_radius", &FluidComponent::particleRadius)
-        .def_readwrite("collision_layer", &FluidComponent::collisionLayer)
-        .def_readwrite("collision_mask", &FluidComponent::collisionMask);
+    py::class_<FluidComponent>(m, "FluidComponent",
+                               "Particle-based fluid simulation component (SPH / Position-Based Fluids).")
+        .def(py::init<>(), "Initializes the default fluid component.")
+        .def_readwrite("source", &FluidComponent::source,
+                       "Fluid particle emitter/initializer source descriptor.")
+        .def_readwrite("material", &FluidComponent::material,
+                       "Fluid material properties (viscosity, surface tension).")
+        .def_readwrite("visual_color", &FluidComponent::visualColor,
+                       "Visual RGBA color for fluid rendering.")
+        .def_readwrite("particle_mass", &FluidComponent::particleMass, "Fluid particle mass.")
+        .def_readwrite("particle_radius", &FluidComponent::particleRadius,
+                       "Particle interaction radius.")
+        .def_readwrite("collision_layer", &FluidComponent::collisionLayer,
+                       "Collision layer.")
+        .def_readwrite("collision_mask", &FluidComponent::collisionMask,
+                       "Collision mask.");
 
-    py::class_<UltrasoundProbeComponent>(m, "UltrasoundProbeComponent")
-        .def(py::init<>())
-        .def_readwrite("enabled", &UltrasoundProbeComponent::enabled)
-        .def_readwrite("geometry", &UltrasoundProbeComponent::geometry)
-        .def_readwrite("num_scanlines", &UltrasoundProbeComponent::numScanlines)
-        .def_readwrite("line_length", &UltrasoundProbeComponent::lineLength)
-        .def_readwrite("scanline_spacing", &UltrasoundProbeComponent::scanlineSpacing)
-        .def_readwrite("sector_angle_degrees", &UltrasoundProbeComponent::sectorAngleDegrees)
-        .def_readwrite("probe_radius", &UltrasoundProbeComponent::probeRadius)
-        .def_readwrite("sound_speed", &UltrasoundProbeComponent::soundSpeed)
-        .def_readwrite("world_units_per_meter", &UltrasoundProbeComponent::worldUnitsPerMeter)
-        .def_readwrite("noise_amplitude", &UltrasoundProbeComponent::noiseAmplitude)
-        .def_readwrite("sampling_frequency", &UltrasoundProbeComponent::samplingFrequency)
-        .def_readwrite("demodulation_frequency", &UltrasoundProbeComponent::demodulationFrequency)
-        .def_readwrite("center_frequency", &UltrasoundProbeComponent::centerFrequency)
-        .def_readwrite("fractional_bandwidth", &UltrasoundProbeComponent::fractionalBandwidth)
-        .def_readwrite("beam_sigma_lateral", &UltrasoundProbeComponent::beamSigmaLateral)
-        .def_readwrite("beam_sigma_elevational", &UltrasoundProbeComponent::beamSigmaElevational)
-        .def_readwrite("radial_decimation", &UltrasoundProbeComponent::radialDecimation)
-        .def_readwrite("threads_per_block", &UltrasoundProbeComponent::threadsPerBlock)
-        .def_readwrite("cuda_num_streams", &UltrasoundProbeComponent::cudaNumStreams)
-        .def_readwrite("num_time_samples", &UltrasoundProbeComponent::numTimeSamples)
-        .def_readwrite("use_arc_projection", &UltrasoundProbeComponent::useArcProjection)
-        .def_readwrite("enable_phase_delay", &UltrasoundProbeComponent::enablePhaseDelay);
+    py::class_<UltrasoundProbeComponent>(
+        m, "UltrasoundProbeComponent",
+        "Ultrasound transducer probe component for simulated B-mode ultrasound imaging.")
+        .def(py::init<>(), "Initializes the default ultrasound probe component.")
+        .def_readwrite("enabled", &UltrasoundProbeComponent::enabled,
+                       "Enable ultrasound beam simulation.")
+        .def_readwrite("geometry", &UltrasoundProbeComponent::geometry,
+                       "Transducer array geometry.")
+        .def_readwrite("num_scanlines", &UltrasoundProbeComponent::numScanlines,
+                       "Number of acoustic scanlines.")
+        .def_readwrite("line_length", &UltrasoundProbeComponent::lineLength,
+                       "Scanline penetration depth.")
+        .def_readwrite("scanline_spacing", &UltrasoundProbeComponent::scanlineSpacing,
+                       "Spacing between adjacent scanlines.")
+        .def_readwrite("sector_angle_degrees", &UltrasoundProbeComponent::sectorAngleDegrees,
+                       "Sector sweep angle for curvilinear arrays.")
+        .def_readwrite("probe_radius", &UltrasoundProbeComponent::probeRadius,
+                       "Physical transducer head curvature radius.")
+        .def_readwrite("sound_speed", &UltrasoundProbeComponent::soundSpeed,
+                       "Acoustic speed of sound in medium (m/s).")
+        .def_readwrite("world_units_per_meter", &UltrasoundProbeComponent::worldUnitsPerMeter,
+                       "World unit scaling factor per meter.")
+        .def_readwrite("noise_amplitude", &UltrasoundProbeComponent::noiseAmplitude,
+                       "Thermal and speckle noise amplitude.")
+        .def_readwrite("sampling_frequency", &UltrasoundProbeComponent::samplingFrequency,
+                       "Acoustic RF signal sampling frequency (Hz).")
+        .def_readwrite("demodulation_frequency", &UltrasoundProbeComponent::demodulationFrequency,
+                       "RF demodulation carrier frequency (Hz).")
+        .def_readwrite("center_frequency", &UltrasoundProbeComponent::centerFrequency,
+                       "Transducer center frequency (Hz).")
+        .def_readwrite("fractional_bandwidth", &UltrasoundProbeComponent::fractionalBandwidth,
+                       "Transducer fractional bandwidth.")
+        .def_readwrite("beam_sigma_lateral", &UltrasoundProbeComponent::beamSigmaLateral,
+                       "Lateral acoustic beam profile Gaussian sigma.")
+        .def_readwrite("beam_sigma_elevational", &UltrasoundProbeComponent::beamSigmaElevational,
+                       "Elevational acoustic beam profile Gaussian sigma.")
+        .def_readwrite("radial_decimation", &UltrasoundProbeComponent::radialDecimation,
+                       "Radial decimation factor for image generation.")
+        .def_readwrite("threads_per_block", &UltrasoundProbeComponent::threadsPerBlock,
+                       "CUDA compute block thread size.")
+        .def_readwrite("cuda_num_streams", &UltrasoundProbeComponent::cudaNumStreams,
+                       "Number of concurrent CUDA streams.")
+        .def_readwrite("num_time_samples", &UltrasoundProbeComponent::numTimeSamples,
+                       "RF time-domain samples per scanline.")
+        .def_readwrite("use_arc_projection", &UltrasoundProbeComponent::useArcProjection,
+                       "Enable arc projection geometry.")
+        .def_readwrite("enable_phase_delay", &UltrasoundProbeComponent::enablePhaseDelay,
+                       "Enable phase delay beamforming.");
 
     py::class_<UltrasoundRendererComponent>(m, "UltrasoundRendererComponent")
         .def(py::init<>())
@@ -2242,14 +2310,19 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("image_height", &UltrasoundProbeResult::imageHeight)
         .def_readwrite("image_binding", &UltrasoundProbeResult::imageBinding);
 
-    py::class_<ProceduralDeformableCurveRenderComponent>(m,
-                                                         "ProceduralDeformableCurveRenderComponent")
-        .def(py::init<>())
-        .def_readwrite("sequence_id", &ProceduralDeformableCurveRenderComponent::sequenceId)
-        .def_readwrite("radius", &ProceduralDeformableCurveRenderComponent::radius)
+    py::class_<ProceduralDeformableCurveRenderComponent>(
+        m, "ProceduralDeformableCurveRenderComponent",
+        "Procedural render component for generating tube meshes along deformable curves (strands/sutures).")
+        .def(py::init<>(), "Initializes the default procedural deformable-curve render component.")
+        .def_readwrite("sequence_id", &ProceduralDeformableCurveRenderComponent::sequenceId,
+                       "Target particle sequence ID.")
+        .def_readwrite("radius", &ProceduralDeformableCurveRenderComponent::radius,
+                       "Tube mesh cross-section radius.")
         .def_readwrite("radial_resolution",
-                       &ProceduralDeformableCurveRenderComponent::radialResolution)
-        .def_readwrite("enabled", &ProceduralDeformableCurveRenderComponent::enabled);
+                       &ProceduralDeformableCurveRenderComponent::radialResolution,
+                       "Number of radial tube segments.")
+        .def_readwrite("enabled", &ProceduralDeformableCurveRenderComponent::enabled,
+                       "Enable rendering.");
 
     py::class_<SoftBodyAuthoringParticles>(m, "SoftBodyAuthoringParticles")
         .def(py::init<>())

@@ -184,7 +184,7 @@ struct MeshfreeSoftBodyComponent
 /// @brief 1D elastic strand component for surgical threads and sutures.
 struct StrandComponent
 {
-    physics::StrandMaterialDesc material{};            ///< Material parameters for strand bending/stretching.
+    physics::StrandMaterialDesc material{};            ///< Particle contact material parameters.
     std::vector<Diligent::float3> restPositions{};      ///< Rest positions of strand particles.
     std::vector<std::uint32_t> staticParticleIndices;  ///< Fixed node particle indices.
     float particleMass           = 1.0f;              ///< Mass per strand node particle.
