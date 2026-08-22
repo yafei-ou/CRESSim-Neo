@@ -1086,11 +1086,15 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("NeedleBody", ParticleStrandRole::NeedleBody)
         .value("Thread", ParticleStrandRole::Thread);
 
-    py::enum_<RigidJointDriveMode>(m, "RigidJointDriveMode")
-        .value("None", RigidJointDriveMode::None)
-        .value("TargetPosition", RigidJointDriveMode::TargetPosition)
-        .value("TargetVelocity", RigidJointDriveMode::TargetVelocity)
-        .value("TargetOrientation", RigidJointDriveMode::TargetOrientation);
+    py::enum_<RigidJointDriveMode>(m, "RigidJointDriveMode",
+                                   "Rigid-joint drive control modes; availability depends on joint type.")
+        .value("None", RigidJointDriveMode::None, "Disable joint drive control.")
+        .value("TargetPosition", RigidJointDriveMode::TargetPosition,
+               "Position-drive mode for hinge and slider joints.")
+        .value("TargetVelocity", RigidJointDriveMode::TargetVelocity,
+               "Velocity-drive mode for hinge and slider joints.")
+        .value("TargetOrientation", RigidJointDriveMode::TargetOrientation,
+               "Orientation-drive mode for spherical joints.");
 
     py::enum_<cressim::neo::gpu::VulkanShaderCompilerMode>(
         m, "VulkanShaderCompilerMode", "Shader compiler selection policy for the Vulkan backend.")
@@ -1987,87 +1991,146 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("collision_mask", &MeshfreeSoftBodyComponent::collisionMask,
                        "Collision mask.");
 
-    py::class_<HingeJointState>(m, "HingeJointState")
-        .def(py::init<>())
-        .def_readwrite("joint_id", &HingeJointState::jointId)
-        .def_readwrite("enabled", &HingeJointState::enabled)
+    py::class_<HingeJointState>(m, "HingeJointState",
+                                "State for a hinge joint between two rigid bodies.")
+        .def(py::init<>(), "Initializes the default hinge-joint state.")
+        .def_readwrite("joint_id", &HingeJointState::jointId,
+                       "Joint identifier; an invalid ID creates a joint on upsert.")
+        .def_readwrite("enabled", &HingeJointState::enabled, "Enable this joint.")
         .def_readwrite("suppress_connected_body_collisions",
-                       &HingeJointState::suppressConnectedBodyCollisions)
-        .def_readwrite("drive_mode", &HingeJointState::driveMode)
-        .def_readwrite("limit_enabled", &HingeJointState::limitEnabled)
-        .def_readwrite("body_a", &HingeJointState::bodyA)
-        .def_readwrite("body_b", &HingeJointState::bodyB)
-        .def_readwrite("local_anchor_a", &HingeJointState::localAnchorA)
-        .def_readwrite("local_anchor_b", &HingeJointState::localAnchorB)
-        .def_readwrite("local_rotation_a", &HingeJointState::localRotationA)
-        .def_readwrite("local_rotation_b", &HingeJointState::localRotationB)
-        .def_readwrite("limit_min", &HingeJointState::limitMin)
-        .def_readwrite("limit_max", &HingeJointState::limitMax)
-        .def_readwrite("constraint_compliance", &HingeJointState::constraintCompliance)
-        .def_readwrite("drive_compliance", &HingeJointState::driveCompliance)
-        .def_readwrite("drive_target_angle", &HingeJointState::driveTargetAngle)
-        .def_readwrite("drive_damping", &HingeJointState::driveDamping)
-        .def_readwrite("drive_max_angular_velocity", &HingeJointState::driveMaxAngularVelocity)
+                       &HingeJointState::suppressConnectedBodyCollisions,
+                       "Suppress collisions between the connected bodies.")
+        .def_readwrite("drive_mode", &HingeJointState::driveMode, "Hinge drive control mode.")
+        .def_readwrite("limit_enabled", &HingeJointState::limitEnabled, "Enable hinge angle limits.")
+        .def_readwrite("body_a", &HingeJointState::bodyA,
+                       "First connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+        .def_readwrite("body_b", &HingeJointState::bodyB,
+                       "Second connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+        .def_readwrite("local_anchor_a", &HingeJointState::localAnchorA,
+                       "Joint anchor in body A local coordinates.")
+        .def_readwrite("local_anchor_b", &HingeJointState::localAnchorB,
+                       "Joint anchor in body B local coordinates.")
+        .def_readwrite("local_rotation_a", &HingeJointState::localRotationA,
+                       "Joint frame orientation in body A local coordinates.")
+        .def_readwrite("local_rotation_b", &HingeJointState::localRotationB,
+                       "Joint frame orientation in body B local coordinates.")
+        .def_readwrite("limit_min", &HingeJointState::limitMin, "Minimum hinge angle limit.")
+        .def_readwrite("limit_max", &HingeJointState::limitMax, "Maximum hinge angle limit.")
+        .def_readwrite("constraint_compliance", &HingeJointState::constraintCompliance,
+                       "Hinge constraint compliance.")
+        .def_readwrite("drive_compliance", &HingeJointState::driveCompliance,
+                       "Hinge drive compliance.")
+        .def_readwrite("drive_target_angle", &HingeJointState::driveTargetAngle,
+                       "Target angle for position drive control.")
+        .def_readwrite("drive_damping", &HingeJointState::driveDamping,
+                       "Damping applied by the hinge drive.")
+        .def_readwrite("drive_max_angular_velocity", &HingeJointState::driveMaxAngularVelocity,
+                       "Maximum angular velocity applied by the hinge drive.")
         .def_readwrite("drive_target_angular_velocity",
-                       &HingeJointState::driveTargetAngularVelocity);
+                       &HingeJointState::driveTargetAngularVelocity,
+                       "Target angular velocity for velocity drive control.");
 
-    py::class_<BallJointState>(m, "BallJointState")
-        .def(py::init<>())
-        .def_readwrite("joint_id", &BallJointState::jointId)
-        .def_readwrite("enabled", &BallJointState::enabled)
+    py::class_<BallJointState>(m, "BallJointState",
+                               "State for a ball joint that constrains two local anchors together.")
+        .def(py::init<>(), "Initializes the default ball-joint state.")
+        .def_readwrite("joint_id", &BallJointState::jointId,
+                       "Joint identifier; an invalid ID creates a joint on upsert.")
+        .def_readwrite("enabled", &BallJointState::enabled, "Enable this joint.")
         .def_readwrite("suppress_connected_body_collisions",
-                       &BallJointState::suppressConnectedBodyCollisions)
-        .def_readwrite("body_a", &BallJointState::bodyA)
-        .def_readwrite("body_b", &BallJointState::bodyB)
-        .def_readwrite("local_anchor_a", &BallJointState::localAnchorA)
-        .def_readwrite("local_anchor_b", &BallJointState::localAnchorB);
+                       &BallJointState::suppressConnectedBodyCollisions,
+                       "Suppress collisions between the connected bodies.")
+        .def_readwrite("body_a", &BallJointState::bodyA,
+                       "First connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+        .def_readwrite("body_b", &BallJointState::bodyB,
+                       "Second connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+        .def_readwrite("local_anchor_a", &BallJointState::localAnchorA,
+                       "Joint anchor in body A local coordinates.")
+        .def_readwrite("local_anchor_b", &BallJointState::localAnchorB,
+                       "Joint anchor in body B local coordinates.");
 
-    py::class_<SphericalJointState>(m, "SphericalJointState")
-        .def(py::init<>())
-        .def_readwrite("joint_id", &SphericalJointState::jointId)
-        .def_readwrite("enabled", &SphericalJointState::enabled)
+    py::class_<SphericalJointState>(
+        m, "SphericalJointState",
+        "State for a spherical joint with optional swing, twist, and orientation-drive constraints.")
+        .def(py::init<>(), "Initializes the default spherical-joint state.")
+        .def_readwrite("joint_id", &SphericalJointState::jointId,
+                       "Joint identifier; an invalid ID creates a joint on upsert.")
+        .def_readwrite("enabled", &SphericalJointState::enabled, "Enable this joint.")
         .def_readwrite("suppress_connected_body_collisions",
-                       &SphericalJointState::suppressConnectedBodyCollisions)
-        .def_readwrite("drive_mode", &SphericalJointState::driveMode)
-        .def_readwrite("limit_enabled", &SphericalJointState::limitEnabled)
-        .def_readwrite("body_a", &SphericalJointState::bodyA)
-        .def_readwrite("body_b", &SphericalJointState::bodyB)
-        .def_readwrite("local_anchor_a", &SphericalJointState::localAnchorA)
-        .def_readwrite("local_anchor_b", &SphericalJointState::localAnchorB)
-        .def_readwrite("local_rotation_a", &SphericalJointState::localRotationA)
-        .def_readwrite("local_rotation_b", &SphericalJointState::localRotationB)
-        .def_readwrite("swing_limit_y", &SphericalJointState::swingLimitY)
-        .def_readwrite("swing_limit_z", &SphericalJointState::swingLimitZ)
-        .def_readwrite("twist_limit_min", &SphericalJointState::twistLimitMin)
-        .def_readwrite("twist_limit_max", &SphericalJointState::twistLimitMax)
-        .def_readwrite("constraint_compliance", &SphericalJointState::constraintCompliance)
-        .def_readwrite("swing_compliance", &SphericalJointState::swingCompliance)
-        .def_readwrite("twist_compliance", &SphericalJointState::twistCompliance)
-        .def_readwrite("drive_compliance", &SphericalJointState::driveCompliance)
-        .def_readwrite("drive_target_orientation", &SphericalJointState::driveTargetOrientation);
+                       &SphericalJointState::suppressConnectedBodyCollisions,
+                       "Suppress collisions between the connected bodies.")
+        .def_readwrite("drive_mode", &SphericalJointState::driveMode,
+                       "Spherical-joint drive control mode.")
+        .def_readwrite("limit_enabled", &SphericalJointState::limitEnabled,
+                       "Enable swing and twist limits.")
+        .def_readwrite("body_a", &SphericalJointState::bodyA,
+                       "First connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+        .def_readwrite("body_b", &SphericalJointState::bodyB,
+                       "Second connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+        .def_readwrite("local_anchor_a", &SphericalJointState::localAnchorA,
+                       "Joint anchor in body A local coordinates.")
+        .def_readwrite("local_anchor_b", &SphericalJointState::localAnchorB,
+                       "Joint anchor in body B local coordinates.")
+        .def_readwrite("local_rotation_a", &SphericalJointState::localRotationA,
+                       "Joint frame orientation in body A local coordinates.")
+        .def_readwrite("local_rotation_b", &SphericalJointState::localRotationB,
+                       "Joint frame orientation in body B local coordinates.")
+        .def_readwrite("swing_limit_y", &SphericalJointState::swingLimitY,
+                       "Maximum swing limit about the joint Y axis.")
+        .def_readwrite("swing_limit_z", &SphericalJointState::swingLimitZ,
+                       "Maximum swing limit about the joint Z axis.")
+        .def_readwrite("twist_limit_min", &SphericalJointState::twistLimitMin,
+                       "Minimum twist angle limit.")
+        .def_readwrite("twist_limit_max", &SphericalJointState::twistLimitMax,
+                       "Maximum twist angle limit.")
+        .def_readwrite("constraint_compliance", &SphericalJointState::constraintCompliance,
+                       "Anchor constraint compliance.")
+        .def_readwrite("swing_compliance", &SphericalJointState::swingCompliance,
+                       "Swing-limit constraint compliance.")
+        .def_readwrite("twist_compliance", &SphericalJointState::twistCompliance,
+                       "Twist-limit constraint compliance.")
+        .def_readwrite("drive_compliance", &SphericalJointState::driveCompliance,
+                       "Orientation-drive compliance.")
+        .def_readwrite("drive_target_orientation", &SphericalJointState::driveTargetOrientation,
+                       "Target orientation for orientation drive control.");
 
-    py::class_<SliderJointState>(m, "SliderJointState")
-        .def(py::init<>())
-        .def_readwrite("joint_id", &SliderJointState::jointId)
-        .def_readwrite("enabled", &SliderJointState::enabled)
+    py::class_<SliderJointState>(m, "SliderJointState",
+                                "State for a slider joint between two rigid bodies.")
+        .def(py::init<>(), "Initializes the default slider-joint state.")
+        .def_readwrite("joint_id", &SliderJointState::jointId,
+                       "Joint identifier; an invalid ID creates a joint on upsert.")
+        .def_readwrite("enabled", &SliderJointState::enabled, "Enable this joint.")
         .def_readwrite("suppress_connected_body_collisions",
-                       &SliderJointState::suppressConnectedBodyCollisions)
-        .def_readwrite("drive_mode", &SliderJointState::driveMode)
-        .def_readwrite("limit_enabled", &SliderJointState::limitEnabled)
-        .def_readwrite("body_a", &SliderJointState::bodyA)
-        .def_readwrite("body_b", &SliderJointState::bodyB)
-        .def_readwrite("local_anchor_a", &SliderJointState::localAnchorA)
-        .def_readwrite("local_anchor_b", &SliderJointState::localAnchorB)
-        .def_readwrite("local_rotation_a", &SliderJointState::localRotationA)
-        .def_readwrite("local_rotation_b", &SliderJointState::localRotationB)
-        .def_readwrite("limit_min", &SliderJointState::limitMin)
-        .def_readwrite("limit_max", &SliderJointState::limitMax)
-        .def_readwrite("constraint_compliance", &SliderJointState::constraintCompliance)
-        .def_readwrite("drive_compliance", &SliderJointState::driveCompliance)
-        .def_readwrite("drive_damping", &SliderJointState::driveDamping)
-        .def_readwrite("drive_max_velocity", &SliderJointState::driveMaxVelocity)
-        .def_readwrite("drive_target_position", &SliderJointState::driveTargetPosition)
-        .def_readwrite("drive_target_velocity", &SliderJointState::driveTargetVelocity);
+                       &SliderJointState::suppressConnectedBodyCollisions,
+                       "Suppress collisions between the connected bodies.")
+        .def_readwrite("drive_mode", &SliderJointState::driveMode, "Slider drive control mode.")
+        .def_readwrite("limit_enabled", &SliderJointState::limitEnabled,
+                       "Enable slider position limits.")
+        .def_readwrite("body_a", &SliderJointState::bodyA,
+                       "First connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+        .def_readwrite("body_b", &SliderJointState::bodyB,
+                       "Second connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+        .def_readwrite("local_anchor_a", &SliderJointState::localAnchorA,
+                       "Joint anchor in body A local coordinates.")
+        .def_readwrite("local_anchor_b", &SliderJointState::localAnchorB,
+                       "Joint anchor in body B local coordinates.")
+        .def_readwrite("local_rotation_a", &SliderJointState::localRotationA,
+                       "Joint frame orientation in body A local coordinates.")
+        .def_readwrite("local_rotation_b", &SliderJointState::localRotationB,
+                       "Joint frame orientation in body B local coordinates.")
+        .def_readwrite("limit_min", &SliderJointState::limitMin, "Minimum slider position limit.")
+        .def_readwrite("limit_max", &SliderJointState::limitMax, "Maximum slider position limit.")
+        .def_readwrite("constraint_compliance", &SliderJointState::constraintCompliance,
+                       "Slider constraint compliance.")
+        .def_readwrite("drive_compliance", &SliderJointState::driveCompliance,
+                       "Slider drive compliance.")
+        .def_readwrite("drive_damping", &SliderJointState::driveDamping,
+                       "Damping applied by the slider drive.")
+        .def_readwrite("drive_max_velocity", &SliderJointState::driveMaxVelocity,
+                       "Maximum velocity applied by the slider drive.")
+        .def_readwrite("drive_target_position", &SliderJointState::driveTargetPosition,
+                       "Target position for position drive control.")
+        .def_readwrite("drive_target_velocity", &SliderJointState::driveTargetVelocity,
+                       "Target velocity for velocity drive control.");
 
     py::class_<ColliderComponent>(m, "ColliderComponent")
         .def(py::init<>())
