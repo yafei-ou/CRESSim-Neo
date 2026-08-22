@@ -68,6 +68,38 @@
       }
     },
     {
+      "name": "macos-base",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CRESSIM_NEO_DXC_PROVIDER": "OFF"
+      }
+    },
+    {
+      "name": "macos-debug",
+      "inherits": "macos-base",
+      "binaryDir": "${sourceDir}/build/macos-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "macos-release",
+      "inherits": "macos-base",
+      "binaryDir": "${sourceDir}/build/macos-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "macos-ci",
+      "inherits": "macos-base",
+      "binaryDir": "${sourceDir}/build/macos-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CRESSIM_NEO_BUILD_VIEWER": "OFF",
+        "CRESSIM_NEO_BUILD_EXAMPLES": "OFF",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
       "name": "windows-vs2022-base",
       "hidden": true,
       "inherits": "base",
@@ -100,6 +132,9 @@
     { "name": "linux-release", "configurePreset": "linux-release" },
     { "name": "linux-ci", "configurePreset": "linux-ci" },
     { "name": "linux-docs-api", "configurePreset": "linux-docs-api" },
+    { "name": "macos-debug", "configurePreset": "macos-debug" },
+    { "name": "macos-release", "configurePreset": "macos-release" },
+    { "name": "macos-ci", "configurePreset": "macos-ci" },
     { "name": "windows-vs2022-debug", "configurePreset": "windows-vs2022-debug", "configuration": "Debug" },
     { "name": "windows-vs2022-release", "configurePreset": "windows-vs2022-release", "configuration": "Release" },
     { "name": "windows-vs2022-ci", "configurePreset": "windows-vs2022-ci", "configuration": "Release" }
@@ -108,6 +143,11 @@
     {
       "name": "linux-ci",
       "configurePreset": "linux-ci",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "macos-ci",
+      "configurePreset": "macos-ci",
       "output": { "outputOnFailure": true }
     },
     {

@@ -18,6 +18,11 @@ For repeated C++ work, prefer a persistent native preset build such as
 `cmake --preset linux-release`; it avoids rebuilding the engine for every
 wheel.
 
+On macOS, local source builds are supported through the `macos-*` presets and
+the LunarG Vulkan SDK/MoltenVK. Set `VULKAN_SDK` before building and pass
+`-C cmake.define.CRESSIM_NEO_DXC_PROVIDER=OFF` when invoking pip directly.
+macOS wheels are not release artifacts and must not be published.
+
 ## Linux release lanes
 
 Release wheels are built in controlled manylinux containers and written to

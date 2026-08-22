@@ -17,12 +17,16 @@ instructions are in [`docs/README.md`](docs/README.md).
 - Linux: Clang and Clang++ with C++17 support, plus Ninja.
 - Windows: Visual Studio 2022 with the Desktop development with C++ workload
   and a Windows SDK. The supported Windows presets select the MSVC toolchain.
+- macOS: Xcode Command Line Tools, Ninja, and the LunarG Vulkan SDK with
+  MoltenVK. Set `VULKAN_SDK` to that SDK before configuring. The supported
+  source-build tier is Apple Silicon; Intel and universal builds are not
+  regularly validated.
 - Linux viewer builds also require the X11 development packages for Xcursor,
   Xext, Xi, Xinerama, and XRandR
 - Python development headers when building Python bindings
 - A Vulkan-capable graphics driver/runtime for running Vulkan-backed programs
 
-By default, configuration downloads a pinned DXC runtime release with a
+By default, Linux and Windows configuration downloads a pinned DXC runtime release with a
 SHA-256 check. The managed Linux wheel lane uses DXC `v1.8.2505.1`, the newest
 official Linux binary compatible with its `manylinux_2_34` ABI floor. The same
 DXC release is used on Windows. The selected runtime is copied beside build
@@ -41,8 +45,10 @@ Python must be available on `PATH` for every configuration. When building
 Python bindings or wheels, activate the intended virtual environment or Conda
 environment first so CMake and pip use the same interpreter.
 
-macOS is not currently a supported preset platform. Its DXC runtime and
-distribution path require separate work before it is documented as supported.
+macOS uses MoltenVK through the Vulkan SDK and deliberately disables DXC. This
+is a source-build-only, best-effort tier: no macOS release wheels, CUDA
+interop, or Ultrasound support are provided. Diligent uses its non-DXC shader
+compiler fallback, so DXC-only shader features are unavailable.
 
 ## Native development
 
@@ -65,6 +71,22 @@ Use `linux-debug` or `linux-ci` for the other Linux presets:
 cmake --preset linux-debug
 cmake --build --preset linux-debug --parallel
 ```
+
+On macOS, install Xcode Command Line Tools and the LunarG Vulkan SDK first,
+then set `VULKAN_SDK` in the shell that configures and runs CRESSim-Neo. The
+SDK supplies the Vulkan loader and MoltenVK. The macOS presets disable DXC and
+use Diligent's fallback shader compiler. Use the Apple Silicon presets:
+
+```bash
+export VULKAN_SDK=/path/to/vulkansdk-macos
+cmake --preset macos-release
+cmake --build --preset macos-release --parallel
+cmake --install build/macos-release --component CXXSDK
+cmake --install build/macos-release --component Examples
+```
+
+Use `macos-debug` for interactive development. `macos-ci` is a lean headless
+CTest profile for local verification; it is not a hosted CI commitment.
 
 On Windows, use the Visual Studio 2022 presets. `CMAKE_BUILD_TYPE` does not
 select a configuration for Visual Studio, so use the matching build preset and
@@ -102,6 +124,10 @@ one installation. Use the same prefix for every component:
 
 ```bash
 cmake --preset linux-release -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+```
+
+```bash
+cmake --preset macos-release -DCMAKE_INSTALL_PREFIX="$HOME/.local"
 ```
 
 ```powershell
@@ -198,6 +224,15 @@ On Windows, after activating the intended environment:
 ```powershell
 conda activate cressim_neo
 .\scripts\build_local_wheel.ps1
+```
+
+On macOS, build from a recursive checkout and keep the Vulkan SDK available.
+This creates a local wheel only; it is not a release artifact:
+
+```bash
+python -m pip wheel --no-deps --wheel-dir dist \
+  -C cmake.define.CRESSIM_NEO_DXC_PROVIDER=OFF .
+python -m pip install dist/cressim_neo-*.whl
 ```
 
 Install and verify the resulting wheel:

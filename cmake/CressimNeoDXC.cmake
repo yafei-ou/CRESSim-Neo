@@ -13,8 +13,8 @@ set(CRESSIM_NEO_DXC_PROVIDER "BUNDLED" CACHE STRING
 set_property(CACHE CRESSIM_NEO_DXC_PROVIDER PROPERTY STRINGS BUNDLED SYSTEM OFF)
 
 # DXC 1.8.2505.1 is the newest official Linux binary compatible with the
-# managed wheel's GLIBC 2.34 floor. Use the same pinned DXC release on every
-# supported platform so shader behavior is consistent across C++ packages.
+# managed wheel's GLIBC 2.34 floor. Use the same pinned DXC release on Linux
+# and Windows. macOS source builds deliberately disable DXC.
 set(CRESSIM_NEO_DXC_VERSION "v1.8.2505.1" CACHE INTERNAL "Pinned DXC release")
 set(CRESSIM_NEO_DXC_RUNTIME_PATH "" CACHE FILEPATH
     "Path to the DXC runtime used for D3D12 (dxcompiler.dll on Windows)")
