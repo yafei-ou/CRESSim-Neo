@@ -1,0 +1,160 @@
+{
+  "version": 4,
+  "cmakeMinimumRequired": { "major": 3, "minor": 23, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "ENGINE_STATIC": "OFF",
+        "CRESSIM_NEO_BUILD_VIEWER": "ON",
+        "CRESSIM_NEO_BUILD_EXAMPLES": "ON",
+        "CRESSIM_NEO_BUILD_DOCS": "OFF",
+        "CRESSIM_NEO_BUILD_PYTHON": "OFF",
+        "BUILD_TESTING": "OFF",
+        "CRESSIM_NEO_ENABLE_CLANG_TIDY": "OFF",
+        "CRESSIM_NEO_ENABLE_CUDA_INTEROP": "OFF",
+        "CRESSIM_NEO_ENABLE_ULTRASOUND": "OFF",
+        "CRESSIM_NEO_CUDA_RUNTIME_PROVIDER": "AUTO",
+        "CRESSIM_NEO_DXC_PROVIDER": "BUNDLED"
+      }
+    },
+    {
+      "name": "linux-base",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "linux-debug",
+      "inherits": "linux-base",
+      "binaryDir": "${sourceDir}/build/linux-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "linux-release",
+      "inherits": "linux-base",
+      "binaryDir": "${sourceDir}/build/linux-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "linux-ci",
+      "inherits": "linux-base",
+      "binaryDir": "${sourceDir}/build/linux-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CRESSIM_NEO_BUILD_VIEWER": "OFF",
+        "CRESSIM_NEO_BUILD_EXAMPLES": "OFF",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "linux-docs-api",
+      "inherits": "linux-base",
+      "binaryDir": "${sourceDir}/build/linux-docs-api",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CRESSIM_NEO_BUILD_PYTHON": "ON",
+        "CRESSIM_NEO_BUILD_VIEWER": "ON",
+        "CRESSIM_NEO_BUILD_EXAMPLES": "OFF",
+        "BUILD_TESTING": "OFF",
+        "CRESSIM_NEO_ENABLE_CLANG_TIDY": "OFF",
+        "CRESSIM_NEO_ENABLE_CUDA_INTEROP": "OFF",
+        "CRESSIM_NEO_ENABLE_ULTRASOUND": "OFF"
+      }
+    },
+    {
+      "name": "macos-base",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CRESSIM_NEO_DXC_PROVIDER": "OFF"
+      }
+    },
+    {
+      "name": "macos-debug",
+      "inherits": "macos-base",
+      "binaryDir": "${sourceDir}/build/macos-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "macos-release",
+      "inherits": "macos-base",
+      "binaryDir": "${sourceDir}/build/macos-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "macos-ci",
+      "inherits": "macos-base",
+      "binaryDir": "${sourceDir}/build/macos-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CRESSIM_NEO_BUILD_VIEWER": "OFF",
+        "CRESSIM_NEO_BUILD_EXAMPLES": "OFF",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "windows-vs2022-base",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64"
+    },
+    {
+      "name": "windows-vs2022-debug",
+      "inherits": "windows-vs2022-base",
+      "binaryDir": "${sourceDir}/build/windows-vs2022-debug"
+    },
+    {
+      "name": "windows-vs2022-release",
+      "inherits": "windows-vs2022-base",
+      "binaryDir": "${sourceDir}/build/windows-vs2022-release"
+    },
+    {
+      "name": "windows-vs2022-ci",
+      "inherits": "windows-vs2022-base",
+      "binaryDir": "${sourceDir}/build/windows-vs2022-ci",
+      "cacheVariables": {
+        "CRESSIM_NEO_BUILD_VIEWER": "OFF",
+        "CRESSIM_NEO_BUILD_EXAMPLES": "OFF",
+        "BUILD_TESTING": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "linux-debug", "configurePreset": "linux-debug" },
+    { "name": "linux-release", "configurePreset": "linux-release" },
+    { "name": "linux-ci", "configurePreset": "linux-ci" },
+    { "name": "linux-docs-api", "configurePreset": "linux-docs-api" },
+    { "name": "macos-debug", "configurePreset": "macos-debug" },
+    { "name": "macos-release", "configurePreset": "macos-release" },
+    { "name": "macos-ci", "configurePreset": "macos-ci" },
+    { "name": "windows-vs2022-debug", "configurePreset": "windows-vs2022-debug", "configuration": "Debug" },
+    { "name": "windows-vs2022-release", "configurePreset": "windows-vs2022-release", "configuration": "Release" },
+    { "name": "windows-vs2022-ci", "configurePreset": "windows-vs2022-ci", "configuration": "Release" }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-ci",
+      "configurePreset": "linux-ci",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "macos-ci",
+      "configurePreset": "macos-ci",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "windows-vs2022-ci",
+      "configurePreset": "windows-vs2022-ci",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

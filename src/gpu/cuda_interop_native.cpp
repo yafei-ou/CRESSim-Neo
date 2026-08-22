@@ -270,12 +270,26 @@ bool createExportableTimelineSemaphore(Diligent::IRenderDevice *renderDevice, co
 
 void resetExportableTimelineSemaphore(TimelineSemaphoreState &state) noexcept
 {
+    switch (state.deviceType)
+    {
+    case Diligent::RENDER_DEVICE_TYPE_VULKAN:
+    {
+        vkinterop::TimelineSemaphoreState vkState = toVulkanState(state);
+        vkinterop::resetExportableTimelineSemaphore(vkState);
+        break;
+    }
+#if defined(_WIN32)
+    case Diligent::RENDER_DEVICE_TYPE_D3D12:
+        d3d12interop::resetExportableTimelineSemaphore(state.d3d12State);
+        break;
+#endif
+    default:
+        break;
+    }
+
     state.fence        = nullptr;
     state.renderDevice = nullptr;
     state.deviceType   = Diligent::RENDER_DEVICE_TYPE_UNDEFINED;
-#if defined(_WIN32)
-    d3d12interop::resetExportableTimelineSemaphore(state.d3d12State);
-#endif
     state.vkSemaphore = VK_NULL_HANDLE;
     state.initialized = false;
 }

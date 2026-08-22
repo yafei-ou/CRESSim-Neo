@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core>=0.10", "pybind11>=2.13"]
+requires = ["scikit-build-core>=0.10", "pybind11-stubgen>=2.5"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -30,16 +30,18 @@ CRESSIM_NEO_BUILD_EXAMPLES = false
 BUILD_TESTING = false
 CRESSIM_NEO_ENABLE_CUDA_INTEROP = true
 CRESSIM_NEO_ENABLE_ULTRASOUND = true
+CRESSIM_NEO_REQUIRE_PYTHON_STUBS = true
 CRESSIM_NEO_CUDA_RUNTIME_PROVIDER = "MANAGED"
 CRESSIM_NEO_MANAGED_CUDA_TOOLKIT_VERSION = "13.0"
-CMAKE_CUDA_COMPILER = "/usr/local/cuda-13.0/bin/nvcc"
-CMAKE_CUDA_HOST_COMPILER = "/opt/rh/gcc-toolset-13/root/usr/bin/g++"
 
 [tool.cibuildwheel]
 build = "cp310-* cp311-* cp312-* cp313-*"
 skip = "*-musllinux_*"
 test-skip = "*"
-repair-wheel-command = "auditwheel repair --exclude libcudart.so.13 --exclude libcufft.so.12 --exclude libcurand.so.10 -w {dest_dir} {wheel}"
 
 [tool.cibuildwheel.linux]
 before-all = "python3 -m pip install --upgrade pip"
+repair-wheel-command = "auditwheel repair --exclude libcudart.so.13 --exclude libcufft.so.12 --exclude libcurand.so.10 -w {dest_dir} {wheel}"
+
+[tool.cibuildwheel.windows]
+repair-wheel-command = "delvewheel repair --ignore-existing --exclude cudart64_13.dll;cufft64_12.dll;curand64_10.dll;nvjitlink64_13.dll -w {dest_dir} {wheel}"

@@ -9,60 +9,103 @@ instructions are in [`docs/README.md`](docs/README.md).
 
 ## Prerequisites
 
-- CMake 3.18 or newer
-- Clang and Clang++ with C++17 support (the top-level CMake project currently
-  selects Clang explicitly)
-- A C++ build tool; Ninja is recommended
+- CMake 3.23 or newer for the supported CMake presets. The project itself can
+  still be configured manually with CMake 3.18 or newer.
+- Python 3.10 or newer. The enabled Diligent Vulkan/SPIR-V toolchain requires
+  a Python interpreter even when CRESSim-Neo's optional Python bindings are
+  disabled.
+- Linux: Clang and Clang++ with C++17 support, plus Ninja.
+- Windows: Visual Studio 2022 with the Desktop development with C++ workload
+  and a Windows SDK. The supported Windows presets select the MSVC toolchain.
+- macOS: Xcode Command Line Tools, Ninja, and the LunarG Vulkan SDK with
+  MoltenVK. Set `VULKAN_SDK` to that SDK before configuring. The supported
+  source-build tier is Apple Silicon; Intel and universal builds are not
+  regularly validated.
 - Linux viewer builds also require the X11 development packages for Xcursor,
   Xext, Xi, Xinerama, and XRandR
-- Python 3.10 or newer, plus its development headers, when building Python
-  bindings
+- Python development headers when building Python bindings
 - A Vulkan-capable graphics driver/runtime for running Vulkan-backed programs
 
-By default, configuration downloads a pinned DXC runtime release with a
+By default, Linux and Windows configuration downloads a pinned DXC runtime release with a
 SHA-256 check. The managed Linux wheel lane uses DXC `v1.8.2505.1`, the newest
 official Linux binary compatible with its `manylinux_2_34` ABI floor. The same
 DXC release is used on Windows. The selected runtime is copied beside build
 products and installed with the C++ SDK and Python package. CMake needs network
 access the first time it populates this build-directory cache.
 
-The repository checkout must include the `extern/DiligentEngine` dependency
-tree.  For Python-enabled CMake builds, CMake first looks for a pybind11 CMake
-package on its configured search paths (for example, one supplied through
-`CMAKE_PREFIX_PATH`).  Otherwise it uses `extern/pybind11` when present, or
-fetches pybind11 there during the first configure.
-
-On Linux, create and activate a virtual environment before working with the
-Python bindings:
+The repository checkout must include the pinned dependency submodules,
+including `extern/DiligentEngine`, `extern/glfw`, and `extern/pybind11` for
+Python-enabled builds:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
+git submodule update --init --recursive
 ```
+
+Python must be available on `PATH` for every configuration. When building
+Python bindings or wheels, activate the intended virtual environment or Conda
+environment first so CMake and pip use the same interpreter.
+
+macOS uses MoltenVK through the Vulkan SDK and deliberately disables DXC. This
+is a source-build-only, best-effort tier: no macOS release wheels, CUDA
+interop, or Ultrasound support are provided. Diligent uses its non-DXC shader
+compiler fallback, so DXC-only shader features are unavailable.
 
 ## Native development
 
-### Guided setup
+### Preset-based setup
 
-For the normal shared-SDK workflow, configure a Release or Debug build with:
+`CMakePresets.json` is the canonical native configuration interface. The
+release and debug presets enable the shared SDK, viewer, and examples; Python,
+tests, CUDA interop, and Ultrasound are disabled by default.
+
+On Linux:
 
 ```bash
-scripts/configure_builds.sh
+cmake --preset linux-release
+cmake --build --preset linux-release --parallel
 ```
 
-The helper selects supported project features and safely preserves the generator
-of existing build directories. New directories can use Ninja or Unix Makefiles.
-It prints the commands for the configured build.
-
-Build and install with standard CMake commands. For example, for a Release
-build with both components enabled:
+Use `linux-debug` or `linux-ci` for the other Linux presets:
 
 ```bash
-cmake --build build/linux-release --parallel
-cmake --install build/linux-release --component CXXSDK
-cmake --install build/linux-release --component Examples
-cmake --install build/linux-release --component Python
+cmake --preset linux-debug
+cmake --build --preset linux-debug --parallel
+```
+
+On macOS, install Xcode Command Line Tools and the LunarG Vulkan SDK first,
+then set `VULKAN_SDK` in the shell that configures and runs CRESSim-Neo. The
+SDK supplies the Vulkan loader and MoltenVK. The macOS presets disable DXC and
+use Diligent's fallback shader compiler. Use the Apple Silicon presets:
+
+```bash
+export VULKAN_SDK=/path/to/vulkansdk-macos
+cmake --preset macos-release
+cmake --build --preset macos-release --parallel
+cmake --install build/macos-release --component CXXSDK
+cmake --install build/macos-release --component Examples
+```
+
+Use `macos-debug` for interactive development. `macos-ci` is a lean headless
+CTest profile for local verification; it is not a hosted CI commitment.
+
+On Windows, use the Visual Studio 2022 presets. `CMAKE_BUILD_TYPE` does not
+select a configuration for Visual Studio, so use the matching build preset and
+pass `--config` to installation:
+
+```powershell
+cmake --preset windows-vs2022-release
+cmake --build --preset windows-vs2022-release --parallel
+cmake --install build/windows-vs2022-release --config Release --component CXXSDK
+cmake --install build/windows-vs2022-release --config Release --component Examples
+```
+
+Use `windows-vs2022-debug` for an interactive debug build. The CI preset is a
+headless test profile, useful for local verification:
+
+```powershell
+cmake --preset windows-vs2022-ci
+cmake --build --preset windows-vs2022-ci --parallel
+ctest --preset windows-vs2022-ci
 ```
 
 The project defines three install components:
@@ -76,44 +119,55 @@ The project defines three install components:
 - `Python` installs the `cressim_neo` module, its native runtime libraries,
   Python sources, shaders, models, and environment maps.
 
-Pass `--prefix "$HOME/.local"` to either install command when a custom prefix
-is needed. Static C++ SDK installation is not currently a supported public
-workflow.
+Set a persistent custom prefix while configuring, or override the prefix for
+one installation. Use the same prefix for every component:
+
+```bash
+cmake --preset linux-release -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+```
+
+```bash
+cmake --preset macos-release -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+```
+
+```powershell
+cmake --preset windows-vs2022-release -DCMAKE_INSTALL_PREFIX='C:\CRESSim-Neo'
+# Or: cmake --install ... --prefix 'C:\CRESSim-Neo'
+```
+
+Without an override, each native build installs below its build directory, for
+example `build/windows-vs2022-release/install`. Static C++ SDK installation is
+not currently a supported public workflow.
 
 All runtime assets resolve through one root: set `CRESSIM_NEO_ASSET_DIR` to use
 a custom asset directory; otherwise C++ resolves the installed asset tree and
 Python resolves its package-local `cressim_neo/assets` directory. Explicit
 shader or model paths still take precedence where supported.
 
-### Manual CMake configuration
+### Custom preset configuration
 
-Use this equivalent workflow when scripting, automating, or choosing CMake
-options directly. Configure a Release build with Python bindings enabled:
-
-```bash
-cmake -S . -B build/linux-release \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCRESSIM_NEO_BUILD_PYTHON=ON
-cmake --build build/linux-release --parallel
-```
-
-This build directory is persistent and incremental. Re-run the build command
-after changing source files; CMake rebuilds only affected targets. To limit
-parallelism:
+Pass `-D` options after a preset to customize it. For example, configure a
+Linux release build with Python bindings:
 
 ```bash
-cmake --build build/linux-release --parallel 4
+cmake --preset linux-release -DCRESSIM_NEO_BUILD_PYTHON=ON
+cmake --build --preset linux-release --parallel
 ```
-
-For a new build directory, add `-G Ninja` to the configure command to use Ninja.
 
 For a smaller headless build, disable the default viewer and examples:
 
 ```bash
-cmake -S . -B build/linux-release \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCRESSIM_NEO_BUILD_PYTHON=ON \
+cmake --preset linux-release \
   -DCRESSIM_NEO_BUILD_VIEWER=OFF \
+  -DCRESSIM_NEO_BUILD_EXAMPLES=OFF
+```
+
+The equivalent Windows invocation is:
+
+```powershell
+cmake --preset windows-vs2022-release `
+  -DCRESSIM_NEO_BUILD_PYTHON=ON `
+  -DCRESSIM_NEO_BUILD_VIEWER=OFF `
   -DCRESSIM_NEO_BUILD_EXAMPLES=OFF
 ```
 
@@ -165,6 +219,22 @@ Build a wheel:
 scripts/build_local_wheel.sh
 ```
 
+On Windows, after activating the intended environment:
+
+```powershell
+conda activate cressim_neo
+.\scripts\build_local_wheel.ps1
+```
+
+On macOS, build from a recursive checkout and keep the Vulkan SDK available.
+This creates a local wheel only; it is not a release artifact:
+
+```bash
+python -m pip wheel --no-deps --wheel-dir dist \
+  -C cmake.define.CRESSIM_NEO_DXC_PROVIDER=OFF .
+python -m pip install dist/cressim_neo-*.whl
+```
+
 Install and verify the resulting wheel:
 
 ```bash
@@ -194,6 +264,11 @@ NumPy. Gymnasium is optional:
 ```bash
 python -m pip install 'cressim-neo[gymnasium]'
 ```
+
+The local wheel workflow does not require PyTorch. Install PyTorch separately
+in the active environment when using integrations that need it. Local wheels
+do not include CUDA interop or Ultrasound; use the release-wheel workflow for
+those CUDA-enabled distributions on Linux or Windows.
 
 ## Release wheels
 

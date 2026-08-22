@@ -309,9 +309,19 @@ void resetExportableStructuredBuffer(SharedBufferState &state) noexcept
         state.renderDevice->IdleGPU();
 
         const VkDevice vkDevice = renderDeviceVk->GetVkDevice();
-        if (vkDevice != VK_NULL_HANDLE && state.vkMemory != VK_NULL_HANDLE)
+        if (vkDevice != VK_NULL_HANDLE)
         {
-            vkFreeMemory(vkDevice, state.vkMemory, nullptr);
+            // CreateBufferFromVulkanResource() only wraps this handle; Diligent does not
+            // assume ownership of the VkBuffer. Destroy it after releasing the Diligent
+            // wrapper and waiting for the device to become idle.
+            if (state.vkBuffer != VK_NULL_HANDLE)
+            {
+                vkDestroyBuffer(vkDevice, state.vkBuffer, nullptr);
+            }
+            if (state.vkMemory != VK_NULL_HANDLE)
+            {
+                vkFreeMemory(vkDevice, state.vkMemory, nullptr);
+            }
         }
     }
 
@@ -463,7 +473,23 @@ bool createExportableTimelineSemaphore(Diligent::IRenderDevice *renderDevice, co
 
 void resetExportableTimelineSemaphore(TimelineSemaphoreState &state) noexcept
 {
-    state.fence        = nullptr;
+    Diligent::RefCntAutoPtr<Diligent::IRenderDeviceVk> renderDeviceVk;
+    const bool canDestroy = state.renderDevice != nullptr && state.vkSemaphore != VK_NULL_HANDLE &&
+                            getRenderDeviceVk(state.renderDevice, renderDeviceVk);
+
+    // CreateFenceFromVulkanResource() only wraps the semaphore. Release the
+    // wrapper before destroying the raw Vulkan object it does not own.
+    state.fence = nullptr;
+    if (canDestroy)
+    {
+        state.renderDevice->IdleGPU();
+        const VkDevice vkDevice = renderDeviceVk->GetVkDevice();
+        if (vkDevice != VK_NULL_HANDLE)
+        {
+            vkDestroySemaphore(vkDevice, state.vkSemaphore, nullptr);
+        }
+    }
+
     state.vkSemaphore  = VK_NULL_HANDLE;
     state.renderDevice = nullptr;
 }

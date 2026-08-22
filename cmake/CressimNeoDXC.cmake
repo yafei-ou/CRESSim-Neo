@@ -13,8 +13,8 @@ set(CRESSIM_NEO_DXC_PROVIDER "BUNDLED" CACHE STRING
 set_property(CACHE CRESSIM_NEO_DXC_PROVIDER PROPERTY STRINGS BUNDLED SYSTEM OFF)
 
 # DXC 1.8.2505.1 is the newest official Linux binary compatible with the
-# managed wheel's GLIBC 2.34 floor. Use the same pinned DXC release on every
-# supported platform so shader behavior is consistent across C++ packages.
+# managed wheel's GLIBC 2.34 floor. Use the same pinned DXC release on Linux
+# and Windows. macOS source builds deliberately disable DXC.
 set(CRESSIM_NEO_DXC_VERSION "v1.8.2505.1" CACHE INTERNAL "Pinned DXC release")
 set(CRESSIM_NEO_DXC_RUNTIME_PATH "" CACHE FILEPATH
     "Path to the DXC runtime used for D3D12 (dxcompiler.dll on Windows)")
@@ -63,7 +63,11 @@ function(cressim_neo_configure_dxc_provider)
             "The bundled DXC provider currently supplies only Windows x64 and Linux x86_64.")
     endif()
     if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-        message(FATAL_ERROR "The bundled DXC provider currently supports only 64-bit targets.")
+        message(FATAL_ERROR
+            "The bundled DXC provider currently supports only 64-bit targets "
+            "(CMAKE_SIZEOF_VOID_P='${CMAKE_SIZEOF_VOID_P}', "
+            "CMAKE_GENERATOR_PLATFORM='${CMAKE_GENERATOR_PLATFORM}', "
+            "CMAKE_VS_PLATFORM_NAME='${CMAKE_VS_PLATFORM_NAME}').")
     endif()
 
     include(FetchContent)
@@ -84,8 +88,18 @@ function(cressim_neo_configure_dxc_provider)
     endif()
 
     if(WIN32)
-        cressim_neo_find_single_file("${cressim_neo_dxc_SOURCE_DIR}" "dxcompiler.dll" dxc_runtime)
-        cressim_neo_find_single_file("${cressim_neo_dxc_SOURCE_DIR}" "dxil.dll" dxil_runtime)
+        # The Windows release archive contains arm64, x64, and x86 binaries.
+        # GLOB_RECURSE ordering is not an architecture-selection mechanism: in
+        # practice it selects arm64 first, which produces an unloadable DLL in
+        # our x64 wheel. Bundled Windows DXC supports x64 only, so select it
+        # explicitly and fail at configure time if the archive layout changes.
+        set(dxc_runtime "${cressim_neo_dxc_SOURCE_DIR}/bin/x64/dxcompiler.dll")
+        set(dxil_runtime "${cressim_neo_dxc_SOURCE_DIR}/bin/x64/dxil.dll")
+        if(NOT EXISTS "${dxc_runtime}" OR NOT EXISTS "${dxil_runtime}")
+            message(FATAL_ERROR
+                "Pinned DXC archive is missing the Windows x64 runtime: "
+                "${dxc_runtime}; ${dxil_runtime}.")
+        endif()
         set(vulkan_dxc_runtime "${dxc_runtime}")
     else()
         cressim_neo_find_single_file("${cressim_neo_dxc_SOURCE_DIR}" "libdxcompiler.so" dxc_runtime)

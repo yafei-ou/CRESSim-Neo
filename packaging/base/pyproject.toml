@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core>=0.10", "pybind11>=2.13"]
+requires = ["scikit-build-core>=0.10", "pybind11-stubgen>=2.5"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -25,6 +25,7 @@ CRESSIM_NEO_BUILD_EXAMPLES = false
 BUILD_TESTING = false
 CRESSIM_NEO_ENABLE_CUDA_INTEROP = false
 CRESSIM_NEO_ENABLE_ULTRASOUND = false
+CRESSIM_NEO_REQUIRE_PYTHON_STUBS = true
 
 [tool.cibuildwheel]
 build = "cp310-* cp311-* cp312-* cp313-*"

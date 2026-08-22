@@ -1,9 +1,21 @@
 cmake_minimum_required(VERSION 3.18)
 
+if(POLICY CMP0177)
+    cmake_policy(SET CMP0177 NEW)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
-# Diligent claims that it doesn't work with O2/O3 using gcc
-set(CMAKE_C_COMPILER clang)
-set(CMAKE_CXX_COMPILER clang++)
+# Linux builds use Clang unless the configure invocation selects another
+# compiler. Windows toolchain selection belongs to the Visual Studio preset;
+# forcing a compiler there would make it disagree with MSVC.
+if(NOT WIN32)
+    if(NOT DEFINED CMAKE_C_COMPILER)
+        set(CMAKE_C_COMPILER clang)
+    endif()
+    if(NOT DEFINED CMAKE_CXX_COMPILER)
+        set(CMAKE_CXX_COMPILER clang++)
+    endif()
+endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
@@ -53,6 +65,8 @@ option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF
 option(CRESSIM_NEO_ENABLE_CUDA_INTEROP "Enable optional CUDA interop support in GPU helpers" OFF)
 option(CRESSIM_NEO_ENABLE_ULTRASOUND "Enable optional CRESSim-Ultrasound integration" OFF)
 option(CRESSIM_NEO_BUILD_PYTHON "Build optional Python bindings and tests" OFF)
+option(CRESSIM_NEO_REQUIRE_PYTHON_STUBS
+       "Fail Python package builds when pybind11-stubgen is unavailable" OFF)
 set(CRESSIM_NEO_CUDA_RUNTIME_PROVIDER "AUTO" CACHE STRING
     "CUDA runtime provider for Python packages: AUTO, MANAGED, or SYSTEM")
 set_property(CACHE CRESSIM_NEO_CUDA_RUNTIME_PROVIDER PROPERTY STRINGS AUTO MANAGED SYSTEM)
@@ -66,6 +80,11 @@ if(NOT CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "AUTO" AND
         "CRESSIM_NEO_CUDA_RUNTIME_PROVIDER must be AUTO, MANAGED, or SYSTEM; got "
         "'${CRESSIM_NEO_CUDA_RUNTIME_PROVIDER}'.")
 endif()
+
+# Diligent's enabled Vulkan/SPIR-V toolchain runs Python helpers while it is
+# configured. Require it here so native builds fail at the project boundary
+# with a direct prerequisite error rather than inside a third-party target.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 include(cmake/CressimNeoDXC.cmake)
 cressim_neo_configure_dxc_provider()
@@ -198,8 +217,13 @@ target_include_directories(cressim_neo_build_settings INTERFACE
 set(CRESSIM_NEO_HAS_CUDA_INTEROP OFF)
 set(CRESSIM_NEO_CUDA_RUNTIME_MAJOR 0)
 set(CRESSIM_NEO_CUDA_RUNTIME_MINIMUM 0)
-set(CRESSIM_NEO_CUDA_CUFFT_SONAME "libcufft.so.11")
-set(CRESSIM_NEO_CUDA_CURAND_SONAME "libcurand.so.10")
+if(WIN32)
+    set(CRESSIM_NEO_CUDA_CUFFT_SONAME "cufft64_11.dll")
+    set(CRESSIM_NEO_CUDA_CURAND_SONAME "curand64_10.dll")
+else()
+    set(CRESSIM_NEO_CUDA_CUFFT_SONAME "libcufft.so.11")
+    set(CRESSIM_NEO_CUDA_CURAND_SONAME "libcurand.so.10")
+endif()
 if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
     find_package(CUDAToolkit QUIET)
     if(CUDAToolkit_FOUND)
@@ -215,7 +239,24 @@ if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
             "${CRESSIM_NEO_CUDA_RUNTIME_MAJOR} * 1000 + ${CRESSIM_NEO_CUDA_RUNTIME_MINOR} * 10")
         foreach(CRESSIM_NEO_CUDA_LIBRARY_NAME IN ITEMS cufft curand)
             set(CRESSIM_NEO_CUDA_LIBRARY_SONAME "")
-            if(TARGET CUDA::${CRESSIM_NEO_CUDA_LIBRARY_NAME})
+            if(WIN32)
+                # FindCUDAToolkit's imported location is an import library on
+                # Windows (for example, cufft.lib), not the DLL Python must load.
+                file(GLOB CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_PATHS
+                    "${CUDAToolkit_BIN_DIR}/${CRESSIM_NEO_CUDA_LIBRARY_NAME}64_*.dll")
+                list(LENGTH CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_PATHS
+                    CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_COUNT)
+                if(CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_COUNT EQUAL 1)
+                    list(GET CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_PATHS 0
+                        CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_PATH)
+                    get_filename_component(CRESSIM_NEO_CUDA_LIBRARY_SONAME
+                        "${CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_PATH}" NAME)
+                elseif(CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_COUNT GREATER 1)
+                    message(FATAL_ERROR
+                        "Multiple ${CRESSIM_NEO_CUDA_LIBRARY_NAME} runtime DLLs were found in "
+                        "${CUDAToolkit_BIN_DIR}: ${CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_PATHS}")
+                endif()
+            elseif(TARGET CUDA::${CRESSIM_NEO_CUDA_LIBRARY_NAME})
                 get_target_property(CRESSIM_NEO_CUDA_LIBRARY_PATH
                     CUDA::${CRESSIM_NEO_CUDA_LIBRARY_NAME} IMPORTED_LOCATION)
                 if(CRESSIM_NEO_CUDA_LIBRARY_PATH)
@@ -244,11 +285,13 @@ if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
                         get_filename_component(CRESSIM_NEO_CUDA_LIBRARY_SONAME
                             "${CRESSIM_NEO_CUDA_LIBRARY_PATH}" NAME)
                     endif()
-                    string(TOUPPER "${CRESSIM_NEO_CUDA_LIBRARY_NAME}"
-                        CRESSIM_NEO_CUDA_LIBRARY_UPPER_NAME)
-                    set(CRESSIM_NEO_CUDA_${CRESSIM_NEO_CUDA_LIBRARY_UPPER_NAME}_SONAME
-                        "${CRESSIM_NEO_CUDA_LIBRARY_SONAME}")
                 endif()
+            endif()
+            if(CRESSIM_NEO_CUDA_LIBRARY_SONAME)
+                string(TOUPPER "${CRESSIM_NEO_CUDA_LIBRARY_NAME}"
+                    CRESSIM_NEO_CUDA_LIBRARY_UPPER_NAME)
+                set(CRESSIM_NEO_CUDA_${CRESSIM_NEO_CUDA_LIBRARY_UPPER_NAME}_SONAME
+                    "${CRESSIM_NEO_CUDA_LIBRARY_SONAME}")
             endif()
         endforeach()
         if(CRESSIM_NEO_CUDA_RUNTIME_PROVIDER STREQUAL "MANAGED")

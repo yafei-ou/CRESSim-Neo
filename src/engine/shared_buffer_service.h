@@ -46,10 +46,12 @@ private:
         SharedBufferInfo info{};
         gpu::SharedExportBuffer sharedBuffer{};
         gpu::CudaSharedBufferBridge cudaBridge{};
+        bool cudaWaitPending = false;
     };
 
     static Diligent::BIND_FLAGS toDiligentBindFlags(SharedBufferBindFlags flags) noexcept;
     static SharedBufferAccess accessFromBindFlags(SharedBufferBindFlags flags) noexcept;
+    bool flushPendingCudaWaits() noexcept;
 
 private:
     gpu::GpuDevice &mDevice;

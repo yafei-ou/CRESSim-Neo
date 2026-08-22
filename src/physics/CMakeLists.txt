@@ -50,9 +50,12 @@ target_link_libraries(${TARGET_NAME} PRIVATE Diligent-TargetPlatform)
 if(CRESSIM_NEO_HAS_ULTRASOUND)
     # cru_interface is an in-tree runtime dependency, not part of the public
     # CRESSim-Neo CMake package.  Keep it out of the installed export while
-    # still linking this library in the build tree.
+    # still linking this library in the build tree. Keep the linker file inside
+    # BUILD_INTERFACE so cru_interface remains outside the installed package
+    # export; add_dependencies() below retains the required build ordering.
     target_link_libraries(${TARGET_NAME} PRIVATE
         "$<BUILD_INTERFACE:$<TARGET_LINKER_FILE:cru_interface>>")
+    add_dependencies(${TARGET_NAME} cru_interface)
 endif()
 
 set_target_properties(${TARGET_NAME}

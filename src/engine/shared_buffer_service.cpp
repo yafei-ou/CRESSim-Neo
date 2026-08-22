@@ -4,6 +4,8 @@
 #include "gpu/gpu_device.h"
 #include "gpu/gpu_types.h"
 
+#include <algorithm>
+
 namespace cressim::neo::engine
 {
 
@@ -83,11 +85,23 @@ SharedBufferHandle SharedBufferService::createBuffer(const SharedBufferDesc &des
 
 bool SharedBufferService::destroyBuffer(const SharedBufferHandle handle)
 {
-    return mBuffers.erase(handle.id) != 0u;
+    const auto it = mBuffers.find(handle.id);
+    if (it == mBuffers.end())
+    {
+        return false;
+    }
+    if (it->second->cudaWaitPending && !flushPendingCudaWaits())
+    {
+        return false;
+    }
+
+    mBuffers.erase(it);
+    return true;
 }
 
 void SharedBufferService::clear()
 {
+    flushPendingCudaWaits();
     mBuffers.clear();
     mNextBufferId = 1u;
 }
@@ -174,7 +188,36 @@ bool SharedBufferService::synchronizeFromCuda(const SharedBufferHandle handle,
                           "' is not imported into CUDA.");
         return false;
     }
-    return it->second->cudaBridge.synchronizeToDeviceContext(context);
+    const bool synchronized = it->second->cudaBridge.synchronizeToDeviceContext(context);
+    it->second->cudaWaitPending = it->second->cudaWaitPending || synchronized;
+    return synchronized;
+}
+
+bool SharedBufferService::flushPendingCudaWaits() noexcept
+{
+    const bool hasPendingWait = std::any_of(
+        mBuffers.begin(), mBuffers.end(),
+        [](const auto &entry) { return entry.second->cudaWaitPending; });
+    if (!hasPendingWait)
+    {
+        return true;
+    }
+
+    gpu::GpuComputeBackendContext computeBackend{};
+    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.computeContext == nullptr)
+    {
+        CRESSIM_LOG_ERROR("SharedBufferService: cannot submit pending CUDA synchronization before "
+                          "destroying shared buffers.");
+        return false;
+    }
+
+    computeBackend.computeContext->Flush();
+    for (const auto &entry : mBuffers)
+    {
+        entry.second->cudaWaitPending = false;
+    }
+    return true;
 }
 
 bool SharedBufferService::isAccessCompatible(const SharedBufferHandle handle,

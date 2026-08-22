@@ -1,6 +1,14 @@
 import os
 from pathlib import Path
 
+_PACKAGE_DIR = Path(__file__).resolve().parent
+# Diligent loads the Vulkan DXC runtime by its bare name
+# (spv_dxcompiler.dll). Windows does not search a Python package directory
+# for that call, so retain this handle for the lifetime of the package.
+_PACKAGE_DLL_DIRECTORIES: list[object] = []
+if os.name == "nt" and hasattr(os, "add_dll_directory"):
+    _PACKAGE_DLL_DIRECTORIES.append(os.add_dll_directory(str(_PACKAGE_DIR)))
+
 from ._cuda_runtime import ensure_cuda_runtime as _ensure_cuda_runtime
 from ._cuda_runtime import get_cuda_runtime_diagnostics
 
@@ -65,7 +73,6 @@ from .psm_builder import (
 from .psm_env import PsmEnv
 
 
-_PACKAGE_DIR = Path(__file__).resolve().parent
 _PACKAGE_ASSET_DIR = _PACKAGE_DIR / "assets"
 _ASSET_DIR = Path(os.environ.get("CRESSIM_NEO_ASSET_DIR", _PACKAGE_ASSET_DIR)).expanduser()
 _SHADERS_DIR = _ASSET_DIR / "shaders"

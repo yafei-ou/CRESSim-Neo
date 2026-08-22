@@ -725,11 +725,13 @@ bool GpuDeviceImpl::initializeVulkan()
             static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
         std::array<const char *, 2> instanceExtensions{};
         Diligent::Uint32 requestedInstanceExtensionCount = 0u;
-        std::array<const char *, 5> deviceExtensions{};
+        std::array<const char *, 6> deviceExtensions{};
         Diligent::Uint32 requestedDeviceExtensionCount = 0u;
         VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shaderAtomicFloatFeatures{};
         deviceExtensions[requestedDeviceExtensionCount++] =
             VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME;
+        deviceExtensions[requestedDeviceExtensionCount++] =
+            VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME;
 
 #if CRESSIM_NEO_HAS_CUDA_INTEROP
         engineCreateInfo.Features.NativeFence = Diligent::DEVICE_FEATURE_STATE_ENABLED;
@@ -768,6 +770,9 @@ bool GpuDeviceImpl::initializeVulkan()
         CRESSIM_LOG_INFO("Requesting Vulkan native float atomics via ",
                          VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
                          " with shaderBufferFloat32AtomicAdd=VK_TRUE.");
+        CRESSIM_LOG_INFO("Requesting layered shadow-map export via ",
+                         VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME,
+                         ".");
 #if CRESSIM_NEO_HAS_CUDA_INTEROP
         CRESSIM_LOG_INFO("Requesting Vulkan CUDA interop instance extensions: ",
                          VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME, ", ",
