@@ -52,7 +52,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     uint slot = 0u;
-    InterlockedAdd(g_SuturingCandidateCounts[suturingCompactIndex], 1u, slot);
+    InterlockedAdd(CRESSIM_SB_REF(g_SuturingCandidateCounts, suturingCompactIndex), 1u, slot);
     if (slot >= maxSuturingCandidatesPerParticle)
     {
         return;
