@@ -389,349 +389,555 @@ PYBIND11_MODULE(_cressim_neo, m)
 {
     m.doc() = "Minimal Python bindings for CRESSim-Neo runtime authoring and frame readback.";
 
-    py::class_<Diligent::float3>(m, "Float3")
+    py::class_<Diligent::float3>(m, "Float3", "Three-component single-precision vector.")
         .def(py::init<float, float, float>(), py::arg("x") = 0.0f, py::arg("y") = 0.0f,
-             py::arg("z") = 0.0f)
-        .def_readwrite("x", &Diligent::float3::x)
-        .def_readwrite("y", &Diligent::float3::y)
-        .def_readwrite("z", &Diligent::float3::z);
+             py::arg("z") = 0.0f, "Initializes the vector components.")
+        .def_readwrite("x", &Diligent::float3::x, "X component.")
+        .def_readwrite("y", &Diligent::float3::y, "Y component.")
+        .def_readwrite("z", &Diligent::float3::z, "Z component.");
 
-    py::class_<Diligent::float4>(m, "Float4")
+    py::class_<Diligent::float4>(m, "Float4", "Four-component single-precision vector.")
         .def(py::init<float, float, float, float>(), py::arg("x") = 0.0f, py::arg("y") = 0.0f,
-             py::arg("z") = 0.0f, py::arg("w") = 0.0f)
-        .def_readwrite("x", &Diligent::float4::x)
-        .def_readwrite("y", &Diligent::float4::y)
-        .def_readwrite("z", &Diligent::float4::z)
-        .def_readwrite("w", &Diligent::float4::w);
+             py::arg("z") = 0.0f, py::arg("w") = 0.0f, "Initializes the vector components.")
+        .def_readwrite("x", &Diligent::float4::x, "X component.")
+        .def_readwrite("y", &Diligent::float4::y, "Y component.")
+        .def_readwrite("z", &Diligent::float4::z, "Z component.")
+        .def_readwrite("w", &Diligent::float4::w, "W component.");
 
-    py::class_<Diligent::uint3>(m, "UInt3")
+    py::class_<Diligent::uint3>(m, "UInt3", "Three-component unsigned 32-bit integer vector.")
         .def(py::init<std::uint32_t, std::uint32_t, std::uint32_t>(), py::arg("x") = 0u,
-             py::arg("y") = 0u, py::arg("z") = 0u)
-        .def_readwrite("x", &Diligent::uint3::x)
-        .def_readwrite("y", &Diligent::uint3::y)
-        .def_readwrite("z", &Diligent::uint3::z);
+             py::arg("y") = 0u, py::arg("z") = 0u, "Initializes the vector components.")
+        .def_readwrite("x", &Diligent::uint3::x, "X component.")
+        .def_readwrite("y", &Diligent::uint3::y, "Y component.")
+        .def_readwrite("z", &Diligent::uint3::z, "Z component.");
 
-    py::class_<Diligent::uint4>(m, "UInt4")
+    py::class_<Diligent::uint4>(m, "UInt4", "Four-component unsigned 32-bit integer vector.")
         .def(py::init<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t>(),
-             py::arg("x") = 0u, py::arg("y") = 0u, py::arg("z") = 0u, py::arg("w") = 0u)
-        .def_readwrite("x", &Diligent::uint4::x)
-        .def_readwrite("y", &Diligent::uint4::y)
-        .def_readwrite("z", &Diligent::uint4::z)
-        .def_readwrite("w", &Diligent::uint4::w);
+             py::arg("x") = 0u, py::arg("y") = 0u, py::arg("z") = 0u, py::arg("w") = 0u,
+             "Initializes the vector components.")
+        .def_readwrite("x", &Diligent::uint4::x, "X component.")
+        .def_readwrite("y", &Diligent::uint4::y, "Y component.")
+        .def_readwrite("z", &Diligent::uint4::z, "Z component.")
+        .def_readwrite("w", &Diligent::uint4::w, "W component.");
 
-    py::class_<Diligent::QuaternionF>(m, "Quaternion")
+    py::class_<Diligent::QuaternionF>(m, "Quaternion",
+                                       "Single-precision quaternion used for 3D rotations.")
         .def(py::init<float, float, float, float>(), py::arg("x") = 0.0f, py::arg("y") = 0.0f,
-             py::arg("z") = 0.0f, py::arg("w") = 1.0f)
+             py::arg("z") = 0.0f, py::arg("w") = 1.0f,
+             "Initializes quaternion components; the default is the identity rotation.")
         .def_property(
             "x", [](const Diligent::QuaternionF &q) { return q.q.x; },
-            [](Diligent::QuaternionF &q, const float value) { q.q.x = value; })
+            [](Diligent::QuaternionF &q, const float value) { q.q.x = value; },
+            "X component.")
         .def_property(
             "y", [](const Diligent::QuaternionF &q) { return q.q.y; },
-            [](Diligent::QuaternionF &q, const float value) { q.q.y = value; })
+            [](Diligent::QuaternionF &q, const float value) { q.q.y = value; },
+            "Y component.")
         .def_property(
             "z", [](const Diligent::QuaternionF &q) { return q.q.z; },
-            [](Diligent::QuaternionF &q, const float value) { q.q.z = value; })
+            [](Diligent::QuaternionF &q, const float value) { q.q.z = value; },
+            "Z component.")
         .def_property(
             "w", [](const Diligent::QuaternionF &q) { return q.q.w; },
-            [](Diligent::QuaternionF &q, const float value) { q.q.w = value; });
+            [](Diligent::QuaternionF &q, const float value) { q.q.w = value; },
+            "W component.");
 
-    py::enum_<GpuBackend>(m, "GpuBackend")
-        .value("Null", GpuBackend::Null)
-        .value("D3D12", GpuBackend::D3D12)
-        .value("Vulkan", GpuBackend::Vulkan);
+    py::enum_<GpuBackend>(m, "GpuBackend", "GPU execution backend.")
+        .value("Null", GpuBackend::Null, "Backend without GPU execution.")
+        .value("D3D12", GpuBackend::D3D12, "Direct3D 12 backend.")
+        .value("Vulkan", GpuBackend::Vulkan, "Vulkan backend.");
 
-    py::enum_<RenderOutputMode>(m, "RenderOutputMode")
-        .value("ManagedPrimary", RenderOutputMode::ManagedPrimary)
-        .value("ExplicitSurface", RenderOutputMode::ExplicitSurface);
+    py::enum_<RenderOutputMode>(m, "RenderOutputMode", "Destination selection mode for rendered output.")
+        .value("ManagedPrimary", RenderOutputMode::ManagedPrimary,
+               "Use the runtime-managed primary output.")
+        .value("ExplicitSurface", RenderOutputMode::ExplicitSurface,
+               "Use the explicitly specified render-target binding.");
 
-    py::enum_<CustomComputeResourceKind>(m, "CustomComputeResourceKind")
-        .value("Buffer", CustomComputeResourceKind::Buffer)
-        .value("Texture", CustomComputeResourceKind::Texture);
+    py::enum_<CustomComputeResourceKind>(m, "CustomComputeResourceKind",
+                                         "Resource type for custom compute shader bindings.")
+        .value("Buffer", CustomComputeResourceKind::Buffer,
+               "Structured or raw GPU buffer resource.")
+        .value("Texture", CustomComputeResourceKind::Texture, "Texture image resource.");
 
-    py::enum_<CustomComputeResourceAccess>(m, "CustomComputeResourceAccess")
-        .value("ReadOnly", CustomComputeResourceAccess::ReadOnly)
-        .value("WriteOnly", CustomComputeResourceAccess::WriteOnly)
-        .value("ReadWrite", CustomComputeResourceAccess::ReadWrite);
+    py::enum_<CustomComputeResourceAccess>(
+        m, "CustomComputeResourceAccess", "Access permission mode for custom compute shader resources.")
+        .value("ReadOnly", CustomComputeResourceAccess::ReadOnly, "Read-only shader resource.")
+        .value("WriteOnly", CustomComputeResourceAccess::WriteOnly,
+               "Write-only unordered access resource.")
+        .value("ReadWrite", CustomComputeResourceAccess::ReadWrite,
+               "Read-write unordered access resource.");
 
-    py::enum_<GpuRenderTargetTexturePlane>(m, "GpuRenderTargetTexturePlane")
-        .value("Color", GpuRenderTargetTexturePlane::Color)
-        .value("Depth", GpuRenderTargetTexturePlane::Depth);
+    py::enum_<GpuRenderTargetTexturePlane>(m, "GpuRenderTargetTexturePlane",
+                                            "Texture attachment selected from a render target.")
+        .value("Color", GpuRenderTargetTexturePlane::Color, "Color attachment.")
+        .value("Depth", GpuRenderTargetTexturePlane::Depth, "Depth attachment.");
 
-    py::enum_<CustomComputeDispatchMode>(m, "CustomComputeDispatchMode")
-        .value("ExplicitGroupCount", CustomComputeDispatchMode::ExplicitGroupCount)
-        .value("ResourceElementCount", CustomComputeDispatchMode::ResourceElementCount);
+    py::enum_<CustomComputeDispatchMode>(m, "CustomComputeDispatchMode",
+                                         "Compute dispatch mode for executing custom compute passes.")
+        .value("ExplicitGroupCount", CustomComputeDispatchMode::ExplicitGroupCount,
+               "Dispatch using explicit 3D thread group counts.")
+        .value("ResourceElementCount", CustomComputeDispatchMode::ResourceElementCount,
+               "Compute thread group count dynamically from resource element count.");
 
-    py::enum_<SharedBufferAccess>(m, "SharedBufferAccess")
-        .value("ReadOnly", SharedBufferAccess::ReadOnly)
-        .value("WriteOnly", SharedBufferAccess::WriteOnly)
-        .value("ReadWrite", SharedBufferAccess::ReadWrite);
+    py::enum_<SharedBufferAccess>(m, "SharedBufferAccess",
+                                  "Access permission flags for shared engine GPU buffers.")
+        .value("ReadOnly", SharedBufferAccess::ReadOnly,
+               "Buffer is read-only by shaders/compute.")
+        .value("WriteOnly", SharedBufferAccess::WriteOnly,
+               "Buffer is write-only by shaders/compute.")
+        .value("ReadWrite", SharedBufferAccess::ReadWrite,
+               "Buffer supports read and write access.");
 
-    py::enum_<SharedBufferBindFlags>(m, "SharedBufferBindFlags", py::arithmetic())
-        .value("None", SharedBufferBindFlags::None)
-        .value("ShaderResource", SharedBufferBindFlags::ShaderResource)
-        .value("UnorderedAccess", SharedBufferBindFlags::UnorderedAccess)
+    py::enum_<SharedBufferBindFlags>(m, "SharedBufferBindFlags",
+                                     "Binding usage flags for shared GPU buffers.", py::arithmetic())
+        .value("None", SharedBufferBindFlags::None, "No binding flags specified.")
+        .value("ShaderResource", SharedBufferBindFlags::ShaderResource,
+               "Bindable as a Shader Resource View (SRV).")
+        .value("UnorderedAccess", SharedBufferBindFlags::UnorderedAccess,
+               "Bindable as an Unordered Access View (UAV).")
         .def("__or__", [](const SharedBufferBindFlags lhs, const SharedBufferBindFlags rhs)
-             { return lhs | rhs; })
+             { return lhs | rhs; }, "Bitwise OR operator for SharedBufferBindFlags.")
         .def("__and__", [](const SharedBufferBindFlags lhs, const SharedBufferBindFlags rhs)
-             { return lhs & rhs; });
+             { return lhs & rhs; }, "Bitwise AND operator for SharedBufferBindFlags.");
 
-    py::enum_<SharedBufferTensorDTypeCode>(m, "SharedBufferTensorDTypeCode")
-        .value("Int", SharedBufferTensorDTypeCode::Int)
-        .value("UInt", SharedBufferTensorDTypeCode::UInt)
-        .value("Float", SharedBufferTensorDTypeCode::Float)
-        .value("Bool", SharedBufferTensorDTypeCode::Bool);
+    py::enum_<SharedBufferTensorDTypeCode>(
+        m, "SharedBufferTensorDTypeCode",
+        "DLPack tensor data type codes for shared buffer tensor view export.")
+        .value("Int", SharedBufferTensorDTypeCode::Int, "Signed integer.")
+        .value("UInt", SharedBufferTensorDTypeCode::UInt, "Unsigned integer.")
+        .value("Float", SharedBufferTensorDTypeCode::Float, "Floating point.")
+        .value("Bool", SharedBufferTensorDTypeCode::Bool, "Boolean.");
 
-    py::class_<CustomComputePassHandle>(m, "CustomComputePassHandle")
-        .def(py::init<>())
-        .def_readwrite("id", &CustomComputePassHandle::id)
-        .def("is_valid", &CustomComputePassHandle::isValid);
+    py::class_<CustomComputePassHandle>(
+        m, "CustomComputePassHandle", "Handle wrapper identifying a registered custom compute shader pass.")
+        .def(py::init<>(), "Initializes an invalid custom compute pass handle.")
+        .def_readwrite("id", &CustomComputePassHandle::id, "Unique handle identifier.")
+        .def("is_valid", &CustomComputePassHandle::isValid,
+             "Checks if the custom compute pass handle is valid.\n\n"
+             "Returns:\n"
+             "    True if valid, false otherwise.");
 
-    py::class_<SharedBufferHandle>(m, "SharedBufferHandle")
-        .def(py::init<>())
-        .def_readwrite("id", &SharedBufferHandle::id)
-        .def("is_valid", &SharedBufferHandle::isValid);
+    py::class_<SharedBufferHandle>(m, "SharedBufferHandle",
+                                   "Handle wrapper identifying an engine-owned shared GPU buffer.")
+        .def(py::init<>(), "Initializes an invalid shared-buffer handle.")
+        .def_readwrite("id", &SharedBufferHandle::id, "Unique handle identifier.")
+        .def("is_valid", &SharedBufferHandle::isValid,
+             "Checks if the shared buffer handle is valid.");
 
-    py::class_<SharedBufferDesc>(m, "SharedBufferDesc")
-        .def(py::init<>())
-        .def_readwrite("debug_name", &SharedBufferDesc::debugName)
-        .def_readwrite("element_stride_bytes", &SharedBufferDesc::elementStrideBytes)
-        .def_readwrite("element_count", &SharedBufferDesc::elementCount)
-        .def_readwrite("minimum_capacity", &SharedBufferDesc::minimumCapacity)
-        .def_readwrite("access", &SharedBufferDesc::access)
-        .def_readwrite("bind_flags", &SharedBufferDesc::bindFlags);
+    py::class_<SharedBufferDesc>(m, "SharedBufferDesc",
+                                 "Descriptor for creating an engine-owned shared GPU buffer.")
+        .def(py::init<>(), "Initializes the descriptor with its default access and binding flags.")
+        .def_readwrite("debug_name", &SharedBufferDesc::debugName,
+                       "Debug label for GPU diagnostic tools.")
+        .def_readwrite("element_stride_bytes", &SharedBufferDesc::elementStrideBytes,
+                       "Stride per element in bytes.")
+        .def_readwrite("element_count", &SharedBufferDesc::elementCount, "Initial element count.")
+        .def_readwrite("minimum_capacity", &SharedBufferDesc::minimumCapacity,
+                       "Minimum allocation capacity.")
+        .def_readwrite("access", &SharedBufferDesc::access, "Access mode.")
+        .def_readwrite("bind_flags", &SharedBufferDesc::bindFlags, "GPU binding usage flags.");
 
-    py::class_<SharedBufferInfo>(m, "SharedBufferInfo")
-        .def(py::init<>())
-        .def_readwrite("handle", &SharedBufferInfo::handle)
-        .def_readwrite("debug_name", &SharedBufferInfo::debugName)
-        .def_readwrite("element_stride_bytes", &SharedBufferInfo::elementStrideBytes)
-        .def_readwrite("element_count", &SharedBufferInfo::elementCount)
-        .def_readwrite("capacity", &SharedBufferInfo::capacity)
-        .def_readwrite("size_bytes", &SharedBufferInfo::sizeBytes)
-        .def_readwrite("access", &SharedBufferInfo::access)
-        .def_readwrite("bind_flags", &SharedBufferInfo::bindFlags)
-        .def_readwrite("exportable", &SharedBufferInfo::exportable)
-        .def_readwrite("imported_into_cuda", &SharedBufferInfo::importedIntoCuda);
+    py::class_<SharedBufferInfo>(m, "SharedBufferInfo",
+                                 "Detailed information and runtime state for a shared GPU buffer.")
+        .def(py::init<>(), "Initializes empty shared-buffer information.")
+        .def_readwrite("handle", &SharedBufferInfo::handle, "Buffer handle.")
+        .def_readwrite("debug_name", &SharedBufferInfo::debugName, "Debug label.")
+        .def_readwrite("element_stride_bytes", &SharedBufferInfo::elementStrideBytes,
+                       "Element stride in bytes.")
+        .def_readwrite("element_count", &SharedBufferInfo::elementCount,
+                       "Current element count.")
+        .def_readwrite("capacity", &SharedBufferInfo::capacity, "Total element capacity.")
+        .def_readwrite("size_bytes", &SharedBufferInfo::sizeBytes,
+                       "Total allocated size in bytes.")
+        .def_readwrite("access", &SharedBufferInfo::access, "Access mode.")
+        .def_readwrite("bind_flags", &SharedBufferInfo::bindFlags, "Binding flags.")
+        .def_readwrite("exportable", &SharedBufferInfo::exportable,
+                       "True if buffer is exportable for CUDA/DLPack interop.")
+        .def_readwrite("imported_into_cuda", &SharedBufferInfo::importedIntoCuda,
+                       "True if buffer is currently imported into CUDA.");
 
-    py::class_<SharedBufferCudaView>(m, "SharedBufferCudaView")
-        .def(py::init<>())
+    py::class_<SharedBufferCudaView>(m, "SharedBufferCudaView",
+                                     "View descriptor exposing CUDA device memory pointer and size for interop.")
+        .def(py::init<>(), "Initializes an invalid CUDA device-memory view.")
         .def_property_readonly("device_pointer", [](const SharedBufferCudaView &view)
-                               { return reinterpret_cast<std::uintptr_t>(view.devicePointer); })
-        .def_readwrite("size_bytes", &SharedBufferCudaView::sizeBytes)
-        .def_readwrite("device_ordinal", &SharedBufferCudaView::deviceOrdinal)
-        .def("is_valid", &SharedBufferCudaView::isValid);
+                               { return reinterpret_cast<std::uintptr_t>(view.devicePointer); },
+                               "Raw CUDA device pointer. Exposed to Python as an integer address.")
+        .def_readwrite("size_bytes", &SharedBufferCudaView::sizeBytes,
+                       "Size of accessible device memory in bytes.")
+        .def_readwrite("device_ordinal", &SharedBufferCudaView::deviceOrdinal,
+                       "CUDA device ordinal index.")
+        .def("is_valid", &SharedBufferCudaView::isValid,
+             "Checks if the CUDA device view is valid.");
 
-    py::class_<SharedBufferTensorDesc>(m, "SharedBufferTensorDesc")
-        .def(py::init<>())
-        .def_readwrite("shape", &SharedBufferTensorDesc::shape)
-        .def_readwrite("strides", &SharedBufferTensorDesc::strides)
-        .def_readwrite("dtype_code", &SharedBufferTensorDesc::dtypeCode)
-        .def_readwrite("dtype_bits", &SharedBufferTensorDesc::dtypeBits)
-        .def_readwrite("dtype_lanes", &SharedBufferTensorDesc::dtypeLanes)
-        .def_readwrite("byte_offset", &SharedBufferTensorDesc::byteOffset);
+    py::class_<SharedBufferTensorDesc>(
+        m, "SharedBufferTensorDesc",
+        "Tensor metadata descriptor for exporting a shared buffer to DLPack / PyTorch.")
+        .def(py::init<>(), "Initializes metadata for a scalar float32 tensor at the buffer start.")
+        .def_readwrite("shape", &SharedBufferTensorDesc::shape, "Tensor dimensions shape array.")
+        .def_readwrite("strides", &SharedBufferTensorDesc::strides, "Tensor strides array.")
+        .def_readwrite("dtype_code", &SharedBufferTensorDesc::dtypeCode,
+                       "Element data type code.")
+        .def_readwrite("dtype_bits", &SharedBufferTensorDesc::dtypeBits,
+                       "Element bit width (e.g. 32 for float32).")
+        .def_readwrite("dtype_lanes", &SharedBufferTensorDesc::dtypeLanes,
+                       "Vector lanes count per element.")
+        .def_readwrite("byte_offset", &SharedBufferTensorDesc::byteOffset,
+                       "Byte offset from buffer start.");
 
-    py::class_<GpuRenderTargetHandle>(m, "GpuRenderTargetHandle")
-        .def(py::init<>())
-        .def_readwrite("id", &GpuRenderTargetHandle::id);
+    py::class_<GpuRenderTargetHandle>(m, "GpuRenderTargetHandle",
+                                      "Opaque per-device handle for an offscreen render target.")
+        .def(py::init<>(), "Initializes an invalid render-target handle.")
+        .def_readwrite("id", &GpuRenderTargetHandle::id, "Opaque render-target identifier.");
 
-    py::class_<GpuRenderTargetBinding>(m, "GpuRenderTargetBinding")
-        .def(py::init<>())
-        .def_readwrite("target", &GpuRenderTargetBinding::target)
-        .def_readwrite("first_layer", &GpuRenderTargetBinding::firstLayer)
-        .def_readwrite("layer_count", &GpuRenderTargetBinding::layerCount)
-        .def("is_valid", &GpuRenderTargetBinding::isValid)
-        .def(py::self == py::self);
+    py::class_<GpuRenderTargetBinding>(m, "GpuRenderTargetBinding",
+                                       "Selection of one or more array layers in an offscreen render target.")
+        .def(py::init<>(), "Initializes a binding with an invalid target.")
+        .def_readwrite("target", &GpuRenderTargetBinding::target, "Target to bind.")
+        .def_readwrite("first_layer", &GpuRenderTargetBinding::firstLayer,
+                       "First target array layer included in the binding.")
+        .def_readwrite("layer_count", &GpuRenderTargetBinding::layerCount,
+                       "Number of consecutive target array layers included in the binding.")
+        .def("is_valid", &GpuRenderTargetBinding::isValid,
+             "Returns whether the binding has a valid target identifier and a nonzero layer count.")
+        .def(py::self == py::self, "Returns whether two bindings select the same target layers.");
 
-    py::class_<RigidLayoutMapping>(m, "RigidLayoutMapping")
-        .def(py::init<>())
-        .def_readwrite("rigid_body_count", &RigidLayoutMapping::rigidBodyCount)
-        .def_readwrite("collider_count", &RigidLayoutMapping::colliderCount)
-        .def_readwrite("layout_revision", &RigidLayoutMapping::layoutRevision)
-        .def_readwrite("rigid_body_ids", &RigidLayoutMapping::rigidBodyIds)
-        .def_readwrite("rigid_body_entity_ids", &RigidLayoutMapping::rigidBodyEntityIds)
+    py::class_<RigidLayoutMapping>(
+        m, "RigidLayoutMapping",
+        "Prepared host-side slot layout for rigid bodies and colliders.")
+        .def(py::init<>(), "Initializes an empty rigid-body and collider layout mapping.")
+        .def_readwrite("rigid_body_count", &RigidLayoutMapping::rigidBodyCount,
+                       "Number of rigid-body slots in the prepared layout.")
+        .def_readwrite("collider_count", &RigidLayoutMapping::colliderCount,
+                       "Number of collider slots in the prepared layout.")
+        .def_readwrite(
+            "layout_revision", &RigidLayoutMapping::layoutRevision,
+            "Prepared rigid/collider slot-layout invalidation key produced by ``Runtime.prepare()``.")
+        .def_readwrite("rigid_body_ids", &RigidLayoutMapping::rigidBodyIds,
+                       "Physics rigid-body IDs, indexed by rigid-body slot.")
+        .def_readwrite("rigid_body_entity_ids", &RigidLayoutMapping::rigidBodyEntityIds,
+                       "Entity IDs owning the rigid bodies, indexed by rigid-body slot.")
         .def_readwrite("rigid_body_environment_indices",
-                       &RigidLayoutMapping::rigidBodyEnvironmentIndices)
-        .def_readwrite("collider_ids", &RigidLayoutMapping::colliderIds)
-        .def_readwrite("collider_entity_ids", &RigidLayoutMapping::colliderEntityIds)
-        .def_readwrite("collider_owner_body_ids", &RigidLayoutMapping::colliderOwnerBodyIds)
-        .def_readwrite("collider_owner_body_indices", &RigidLayoutMapping::colliderOwnerBodyIndices)
+                       &RigidLayoutMapping::rigidBodyEnvironmentIndices,
+                       "Environment indices of rigid bodies, indexed by rigid-body slot.")
+        .def_readwrite("collider_ids", &RigidLayoutMapping::colliderIds,
+                       "Physics collider IDs, indexed by collider slot.")
+        .def_readwrite("collider_entity_ids", &RigidLayoutMapping::colliderEntityIds,
+                       "Entity IDs owning the colliders, indexed by collider slot.")
+        .def_readwrite("collider_owner_body_ids", &RigidLayoutMapping::colliderOwnerBodyIds,
+                       "Physics IDs of collider owner bodies, indexed by collider slot.")
+        .def_readwrite("collider_owner_body_indices", &RigidLayoutMapping::colliderOwnerBodyIndices,
+                       "Rigid-body slots owning colliders, indexed by collider slot.")
         .def_readwrite("collider_environment_indices",
-                       &RigidLayoutMapping::colliderEnvironmentIndices)
-        .def_readwrite("collider_shape_types", &RigidLayoutMapping::colliderShapeTypes)
-        .def_readwrite("collider_enabled", &RigidLayoutMapping::colliderEnabledFlags)
-        .def_readwrite("collider_collision_layers", &RigidLayoutMapping::colliderCollisionLayers)
-        .def_readwrite("collider_collision_masks", &RigidLayoutMapping::colliderCollisionMasks)
-        .def_readwrite("collider_local_positions", &RigidLayoutMapping::colliderLocalPositions)
-        .def_readwrite("collider_local_rotations", &RigidLayoutMapping::colliderLocalRotations)
-        .def_readwrite("collider_shape_params", &RigidLayoutMapping::colliderShapeParams)
-        .def_readwrite("body_collider_offsets", &RigidLayoutMapping::bodyColliderOffsets)
-        .def_readwrite("body_collider_counts", &RigidLayoutMapping::bodyColliderCounts)
-        .def_readwrite("body_collider_indices", &RigidLayoutMapping::bodyColliderIndices);
+                       &RigidLayoutMapping::colliderEnvironmentIndices,
+                       "Environment indices of colliders, indexed by collider slot.")
+        .def_readwrite("collider_shape_types", &RigidLayoutMapping::colliderShapeTypes,
+                       "Encoded collider shape types, indexed by collider slot.")
+        .def_readwrite("collider_enabled", &RigidLayoutMapping::colliderEnabledFlags,
+                       "Collider enabled flags, indexed by collider slot.")
+        .def_readwrite("collider_collision_layers", &RigidLayoutMapping::colliderCollisionLayers,
+                       "Collider collision-layer bitmasks, indexed by collider slot.")
+        .def_readwrite("collider_collision_masks", &RigidLayoutMapping::colliderCollisionMasks,
+                       "Collider collision-filter bitmasks, indexed by collider slot.")
+        .def_readwrite("collider_local_positions", &RigidLayoutMapping::colliderLocalPositions,
+                       "Collider local positions, indexed by collider slot.")
+        .def_readwrite("collider_local_rotations", &RigidLayoutMapping::colliderLocalRotations,
+                       "Collider local rotations, indexed by collider slot.")
+        .def_readwrite("collider_shape_params", &RigidLayoutMapping::colliderShapeParams,
+                       "Collider shape parameters, indexed by collider slot.")
+        .def_readwrite("body_collider_offsets", &RigidLayoutMapping::bodyColliderOffsets,
+                       "Offsets into ``body_collider_indices``, indexed by rigid-body slot.")
+        .def_readwrite("body_collider_counts", &RigidLayoutMapping::bodyColliderCounts,
+                       "Collider counts per rigid-body slot.")
+        .def_readwrite("body_collider_indices", &RigidLayoutMapping::bodyColliderIndices,
+                       "Flattened collider slots, grouped by owning rigid-body slot.");
 
     py::class_<RigidParticleAttachmentConstraintLayoutMapping>(
-        m, "RigidParticleAttachmentConstraintLayoutMapping")
-        .def(py::init<>())
-        .def_readwrite("count", &RigidParticleAttachmentConstraintLayoutMapping::count)
+        m, "RigidParticleAttachmentConstraintLayoutMapping",
+        "Prepared host-side layout for rigid-particle attachment constraints.")
+        .def(py::init<>(), "Initializes an empty rigid-particle attachment constraint layout.")
+        .def_readwrite("count", &RigidParticleAttachmentConstraintLayoutMapping::count,
+                       "Number of rigid-particle attachment constraint slots.")
         .def_readwrite("constraint_ids",
-                       &RigidParticleAttachmentConstraintLayoutMapping::constraintIds)
+                       &RigidParticleAttachmentConstraintLayoutMapping::constraintIds,
+                       "Constraint IDs for the attachment constraint slots.")
         .def_readwrite("environment_indices",
-                       &RigidParticleAttachmentConstraintLayoutMapping::environmentIndices)
+                       &RigidParticleAttachmentConstraintLayoutMapping::environmentIndices,
+                       "Environment indices of the referenced rigid bodies.")
         .def_readwrite("rigid_body_ids",
-                       &RigidParticleAttachmentConstraintLayoutMapping::rigidBodyIds)
+                       &RigidParticleAttachmentConstraintLayoutMapping::rigidBodyIds,
+                       "Rigid-body IDs referenced by the attachment constraints.")
         .def_readwrite("rigid_body_indices",
-                       &RigidParticleAttachmentConstraintLayoutMapping::rigidBodyIndices)
+                       &RigidParticleAttachmentConstraintLayoutMapping::rigidBodyIndices,
+                       "Prepared rigid-body slots referenced by the attachment constraints.")
         .def_readwrite("particle_entity_ids",
-                       &RigidParticleAttachmentConstraintLayoutMapping::particleEntityIds)
+                       &RigidParticleAttachmentConstraintLayoutMapping::particleEntityIds,
+                       "Entity IDs that own the referenced particles.")
         .def_readwrite("particle_reference_types",
-                       &RigidParticleAttachmentConstraintLayoutMapping::particleReferenceTypes)
+                       &RigidParticleAttachmentConstraintLayoutMapping::particleReferenceTypes,
+                       "Numeric ``AuthoredParticleReferenceType`` values for the referenced particles.")
         .def_readwrite("particle_local_indices",
-                       &RigidParticleAttachmentConstraintLayoutMapping::particleLocalIndices)
-        .def_readwrite("enabled", &RigidParticleAttachmentConstraintLayoutMapping::enabledFlags);
+                       &RigidParticleAttachmentConstraintLayoutMapping::particleLocalIndices,
+                       "Particle indices local to their owning entities.")
+        .def_readwrite("enabled", &RigidParticleAttachmentConstraintLayoutMapping::enabledFlags,
+                       "Whether each attachment constraint is enabled, as ``0`` or ``1``.");
 
-    py::class_<RigidDistanceConstraintLayoutMapping>(m, "RigidDistanceConstraintLayoutMapping")
-        .def(py::init<>())
-        .def_readwrite("count", &RigidDistanceConstraintLayoutMapping::count)
-        .def_readwrite("constraint_ids", &RigidDistanceConstraintLayoutMapping::constraintIds)
+    py::class_<RigidDistanceConstraintLayoutMapping>(
+        m, "RigidDistanceConstraintLayoutMapping",
+        "Prepared host-side layout for rigid distance constraints.")
+        .def(py::init<>(), "Initializes an empty rigid distance constraint layout.")
+        .def_readwrite("count", &RigidDistanceConstraintLayoutMapping::count,
+                       "Number of rigid distance constraint slots.")
+        .def_readwrite("constraint_ids", &RigidDistanceConstraintLayoutMapping::constraintIds,
+                       "Constraint IDs for the rigid distance constraint slots.")
         .def_readwrite("environment_indices",
-                       &RigidDistanceConstraintLayoutMapping::environmentIndices)
-        .def_readwrite("rigid_body_ids_a", &RigidDistanceConstraintLayoutMapping::rigidBodyIdsA)
-        .def_readwrite("rigid_body_ids_b", &RigidDistanceConstraintLayoutMapping::rigidBodyIdsB)
+                       &RigidDistanceConstraintLayoutMapping::environmentIndices,
+                       "Environment indices of endpoint A's referenced rigid bodies.")
+        .def_readwrite("rigid_body_ids_a", &RigidDistanceConstraintLayoutMapping::rigidBodyIdsA,
+                       "Rigid-body IDs for endpoint A.")
+        .def_readwrite("rigid_body_ids_b", &RigidDistanceConstraintLayoutMapping::rigidBodyIdsB,
+                       "Rigid-body IDs for endpoint B.")
         .def_readwrite("rigid_body_indices_a",
-                       &RigidDistanceConstraintLayoutMapping::rigidBodyIndicesA)
+                       &RigidDistanceConstraintLayoutMapping::rigidBodyIndicesA,
+                       "Prepared rigid-body slots for endpoint A.")
         .def_readwrite("rigid_body_indices_b",
-                       &RigidDistanceConstraintLayoutMapping::rigidBodyIndicesB)
-        .def_readwrite("enabled", &RigidDistanceConstraintLayoutMapping::enabledFlags);
+                       &RigidDistanceConstraintLayoutMapping::rigidBodyIndicesB,
+                       "Prepared rigid-body slots for endpoint B.")
+        .def_readwrite("enabled", &RigidDistanceConstraintLayoutMapping::enabledFlags,
+                       "Whether each rigid distance constraint is enabled, as ``0`` or ``1``.");
 
-    py::class_<RoutedCableConstraintLayoutMapping>(m, "RoutedCableConstraintLayoutMapping")
-        .def(py::init<>())
-        .def_readwrite("count", &RoutedCableConstraintLayoutMapping::count)
-        .def_readwrite("constraint_ids", &RoutedCableConstraintLayoutMapping::constraintIds)
+    py::class_<RoutedCableConstraintLayoutMapping>(
+        m, "RoutedCableConstraintLayoutMapping",
+        "Prepared host-side layout for routed cable constraints and their route points.")
+        .def(py::init<>(), "Initializes an empty routed cable constraint layout.")
+        .def_readwrite("count", &RoutedCableConstraintLayoutMapping::count,
+                       "Number of routed cable constraint slots.")
+        .def_readwrite("constraint_ids", &RoutedCableConstraintLayoutMapping::constraintIds,
+                       "Constraint IDs for the routed cable constraint slots.")
         .def_readwrite("environment_indices",
-                       &RoutedCableConstraintLayoutMapping::environmentIndices)
+                       &RoutedCableConstraintLayoutMapping::environmentIndices,
+                       "Environment indices resolved from each cable's first valid route point.")
         .def_readwrite("route_point_offsets",
-                       &RoutedCableConstraintLayoutMapping::routePointOffsets)
-        .def_readwrite("route_point_counts", &RoutedCableConstraintLayoutMapping::routePointCounts)
-        .def_readwrite("enabled", &RoutedCableConstraintLayoutMapping::enabledFlags)
+                       &RoutedCableConstraintLayoutMapping::routePointOffsets,
+                       "Offsets into the flattened route-point arrays for each cable.")
+        .def_readwrite("route_point_counts", &RoutedCableConstraintLayoutMapping::routePointCounts,
+                       "Route-point counts for each cable.")
+        .def_readwrite("enabled", &RoutedCableConstraintLayoutMapping::enabledFlags,
+                       "Whether each routed cable constraint is enabled, as ``0`` or ``1``.")
         .def_readwrite("route_point_rigid_body_ids",
-                       &RoutedCableConstraintLayoutMapping::routePointRigidBodyIds)
+                       &RoutedCableConstraintLayoutMapping::routePointRigidBodyIds,
+                       "Rigid-body IDs for flattened route points.")
         .def_readwrite("route_point_rigid_body_indices",
-                       &RoutedCableConstraintLayoutMapping::routePointRigidBodyIndices)
+                       &RoutedCableConstraintLayoutMapping::routePointRigidBodyIndices,
+                       "Prepared rigid-body slots for flattened route points.")
         .def_readwrite("route_point_local_guide_offsets",
-                       &RoutedCableConstraintLayoutMapping::routePointLocalGuideOffsets);
+                       &RoutedCableConstraintLayoutMapping::routePointLocalGuideOffsets,
+                       "Local guide offsets for flattened route points.");
 
-    py::class_<ConstraintLayoutMapping>(m, "ConstraintLayoutMapping")
-        .def(py::init<>())
-        .def_readwrite("layout_revision", &ConstraintLayoutMapping::layoutRevision)
+    py::class_<ConstraintLayoutMapping>(
+        m, "ConstraintLayoutMapping",
+        "Prepared host-side slot layout for rigid-adjacent constraints.")
+        .def(py::init<>(), "Initializes an empty constraint layout mapping.")
+        .def_readwrite("layout_revision", &ConstraintLayoutMapping::layoutRevision,
+                       "Prepared constraint slot-layout invalidation key produced by ``Runtime.prepare()``.")
         .def_readwrite("rigid_particle_attachments",
-                       &ConstraintLayoutMapping::rigidParticleAttachments)
+                       &ConstraintLayoutMapping::rigidParticleAttachments,
+                       "Prepared layout for rigid-particle attachment constraints.")
         .def_readwrite("rigid_distance_constraints",
-                       &ConstraintLayoutMapping::rigidDistanceConstraints)
-        .def_readwrite("routed_cables", &ConstraintLayoutMapping::routedCables);
+                       &ConstraintLayoutMapping::rigidDistanceConstraints,
+                       "Prepared layout for rigid distance constraints.")
+        .def_readwrite("routed_cables", &ConstraintLayoutMapping::routedCables,
+                       "Prepared layout for routed cable constraints.");
 
-    py::class_<JointLayoutMapping>(m, "JointLayoutMapping")
-        .def(py::init<>())
-        .def_readwrite("ball_joint_count", &JointLayoutMapping::ballJointCount)
-        .def_readwrite("hinge_joint_count", &JointLayoutMapping::hingeJointCount)
-        .def_readwrite("spherical_joint_count", &JointLayoutMapping::sphericalJointCount)
-        .def_readwrite("slider_joint_count", &JointLayoutMapping::sliderJointCount)
-        .def_readwrite("layout_revision", &JointLayoutMapping::layoutRevision)
-        .def_readwrite("ball_joint_ids", &JointLayoutMapping::ballJointIds)
-        .def_readwrite("ball_environment_indices", &JointLayoutMapping::ballEnvironmentIndices)
-        .def_readwrite("ball_body_ids_a", &JointLayoutMapping::ballBodyIdsA)
-        .def_readwrite("ball_body_ids_b", &JointLayoutMapping::ballBodyIdsB)
-        .def_readwrite("ball_body_indices_a", &JointLayoutMapping::ballBodyIndicesA)
-        .def_readwrite("ball_body_indices_b", &JointLayoutMapping::ballBodyIndicesB)
-        .def_readwrite("hinge_joint_ids", &JointLayoutMapping::hingeJointIds)
-        .def_readwrite("hinge_environment_indices", &JointLayoutMapping::hingeEnvironmentIndices)
-        .def_readwrite("hinge_body_ids_a", &JointLayoutMapping::hingeBodyIdsA)
-        .def_readwrite("hinge_body_ids_b", &JointLayoutMapping::hingeBodyIdsB)
-        .def_readwrite("hinge_body_indices_a", &JointLayoutMapping::hingeBodyIndicesA)
-        .def_readwrite("hinge_body_indices_b", &JointLayoutMapping::hingeBodyIndicesB)
-        .def_readwrite("spherical_joint_ids", &JointLayoutMapping::sphericalJointIds)
+    py::class_<JointLayoutMapping>(
+        m, "JointLayoutMapping", "Prepared host-side slot layout for rigid joints.")
+        .def(py::init<>(), "Initializes an empty rigid-joint layout mapping.")
+        .def_readwrite("ball_joint_count", &JointLayoutMapping::ballJointCount,
+                       "Number of ball joint slots.")
+        .def_readwrite("hinge_joint_count", &JointLayoutMapping::hingeJointCount,
+                       "Number of hinge joint slots.")
+        .def_readwrite("spherical_joint_count", &JointLayoutMapping::sphericalJointCount,
+                       "Number of spherical joint slots.")
+        .def_readwrite("slider_joint_count", &JointLayoutMapping::sliderJointCount,
+                       "Number of slider joint slots.")
+        .def_readwrite("layout_revision", &JointLayoutMapping::layoutRevision,
+                       "Prepared rigid-joint slot-layout invalidation key produced by ``Runtime.prepare()``.")
+        .def_readwrite("ball_joint_ids", &JointLayoutMapping::ballJointIds,
+                       "Ball joint IDs for the ball joint slots.")
+        .def_readwrite("ball_environment_indices", &JointLayoutMapping::ballEnvironmentIndices,
+                       "Environment indices of ball joint endpoint A.")
+        .def_readwrite("ball_body_ids_a", &JointLayoutMapping::ballBodyIdsA,
+                       "Rigid-body IDs for ball joint endpoint A.")
+        .def_readwrite("ball_body_ids_b", &JointLayoutMapping::ballBodyIdsB,
+                       "Rigid-body IDs for ball joint endpoint B.")
+        .def_readwrite("ball_body_indices_a", &JointLayoutMapping::ballBodyIndicesA,
+                       "Prepared rigid-body slots for ball joint endpoint A.")
+        .def_readwrite("ball_body_indices_b", &JointLayoutMapping::ballBodyIndicesB,
+                       "Prepared rigid-body slots for ball joint endpoint B.")
+        .def_readwrite("hinge_joint_ids", &JointLayoutMapping::hingeJointIds,
+                       "Hinge joint IDs for the hinge joint slots.")
+        .def_readwrite("hinge_environment_indices", &JointLayoutMapping::hingeEnvironmentIndices,
+                       "Environment indices of hinge joint endpoint A.")
+        .def_readwrite("hinge_body_ids_a", &JointLayoutMapping::hingeBodyIdsA,
+                       "Rigid-body IDs for hinge joint endpoint A.")
+        .def_readwrite("hinge_body_ids_b", &JointLayoutMapping::hingeBodyIdsB,
+                       "Rigid-body IDs for hinge joint endpoint B.")
+        .def_readwrite("hinge_body_indices_a", &JointLayoutMapping::hingeBodyIndicesA,
+                       "Prepared rigid-body slots for hinge joint endpoint A.")
+        .def_readwrite("hinge_body_indices_b", &JointLayoutMapping::hingeBodyIndicesB,
+                       "Prepared rigid-body slots for hinge joint endpoint B.")
+        .def_readwrite("spherical_joint_ids", &JointLayoutMapping::sphericalJointIds,
+                       "Spherical joint IDs for the spherical joint slots.")
         .def_readwrite("spherical_environment_indices",
-                       &JointLayoutMapping::sphericalEnvironmentIndices)
-        .def_readwrite("spherical_body_ids_a", &JointLayoutMapping::sphericalBodyIdsA)
-        .def_readwrite("spherical_body_ids_b", &JointLayoutMapping::sphericalBodyIdsB)
-        .def_readwrite("spherical_body_indices_a", &JointLayoutMapping::sphericalBodyIndicesA)
-        .def_readwrite("spherical_body_indices_b", &JointLayoutMapping::sphericalBodyIndicesB)
-        .def_readwrite("slider_joint_ids", &JointLayoutMapping::sliderJointIds)
-        .def_readwrite("slider_environment_indices", &JointLayoutMapping::sliderEnvironmentIndices)
-        .def_readwrite("slider_body_ids_a", &JointLayoutMapping::sliderBodyIdsA)
-        .def_readwrite("slider_body_ids_b", &JointLayoutMapping::sliderBodyIdsB)
-        .def_readwrite("slider_body_indices_a", &JointLayoutMapping::sliderBodyIndicesA)
-        .def_readwrite("slider_body_indices_b", &JointLayoutMapping::sliderBodyIndicesB);
+                       &JointLayoutMapping::sphericalEnvironmentIndices,
+                       "Environment indices of spherical joint endpoint A.")
+        .def_readwrite("spherical_body_ids_a", &JointLayoutMapping::sphericalBodyIdsA,
+                       "Rigid-body IDs for spherical joint endpoint A.")
+        .def_readwrite("spherical_body_ids_b", &JointLayoutMapping::sphericalBodyIdsB,
+                       "Rigid-body IDs for spherical joint endpoint B.")
+        .def_readwrite("spherical_body_indices_a", &JointLayoutMapping::sphericalBodyIndicesA,
+                       "Prepared rigid-body slots for spherical joint endpoint A.")
+        .def_readwrite("spherical_body_indices_b", &JointLayoutMapping::sphericalBodyIndicesB,
+                       "Prepared rigid-body slots for spherical joint endpoint B.")
+        .def_readwrite("slider_joint_ids", &JointLayoutMapping::sliderJointIds,
+                       "Slider joint IDs for the slider joint slots.")
+        .def_readwrite("slider_environment_indices", &JointLayoutMapping::sliderEnvironmentIndices,
+                       "Environment indices of slider joint endpoint A.")
+        .def_readwrite("slider_body_ids_a", &JointLayoutMapping::sliderBodyIdsA,
+                       "Rigid-body IDs for slider joint endpoint A.")
+        .def_readwrite("slider_body_ids_b", &JointLayoutMapping::sliderBodyIdsB,
+                       "Rigid-body IDs for slider joint endpoint B.")
+        .def_readwrite("slider_body_indices_a", &JointLayoutMapping::sliderBodyIndicesA,
+                       "Prepared rigid-body slots for slider joint endpoint A.")
+        .def_readwrite("slider_body_indices_b", &JointLayoutMapping::sliderBodyIndicesB,
+                       "Prepared rigid-body slots for slider joint endpoint B.");
 
-    py::class_<ParticleLayoutMapping>(m, "ParticleLayoutMapping")
-        .def(py::init<>())
-        .def_readwrite("particle_count", &ParticleLayoutMapping::particleCount)
-        .def_readwrite("soft_body_count", &ParticleLayoutMapping::softBodyCount)
-        .def_readwrite("fluid_count", &ParticleLayoutMapping::fluidCount)
-        .def_readwrite("strand_count", &ParticleLayoutMapping::strandCount)
-        .def_readwrite("layout_revision", &ParticleLayoutMapping::layoutRevision)
-        .def_readwrite("environment_indices", &ParticleLayoutMapping::environmentIndices)
-        .def_readwrite("particle_kinds", &ParticleLayoutMapping::particleKinds)
-        .def_readwrite("owner_types", &ParticleLayoutMapping::ownerTypes)
-        .def_readwrite("owner_indices", &ParticleLayoutMapping::ownerIndices)
-        .def_readwrite("strand_ids", &ParticleLayoutMapping::strandIds)
-        .def_readwrite("strand_orders", &ParticleLayoutMapping::strandOrders)
-        .def_readwrite("strand_roles", &ParticleLayoutMapping::strandRoles)
-        .def_readwrite("owning_soft_body_indices", &ParticleLayoutMapping::owningSoftBodyIndices)
-        .def_readwrite("particle_material_indices", &ParticleLayoutMapping::particleMaterialIndices)
-        .def_readwrite("fluid_material_indices", &ParticleLayoutMapping::fluidMaterialIndices)
-        .def_readwrite("phases", &ParticleLayoutMapping::phases)
-        .def_readwrite("collision_layers", &ParticleLayoutMapping::collisionLayers)
-        .def_readwrite("collision_masks", &ParticleLayoutMapping::collisionMasks)
-        .def_readwrite("adjacency_offsets", &ParticleLayoutMapping::adjacencyOffsets)
-        .def_readwrite("adjacency_counts", &ParticleLayoutMapping::adjacencyCounts)
-        .def_readwrite("soft_body_entity_ids", &ParticleLayoutMapping::softBodyEntityIds)
+    py::class_<ParticleLayoutMapping>(
+        m, "ParticleLayoutMapping",
+        "Prepared host-side slot layout for particles and deformable entities.")
+        .def(py::init<>(), "Initializes an empty particle layout mapping.")
+        .def_readwrite("particle_count", &ParticleLayoutMapping::particleCount,
+                       "Number of prepared particle slots.")
+        .def_readwrite("soft_body_count", &ParticleLayoutMapping::softBodyCount,
+                       "Number of prepared soft-body slots.")
+        .def_readwrite("fluid_count", &ParticleLayoutMapping::fluidCount,
+                       "Number of prepared fluid slots.")
+        .def_readwrite("strand_count", &ParticleLayoutMapping::strandCount,
+                       "Number of prepared strand slots.")
+        .def_readwrite("layout_revision", &ParticleLayoutMapping::layoutRevision,
+                       "Prepared particle/deformable slot-layout invalidation key produced by ``Runtime.prepare()``.")
+        .def_readwrite("environment_indices", &ParticleLayoutMapping::environmentIndices,
+                       "Environment indices by prepared particle slot.")
+        .def_readwrite("particle_kinds", &ParticleLayoutMapping::particleKinds,
+                       "Numeric ``ParticleKind`` values by prepared particle slot.")
+        .def_readwrite("owner_types", &ParticleLayoutMapping::ownerTypes,
+                       "Numeric ``ParticleOwnerType`` values by prepared particle slot.")
+        .def_readwrite("owner_indices", &ParticleLayoutMapping::ownerIndices,
+                       "Owner slots, interpreted according to ``owner_types``.")
+        .def_readwrite("strand_ids", &ParticleLayoutMapping::strandIds,
+                       "Strand or suturing group IDs by prepared particle slot.")
+        .def_readwrite("strand_orders", &ParticleLayoutMapping::strandOrders,
+                       "Particle order within its strand or suturing group.")
+        .def_readwrite("strand_roles", &ParticleLayoutMapping::strandRoles,
+                       "Numeric ``ParticleStrandRole`` values by prepared particle slot.")
+        .def_readwrite("owning_soft_body_indices", &ParticleLayoutMapping::owningSoftBodyIndices,
+                       "Owning soft-body slots by prepared particle slot.")
+        .def_readwrite("particle_material_indices", &ParticleLayoutMapping::particleMaterialIndices,
+                       "Contact material indices by prepared particle slot.")
+        .def_readwrite("fluid_material_indices", &ParticleLayoutMapping::fluidMaterialIndices,
+                       "Fluid material indices by prepared particle slot.")
+        .def_readwrite("phases", &ParticleLayoutMapping::phases,
+                       "Packed particle phase values by prepared particle slot.")
+        .def_readwrite("collision_layers", &ParticleLayoutMapping::collisionLayers,
+                       "Collision layers by prepared particle slot.")
+        .def_readwrite("collision_masks", &ParticleLayoutMapping::collisionMasks,
+                       "Collision masks by prepared particle slot.")
+        .def_readwrite("adjacency_offsets", &ParticleLayoutMapping::adjacencyOffsets,
+                       "Offsets into the internal flattened particle adjacency list.")
+        .def_readwrite("adjacency_counts", &ParticleLayoutMapping::adjacencyCounts,
+                       "Adjacent-particle counts by prepared particle slot.")
+        .def_readwrite("soft_body_entity_ids", &ParticleLayoutMapping::softBodyEntityIds,
+                       "Entity IDs for the prepared soft-body slots.")
         .def_readwrite("soft_body_environment_indices",
-                       &ParticleLayoutMapping::softBodyEnvironmentIndices)
+                       &ParticleLayoutMapping::softBodyEnvironmentIndices,
+                       "Environment indices for the prepared soft-body slots.")
         .def_readwrite("soft_body_particle_offsets",
-                       &ParticleLayoutMapping::softBodyParticleOffsets)
-        .def_readwrite("soft_body_particle_counts", &ParticleLayoutMapping::softBodyParticleCounts)
-        .def_readwrite("fluid_entity_ids", &ParticleLayoutMapping::fluidEntityIds)
-        .def_readwrite("fluid_environment_indices", &ParticleLayoutMapping::fluidEnvironmentIndices)
-        .def_readwrite("fluid_particle_offsets", &ParticleLayoutMapping::fluidParticleOffsets)
-        .def_readwrite("fluid_particle_counts", &ParticleLayoutMapping::fluidParticleCounts)
-        .def_readwrite("strand_entity_ids", &ParticleLayoutMapping::strandEntityIds)
+                       &ParticleLayoutMapping::softBodyParticleOffsets,
+                       "First prepared particle slot for each soft body.")
+        .def_readwrite("soft_body_particle_counts", &ParticleLayoutMapping::softBodyParticleCounts,
+                       "Particle counts for the prepared soft-body slots.")
+        .def_readwrite("fluid_entity_ids", &ParticleLayoutMapping::fluidEntityIds,
+                       "Entity IDs for the prepared fluid slots.")
+        .def_readwrite("fluid_environment_indices", &ParticleLayoutMapping::fluidEnvironmentIndices,
+                       "Environment indices for the prepared fluid slots.")
+        .def_readwrite("fluid_particle_offsets", &ParticleLayoutMapping::fluidParticleOffsets,
+                       "First prepared particle slot for each fluid.")
+        .def_readwrite("fluid_particle_counts", &ParticleLayoutMapping::fluidParticleCounts,
+                       "Particle counts for the prepared fluid slots.")
+        .def_readwrite("strand_entity_ids", &ParticleLayoutMapping::strandEntityIds,
+                       "Entity IDs for the prepared strand slots.")
         .def_readwrite("strand_environment_indices",
-                       &ParticleLayoutMapping::strandEnvironmentIndices)
-        .def_readwrite("strand_particle_offsets", &ParticleLayoutMapping::strandParticleOffsets)
-        .def_readwrite("strand_particle_counts", &ParticleLayoutMapping::strandParticleCounts);
+                       &ParticleLayoutMapping::strandEnvironmentIndices,
+                       "Environment indices for the prepared strand slots.")
+        .def_readwrite("strand_particle_offsets", &ParticleLayoutMapping::strandParticleOffsets,
+                       "First prepared particle slot for each strand.")
+        .def_readwrite("strand_particle_counts", &ParticleLayoutMapping::strandParticleCounts,
+                       "Particle counts for the prepared strand slots.");
 
-    py::class_<CustomComputeResourceDesc>(m, "CustomComputeResourceDesc")
-        .def(py::init<>())
-        .def_readwrite("key", &CustomComputeResourceDesc::key)
-        .def_readwrite("kind", &CustomComputeResourceDesc::kind)
-        .def_readwrite("access", &CustomComputeResourceDesc::access)
-        .def_readwrite("element_count", &CustomComputeResourceDesc::elementCount)
-        .def_readwrite("element_stride_bytes", &CustomComputeResourceDesc::elementStrideBytes)
-        .def_readwrite("binding_generation", &CustomComputeResourceDesc::bindingGeneration);
+    py::class_<CustomComputeResourceDesc>(
+        m, "CustomComputeResourceDesc", "Metadata descriptor for a custom compute GPU resource.")
+        .def(py::init<>(), "Initializes a custom compute GPU resource descriptor.")
+        .def_readwrite("key", &CustomComputeResourceDesc::key,
+                       "Unique resource string identifier key.")
+        .def_readwrite("kind", &CustomComputeResourceDesc::kind,
+                       "Resource type kind (Buffer, Texture).")
+        .def_readwrite("access", &CustomComputeResourceDesc::access, "Access mode.")
+        .def_readwrite("element_count", &CustomComputeResourceDesc::elementCount,
+                       "Number of elements in resource.")
+        .def_readwrite("element_stride_bytes", &CustomComputeResourceDesc::elementStrideBytes,
+                       "Stride per element in bytes.")
+        .def_readwrite("binding_generation", &CustomComputeResourceDesc::bindingGeneration,
+                       "Resource binding invalidation generation key.");
 
-    py::class_<CustomComputeResourceBindingDesc>(m, "CustomComputeResourceBindingDesc")
-        .def(py::init<>())
+    py::class_<CustomComputeResourceBindingDesc>(
+        m, "CustomComputeResourceBindingDesc",
+        "Binding descriptor mapping a GPU resource to a compute shader variable name.")
+        .def(py::init<>(), "Initializes a custom compute resource binding descriptor.")
         .def_readwrite("shader_variable_name",
-                       &CustomComputeResourceBindingDesc::shaderVariableName)
-        .def_readwrite("resource_key", &CustomComputeResourceBindingDesc::resourceKey)
+                       &CustomComputeResourceBindingDesc::shaderVariableName,
+                       "HLSL shader variable name.")
+        .def_readwrite("resource_key", &CustomComputeResourceBindingDesc::resourceKey,
+                       "Registered engine resource key.")
         .def_readwrite("shared_buffer_handle",
-                       &CustomComputeResourceBindingDesc::sharedBufferHandle)
+                       &CustomComputeResourceBindingDesc::sharedBufferHandle,
+                       "Optional shared engine GPU buffer handle.")
         .def_readwrite("render_target_binding",
-                       &CustomComputeResourceBindingDesc::renderTargetBinding)
+                       &CustomComputeResourceBindingDesc::renderTargetBinding,
+                       "Optional render target binding.")
         .def_readwrite("render_target_texture_plane",
-                       &CustomComputeResourceBindingDesc::renderTargetTexturePlane)
-        .def_readwrite("access", &CustomComputeResourceBindingDesc::access);
+                       &CustomComputeResourceBindingDesc::renderTargetTexturePlane,
+                       "Texture plane selection (Color, Depth).")
+        .def_readwrite("access", &CustomComputeResourceBindingDesc::access,
+                       "Resource access mode.");
 
-    py::class_<CustomComputeDispatchDesc>(m, "CustomComputeDispatchDesc")
-        .def(py::init<>())
-        .def_readwrite("mode", &CustomComputeDispatchDesc::mode)
-        .def_readwrite("group_count_x", &CustomComputeDispatchDesc::groupCountX)
-        .def_readwrite("group_count_y", &CustomComputeDispatchDesc::groupCountY)
-        .def_readwrite("group_count_z", &CustomComputeDispatchDesc::groupCountZ)
-        .def_readwrite("count_resource_key", &CustomComputeDispatchDesc::countResourceKey);
+    py::class_<CustomComputeDispatchDesc>(
+        m, "CustomComputeDispatchDesc", "Dispatch execution parameters for custom compute passes.")
+        .def(py::init<>(), "Initializes custom compute dispatch parameters.")
+        .def_readwrite("mode", &CustomComputeDispatchDesc::mode, "Dispatch mode.")
+        .def_readwrite("group_count_x", &CustomComputeDispatchDesc::groupCountX,
+                       "Dispatch thread group count along X dimension.")
+        .def_readwrite("group_count_y", &CustomComputeDispatchDesc::groupCountY,
+                       "Dispatch thread group count along Y dimension.")
+        .def_readwrite("group_count_z", &CustomComputeDispatchDesc::groupCountZ,
+                       "Dispatch thread group count along Z dimension.")
+        .def_readwrite("count_resource_key", &CustomComputeDispatchDesc::countResourceKey,
+                       "Resource key used for element count dispatch mode.");
 
-    py::class_<CustomComputePassDesc>(m, "CustomComputePassDesc")
-        .def(py::init<>())
-        .def_readwrite("debug_name", &CustomComputePassDesc::debugName)
+    py::class_<CustomComputePassDesc>(
+        m, "CustomComputePassDesc",
+        "Complete descriptor for compiling and instantiating a custom compute shader pass.")
+        .def(py::init<>(), "Initializes a custom compute shader pass descriptor.")
+        .def_readwrite("debug_name", &CustomComputePassDesc::debugName,
+                       "Debug label for diagnostics.")
         // Expose filesystem paths as Python strings.  Binding std::filesystem::path
         // directly leaks the platform's C++ implementation type into pybind11
         // docstrings (for example, std::filesystem::__cxx11::path on libstdc++),
@@ -740,9 +946,12 @@ PYBIND11_MODULE(_cressim_neo, m)
             "shader_directory",
             [](const CustomComputePassDesc &desc) { return desc.shaderDirectory.string(); },
             [](CustomComputePassDesc &desc, const std::string &value)
-            { desc.shaderDirectory = value; })
-        .def_readwrite("shader_path", &CustomComputePassDesc::shaderPath)
-        .def_readwrite("shader_source", &CustomComputePassDesc::shaderSource)
+            { desc.shaderDirectory = value; },
+            "Root directory for shader source files.")
+        .def_readwrite("shader_path", &CustomComputePassDesc::shaderPath,
+                       "Shader source path relative to shaderDirectory.")
+        .def_readwrite("shader_source", &CustomComputePassDesc::shaderSource,
+                       "Optional raw HLSL shader source code string.")
         .def_property(
             "include_directories",
             [](const CustomComputePassDesc &desc)
@@ -763,42 +972,67 @@ PYBIND11_MODULE(_cressim_neo, m)
                 {
                     desc.includeDirectories.emplace_back(value);
                 }
-            })
-        .def_readwrite("entry_point", &CustomComputePassDesc::entryPoint)
-        .def_readwrite("thread_group_size_x", &CustomComputePassDesc::threadGroupSizeX)
-        .def_readwrite("thread_group_size_y", &CustomComputePassDesc::threadGroupSizeY)
-        .def_readwrite("thread_group_size_z", &CustomComputePassDesc::threadGroupSizeZ)
-        .def_readwrite("resource_bindings", &CustomComputePassDesc::resourceBindings)
+            },
+            "Custom shader search paths for HLSL includes.")
+        .def_readwrite("entry_point", &CustomComputePassDesc::entryPoint,
+                       "Shader entry point function name.")
+        .def_readwrite("thread_group_size_x", &CustomComputePassDesc::threadGroupSizeX,
+                       "Workgroup size X dimension.")
+        .def_readwrite("thread_group_size_y", &CustomComputePassDesc::threadGroupSizeY,
+                       "Workgroup size Y dimension.")
+        .def_readwrite("thread_group_size_z", &CustomComputePassDesc::threadGroupSizeZ,
+                       "Workgroup size Z dimension.")
+        .def_readwrite("resource_bindings", &CustomComputePassDesc::resourceBindings,
+                       "Resource bindings array.")
         .def_readwrite("constant_buffer_variable_name",
-                       &CustomComputePassDesc::constantBufferVariableName)
+                       &CustomComputePassDesc::constantBufferVariableName,
+                       "Constant buffer HLSL variable name.")
         .def_readwrite("constant_buffer_size_bytes",
-                       &CustomComputePassDesc::constantBufferSizeBytes)
-        .def_readwrite("constant_data", &CustomComputePassDesc::constantData)
-        .def_readwrite("dispatch", &CustomComputePassDesc::dispatch);
+                       &CustomComputePassDesc::constantBufferSizeBytes,
+                       "Constant buffer size in bytes.")
+        .def_readwrite("constant_data", &CustomComputePassDesc::constantData,
+                       "Initial constant buffer binary data payload.")
+        .def_readwrite("dispatch", &CustomComputePassDesc::dispatch, "Dispatch parameters.");
 
-    py::enum_<Diligent::TEXTURE_FORMAT>(m, "TextureFormat")
-        .value("Unknown", Diligent::TEX_FORMAT_UNKNOWN)
-        .value("RGBA8Unorm", Diligent::TEX_FORMAT_RGBA8_UNORM)
-        .value("RGBA8UnormSrgb", Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB)
-        .value("BGRA8Unorm", Diligent::TEX_FORMAT_BGRA8_UNORM)
-        .value("BGRA8UnormSrgb", Diligent::TEX_FORMAT_BGRA8_UNORM_SRGB)
-        .value("RGBA16Float", Diligent::TEX_FORMAT_RGBA16_FLOAT)
-        .value("R32Float", Diligent::TEX_FORMAT_R32_FLOAT)
-        .value("R32Uint", Diligent::TEX_FORMAT_R32_UINT)
-        .value("D32Float", Diligent::TEX_FORMAT_D32_FLOAT);
+    py::enum_<Diligent::TEXTURE_FORMAT>(m, "TextureFormat",
+                                         "Texture formats supported by the Python binding.")
+        .value("Unknown", Diligent::TEX_FORMAT_UNKNOWN,
+               "Unspecified format; uses an API-specific default where supported.")
+        .value("RGBA8Unorm", Diligent::TEX_FORMAT_RGBA8_UNORM,
+               "Four-channel 8-bit unsigned normalized RGBA format.")
+        .value("RGBA8UnormSrgb", Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB,
+               "Four-channel 8-bit unsigned normalized sRGB RGBA format.")
+        .value("BGRA8Unorm", Diligent::TEX_FORMAT_BGRA8_UNORM,
+               "Four-channel 8-bit unsigned normalized BGRA format.")
+        .value("BGRA8UnormSrgb", Diligent::TEX_FORMAT_BGRA8_UNORM_SRGB,
+               "Four-channel 8-bit unsigned normalized sRGB BGRA format.")
+        .value("RGBA16Float", Diligent::TEX_FORMAT_RGBA16_FLOAT,
+               "Four-channel 16-bit floating-point RGBA format.")
+        .value("R32Float", Diligent::TEX_FORMAT_R32_FLOAT,
+               "Single-channel 32-bit floating-point format.")
+        .value("R32Uint", Diligent::TEX_FORMAT_R32_UINT,
+               "Single-channel 32-bit unsigned integer format.")
+        .value("D32Float", Diligent::TEX_FORMAT_D32_FLOAT,
+               "32-bit floating-point depth format.");
 
-    py::enum_<CameraComponent::Product>(m, "CameraProduct")
-        .value("ColorDepth", CameraComponent::Product::ColorDepth)
-        .value("Depth", CameraComponent::Product::Depth)
-        .value("SegmentationDepth", CameraComponent::Product::SegmentationDepth);
+    py::enum_<CameraComponent::Product>(m, "CameraProduct",
+                                        "Output product modes rendered by the camera.")
+        .value("ColorDepth", CameraComponent::Product::ColorDepth,
+               "Standard RGBA color and depth output.")
+        .value("Depth", CameraComponent::Product::Depth, "Single-channel depth map output.")
+        .value("SegmentationDepth", CameraComponent::Product::SegmentationDepth,
+               "Semantic segmentation mask and depth output.");
 
     py::enum_<UltrasoundProbeComponent::Geometry>(m, "UltrasoundProbeGeometry")
         .value("Linear", UltrasoundProbeComponent::Geometry::Linear)
         .value("Curvilinear", UltrasoundProbeComponent::Geometry::Curvilinear);
 
-    py::enum_<CameraComponent::BackgroundMode>(m, "CameraBackgroundMode")
-        .value("ClearColor", CameraComponent::BackgroundMode::ClearColor)
-        .value("EnvironmentCubemap", CameraComponent::BackgroundMode::EnvironmentCubemap);
+    py::enum_<CameraComponent::BackgroundMode>(m, "CameraBackgroundMode",
+                                               "Background clear modes for camera rendering.")
+        .value("ClearColor", CameraComponent::BackgroundMode::ClearColor,
+               "Solid clear color background.")
+        .value("EnvironmentCubemap", CameraComponent::BackgroundMode::EnvironmentCubemap,
+               "Skybox / Image-Based Lighting cubemap background.");
 
     py::enum_<cressim::neo::physics::RigidBodyType>(m, "RigidBodyType")
         .value("Static", cressim::neo::physics::RigidBodyType::Static)
@@ -815,14 +1049,21 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("StrandParticle", AuthoredParticleReferenceType::StrandParticle)
         .value("RigidProxyParticle", AuthoredParticleReferenceType::RigidProxyParticle);
 
-    py::enum_<SoftBodySourceKind>(m, "SoftBodySourceKind")
-        .value("RegularGrid", SoftBodySourceKind::RegularGrid)
-        .value("TetMesh", SoftBodySourceKind::TetMesh)
-        .value("TetGenFiles", SoftBodySourceKind::TetGenFiles)
-        .value("MeshfreeParticles", SoftBodySourceKind::MeshfreeParticles);
+    py::enum_<SoftBodySourceKind>(m, "SoftBodySourceKind",
+                                  "Selects which member of a soft-body source description is used.")
+        .value("RegularGrid", SoftBodySourceKind::RegularGrid,
+               "Generate a tetrahedral soft body from a regular grid.")
+        .value("TetMesh", SoftBodySourceKind::TetMesh,
+               "Use supplied rest positions and tetrahedron indices.")
+        .value("TetGenFiles", SoftBodySourceKind::TetGenFiles,
+               "Load rest positions and tetrahedra from TetGen node and element files.")
+        .value("MeshfreeParticles", SoftBodySourceKind::MeshfreeParticles,
+               "Use supplied particles and construct a k-nearest-neighbour graph.");
 
-    py::enum_<FluidSourceKind>(m, "FluidSourceKind")
-        .value("RegularGrid", FluidSourceKind::RegularGrid);
+    py::enum_<FluidSourceKind>(m, "FluidSourceKind",
+                               "Selects which member of a fluid source description is used.")
+        .value("RegularGrid", FluidSourceKind::RegularGrid,
+               "Generate fluid particles from a regular grid.");
 
     py::enum_<ParticleKind>(m, "ParticleKind")
         .value("SoftSolid", ParticleKind::SoftSolid)
@@ -847,159 +1088,246 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("TargetVelocity", RigidJointDriveMode::TargetVelocity)
         .value("TargetOrientation", RigidJointDriveMode::TargetOrientation);
 
-    py::enum_<cressim::neo::gpu::VulkanShaderCompilerMode>(m, "VulkanShaderCompilerMode")
-        .value("Auto", cressim::neo::gpu::VulkanShaderCompilerMode::Auto)
-        .value("ForceDefault", cressim::neo::gpu::VulkanShaderCompilerMode::ForceDefault)
-        .value("ForceDXC", cressim::neo::gpu::VulkanShaderCompilerMode::ForceDXC);
+    py::enum_<cressim::neo::gpu::VulkanShaderCompilerMode>(
+        m, "VulkanShaderCompilerMode", "Shader compiler selection policy for the Vulkan backend.")
+        .value("Auto", cressim::neo::gpu::VulkanShaderCompilerMode::Auto,
+               "Select DXC when available; otherwise use the default compiler.")
+        .value("ForceDefault", cressim::neo::gpu::VulkanShaderCompilerMode::ForceDefault,
+               "Always use the default compiler.")
+        .value("ForceDXC", cressim::neo::gpu::VulkanShaderCompilerMode::ForceDXC,
+               "Require the DirectX Shader Compiler (DXC).");
 
-    py::enum_<MaterialProgramFamily>(m, "MaterialProgramFamily")
-        .value("StandardLit", MaterialProgramFamily::StandardLit)
-        .value("SoftBodyLit", MaterialProgramFamily::SoftBodyLit)
-        .value("CurveLit", MaterialProgramFamily::CurveLit);
+    py::enum_<MaterialProgramFamily>(m, "MaterialProgramFamily",
+                                     "Selects the material shader program family.")
+        .value("StandardLit", MaterialProgramFamily::StandardLit,
+               "Material program for standard mesh geometry.")
+        .value("SoftBodyLit", MaterialProgramFamily::SoftBodyLit,
+               "Material program for soft-body render geometry.")
+        .value("CurveLit", MaterialProgramFamily::CurveLit,
+               "Material program for curve render geometry.");
 
     py::enum_<cressim::neo::graphics::MaterialFeatureFlags>(m, "MaterialFeatureFlags",
-                                                            py::arithmetic())
-        .value("None", cressim::neo::graphics::MaterialFeatureFlags::None)
-        .value("AlphaTest", cressim::neo::graphics::MaterialFeatureFlags::AlphaTest)
-        .value("NormalMap", cressim::neo::graphics::MaterialFeatureFlags::NormalMap)
-        .value("ClearCoat", cressim::neo::graphics::MaterialFeatureFlags::ClearCoat)
-        .value("DoubleSided", cressim::neo::graphics::MaterialFeatureFlags::DoubleSided);
+                                                            py::arithmetic(),
+                                                            "Bit flags enabling material shader features.")
+        .value("None", cressim::neo::graphics::MaterialFeatureFlags::None,
+               "Enable no optional features.")
+        .value("AlphaTest", cressim::neo::graphics::MaterialFeatureFlags::AlphaTest,
+               "Enable alpha testing.")
+        .value("NormalMap", cressim::neo::graphics::MaterialFeatureFlags::NormalMap,
+               "Enable normal-map shading.")
+        .value("ClearCoat", cressim::neo::graphics::MaterialFeatureFlags::ClearCoat,
+               "Enable clear-coat shading.")
+        .value("DoubleSided", cressim::neo::graphics::MaterialFeatureFlags::DoubleSided,
+               "Disable back-face culling.");
 
-    py::enum_<MaterialRenderMode>(m, "MaterialRenderMode")
-        .value("Opaque", MaterialRenderMode::Opaque)
-        .value("Cutout", MaterialRenderMode::Cutout)
-        .value("Transparent", MaterialRenderMode::Transparent);
+    py::enum_<MaterialRenderMode>(m, "MaterialRenderMode",
+                                  "Selects the render pass and alpha behavior of a material.")
+        .value("Opaque", MaterialRenderMode::Opaque, "Render in the opaque pass.")
+        .value("Cutout", MaterialRenderMode::Cutout,
+               "Render with alpha testing enabled.")
+        .value("Transparent", MaterialRenderMode::Transparent,
+               "Render in the transparent pass.");
 
-    py::enum_<TextureColorSpace>(m, "TextureColorSpace")
-        .value("Linear", TextureColorSpace::Linear)
-        .value("Srgb", TextureColorSpace::Srgb);
+    py::enum_<TextureColorSpace>(m, "TextureColorSpace", "Specifies a texture color space.")
+        .value("Linear", TextureColorSpace::Linear, "Use linear color space.")
+        .value("Srgb", TextureColorSpace::Srgb, "Use sRGB color space for RGBA8 textures.");
 
-    py::enum_<TexturePixelFormat>(m, "TexturePixelFormat")
-        .value("RGBA8", TexturePixelFormat::RGBA8)
-        .value("RGBA16F", TexturePixelFormat::RGBA16F);
+    py::enum_<TexturePixelFormat>(m, "TexturePixelFormat", "Specifies a texture pixel format.")
+        .value("RGBA8", TexturePixelFormat::RGBA8, "Four 8-bit RGBA channels.")
+        .value("RGBA16F", TexturePixelFormat::RGBA16F, "Four 16-bit floating-point RGBA channels.");
 
-    py::enum_<TextureMipPolicy>(m, "TextureMipPolicy")
-        .value("Disabled", TextureMipPolicy::Disabled)
-        .value("Generate", TextureMipPolicy::Generate);
+    py::enum_<TextureMipPolicy>(m, "TextureMipPolicy", "Specifies a stored texture mipmap policy.")
+        .value("Disabled", TextureMipPolicy::Disabled, "Mipmap generation is disabled.")
+        .value("Generate", TextureMipPolicy::Generate,
+               "Mipmap generation is requested; current resource registration does not generate mipmaps.");
 
-    py::enum_<TextureDimension>(m, "TextureDimension")
-        .value("Texture2D", TextureDimension::Texture2D)
-        .value("TextureCube", TextureDimension::TextureCube);
+    py::enum_<TextureDimension>(m, "TextureDimension", "Specifies a texture dimension.")
+        .value("Texture2D", TextureDimension::Texture2D, "A two-dimensional texture with one layer.")
+        .value("TextureCube", TextureDimension::TextureCube, "A cubemap texture with six layers.");
 
-    py::enum_<IblQualityTier>(m, "IblQualityTier")
-        .value("Off", IblQualityTier::Off)
-        .value("DiffuseOnly", IblQualityTier::DiffuseOnly)
-        .value("Full", IblQualityTier::Full);
+    py::enum_<IblQualityTier>(m, "IblQualityTier",
+                              "Selects the image-based-lighting quality tier.")
+        .value("Off", IblQualityTier::Off, "Disable image-based lighting.")
+        .value("DiffuseOnly", IblQualityTier::DiffuseOnly,
+               "Use diffuse image-based lighting only.")
+        .value("Full", IblQualityTier::Full,
+               "Use diffuse and prefiltered specular image-based lighting.");
 
-    py::class_<FrameContext>(m, "FrameContext")
-        .def(py::init<>())
-        .def_readwrite("frame_index", &FrameContext::frameIndex)
-        .def_readwrite("time_seconds", &FrameContext::timeSeconds)
-        .def_readwrite("delta_seconds", &FrameContext::deltaSeconds);
+    py::class_<FrameContext>(m, "FrameContext",
+                             "Timing and index values associated with an execution frame.")
+        .def(py::init<>(), "Initializes a frame context with zero-valued fields.")
+        .def_readwrite("frame_index", &FrameContext::frameIndex,
+                       "Index associated with the frame being executed.")
+        .def_readwrite("time_seconds", &FrameContext::timeSeconds,
+                       "Time associated with the frame, in seconds.")
+        .def_readwrite("delta_seconds", &FrameContext::deltaSeconds,
+                       "Duration of the frame, in seconds.");
 
-    py::class_<Transform>(m, "Transform")
-        .def(py::init<>())
-        .def_readwrite("position", &Transform::position)
-        .def_readwrite("rotation", &Transform::rotation)
-        .def_readwrite("scale", &Transform::scale);
+    py::class_<Transform>(m, "Transform",
+                          "Position, orientation, and per-axis scale of an object in world space.")
+        .def(py::init<>(), "Initializes an identity transform.")
+        .def_readwrite("position", &Transform::position, "World-space translation.")
+        .def_readwrite("rotation", &Transform::rotation, "World-space orientation quaternion.")
+        .def_readwrite("scale", &Transform::scale, "Per-axis scale.");
 
-    py::class_<TransformComponent>(m, "TransformComponent")
-        .def(py::init<>())
-        .def_readwrite("world_transform", &TransformComponent::worldTransform);
+    py::class_<TransformComponent>(
+        m, "TransformComponent",
+        "World transform component for spatial positioning, orientation, and scaling.")
+        .def(py::init<>(), "Initializes the component with an identity transform.")
+        .def_readwrite("world_transform", &TransformComponent::worldTransform,
+                       "3D world transform matrix/pose.");
 
-    py::class_<RenderOutputBinding>(m, "RenderOutputBinding")
-        .def(py::init<>())
-        .def_readwrite("mode", &RenderOutputBinding::mode)
-        .def_readwrite("binding", &RenderOutputBinding::binding);
+    py::class_<RenderOutputBinding>(m, "RenderOutputBinding",
+                                    "Destination selection for rendered output.")
+        .def(py::init<>(), "Initializes output for the runtime-managed primary target.")
+        .def_readwrite("mode", &RenderOutputBinding::mode, "Output destination selection mode.")
+        .def_readwrite("binding", &RenderOutputBinding::binding,
+                       "Explicit target binding used when ``mode`` is ``ExplicitSurface``.");
 
-    py::class_<GpuRenderTargetDesc>(m, "GpuRenderTargetDesc")
-        .def(py::init<>())
-        .def_readwrite("width", &GpuRenderTargetDesc::width)
-        .def_readwrite("height", &GpuRenderTargetDesc::height)
-        .def_readwrite("array_size", &GpuRenderTargetDesc::arraySize)
-        .def_readwrite("color", &GpuRenderTargetDesc::color)
-        .def_readwrite("depth", &GpuRenderTargetDesc::depth)
-        .def_readwrite("color_format", &GpuRenderTargetDesc::colorFormat)
-        .def_readwrite("depth_format", &GpuRenderTargetDesc::depthFormat)
-        .def_readwrite("layered_rendering", &GpuRenderTargetDesc::layeredRendering)
-        .def_readwrite("shader_readable", &GpuRenderTargetDesc::shaderReadable)
-        .def_readwrite("unordered_access", &GpuRenderTargetDesc::unorderedAccess)
-        .def_readwrite("debug_name", &GpuRenderTargetDesc::debugName);
+    py::class_<GpuRenderTargetDesc>(m, "GpuRenderTargetDesc",
+                                    "Descriptor for creating an offscreen GPU render target.")
+        .def(py::init<>(), "Initializes the descriptor with its default attachment settings.")
+        .def_readwrite("width", &GpuRenderTargetDesc::width,
+                       "Target width in pixels; zero selects the current presentation width or 1280.")
+        .def_readwrite("height", &GpuRenderTargetDesc::height,
+                       "Target height in pixels; zero selects the current presentation height or 720.")
+        .def_readwrite("array_size", &GpuRenderTargetDesc::arraySize,
+                       "Number of array layers in each attachment.")
+        .def_readwrite("color", &GpuRenderTargetDesc::color, "Whether to create a color attachment.")
+        .def_readwrite("depth", &GpuRenderTargetDesc::depth, "Whether to create a depth attachment.")
+        .def_readwrite("color_format", &GpuRenderTargetDesc::colorFormat,
+                       "Color attachment format; ``TextureFormat.Unknown`` selects an automatic format.")
+        .def_readwrite("depth_format", &GpuRenderTargetDesc::depthFormat,
+                       "Depth attachment format; ``TextureFormat.Unknown`` selects an automatic format.")
+        .def_readwrite("layered_rendering", &GpuRenderTargetDesc::layeredRendering,
+                       "Whether attachment textures support layered rendering.")
+        .def_readwrite("shader_readable", &GpuRenderTargetDesc::shaderReadable,
+                       "Whether later shader passes may sample the attachments.")
+        .def_readwrite("unordered_access", &GpuRenderTargetDesc::unorderedAccess,
+                       "Whether the color attachment supports unordered-access views for compute passes.")
+        .def_readwrite("debug_name", &GpuRenderTargetDesc::debugName,
+                       "Diagnostic label for the render target.");
 
-    py::class_<GpuRenderTargetReadbackRequest>(m, "GpuRenderTargetReadbackRequest")
-        .def(py::init<>())
-        .def_readwrite("id", &GpuRenderTargetReadbackRequest::id);
+    py::class_<GpuRenderTargetReadbackRequest>(m, "GpuRenderTargetReadbackRequest",
+                                               "Opaque per-device handle for a queued render-target readback.")
+        .def(py::init<>(), "Initializes an invalid readback request.")
+        .def_readwrite("id", &GpuRenderTargetReadbackRequest::id, "Opaque request identifier.");
 
-    py::class_<GpuRenderTargetReadbackEvent>(m, "GpuRenderTargetReadbackEvent")
-        .def(py::init<>())
-        .def_readwrite("binding", &GpuRenderTargetReadbackEvent::binding)
-        .def_readwrite("frame_index", &GpuRenderTargetReadbackEvent::frameIndex)
-        .def_readwrite("color_format", &GpuRenderTargetReadbackEvent::colorFormat)
-        .def_readwrite("width", &GpuRenderTargetReadbackEvent::width)
-        .def_readwrite("height", &GpuRenderTargetReadbackEvent::height)
-        .def_readwrite("row_stride_bytes", &GpuRenderTargetReadbackEvent::rowStrideBytes)
-        .def_readwrite("color_width", &GpuRenderTargetReadbackEvent::colorWidth)
-        .def_readwrite("color_height", &GpuRenderTargetReadbackEvent::colorHeight)
-        .def_readwrite("color_row_stride_bytes", &GpuRenderTargetReadbackEvent::colorRowStrideBytes)
-        .def_readwrite("color_bytes", &GpuRenderTargetReadbackEvent::colorBytes)
-        .def_readwrite("depth_format", &GpuRenderTargetReadbackEvent::depthFormat)
-        .def_readwrite("depth_width", &GpuRenderTargetReadbackEvent::depthWidth)
-        .def_readwrite("depth_height", &GpuRenderTargetReadbackEvent::depthHeight)
-        .def_readwrite("depth_row_stride_bytes", &GpuRenderTargetReadbackEvent::depthRowStrideBytes)
-        .def_readwrite("depth_bytes", &GpuRenderTargetReadbackEvent::depthBytes);
+    py::class_<GpuRenderTargetReadbackEvent>(m, "GpuRenderTargetReadbackEvent",
+                                             "Completed CPU-side readback of an offscreen render target.")
+        .def(py::init<>(), "Initializes an empty readback event.")
+        .def_readwrite("binding", &GpuRenderTargetReadbackEvent::binding,
+                       "Render-target layers read back by this event.")
+        .def_readwrite("frame_index", &GpuRenderTargetReadbackEvent::frameIndex,
+                       "Index of the frame that produced the readback.")
+        .def_readwrite("color_format", &GpuRenderTargetReadbackEvent::colorFormat,
+                       "Format of the color payload, when present.")
+        .def_readwrite("width", &GpuRenderTargetReadbackEvent::width,
+                       "Legacy alias for ``color_width``.")
+        .def_readwrite("height", &GpuRenderTargetReadbackEvent::height,
+                       "Legacy alias for ``color_height``.")
+        .def_readwrite("row_stride_bytes", &GpuRenderTargetReadbackEvent::rowStrideBytes,
+                       "Legacy alias for ``color_row_stride_bytes``.")
+        .def_readwrite("color_width", &GpuRenderTargetReadbackEvent::colorWidth,
+                       "Width of the color payload in pixels.")
+        .def_readwrite("color_height", &GpuRenderTargetReadbackEvent::colorHeight,
+                       "Height of the color payload in pixels.")
+        .def_readwrite("color_row_stride_bytes", &GpuRenderTargetReadbackEvent::colorRowStrideBytes,
+                       "Packed row size of the color payload in bytes.")
+        .def_readwrite("color_bytes", &GpuRenderTargetReadbackEvent::colorBytes,
+                       "Packed color pixel data in row-major order.")
+        .def_readwrite("depth_format", &GpuRenderTargetReadbackEvent::depthFormat,
+                       "Format of the depth payload, when present.")
+        .def_readwrite("depth_width", &GpuRenderTargetReadbackEvent::depthWidth,
+                       "Width of the depth payload in pixels.")
+        .def_readwrite("depth_height", &GpuRenderTargetReadbackEvent::depthHeight,
+                       "Height of the depth payload in pixels.")
+        .def_readwrite("depth_row_stride_bytes", &GpuRenderTargetReadbackEvent::depthRowStrideBytes,
+                       "Packed row size of the depth payload in bytes.")
+        .def_readwrite("depth_bytes", &GpuRenderTargetReadbackEvent::depthBytes,
+                       "Packed depth pixel data in row-major order.");
 
-    py::class_<cressim::neo::common::SceneLayoutDesc>(m, "SceneLayoutDesc")
-        .def(py::init<>())
-        .def_readwrite("env_count", &cressim::neo::common::SceneLayoutDesc::envCount)
+    py::class_<cressim::neo::common::SceneLayoutDesc>(
+        m, "SceneLayoutDesc",
+        "Capacity configuration for the environments, renderable objects, lights, and cameras in a scene.")
+        .def(py::init<>(), "Initializes the descriptor with its default capacities.")
+        .def_readwrite("env_count", &cressim::neo::common::SceneLayoutDesc::envCount,
+                       "Number of simulation and rendering environments.")
         .def_readwrite("max_renderable_objects_per_env",
-                       &cressim::neo::common::SceneLayoutDesc::maxRenderableObjectsPerEnv)
+                       &cressim::neo::common::SceneLayoutDesc::maxRenderableObjectsPerEnv,
+                       "Maximum number of renderable objects in each environment.")
         .def_readwrite("max_lights_per_env",
-                       &cressim::neo::common::SceneLayoutDesc::maxLightsPerEnv)
+                       &cressim::neo::common::SceneLayoutDesc::maxLightsPerEnv,
+                       "Maximum number of lights in each environment.")
         .def_readwrite("max_cameras_per_env",
-                       &cressim::neo::common::SceneLayoutDesc::maxCamerasPerEnv)
+                       &cressim::neo::common::SceneLayoutDesc::maxCamerasPerEnv,
+                       "Maximum number of cameras in each environment.")
         .def("total_renderable_object_capacity",
-             &cressim::neo::common::SceneLayoutDesc::totalRenderableObjectCapacity)
-        .def("total_light_capacity", &cressim::neo::common::SceneLayoutDesc::totalLightCapacity)
-        .def("total_camera_capacity", &cressim::neo::common::SceneLayoutDesc::totalCameraCapacity);
+             &cressim::neo::common::SceneLayoutDesc::totalRenderableObjectCapacity,
+             "Returns the total renderable-object capacity across all environments.")
+        .def("total_light_capacity", &cressim::neo::common::SceneLayoutDesc::totalLightCapacity,
+             "Returns the total light capacity across all environments.")
+        .def("total_camera_capacity", &cressim::neo::common::SceneLayoutDesc::totalCameraCapacity,
+             "Returns the total camera capacity across all environments.");
 
-    py::class_<cressim::neo::gpu::GpuRenderViewport>(m, "GpuRenderViewport")
-        .def(py::init<>())
-        .def_readwrite("x", &cressim::neo::gpu::GpuRenderViewport::x)
-        .def_readwrite("y", &cressim::neo::gpu::GpuRenderViewport::y)
-        .def_readwrite("width", &cressim::neo::gpu::GpuRenderViewport::width)
-        .def_readwrite("height", &cressim::neo::gpu::GpuRenderViewport::height);
+    py::class_<cressim::neo::gpu::GpuRenderViewport>(m, "GpuRenderViewport",
+                                                      "Normalized viewport rectangle relative to a bound render target.")
+        .def(py::init<>(), "Initializes a viewport covering the complete render target.")
+        .def_readwrite("x", &cressim::neo::gpu::GpuRenderViewport::x,
+                       "Normalized left coordinate in the range [0, 1].")
+        .def_readwrite("y", &cressim::neo::gpu::GpuRenderViewport::y,
+                       "Normalized top coordinate in the range [0, 1].")
+        .def_readwrite("width", &cressim::neo::gpu::GpuRenderViewport::width,
+                       "Normalized viewport width in the range [0, 1].")
+        .def_readwrite("height", &cressim::neo::gpu::GpuRenderViewport::height,
+                       "Normalized viewport height in the range [0, 1].");
 
-    py::class_<GpuDeviceDesc::PresentationDesc>(m, "GpuPresentationDesc")
-        .def(py::init<>())
-        .def_readwrite("enabled", &GpuDeviceDesc::PresentationDesc::enabled)
-        .def_readwrite("sync_interval", &GpuDeviceDesc::PresentationDesc::syncInterval)
+    py::class_<GpuDeviceDesc::PresentationDesc>(
+        m, "GpuPresentationDesc", "Platform presentation and swap-chain configuration.")
+        .def(py::init<>(), "Initializes presentation as disabled.")
+        .def_readwrite("enabled", &GpuDeviceDesc::PresentationDesc::enabled,
+                       "Whether to create a presentation swap chain.")
+        .def_readwrite("sync_interval", &GpuDeviceDesc::PresentationDesc::syncInterval,
+                       "Swap-chain presentation interval; one enables v-sync and zero disables it.")
         .def_readwrite("preferred_color_format",
-                       &GpuDeviceDesc::PresentationDesc::preferredColorFormat)
+                       &GpuDeviceDesc::PresentationDesc::preferredColorFormat,
+                       "Preferred swap-chain color format; ``TextureFormat.Unknown`` lets the backend choose.")
         .def_property(
             "native_window", [](const GpuDeviceDesc::PresentationDesc &desc)
             { return reinterpret_cast<std::uintptr_t>(desc.nativeWindow); },
             [](GpuDeviceDesc::PresentationDesc &desc, const std::uintptr_t value)
-            { desc.nativeWindow = reinterpret_cast<void *>(value); })
-        .def_readwrite("native_window_id", &GpuDeviceDesc::PresentationDesc::nativeWindowId)
+            { desc.nativeWindow = reinterpret_cast<void *>(value); },
+            "Platform-native window pointer represented as an integer (Win32 HWND or macOS NSView).")
+        .def_readwrite("native_window_id", &GpuDeviceDesc::PresentationDesc::nativeWindowId,
+                       "Platform-native window ID (X11 Window or XCB window handle on Linux).")
         .def_property(
             "native_display", [](const GpuDeviceDesc::PresentationDesc &desc)
             { return reinterpret_cast<std::uintptr_t>(desc.nativeDisplay); },
             [](GpuDeviceDesc::PresentationDesc &desc, const std::uintptr_t value)
-            { desc.nativeDisplay = reinterpret_cast<void *>(value); })
+            { desc.nativeDisplay = reinterpret_cast<void *>(value); },
+            "X11 display pointer represented as an integer.")
         .def_property(
             "native_connection", [](const GpuDeviceDesc::PresentationDesc &desc)
             { return reinterpret_cast<std::uintptr_t>(desc.nativeConnection); },
             [](GpuDeviceDesc::PresentationDesc &desc, const std::uintptr_t value)
-            { desc.nativeConnection = reinterpret_cast<void *>(value); });
+            { desc.nativeConnection = reinterpret_cast<void *>(value); },
+            "XCB connection pointer represented as an integer.");
 
-    py::class_<GpuDeviceDesc>(m, "GpuDeviceDesc")
-        .def(py::init<>())
-        .def_readwrite("preferred_backend", &GpuDeviceDesc::preferredBackend)
-        .def_readwrite("enable_validation", &GpuDeviceDesc::enableValidation)
-        .def_readwrite("default_render_target_desc", &GpuDeviceDesc::defaultRenderTargetDesc)
-        .def_readwrite("presentation", &GpuDeviceDesc::presentation)
-        .def_readwrite("vulkan_shader_compiler_mode", &GpuDeviceDesc::vulkanShaderCompilerMode)
-        .def_readwrite("shader_directory", &GpuDeviceDesc::shaderDirectory)
+    py::class_<GpuDeviceDesc>(m, "GpuDeviceDesc",
+                              "Configuration for initializing the GPU device and its shader source search paths.")
+        .def(py::init<>(), "Initializes the descriptor with a Vulkan backend preference and validation enabled.")
+        .def_readwrite("preferred_backend", &GpuDeviceDesc::preferredBackend,
+                       "Preferred GPU execution backend.")
+        .def_readwrite("enable_validation", &GpuDeviceDesc::enableValidation,
+                       "Whether to enable graphics-backend validation.")
+        .def_readwrite("default_render_target_desc", &GpuDeviceDesc::defaultRenderTargetDesc,
+                       "Descriptor used for the runtime's default render target.")
+        .def_readwrite("presentation", &GpuDeviceDesc::presentation,
+                       "Presentation and swap-chain configuration.")
+        .def_readwrite("vulkan_shader_compiler_mode", &GpuDeviceDesc::vulkanShaderCompilerMode,
+                       "Shader compiler selection policy for the Vulkan backend.")
+        .def_readwrite("shader_directory", &GpuDeviceDesc::shaderDirectory,
+                       "Optional override for the engine shader package root.")
         .def_property(
             "shader_include_directories",
             [](const GpuDeviceDesc &desc)
@@ -1020,11 +1348,13 @@ PYBIND11_MODULE(_cressim_neo, m)
                 {
                     desc.shaderIncludeDirectories.emplace_back(value);
                 }
-            });
+            },
+            "Ordered application shader-header search roots. Engine headers remain available under ``shader_directory/include``.");
 
-    py::class_<RendererDesc>(m, "RendererDesc")
-        .def(py::init<>())
-        .def_readwrite("ibl_quality_tier", &RendererDesc::iblQualityTier);
+    py::class_<RendererDesc>(m, "RendererDesc", "Configuration for the graphics renderer.")
+        .def(py::init<>(), "Initializes the renderer with image-based lighting disabled.")
+        .def_readwrite("ibl_quality_tier", &RendererDesc::iblQualityTier,
+                       "Image-based-lighting quality tier.");
 
     py::class_<PhysicsSolverDesc>(m, "PhysicsSolverDesc")
         .def(py::init<>())
@@ -1039,49 +1369,85 @@ PYBIND11_MODULE(_cressim_neo, m)
                        &PhysicsSolverDesc::rigidRigidContactIterations)
         .def_readwrite("enable_blocking_readback", &PhysicsSolverDesc::enableBlockingReadback);
 
-    py::class_<RuntimeConfig>(m, "RuntimeConfig")
-        .def(py::init<>())
-        .def_readwrite("gpu_device_desc", &RuntimeConfig::gpuDeviceDesc)
-        .def_readwrite("scene_layout", &RuntimeConfig::sceneLayout)
-        .def_readwrite("renderer_desc", &RuntimeConfig::rendererDesc)
-        .def_readwrite("physics_desc", &RuntimeConfig::physicsDesc);
+    py::class_<RuntimeConfig>(m, "RuntimeConfig",
+                              "Configuration descriptor for initializing the CRESSim-Neo engine runtime.")
+        .def(py::init<>(), "Initializes the default runtime configuration.")
+        .def_readwrite("gpu_device_desc", &RuntimeConfig::gpuDeviceDesc,
+                       "Desired GPU device configuration.")
+        .def_readwrite("scene_layout", &RuntimeConfig::sceneLayout,
+                       "Scene layout capacity settings.")
+        .def_readwrite("renderer_desc", &RuntimeConfig::rendererDesc,
+                       "Graphics renderer parameters.")
+        .def_readwrite("physics_desc", &RuntimeConfig::physicsDesc,
+                       "Physics solver parameters.");
 
 #ifdef CRESSIM_NEO_PYTHON_HAS_VIEWER
-    py::class_<DebugViewerAppDesc>(m, "DebugViewerAppDesc")
-        .def(py::init<>())
-        .def_readwrite("window_title", &DebugViewerAppDesc::windowTitle)
-        .def_readwrite("width", &DebugViewerAppDesc::width)
-        .def_readwrite("height", &DebugViewerAppDesc::height)
-        .def_readwrite("window_enabled", &DebugViewerAppDesc::windowEnabled)
-        .def_readwrite("window_visible", &DebugViewerAppDesc::windowVisible)
-        .def_readwrite("start_fullscreen", &DebugViewerAppDesc::startFullscreen)
-        .def_readwrite("start_fullscreen_windowed", &DebugViewerAppDesc::startFullscreenWindowed)
-        .def_readwrite("v_sync", &DebugViewerAppDesc::vSync)
-        .def_readwrite("input_sensitivity", &DebugViewerAppDesc::inputSensitivity)
-        .def_readwrite("move_speed", &DebugViewerAppDesc::moveSpeed)
-        .def_readwrite("speed_boost_scale", &DebugViewerAppDesc::speedBoostScale)
-        .def_readwrite("speed_slow_scale", &DebugViewerAppDesc::speedSlowScale)
-        .def_readwrite("wheel_speed_scale", &DebugViewerAppDesc::wheelSpeedScale)
-        .def_readwrite("min_move_speed", &DebugViewerAppDesc::minMoveSpeed)
-        .def_readwrite("max_move_speed", &DebugViewerAppDesc::maxMoveSpeed)
-        .def_readwrite("fixed_delta_seconds", &DebugViewerAppDesc::fixedDeltaSeconds)
-        .def_readwrite("use_fixed_timestep", &DebugViewerAppDesc::useFixedTimestep)
-        .def_readwrite("step_simulation", &DebugViewerAppDesc::stepSimulation)
-        .def_readwrite("max_frames", &DebugViewerAppDesc::maxFrames)
-        .def_readwrite("show_stats", &DebugViewerAppDesc::showStats)
-        .def_readwrite("enable_debug_particles", &DebugViewerAppDesc::enableDebugParticles)
-        .def_readwrite("stats_interval_frames", &DebugViewerAppDesc::statsIntervalFrames);
+    py::class_<DebugViewerAppDesc>(m, "DebugViewerAppDesc",
+                                   "Configuration for the debug viewer application.")
+        .def(py::init<>(), "Initializes the default debug viewer configuration.")
+        .def_readwrite("window_title", &DebugViewerAppDesc::windowTitle,
+                       "Window title.")
+        .def_readwrite("width", &DebugViewerAppDesc::width,
+                       "Requested render target and window width in pixels.")
+        .def_readwrite("height", &DebugViewerAppDesc::height,
+                       "Requested render target and window height in pixels.")
+        .def_readwrite("window_enabled", &DebugViewerAppDesc::windowEnabled,
+                       "Whether to create a native viewer window.")
+        .def_readwrite("window_visible", &DebugViewerAppDesc::windowVisible,
+                       "Whether a created viewer window starts visible.")
+        .def_readwrite("start_fullscreen", &DebugViewerAppDesc::startFullscreen,
+                       "Whether to start in exclusive fullscreen mode.")
+        .def_readwrite("start_fullscreen_windowed", &DebugViewerAppDesc::startFullscreenWindowed,
+                       "Whether to start in borderless fullscreen-windowed mode.")
+        .def_readwrite("v_sync", &DebugViewerAppDesc::vSync,
+                       "Whether presentation uses vertical synchronization.")
+        .def_readwrite("input_sensitivity", &DebugViewerAppDesc::inputSensitivity,
+                       "Mouse-look input sensitivity.")
+        .def_readwrite("move_speed", &DebugViewerAppDesc::moveSpeed,
+                       "Default free-camera movement speed.")
+        .def_readwrite("speed_boost_scale", &DebugViewerAppDesc::speedBoostScale,
+                       "Multiplier applied while boost movement is active.")
+        .def_readwrite("speed_slow_scale", &DebugViewerAppDesc::speedSlowScale,
+                       "Multiplier applied while slow movement is active.")
+        .def_readwrite("wheel_speed_scale", &DebugViewerAppDesc::wheelSpeedScale,
+                       "Mouse-wheel adjustment scale for movement speed.")
+        .def_readwrite("min_move_speed", &DebugViewerAppDesc::minMoveSpeed,
+                       "Lower bound for free-camera movement speed.")
+        .def_readwrite("max_move_speed", &DebugViewerAppDesc::maxMoveSpeed,
+                       "Upper bound for free-camera movement speed.")
+        .def_readwrite("fixed_delta_seconds", &DebugViewerAppDesc::fixedDeltaSeconds,
+                       "Fixed frame delta in seconds.")
+        .def_readwrite("use_fixed_timestep", &DebugViewerAppDesc::useFixedTimestep,
+                       "Whether viewer ticks use ``fixed_delta_seconds`` instead of wall-clock time.")
+        .def_readwrite("step_simulation", &DebugViewerAppDesc::stepSimulation,
+                       "Whether each viewer tick advances simulation physics and sensors.")
+        .def_readwrite("max_frames", &DebugViewerAppDesc::maxFrames,
+                       "Maximum number of viewer frames; zero leaves the frame count unbounded.")
+        .def_readwrite("show_stats", &DebugViewerAppDesc::showStats,
+                       "Whether to display viewer statistics.")
+        .def_readwrite("enable_debug_particles", &DebugViewerAppDesc::enableDebugParticles,
+                       "Whether to enable debug-particle rendering.")
+        .def_readwrite("stats_interval_frames", &DebugViewerAppDesc::statsIntervalFrames,
+                       "Frame interval used to update displayed statistics.");
 
-    py::class_<DebugViewerCameraBinding>(m, "DebugViewerCameraBinding")
-        .def(py::init<>())
-        .def_readwrite("camera_entity", &DebugViewerCameraBinding::cameraEntity)
-        .def_readwrite("move_speed", &DebugViewerCameraBinding::moveSpeed)
-        .def_readwrite("input_sensitivity", &DebugViewerCameraBinding::inputSensitivity)
-        .def_readwrite("speed_boost_scale", &DebugViewerCameraBinding::speedBoostScale)
-        .def_readwrite("speed_slow_scale", &DebugViewerCameraBinding::speedSlowScale);
+    py::class_<DebugViewerCameraBinding>(
+        m, "DebugViewerCameraBinding", "Viewer camera selection and optional input overrides.")
+        .def(py::init<>(), "Initializes an empty debug viewer camera binding.")
+        .def_readwrite("camera_entity", &DebugViewerCameraBinding::cameraEntity,
+                       "Entity ID of the camera controlled and presented by the viewer.")
+        .def_readwrite("move_speed", &DebugViewerCameraBinding::moveSpeed,
+                       "Free-camera movement speed override; zero uses the application setting.")
+        .def_readwrite("input_sensitivity", &DebugViewerCameraBinding::inputSensitivity,
+                       "Mouse-look sensitivity override; zero uses the application setting.")
+        .def_readwrite("speed_boost_scale", &DebugViewerCameraBinding::speedBoostScale,
+                       "Boost movement scale override; zero uses the application setting.")
+        .def_readwrite("speed_slow_scale", &DebugViewerCameraBinding::speedSlowScale,
+                       "Slow movement scale override; zero uses the application setting.");
 
-    py::class_<DebugViewerCallbacks>(m, "DebugViewerCallbacks", py::dynamic_attr())
-        .def(py::init<>())
+    py::class_<DebugViewerCallbacks>(m, "DebugViewerCallbacks",
+                                     "Optional Python callbacks invoked around each viewer tick.",
+                                     py::dynamic_attr())
+        .def(py::init<>(), "Initializes empty debug viewer callbacks.")
         .def_property(
             "before_tick",
             [](py::object self) -> py::object
@@ -1106,7 +1472,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                     py::gil_scoped_acquire gil;
                     fn(frame, py::cast(&runtime, py::return_value_policy::reference));
                 };
-            })
+            },
+            "Callable invoked before each viewer tick as ``callback(frame_context, runtime)``; set to ``None`` to clear it.")
         .def_property(
             "after_tick",
             [](py::object self) -> py::object
@@ -1131,12 +1498,15 @@ PYBIND11_MODULE(_cressim_neo, m)
                     py::gil_scoped_acquire gil;
                     fn(frame, py::cast(&runtime, py::return_value_policy::reference));
                 };
-            });
+            },
+            "Callable invoked after each viewer tick as ``callback(frame_context, runtime)``; set to ``None`` to clear it.");
 
-    py::class_<DebugViewerApp>(m, "DebugViewerApp")
-        .def(py::init<>())
+    py::class_<DebugViewerApp>(m, "DebugViewerApp", "Interactive debug viewer application.")
+        .def(py::init<>(), "Constructs a debug viewer application.")
         .def("initialize", [](DebugViewerApp &viewer, const DebugViewerAppDesc &desc,
-                              RuntimeConfig &config) { return viewer.initialize(desc, config); })
+                              RuntimeConfig &config) { return viewer.initialize(desc, config); },
+             "Initializes the viewer and updates ``config`` with presentation settings. Returns ``False`` if the viewer cannot be initialized.",
+             py::arg("desc"), py::arg("config"))
         .def(
             "run",
             [](DebugViewerApp &viewer, py::object runtime_obj, py::object binding_obj,
@@ -1153,239 +1523,375 @@ PYBIND11_MODULE(_cressim_neo, m)
                     callbacks_obj.cast<const DebugViewerCallbacks &>();
                 return viewer.run(runtime, binding, callbacks);
             },
+            "Runs the viewer loop using a valid camera entity and initialized runtime. Optional callbacks receive ``(FrameContext, Runtime)``. Returns ``False`` if setup or execution fails.",
             py::arg("runtime"), py::arg("binding"), py::arg("callbacks") = py::none())
-        .def("request_exit", &DebugViewerApp::requestExit)
-        .def("shutdown", &DebugViewerApp::shutdown);
+        .def("request_exit", &DebugViewerApp::requestExit,
+             "Requests that the active viewer loop exit.")
+        .def("shutdown", &DebugViewerApp::shutdown,
+             "Shuts down the viewer and releases its window resources.");
 #endif
 
-    py::class_<RuntimeInfo>(m, "RuntimeInfo")
-        .def(py::init<>())
-        .def_readwrite("engine_version", &RuntimeInfo::engineVersion)
-        .def_readwrite("engine_version_major", &RuntimeInfo::engineVersionMajor)
-        .def_readwrite("engine_version_minor", &RuntimeInfo::engineVersionMinor)
-        .def_readwrite("engine_version_patch", &RuntimeInfo::engineVersionPatch)
-        .def_readwrite("cuda_interop_supported", &RuntimeInfo::cudaInteropSupported)
-        .def_readwrite("ultrasound_supported", &RuntimeInfo::ultrasoundSupported);
+    py::class_<RuntimeInfo>(m, "RuntimeInfo",
+                            "Information structure holding engine version and optional feature support flags.")
+        .def(py::init<>(), "Initializes empty runtime information.")
+        .def_readwrite("engine_version", &RuntimeInfo::engineVersion,
+                       "Full semver engine version string.")
+        .def_readwrite("engine_version_major", &RuntimeInfo::engineVersionMajor,
+                       "Major version number.")
+        .def_readwrite("engine_version_minor", &RuntimeInfo::engineVersionMinor,
+                       "Minor version number.")
+        .def_readwrite("engine_version_patch", &RuntimeInfo::engineVersionPatch,
+                       "Patch version number.")
+        .def_readwrite("cuda_interop_supported", &RuntimeInfo::cudaInteropSupported,
+                       "True if CUDA interop is enabled and available.")
+        .def_readwrite("ultrasound_supported", &RuntimeInfo::ultrasoundSupported,
+                       "True if CRESSim-Ultrasound integration is available.");
 
-    py::class_<MeshHandle>(m, "MeshHandle").def(py::init<>()).def_readwrite("id", &MeshHandle::id);
+    py::class_<MeshHandle>(m, "MeshHandle", "Handle identifying a registered mesh resource.")
+        .def(py::init<>(), "Initializes an invalid mesh handle.")
+        .def_readwrite("id", &MeshHandle::id, "Resource identifier.");
 
-    py::class_<MaterialHandle>(m, "MaterialHandle")
-        .def(py::init<>())
-        .def_readwrite("id", &MaterialHandle::id);
+    py::class_<MaterialHandle>(m, "MaterialHandle", "Handle identifying a registered material resource.")
+        .def(py::init<>(), "Initializes an invalid material handle.")
+        .def_readwrite("id", &MaterialHandle::id, "Resource identifier.");
 
-    py::class_<TextureHandle>(m, "TextureHandle")
-        .def(py::init<>())
-        .def_readwrite("id", &TextureHandle::id);
+    py::class_<TextureHandle>(m, "TextureHandle", "Handle identifying a registered texture resource.")
+        .def(py::init<>(), "Initializes an invalid texture handle.")
+        .def_readwrite("id", &TextureHandle::id, "Resource identifier.");
 
-    py::class_<MeshResourceDesc::Vertex>(m, "MeshVertex")
-        .def(py::init<>())
-        .def_readwrite("position", &MeshResourceDesc::Vertex::position)
-        .def_readwrite("normal", &MeshResourceDesc::Vertex::normal)
-        .def_readwrite("tex_coord_u", &MeshResourceDesc::Vertex::texCoordU)
-        .def_readwrite("tex_coord_v", &MeshResourceDesc::Vertex::texCoordV)
-        .def_readwrite("tangent", &MeshResourceDesc::Vertex::tangent);
+    py::class_<MeshResourceDesc::Vertex>(m, "MeshVertex", "Vertex data for a mesh resource.")
+        .def(py::init<>(), "Initializes a vertex with default position, normal, texture coordinates, and tangent.")
+        .def_readwrite("position", &MeshResourceDesc::Vertex::position, "Vertex position.")
+        .def_readwrite("normal", &MeshResourceDesc::Vertex::normal, "Vertex normal.")
+        .def_readwrite("tex_coord_u", &MeshResourceDesc::Vertex::texCoordU,
+                       "U texture coordinate.")
+        .def_readwrite("tex_coord_v", &MeshResourceDesc::Vertex::texCoordV,
+                       "V texture coordinate.")
+        .def_readwrite("tangent", &MeshResourceDesc::Vertex::tangent,
+                       "Tangent vector with handedness in its w component.");
 
-    py::class_<MeshResourceDesc>(m, "MeshResourceDesc")
-        .def(py::init<>())
-        .def_readwrite("debug_name", &MeshResourceDesc::debugName)
-        .def_readwrite("vertices", &MeshResourceDesc::vertices)
-        .def_readwrite("indices", &MeshResourceDesc::indices);
+    py::class_<MeshResourceDesc>(m, "MeshResourceDesc", "Describes mesh data to register.")
+        .def(py::init<>(), "Initializes an empty mesh description.")
+        .def_readwrite("debug_name", &MeshResourceDesc::debugName, "Debug name for the mesh.")
+        .def_readwrite("vertices", &MeshResourceDesc::vertices,
+                       "Mesh vertices. Registration normalizes normals and generates or repairs tangents.")
+        .def_readwrite("indices", &MeshResourceDesc::indices,
+                       "Triangle index buffer.");
 
-    py::class_<MaterialPipelineDesc>(m, "MaterialPipelineDesc")
-        .def(py::init<>())
-        .def_readwrite("program_family", &MaterialPipelineDesc::programFamily)
-        .def_readwrite("feature_flags", &MaterialPipelineDesc::featureFlags)
-        .def_readwrite("alpha_cutoff", &MaterialPipelineDesc::alphaCutoff);
+    py::class_<MaterialPipelineDesc>(m, "MaterialPipelineDesc",
+                                     "Describes the shader program and features of a material.")
+        .def(py::init<>(), "Initializes the standard lit pipeline with no optional features.")
+        .def_readwrite("program_family", &MaterialPipelineDesc::programFamily,
+                       "Material shader program family.")
+        .def_readwrite("feature_flags", &MaterialPipelineDesc::featureFlags,
+                       "Optional material shader features.")
+        .def_readwrite("alpha_cutoff", &MaterialPipelineDesc::alphaCutoff,
+                       "Alpha threshold used by alpha-test shading.");
 
-    py::class_<MaterialResourceDesc>(m, "MaterialResourceDesc")
-        .def(py::init<>())
-        .def_readwrite("debug_name", &MaterialResourceDesc::debugName)
-        .def_readwrite("base_color", &MaterialResourceDesc::baseColor)
-        .def_readwrite("metallic", &MaterialResourceDesc::metallic)
-        .def_readwrite("roughness", &MaterialResourceDesc::roughness)
-        .def_readwrite("emissive_factor", &MaterialResourceDesc::emissiveFactor)
-        .def_readwrite("base_color_texture", &MaterialResourceDesc::baseColorTexture)
-        .def_readwrite("normal_texture", &MaterialResourceDesc::normalTexture)
+    py::class_<MaterialResourceDesc>(m, "MaterialResourceDesc",
+                                     "Describes a material resource to register.")
+        .def(py::init<>(), "Initializes a default opaque material.")
+        .def_readwrite("debug_name", &MaterialResourceDesc::debugName, "Debug name for the material.")
+        .def_readwrite("base_color", &MaterialResourceDesc::baseColor, "Base color factor.")
+        .def_readwrite("metallic", &MaterialResourceDesc::metallic, "Metallic factor.")
+        .def_readwrite("roughness", &MaterialResourceDesc::roughness, "Roughness factor.")
+        .def_readwrite("emissive_factor", &MaterialResourceDesc::emissiveFactor,
+                       "Emissive color factor.")
+        .def_readwrite("base_color_texture", &MaterialResourceDesc::baseColorTexture,
+                       "Base-color texture handle.")
+        .def_readwrite("normal_texture", &MaterialResourceDesc::normalTexture,
+                       "Normal-map texture handle. Registration enables the NormalMap feature when its identifier is not invalid.")
         .def_readwrite("metallic_roughness_texture",
-                       &MaterialResourceDesc::metallicRoughnessTexture)
-        .def_readwrite("emissive_texture", &MaterialResourceDesc::emissiveTexture)
-        .def_readwrite("ao_texture", &MaterialResourceDesc::aoTexture)
-        .def_readwrite("pipeline", &MaterialResourceDesc::pipeline)
-        .def_readwrite("render_mode", &MaterialResourceDesc::renderMode)
-        .def_readwrite("render_order", &MaterialResourceDesc::renderOrder)
-        .def_readwrite("opacity", &MaterialResourceDesc::opacity)
-        .def_readwrite("casts_shadows", &MaterialResourceDesc::castsShadows)
-        .def_readwrite("receives_shadows", &MaterialResourceDesc::receivesShadows);
+                       &MaterialResourceDesc::metallicRoughnessTexture,
+                       "Metallic-roughness texture handle.")
+        .def_readwrite("emissive_texture", &MaterialResourceDesc::emissiveTexture,
+                       "Emissive texture handle.")
+        .def_readwrite("ao_texture", &MaterialResourceDesc::aoTexture,
+                       "Ambient-occlusion texture handle.")
+        .def_readwrite("pipeline", &MaterialResourceDesc::pipeline,
+                       "Material pipeline description.")
+        .def_readwrite("render_mode", &MaterialResourceDesc::renderMode,
+                       "Material render mode. Registration enables AlphaTest exactly for Cutout materials.")
+        .def_readwrite("render_order", &MaterialResourceDesc::renderOrder,
+                       "Orders materials only within the same render mode; lower values draw earlier.")
+        .def_readwrite("opacity", &MaterialResourceDesc::opacity, "Base-color alpha factor.")
+        .def_readwrite("casts_shadows", &MaterialResourceDesc::castsShadows,
+                       "Whether the material casts shadows.")
+        .def_readwrite("receives_shadows", &MaterialResourceDesc::receivesShadows,
+                       "Whether the material receives shadows.");
 
-    py::class_<TextureResourceDesc::SubresourceDesc>(m, "TextureSubresourceDesc")
-        .def(py::init<>())
-        .def_readwrite("pixel_data", &TextureResourceDesc::SubresourceDesc::pixelData);
+    py::class_<TextureResourceDesc::SubresourceDesc>(m, "TextureSubresourceDesc",
+                                                      "Pixel data for one texture mip level and layer.")
+        .def(py::init<>(), "Initializes an empty subresource description.")
+        .def_readwrite("pixel_data", &TextureResourceDesc::SubresourceDesc::pixelData,
+                       "Raw pixel bytes for the subresource.");
 
-    py::class_<TextureResourceDesc>(m, "TextureResourceDesc")
-        .def(py::init<>())
-        .def_readwrite("debug_name", &TextureResourceDesc::debugName)
-        .def_readwrite("width", &TextureResourceDesc::width)
-        .def_readwrite("height", &TextureResourceDesc::height)
-        .def_readwrite("mip_level_count", &TextureResourceDesc::mipLevelCount)
-        .def_readwrite("dimension", &TextureResourceDesc::dimension)
-        .def_readwrite("pixel_format", &TextureResourceDesc::pixelFormat)
-        .def_readwrite("color_space", &TextureResourceDesc::colorSpace)
-        .def_readwrite("mip_policy", &TextureResourceDesc::mipPolicy)
-        .def_readwrite("subresources", &TextureResourceDesc::subresources)
-        .def_readwrite("pixel_data", &TextureResourceDesc::pixelData);
+    py::class_<TextureResourceDesc>(m, "TextureResourceDesc",
+                                    "Describes texture data to register.")
+        .def(py::init<>(), "Initializes a one-pixel, one-mip 2D RGBA8 linear texture description.")
+        .def_readwrite("debug_name", &TextureResourceDesc::debugName, "Debug name for the texture.")
+        .def_readwrite("width", &TextureResourceDesc::width,
+                       "Base-level texture width in pixels. Registration clamps it to at least one.")
+        .def_readwrite("height", &TextureResourceDesc::height,
+                       "Base-level texture height in pixels. Registration clamps it to at least one.")
+        .def_readwrite("mip_level_count", &TextureResourceDesc::mipLevelCount,
+                       "Number of mip levels. Registration clamps it to at least one.")
+        .def_readwrite("dimension", &TextureResourceDesc::dimension, "Texture dimension.")
+        .def_readwrite("pixel_format", &TextureResourceDesc::pixelFormat, "Texture pixel format.")
+        .def_readwrite("color_space", &TextureResourceDesc::colorSpace, "Texture color space.")
+        .def_readwrite("mip_policy", &TextureResourceDesc::mipPolicy,
+                       "Requested mipmap policy retained with the resource description.")
+        .def_readwrite("subresources", &TextureResourceDesc::subresources,
+                       "Mip-major pixel data: one entry per mip and layer; cube textures have six layers.")
+        .def_readwrite("pixel_data", &TextureResourceDesc::pixelData,
+                       "Convenience base-level pixel data used at registration only when subresources is empty.");
 
-    py::class_<MeshRendererComponent>(m, "MeshRendererComponent")
-        .def(py::init<>())
-        .def_readwrite("mesh", &MeshRendererComponent::mesh)
-        .def_readwrite("material", &MeshRendererComponent::material)
-        .def_readwrite("segmentation_id", &MeshRendererComponent::segmentationId)
-        .def_readwrite("visible", &MeshRendererComponent::visible);
+    py::class_<MeshRendererComponent>(
+        m, "MeshRendererComponent",
+        "Mesh renderer component binding a 3D mesh and material for visual rendering.")
+        .def(py::init<>(), "Initializes a mesh renderer with invalid resource handles and visible set to true.")
+        .def_readwrite("mesh", &MeshRendererComponent::mesh, "Handle to the geometry mesh resource.")
+        .def_readwrite("material", &MeshRendererComponent::material,
+                       "Handle to the visual material resource.")
+        .def_readwrite("segmentation_id", &MeshRendererComponent::segmentationId,
+                       "ID for semantic image segmentation passes.")
+        .def_readwrite("visible", &MeshRendererComponent::visible,
+                       "Visibility flag for camera rendering.");
 
-    py::class_<CameraComponent>(m, "CameraComponent")
-        .def(py::init<>())
-        .def_readwrite("vertical_fov_degrees", &CameraComponent::verticalFovDegrees)
-        .def_readwrite("near_clip", &CameraComponent::nearClip)
-        .def_readwrite("far_clip", &CameraComponent::farClip)
-        .def_readwrite("product", &CameraComponent::product)
-        .def_readwrite("output", &CameraComponent::output)
-        .def_readwrite("output_width", &CameraComponent::outputWidth)
-        .def_readwrite("output_height", &CameraComponent::outputHeight)
-        .def_readwrite("viewport", &CameraComponent::viewport)
-        .def_readwrite("clear_color", &CameraComponent::clearColor)
-        .def_readwrite("clear_depth", &CameraComponent::clearDepth)
-        .def_readwrite("clear_color_value", &CameraComponent::clearColorValue)
-        .def_readwrite("clear_depth_value", &CameraComponent::clearDepthValue)
-        .def_readwrite("background_mode", &CameraComponent::backgroundMode)
-        .def_readwrite("render_order", &CameraComponent::renderOrder);
+    py::class_<CameraComponent>(m, "CameraComponent",
+                                "Camera component defining projection, view targets, and rendering modes.")
+        .def(py::init<>(), "Initializes a camera with the default projection, output, and clear settings.")
+        .def_readwrite("vertical_fov_degrees", &CameraComponent::verticalFovDegrees,
+                       "Vertical Field-of-View in degrees.")
+        .def_readwrite("near_clip", &CameraComponent::nearClip, "Near clipping plane distance.")
+        .def_readwrite("far_clip", &CameraComponent::farClip, "Far clipping plane distance.")
+        .def_readwrite("product", &CameraComponent::product, "Rendered camera output product type.")
+        .def_readwrite("output", &CameraComponent::output, "Target render output binding descriptor.")
+        .def_readwrite("output_width", &CameraComponent::outputWidth,
+                       "Optional explicit target width (0 for default).")
+        .def_readwrite("output_height", &CameraComponent::outputHeight,
+                       "Optional explicit target height (0 for default).")
+        .def_readwrite("viewport", &CameraComponent::viewport,
+                       "Viewport rectangle on the output target.")
+        .def_readwrite("clear_color", &CameraComponent::clearColor,
+                       "Whether to clear target color buffer before rendering.")
+        .def_readwrite("clear_depth", &CameraComponent::clearDepth,
+                       "Whether to clear target depth buffer before rendering.")
+        .def_readwrite("clear_color_value", &CameraComponent::clearColorValue,
+                       "Clear color RGBA values.")
+        .def_readwrite("clear_depth_value", &CameraComponent::clearDepthValue,
+                       "Clear depth value.")
+        .def_readwrite("background_mode", &CameraComponent::backgroundMode,
+                       "Camera background rendering mode.")
+        .def_readwrite("render_order", &CameraComponent::renderOrder,
+                       "Rendering priority order (ascending).");
 
-    py::class_<DirectionalLightComponent>(m, "DirectionalLightComponent")
-        .def(py::init<>())
-        .def_readwrite("direction", &DirectionalLightComponent::direction)
-        .def_readwrite("color", &DirectionalLightComponent::color)
-        .def_readwrite("intensity", &DirectionalLightComponent::intensity)
-        .def_readwrite("range", &DirectionalLightComponent::range)
-        .def_readwrite("shadow_distance", &DirectionalLightComponent::shadowDistance)
-        .def_readwrite("shadow_fade_distance", &DirectionalLightComponent::shadowFadeDistance)
-        .def_readwrite("shadow_bias", &DirectionalLightComponent::shadowBias)
-        .def_readwrite("casts_shadows", &DirectionalLightComponent::castsShadows);
+    py::class_<DirectionalLightComponent>(
+        m, "DirectionalLightComponent",
+        "Directional light source for global scene illumination and shadow mapping.")
+        .def(py::init<>(), "Initializes a downward white directional light that casts shadows.")
+        .def_readwrite("direction", &DirectionalLightComponent::direction, "Light direction vector.")
+        .def_readwrite("color", &DirectionalLightComponent::color, "Light color RGB values.")
+        .def_readwrite("intensity", &DirectionalLightComponent::intensity,
+                       "Illumination intensity multiplier.")
+        .def_readwrite("range", &DirectionalLightComponent::range,
+                       "Maximum light range (0 for infinite).")
+        .def_readwrite("shadow_distance", &DirectionalLightComponent::shadowDistance,
+                       "Maximum shadow rendering distance.")
+        .def_readwrite("shadow_fade_distance", &DirectionalLightComponent::shadowFadeDistance,
+                       "Distance over which shadows fade out.")
+        .def_readwrite("shadow_bias", &DirectionalLightComponent::shadowBias,
+                       "Shadow depth comparison bias.")
+        .def_readwrite("casts_shadows", &DirectionalLightComponent::castsShadows,
+                       "Enable shadow map generation.");
 
-    py::class_<PointLightComponent>(m, "PointLightComponent")
-        .def(py::init<>())
-        .def_readwrite("color", &PointLightComponent::color)
-        .def_readwrite("intensity", &PointLightComponent::intensity)
-        .def_readwrite("range", &PointLightComponent::range)
-        .def_readwrite("shadow_bias", &PointLightComponent::shadowBias)
-        .def_readwrite("casts_shadows", &PointLightComponent::castsShadows);
+    py::class_<PointLightComponent>(m, "PointLightComponent",
+                                    "Point light source emitting light uniformly in all directions.")
+        .def(py::init<>(), "Initializes a white point light that does not cast shadows.")
+        .def_readwrite("color", &PointLightComponent::color, "Light color RGB values.")
+        .def_readwrite("intensity", &PointLightComponent::intensity,
+                       "Illumination intensity multiplier.")
+        .def_readwrite("range", &PointLightComponent::range, "Attenuation distance range.")
+        .def_readwrite("shadow_bias", &PointLightComponent::shadowBias, "Shadow depth bias.")
+        .def_readwrite("casts_shadows", &PointLightComponent::castsShadows,
+                       "Enable shadow map generation.");
 
-    py::class_<SpotLightComponent>(m, "SpotLightComponent")
-        .def(py::init<>())
-        .def_readwrite("direction", &SpotLightComponent::direction)
-        .def_readwrite("color", &SpotLightComponent::color)
-        .def_readwrite("intensity", &SpotLightComponent::intensity)
-        .def_readwrite("range", &SpotLightComponent::range)
-        .def_readwrite("inner_cone_angle", &SpotLightComponent::innerConeAngle)
-        .def_readwrite("outer_cone_angle", &SpotLightComponent::outerConeAngle)
-        .def_readwrite("shadow_bias", &SpotLightComponent::shadowBias)
-        .def_readwrite("casts_shadows", &SpotLightComponent::castsShadows);
+    py::class_<SpotLightComponent>(m, "SpotLightComponent",
+                                   "Spot light source emitting a cone of light in a specified direction.")
+        .def(py::init<>(), "Initializes a downward white spot light that does not cast shadows.")
+        .def_readwrite("direction", &SpotLightComponent::direction,
+                       "Spot light emission direction.")
+        .def_readwrite("color", &SpotLightComponent::color, "Light color RGB values.")
+        .def_readwrite("intensity", &SpotLightComponent::intensity,
+                       "Illumination intensity multiplier.")
+        .def_readwrite("range", &SpotLightComponent::range, "Attenuation distance range.")
+        .def_readwrite("inner_cone_angle", &SpotLightComponent::innerConeAngle,
+                       "Inner full-intensity cone angle (degrees).")
+        .def_readwrite("outer_cone_angle", &SpotLightComponent::outerConeAngle,
+                       "Outer zero-intensity cone angle (degrees).")
+        .def_readwrite("shadow_bias", &SpotLightComponent::shadowBias, "Shadow depth bias.")
+        .def_readwrite("casts_shadows", &SpotLightComponent::castsShadows,
+                       "Enable shadow map generation.");
 
-    py::class_<EnvironmentIblDesc>(m, "EnvironmentIblDesc")
-        .def(py::init<>())
-        .def_readwrite("background_cubemap", &EnvironmentIblDesc::backgroundCubemap)
-        .def_readwrite("irradiance_cubemap", &EnvironmentIblDesc::irradianceCubemap)
+    py::class_<EnvironmentIblDesc>(m, "EnvironmentIblDesc",
+                                   "Describes image-based lighting and skybox textures for an environment.")
+        .def(py::init<>(), "Initializes an environment IBL description with invalid texture handles.")
+        .def_readwrite("background_cubemap", &EnvironmentIblDesc::backgroundCubemap,
+                       "Cubemap used for the environment background.")
+        .def_readwrite("irradiance_cubemap", &EnvironmentIblDesc::irradianceCubemap,
+                       "Cubemap used for diffuse image-based lighting.")
         .def_readwrite("prefiltered_specular_cubemap",
-                       &EnvironmentIblDesc::prefilteredSpecularCubemap)
-        .def_readwrite("intensity", &EnvironmentIblDesc::intensity)
-        .def_readwrite("background_intensity", &EnvironmentIblDesc::backgroundIntensity)
-        .def("enabled", &EnvironmentIblDesc::enabled);
+                       &EnvironmentIblDesc::prefilteredSpecularCubemap,
+                       "Cubemap used for prefiltered specular image-based lighting.")
+        .def_readwrite("intensity", &EnvironmentIblDesc::intensity,
+                       "Image-based-lighting intensity multiplier.")
+        .def_readwrite("background_intensity", &EnvironmentIblDesc::backgroundIntensity,
+                       "Environment background intensity multiplier.")
+        .def("enabled", &EnvironmentIblDesc::enabled,
+             "Returns false for Off; for DiffuseOnly, checks that the irradiance handle ID is not "
+             "invalid; for Full, checks the irradiance and prefiltered specular handle IDs.");
 
-    py::class_<EnvironmentFluidDesc>(m, "EnvironmentFluidDesc")
-        .def(py::init<>())
-        .def_readwrite("smoothness", &EnvironmentFluidDesc::smoothness)
-        .def_readwrite("specular", &EnvironmentFluidDesc::specular)
-        .def_readwrite("fresnel", &EnvironmentFluidDesc::fresnel)
-        .def_readwrite("depth_edge_threshold", &EnvironmentFluidDesc::depthEdgeThreshold)
-        .def_readwrite("filter_radius_pixels", &EnvironmentFluidDesc::filterRadiusPixels)
-        .def_readwrite("filter_world_radius", &EnvironmentFluidDesc::filterWorldRadius)
-        .def_readwrite("filter_depth_threshold", &EnvironmentFluidDesc::filterDepthThreshold)
+    py::class_<EnvironmentFluidDesc>(m, "EnvironmentFluidDesc",
+                                     "Configures fluid surface filtering and compositing for an environment.")
+        .def(py::init<>(), "Initializes the default fluid rendering configuration.")
+        .def_readwrite("smoothness", &EnvironmentFluidDesc::smoothness,
+                       "Fluid surface smoothness passed to the composite shader.")
+        .def_readwrite("specular", &EnvironmentFluidDesc::specular,
+                       "RGB specular factor passed to the composite shader.")
+        .def_readwrite("fresnel", &EnvironmentFluidDesc::fresnel,
+                       "Fresnel factor passed to the composite shader.")
+        .def_readwrite("depth_edge_threshold", &EnvironmentFluidDesc::depthEdgeThreshold,
+                       "Depth discontinuity threshold used for fluid normal reconstruction.")
+        .def_readwrite("filter_radius_pixels", &EnvironmentFluidDesc::filterRadiusPixels,
+                       "Maximum fluid depth-filter radius in pixels; values below one are clamped to one.")
+        .def_readwrite("filter_world_radius", &EnvironmentFluidDesc::filterWorldRadius,
+                       "World-space fluid depth-filter radius; values at or below 1e-4 use 0.18.")
+        .def_readwrite("filter_depth_threshold", &EnvironmentFluidDesc::filterDepthThreshold,
+                       "Depth threshold for fluid depth filtering; values at or below 1e-4 use 1e-4.")
         .def_readwrite("enable_background_refraction",
-                       &EnvironmentFluidDesc::enableBackgroundRefraction)
-        .def_readwrite("refraction_ior", &EnvironmentFluidDesc::refractionIor)
-        .def_readwrite("refraction_view_thickness", &EnvironmentFluidDesc::refractionViewThickness);
+                       &EnvironmentFluidDesc::enableBackgroundRefraction,
+                       "Whether fluid compositing refracts the background color.")
+        .def_readwrite("refraction_ior", &EnvironmentFluidDesc::refractionIor,
+                       "Index of refraction passed to the fluid composite shader.")
+        .def_readwrite("refraction_view_thickness", &EnvironmentFluidDesc::refractionViewThickness,
+                       "View-space thickness used for fluid refraction.");
 
-    py::class_<ParticleContactMaterialDesc>(m, "ParticleContactMaterialDesc")
-        .def(py::init<>())
-        .def_readwrite("friction", &ParticleContactMaterialDesc::friction)
-        .def_readwrite("restitution", &ParticleContactMaterialDesc::restitution)
-        .def_readwrite("damping", &ParticleContactMaterialDesc::damping)
-        .def_readwrite("static_friction", &ParticleContactMaterialDesc::staticFriction);
+    py::class_<ParticleContactMaterialDesc>(m, "ParticleContactMaterialDesc",
+                                            "Contact material parameters for particles.")
+        .def(py::init<>(), "Initializes a contact material with zero friction, restitution, and damping.")
+        .def_readwrite("friction", &ParticleContactMaterialDesc::friction,
+                       "Dynamic friction coefficient.")
+        .def_readwrite("restitution", &ParticleContactMaterialDesc::restitution,
+                       "Restitution coefficient.")
+        .def_readwrite("damping", &ParticleContactMaterialDesc::damping,
+                       "Contact damping coefficient.")
+        .def_readwrite("static_friction", &ParticleContactMaterialDesc::staticFriction,
+                       "Static friction coefficient; a negative value uses friction when the material is normalized.");
 
-    py::class_<SoftBodyRegularGridSource>(m, "SoftBodyRegularGridSource")
-        .def(py::init<>())
-        .def_readwrite("size", &SoftBodyRegularGridSource::size)
-        .def_readwrite("target_particle_spacing", &SoftBodyRegularGridSource::targetParticleSpacing)
+    py::class_<SoftBodyRegularGridSource>(m, "SoftBodyRegularGridSource",
+                                          "Parameters for generating a tetrahedral soft body from a regular grid.")
+        .def(py::init<>(), "Initializes a one-unit grid with target particle spacing 0.25.")
+        .def_readwrite("size", &SoftBodyRegularGridSource::size,
+                       "Grid extent in object space.")
+        .def_readwrite("target_particle_spacing", &SoftBodyRegularGridSource::targetParticleSpacing,
+                       "Target distance between generated grid particles.")
         .def_readwrite("static_particle_indices",
-                       &SoftBodyRegularGridSource::staticParticleIndices);
+                       &SoftBodyRegularGridSource::staticParticleIndices,
+                       "Generated particle indices to make static.");
 
-    py::class_<SoftBodyTetMeshSource>(m, "SoftBodyTetMeshSource")
-        .def(py::init<>())
+    py::class_<SoftBodyTetMeshSource>(m, "SoftBodyTetMeshSource",
+                                      "Tetrahedral-mesh source data for a soft body.")
+        .def(py::init<>(), "Initializes an empty tetrahedral-mesh source.")
         .def_readwrite("object_space_rest_positions",
-                       &SoftBodyTetMeshSource::objectSpaceRestPositions)
-        .def_readwrite("tet_vertex_indices", &SoftBodyTetMeshSource::tetVertexIndices)
-        .def_readwrite("static_particle_indices", &SoftBodyTetMeshSource::staticParticleIndices);
+                       &SoftBodyTetMeshSource::objectSpaceRestPositions,
+                       "Object-space rest positions of tetrahedral-mesh vertices.")
+        .def_readwrite("tet_vertex_indices", &SoftBodyTetMeshSource::tetVertexIndices,
+                       "Flat tetrahedron index buffer; each group of four indices defines one tetrahedron.")
+        .def_readwrite("static_particle_indices", &SoftBodyTetMeshSource::staticParticleIndices,
+                       "Particle indices to make static.");
 
-    py::class_<SoftBodyTetGenSource>(m, "SoftBodyTetGenSource")
-        .def(py::init<>())
-        .def_readwrite("node_file", &SoftBodyTetGenSource::nodeFile)
-        .def_readwrite("ele_file", &SoftBodyTetGenSource::eleFile)
-        .def_readwrite("static_particle_indices", &SoftBodyTetGenSource::staticParticleIndices);
+    py::class_<SoftBodyTetGenSource>(m, "SoftBodyTetGenSource",
+                                     "TetGen-file source data for a soft body.")
+        .def(py::init<>(), "Initializes an empty TetGen-file source.")
+        .def_readwrite("node_file", &SoftBodyTetGenSource::nodeFile,
+                       "Path to the TetGen .node file containing rest positions.")
+        .def_readwrite("ele_file", &SoftBodyTetGenSource::eleFile,
+                       "Path to the TetGen .ele file containing tetrahedra.")
+        .def_readwrite("static_particle_indices", &SoftBodyTetGenSource::staticParticleIndices,
+                       "Particle indices to make static.");
 
-    py::class_<SoftBodyMeshfreeParticleSource>(m, "SoftBodyMeshfreeParticleSource")
-        .def(py::init<>())
+    py::class_<SoftBodyMeshfreeParticleSource>(m, "SoftBodyMeshfreeParticleSource",
+                                               "Particle source data for a meshfree soft body.")
+        .def(py::init<>(), "Initializes an empty meshfree source with 12 neighbours per particle.")
         .def_readwrite("particle_rest_positions",
-                       &SoftBodyMeshfreeParticleSource::particleRestPositions)
+                       &SoftBodyMeshfreeParticleSource::particleRestPositions,
+                       "Rest positions of the simulated particles.")
         .def_readwrite("surface_rest_positions",
-                       &SoftBodyMeshfreeParticleSource::surfaceRestPositions)
-        .def_readwrite("surface_normals", &SoftBodyMeshfreeParticleSource::surfaceNormals)
-        .def_readwrite("surface_triangles", &SoftBodyMeshfreeParticleSource::surfaceTriangles)
+                       &SoftBodyMeshfreeParticleSource::surfaceRestPositions,
+                       "Rest positions of the render surface vertices.")
+        .def_readwrite("surface_normals", &SoftBodyMeshfreeParticleSource::surfaceNormals,
+                       "Rest normals of the render surface vertices.")
+        .def_readwrite("surface_triangles", &SoftBodyMeshfreeParticleSource::surfaceTriangles,
+                       "Triangle indices for the render surface.")
         .def_readwrite("static_particle_indices",
-                       &SoftBodyMeshfreeParticleSource::staticParticleIndices)
-        .def_readwrite("neighbour_count", &SoftBodyMeshfreeParticleSource::neighbourCount);
+                       &SoftBodyMeshfreeParticleSource::staticParticleIndices,
+                       "Particle indices to make static.")
+        .def_readwrite("neighbour_count", &SoftBodyMeshfreeParticleSource::neighbourCount,
+                       "Number of nearest neighbours used to build the particle graph.");
 
-    py::class_<SoftBodySourceDesc>(m, "SoftBodySourceDesc")
-        .def(py::init<>())
-        .def_readwrite("kind", &SoftBodySourceDesc::kind)
-        .def_readwrite("regular_grid", &SoftBodySourceDesc::regularGrid)
-        .def_readwrite("tet_mesh", &SoftBodySourceDesc::tetMesh)
-        .def_readwrite("tet_gen", &SoftBodySourceDesc::tetGen)
-        .def_readwrite("meshfree_particles", &SoftBodySourceDesc::meshfreeParticles);
+    py::class_<SoftBodySourceDesc>(m, "SoftBodySourceDesc",
+                                   "Selects and stores source data for a soft body.")
+        .def(py::init<>(), "Initializes a regular-grid soft-body source.")
+        .def_readwrite("kind", &SoftBodySourceDesc::kind,
+                       "Selects which source-data member is used.")
+        .def_readwrite("regular_grid", &SoftBodySourceDesc::regularGrid,
+                       "Source data used when kind is RegularGrid.")
+        .def_readwrite("tet_mesh", &SoftBodySourceDesc::tetMesh,
+                       "Source data used when kind is TetMesh.")
+        .def_readwrite("tet_gen", &SoftBodySourceDesc::tetGen,
+                       "Source data used when kind is TetGenFiles.")
+        .def_readwrite("meshfree_particles", &SoftBodySourceDesc::meshfreeParticles,
+                       "Source data used when kind is MeshfreeParticles.");
 
-    py::class_<FluidRegularGridSource>(m, "FluidRegularGridSource")
-        .def(py::init<>())
-        .def_readwrite("size", &FluidRegularGridSource::size)
-        .def_readwrite("target_particle_spacing", &FluidRegularGridSource::targetParticleSpacing);
+    py::class_<FluidRegularGridSource>(m, "FluidRegularGridSource",
+                                       "Parameters for generating fluid particles from a regular grid.")
+        .def(py::init<>(), "Initializes a one-unit grid with target particle spacing 0.25.")
+        .def_readwrite("size", &FluidRegularGridSource::size, "Grid extent in object space.")
+        .def_readwrite("target_particle_spacing", &FluidRegularGridSource::targetParticleSpacing,
+                       "Target distance between generated fluid particles.");
 
-    py::class_<FluidSourceDesc>(m, "FluidSourceDesc")
-        .def(py::init<>())
-        .def_readwrite("kind", &FluidSourceDesc::kind)
-        .def_readwrite("regular_grid", &FluidSourceDesc::regularGrid);
+    py::class_<FluidSourceDesc>(m, "FluidSourceDesc", "Selects and stores source data for a fluid body.")
+        .def(py::init<>(), "Initializes a regular-grid fluid source.")
+        .def_readwrite("kind", &FluidSourceDesc::kind,
+                       "Selects which source-data member is used.")
+        .def_readwrite("regular_grid", &FluidSourceDesc::regularGrid,
+                       "Source data used when kind is RegularGrid.");
 
-    py::class_<SoftBodyMaterialDesc>(m, "SoftBodyMaterialDesc")
-        .def(py::init<>())
-        .def_readwrite("contact", &SoftBodyMaterialDesc::contact);
+    py::class_<SoftBodyMaterialDesc>(m, "SoftBodyMaterialDesc",
+                                     "Material parameters for a soft body.")
+        .def(py::init<>(), "Initializes the default soft-body material.")
+        .def_readwrite("contact", &SoftBodyMaterialDesc::contact,
+                       "Particle contact material parameters.");
 
-    py::class_<StrandMaterialDesc>(m, "StrandMaterialDesc")
-        .def(py::init<>())
-        .def_readwrite("contact", &StrandMaterialDesc::contact);
+    py::class_<StrandMaterialDesc>(m, "StrandMaterialDesc", "Material parameters for a strand.")
+        .def(py::init<>(), "Initializes the default strand material.")
+        .def_readwrite("contact", &StrandMaterialDesc::contact,
+                       "Particle contact material parameters.");
 
-    py::class_<FluidMaterialDesc>(m, "FluidMaterialDesc")
-        .def(py::init<>())
-        .def_readwrite("contact", &FluidMaterialDesc::contact)
-        .def_readwrite("viscosity", &FluidMaterialDesc::viscosity)
-        .def_readwrite("cohesion", &FluidMaterialDesc::cohesion)
-        .def_readwrite("surface_tension", &FluidMaterialDesc::surfaceTension)
-        .def_readwrite("vorticity_confinement", &FluidMaterialDesc::vorticityConfinement)
-        .def_readwrite("gravity_scale", &FluidMaterialDesc::gravityScale)
-        .def_readwrite("cfl_coefficient", &FluidMaterialDesc::cflCoefficient);
+    py::class_<FluidMaterialDesc>(m, "FluidMaterialDesc", "Material parameters for a fluid body.")
+        .def(py::init<>(), "Initializes the default fluid material.")
+        .def_readwrite("contact", &FluidMaterialDesc::contact,
+                       "Particle contact material parameters.")
+        .def_readwrite("viscosity", &FluidMaterialDesc::viscosity, "Fluid viscosity coefficient.")
+        .def_readwrite("cohesion", &FluidMaterialDesc::cohesion, "Fluid cohesion coefficient.")
+        .def_readwrite("surface_tension", &FluidMaterialDesc::surfaceTension,
+                       "Fluid surface-tension coefficient.")
+        .def_readwrite("vorticity_confinement", &FluidMaterialDesc::vorticityConfinement,
+                       "Fluid vorticity-confinement coefficient.")
+        .def_readwrite("gravity_scale", &FluidMaterialDesc::gravityScale,
+                       "Multiplier applied to gravity for this fluid.")
+        .def_readwrite("cfl_coefficient", &FluidMaterialDesc::cflCoefficient,
+                       "Coefficient used to derive the fluid CFL radius.");
 
     py::class_<RigidBodyComponent>(m, "RigidBodyComponent")
         .def(py::init<>())
@@ -1755,16 +2261,26 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("render_target_recreate_count", &RenderStats::renderTargetRecreateCount)
         .def_readwrite("render_target_resize_conflicts", &RenderStats::renderTargetResizeConflicts);
 
-    py::class_<RenderResourceManager>(m, "RenderResourceManager")
-        .def("register_mesh", &RenderResourceManager::registerMesh)
-        .def("register_material", &RenderResourceManager::registerMaterial)
-        .def("register_texture", &RenderResourceManager::registerTexture)
+    py::class_<RenderResourceManager>(m, "RenderResourceManager",
+                                      "Registry of mesh, material, and texture resources.")
+        .def("register_mesh", &RenderResourceManager::registerMesh,
+             "Registers a mesh and returns its handle. Registration copies the description, "
+             "normalizes normals, generates or repairs tangents, and computes local bounds.")
+        .def("register_material", &RenderResourceManager::registerMaterial,
+             "Registers a material and returns its handle. Registration copies and normalizes "
+             "the material feature flags.")
+        .def("register_texture", &RenderResourceManager::registerTexture,
+             "Registers a texture and returns its handle. Registration copies the description, "
+             "clamps dimensions and mip count to at least one, and expands convenience pixel data.")
         .def("is_valid_mesh",
-             py::overload_cast<MeshHandle>(&RenderResourceManager::isValid, py::const_))
+             py::overload_cast<MeshHandle>(&RenderResourceManager::isValid, py::const_),
+             "Returns whether a mesh handle identifies a registered mesh.")
         .def("is_valid_material",
-             py::overload_cast<MaterialHandle>(&RenderResourceManager::isValid, py::const_))
+             py::overload_cast<MaterialHandle>(&RenderResourceManager::isValid, py::const_),
+             "Returns whether a material handle identifies a registered material.")
         .def("is_valid_texture",
-             py::overload_cast<TextureHandle>(&RenderResourceManager::isValid, py::const_))
+             py::overload_cast<TextureHandle>(&RenderResourceManager::isValid, py::const_),
+             "Returns whether a texture handle identifies a registered texture.")
         .def("try_get_mesh",
              [](const RenderResourceManager &resources, const MeshHandle mesh) -> py::object
              {
@@ -1773,7 +2289,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*desc);
                  }
                  return py::none();
-             })
+             },
+             "Returns a copy of a registered mesh description, or None for an invalid handle.")
         .def("try_get_material",
              [](const RenderResourceManager &resources, const MaterialHandle material) -> py::object
              {
@@ -1782,7 +2299,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*desc);
                  }
                  return py::none();
-             })
+             },
+             "Returns a copy of a registered material description, or None for an invalid handle.")
         .def("try_get_texture",
              [](const RenderResourceManager &resources, const TextureHandle texture) -> py::object
              {
@@ -1791,7 +2309,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*desc);
                  }
                  return py::none();
-             })
+             },
+             "Returns a copy of a registered texture description, or None for an invalid handle.")
         .def("try_get_mesh_local_bounds",
              [](const RenderResourceManager &resources, const MeshHandle mesh) -> py::object
              {
@@ -1802,8 +2321,10 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::none();
                  }
                  return py::make_tuple(boundsMin, boundsMax);
-             })
-        .def("mesh_version", &RenderResourceManager::meshVersion);
+             },
+             "Returns (minimum, maximum) local bounds for a non-empty registered mesh, or None.")
+        .def("mesh_version", &RenderResourceManager::meshVersion,
+             "Returns the mesh version, or 0 for an invalid handle.");
 
     py::class_<World>(m, "World")
         .def("create_entity", &World::createEntity, py::arg("env_index") = 0u)
@@ -2083,9 +2604,15 @@ PYBIND11_MODULE(_cressim_neo, m)
                 }
                 return runtime.initialize(config);
             },
+            "Initializes the engine runtime with the specified configuration parameters.\n\n"
+            "Args:\n"
+            "    config: Runtime configuration options including GPU, physics, and renderer settings. ``None`` uses the default configuration.\n\n"
+            "Returns:\n"
+            "    True if initialization succeeds; false otherwise.",
             py::arg("config") = py::none())
         .def("shutdown", &Runtime::shutdown)
-        .def("get_info", &Runtime::getInfo)
+        .def("get_info", &Runtime::getInfo,
+             "Returns engine version and optional feature support information.")
         .def("set_gravity", &Runtime::setGravity, py::arg("gravity"))
         .def("prepare", &Runtime::prepare)
         .def("upload_world", &Runtime::uploadWorld)
@@ -2159,17 +2686,26 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("step_simulation_sensors", &Runtime::stepSimulationSensors)
         .def("step_visual_sensors", &Runtime::stepVisualSensors)
         .def("end_frame", &Runtime::endFrame)
-        .def("list_custom_compute_resources", &Runtime::listCustomComputeResources)
-        .def("create_custom_compute_pass", &Runtime::createCustomComputePass)
+        .def("list_custom_compute_resources", &Runtime::listCustomComputeResources,
+             "Lists custom compute resources registered for the uploaded world. Returns an empty list when unavailable.")
+        .def("create_custom_compute_pass", &Runtime::createCustomComputePass,
+             "Compiles and registers a custom compute pass for the uploaded world. Returns an invalid handle if creation fails.",
+             py::arg("desc"))
         .def("update_custom_compute_pass_constants",
              [](Runtime &runtime, const CustomComputePassHandle handle, py::bytes data)
              {
                  std::string bytes = data;
                  return runtime.updateCustomComputePassConstants(
                      handle, std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
-             })
-        .def("execute_custom_compute_pass", &Runtime::executeCustomComputePass)
-        .def("destroy_custom_compute_pass", &Runtime::destroyCustomComputePass)
+             },
+             "Updates a custom compute pass's constant-buffer data. Returns ``False`` for an invalid handle, a pass without constants, or an oversized payload.",
+             py::arg("handle"), py::arg("data"))
+        .def("execute_custom_compute_pass", &Runtime::executeCustomComputePass,
+             "Executes a registered custom compute pass for the uploaded world. Returns ``False`` if the pass or its required resources are unavailable or changed.",
+             py::arg("handle"))
+        .def("destroy_custom_compute_pass", &Runtime::destroyCustomComputePass,
+             "Destroys a registered custom compute pass. Returns ``True`` if the handle was registered.",
+             py::arg("handle"))
         .def("last_render_stats", &Runtime::lastRenderStats,
              py::return_value_policy::reference_internal)
         .def(
