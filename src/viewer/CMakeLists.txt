@@ -92,6 +92,9 @@ elseif(APPLE)
     target_compile_definitions(${TARGET_NAME} PRIVATE
         GLFW_EXPOSE_NATIVE_COCOA
     )
+
+    # macos_glfw_native_window.mm creates a CAMetalLayer, provided by QuartzCore.
+    find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
 endif()
 
 target_link_libraries(${TARGET_NAME}
@@ -99,6 +102,7 @@ PUBLIC
     cressim_neo_engine
 PRIVATE
     glfw
+    $<$<PLATFORM_ID:Darwin>:${QUARTZCORE_FRAMEWORK}>
 )
 
 set_target_properties(${TARGET_NAME}
