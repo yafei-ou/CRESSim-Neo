@@ -67,7 +67,6 @@ if(NOT ENGINE_STATIC)
         cressim_neo_gpu
     )
 endif()
-set(CRESSIM_NEO_PYTHON_OPTIONAL_RUNTIME_TARGETS "")
 
 target_include_directories(${TARGET_NAME} PRIVATE
     ${PROJECT_SOURCE_DIR}
@@ -98,16 +97,20 @@ if(TARGET cressim_neo_viewer)
     target_link_libraries(${TARGET_NAME} PRIVATE cressim_neo_viewer)
     target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_PYTHON_HAS_VIEWER=1)
     if(NOT ENGINE_STATIC)
-        list(APPEND CRESSIM_NEO_PYTHON_OPTIONAL_RUNTIME_TARGETS cressim_neo_viewer)
+        list(APPEND CRESSIM_NEO_PYTHON_RUNTIME_TARGETS cressim_neo_viewer)
     endif()
 endif()
 
 set_target_properties(${TARGET_NAME}
     PROPERTIES
     OUTPUT_NAME "_cressim_neo"
-    ARCHIVE_OUTPUT_DIRECTORY "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+    # A literal output directory receives an implicit configuration subdirectory
+    # from multi-config generators (for example, bin/Release/cressim_neo on
+    # Visual Studio).  Keep all package files in one directory so post-build
+    # runtime copies and pybind11-stubgen import the freshly-built extension.
+    ARCHIVE_OUTPUT_DIRECTORY "$<1:${CRESSIM_NEO_PYTHON_PACKAGE_DIR}>"
+    LIBRARY_OUTPUT_DIRECTORY "$<1:${CRESSIM_NEO_PYTHON_PACKAGE_DIR}>"
+    RUNTIME_OUTPUT_DIRECTORY "$<1:${CRESSIM_NEO_PYTHON_PACKAGE_DIR}>"
 )
 
 if(APPLE)
@@ -187,7 +190,7 @@ install(
 
 if(NOT ENGINE_STATIC)
     install(
-        TARGETS ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS} ${CRESSIM_NEO_PYTHON_OPTIONAL_RUNTIME_TARGETS}
+        TARGETS ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS}
         LIBRARY DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}" COMPONENT Python
         RUNTIME DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}" COMPONENT Python
     )
@@ -264,7 +267,29 @@ else()
     endif()
 endif()
 
-if(CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "executable")
+if(WIN32 AND NOT CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "")
+    set(CRESSIM_NEO_PYTHON_STUBGEN_DLL_DIRECTORIES "")
+    if(CRESSIM_NEO_HAS_CUDA_INTEROP AND CUDAToolkit_BIN_DIR)
+        list(APPEND CRESSIM_NEO_PYTHON_STUBGEN_DLL_DIRECTORIES
+            --dll-directory "${CUDAToolkit_BIN_DIR}")
+    endif()
+    add_custom_command(
+        OUTPUT "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+        COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/generate_stubs.py"
+            --module _cressim_neo
+            --module-directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+            --output "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+            ${CRESSIM_NEO_PYTHON_STUBGEN_DLL_DIRECTORIES}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/_cressim_neo.pyi"
+            "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/_cressim_neo.pyi"
+        DEPENDS ${TARGET_NAME}
+        VERBATIM
+    )
+elseif(CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "executable")
     add_custom_command(
         OUTPUT "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
@@ -300,8 +325,14 @@ elseif(CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "module")
         VERBATIM
     )
 else()
-    message(WARNING
-        "pybind11-stubgen was not found. Python bindings will build without generated .pyi stubs.")
+    if(CRESSIM_NEO_REQUIRE_PYTHON_STUBS)
+        message(FATAL_ERROR
+            "pybind11-stubgen is required for this Python package build. Install it in the "
+            "build environment or configure with CRESSIM_NEO_REQUIRE_PYTHON_STUBS=OFF.")
+    else()
+        message(WARNING
+            "pybind11-stubgen was not found. Python bindings will build without generated .pyi stubs.")
+    endif()
 endif()
 
 if(NOT CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "")

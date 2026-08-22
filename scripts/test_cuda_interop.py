@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import sys
 from pathlib import Path
 
 import torch
@@ -16,7 +17,7 @@ CUDA_LANES = {"cu126": "12.6", "cu130": "13.0", "cu132": "13.2"}
 
 
 def _check_library(path: str, function: str) -> None:
-    library = ctypes.CDLL(path)
+    library = ctypes.WinDLL(path) if sys.platform == "win32" else ctypes.CDLL(path)
     version = ctypes.c_int()
     get_version = getattr(library, function)
     get_version.argtypes = [ctypes.POINTER(ctypes.c_int)]
@@ -38,7 +39,12 @@ def main() -> None:
 
     diagnostics = neo.get_cuda_runtime_diagnostics()
     loaded = {Path(path).name: path for path in diagnostics["loaded_libraries"]}
-    for prefix, function in (("libcufft.so", "cufftGetVersion"), ("libcurand.so", "curandGetVersion")):
+    library_checks = (
+        (("cufft64_", "cufftGetVersion"), ("curand64_", "curandGetVersion"))
+        if sys.platform == "win32"
+        else (("libcufft.so", "cufftGetVersion"), ("libcurand.so", "curandGetVersion"))
+    )
+    for prefix, function in library_checks:
         path = next((path for name, path in loaded.items() if name.startswith(prefix)), None)
         if path is None:
             raise RuntimeError(f"Managed runtime bootstrap did not load {prefix}.")

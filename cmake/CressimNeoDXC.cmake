@@ -63,7 +63,11 @@ function(cressim_neo_configure_dxc_provider)
             "The bundled DXC provider currently supplies only Windows x64 and Linux x86_64.")
     endif()
     if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-        message(FATAL_ERROR "The bundled DXC provider currently supports only 64-bit targets.")
+        message(FATAL_ERROR
+            "The bundled DXC provider currently supports only 64-bit targets "
+            "(CMAKE_SIZEOF_VOID_P='${CMAKE_SIZEOF_VOID_P}', "
+            "CMAKE_GENERATOR_PLATFORM='${CMAKE_GENERATOR_PLATFORM}', "
+            "CMAKE_VS_PLATFORM_NAME='${CMAKE_VS_PLATFORM_NAME}').")
     endif()
 
     include(FetchContent)

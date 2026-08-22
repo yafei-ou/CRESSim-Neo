@@ -1,7 +1,7 @@
 # Python wheel builds
 
 There are two distinct workflows: a host-local developer wheel and reproducible
-Docker release wheels. Do not use a local wheel as a release artifact.
+release wheels. Do not use a local wheel as a release artifact.
 
 ## Local developer wheel
 
@@ -18,7 +18,7 @@ For repeated C++ work, prefer a persistent native preset build such as
 `cmake --preset linux-release`; it avoids rebuilding the engine for every
 wheel.
 
-## Docker release lanes
+## Linux release lanes
 
 Release wheels are built in controlled manylinux containers and written to
 `dist/<lane>/`. The active lanes are:
@@ -135,3 +135,70 @@ docker run --rm --gpus all \
     micromamba run -n ci python scripts/test_cuda_interop.py --lane cu126
   '
 ```
+
+## Windows release lanes
+
+Build Windows wheels directly on a Windows host; Docker is not used. Run the
+release helper from an x64 MSVC developer environment with `cibuildwheel`
+installed in the active Python environment:
+
+```powershell
+python -m pip install --upgrade cibuildwheel
+.\scripts\build_release_wheels.ps1 -Lane base
+.\scripts\build_release_wheels.ps1 -Lane cu126
+```
+
+The helper writes wheels to `dist/windows/<lane>/`, selects the corresponding
+packaging configuration, and runs the Windows wheel verifier automatically.
+Release build isolation installs `pybind11-stubgen` and generated
+`cressim_neo/__init__.pyi` stubs are required in every release wheel.
+CUDA lanes require the matching NVIDIA CUDA Toolkit installed side by side:
+CUDA 12.6 for `cu126`, CUDA 13.0 for `cu130`, and CUDA 13.2 for `cu132`.
+It sets the CUDA compiler and toolkit root for the isolated wheel builds; do
+not configure CMake separately.
+
+CUDA runtime DLLs are not bundled. Before installing a CUDA CRESSim wheel,
+install the matching CUDA PyTorch wheel in the same environment. Pip installs
+PyTorch CUDA lanes from the PyTorch index; an activated Conda environment with
+the matching `pytorch-cuda` runtime is also supported. The CRESSim loader uses
+PyTorch's `torch\lib` directory or Conda's `Library\bin` directory before
+loading its native module.
+
+### Windows wheel verification
+
+The release helper runs this verification automatically. Run it again before
+publishing copied artifacts:
+
+```powershell
+Get-ChildItem dist\windows\base\*.whl | ForEach-Object {
+  .\scripts\verify_release_wheel.ps1 -Lane base -Wheel $_.FullName
+}
+
+Get-ChildItem dist\windows\cu126\*.whl | ForEach-Object {
+  .\scripts\verify_release_wheel.ps1 -Lane cu126 -Wheel $_.FullName
+}
+```
+
+The verifier requires a Visual Studio developer PowerShell because it uses
+`dumpbin` to inspect every `.pyd` and `.dll` in the wheel. It rejects bundled
+CUDA runtime DLLs, rejects CUDA dependencies from the base lane, and requires
+the CUDA lane's expected CUDART DLL.
+
+### Windows runtime tests
+
+Test each wheel in a fresh virtual environment on a Windows machine with an
+NVIDIA GPU and a driver compatible with the selected CUDA lane. For `cu126`:
+
+```powershell
+python -m venv .venv-cressim-cu126-test
+.\.venv-cressim-cu126-test\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+python -m pip install --force-reinstall dist\windows\cu126\*.whl
+python -m pip check
+python scripts\test_cuda_interop.py --lane cu126
+```
+
+For the base lane, omit PyTorch and run `scripts\test_base_wheel.py` after
+installing a wheel from `dist\windows\base\`. Use the matching PyTorch index
+and lane name for `cu130` or `cu132`.

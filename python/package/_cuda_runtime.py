@@ -24,6 +24,9 @@ from ._cuda_runtime_config import (
 
 
 _LOADED = False
+_DLL_DIRECTORIES: list[object] = []
+_DLL_DIRECTORY_PATHS: set[str] = set()
+_LOADED_LIBRARY_PATHS: list[str] = []
 
 
 def _library_mode() -> int:
@@ -31,6 +34,14 @@ def _library_mode() -> int:
 
 
 def _soname(name: str) -> str:
+    if sys.platform == "win32":
+        if name == "cudart":
+            return f"cudart64_{CUDA_RUNTIME_MAJOR}.dll"
+        if name == "cufft":
+            return CUDA_CUFFT_SONAME
+        if name == "curand":
+            return CUDA_CURAND_SONAME
+        raise ValueError(f"Unknown CUDA library '{name}'.")
     if name == "cudart":
         return f"libcudart.so.{CUDA_RUNTIME_MAJOR}"
     if name == "cufft":
@@ -44,7 +55,21 @@ def _managed_directories() -> list[Path]:
     directories: list[Path] = []
     conda_prefix = os.environ.get("CONDA_PREFIX")
     if conda_prefix:
-        directories.append(Path(conda_prefix) / "lib")
+        directories.append(
+            Path(conda_prefix) / ("Library/bin" if sys.platform == "win32" else "lib")
+        )
+
+    if sys.platform == "win32":
+        try:
+            import importlib.util
+
+            torch_spec = importlib.util.find_spec("torch")
+            if torch_spec is not None and torch_spec.origin is not None:
+                torch_library_dir = Path(torch_spec.origin).parent / "lib"
+                if torch_library_dir.is_dir():
+                    directories.append(torch_library_dir)
+        except (ImportError, AttributeError):
+            pass
 
     package_directories = (
         "cuda_runtime",
@@ -57,7 +82,7 @@ def _managed_directories() -> list[Path]:
             continue
         nvidia_root = entry / "nvidia"
         for directory in package_directories:
-            library_dir = nvidia_root / directory / "lib"
+            library_dir = nvidia_root / directory / ("bin" if sys.platform == "win32" else "lib")
             if library_dir.is_dir():
                 directories.append(library_dir)
 
@@ -76,7 +101,20 @@ def _explicit_runtime() -> Path | None:
 
 
 def _load_path(path: Path) -> ctypes.CDLL:
-    return ctypes.CDLL(str(path), mode=_library_mode())
+    if sys.platform == "win32":
+        directory = path.parent
+        if directory.is_dir() and hasattr(os, "add_dll_directory"):
+            directory_text = str(directory.resolve())
+            if directory_text not in _DLL_DIRECTORY_PATHS:
+                _DLL_DIRECTORIES.append(os.add_dll_directory(directory_text))
+                _DLL_DIRECTORY_PATHS.add(directory_text)
+        library = ctypes.WinDLL(str(path))
+    else:
+        library = ctypes.CDLL(str(path), mode=_library_mode())
+    resolved_path = str(path.resolve())
+    if resolved_path not in _LOADED_LIBRARY_PATHS:
+        _LOADED_LIBRARY_PATHS.append(resolved_path)
+    return library
 
 
 def _load_from_directories(name: str, directories: list[Path]) -> ctypes.CDLL | None:
@@ -117,6 +155,8 @@ def _runtime_version(library: ctypes.CDLL, symbol: str) -> int | None:
 
 
 def _mapped_cuda_libraries() -> list[str]:
+    if sys.platform == "win32":
+        return list(_LOADED_LIBRARY_PATHS)
     maps = Path("/proc/self/maps")
     if not maps.is_file():
         return []
@@ -150,7 +190,11 @@ def get_cuda_runtime_diagnostics() -> dict[str, object]:
         return result
 
     ensure_cuda_runtime()
-    cudart = ctypes.CDLL(_soname("cudart"), mode=_library_mode())
+    cudart = (
+        ctypes.WinDLL(_soname("cudart"))
+        if sys.platform == "win32"
+        else ctypes.CDLL(_soname("cudart"), mode=_library_mode())
+    )
     result["runtime_version"] = _runtime_version(cudart, "cudaRuntimeGetVersion")
     result["driver_version"] = _runtime_version(cudart, "cudaDriverGetVersion")
     result["loaded_libraries"] = _mapped_cuda_libraries()
@@ -163,9 +207,9 @@ def ensure_cuda_runtime() -> None:
     global _LOADED
     if _LOADED or not CUDA_ENABLED:
         return
-    if sys.platform != "linux":
+    if sys.platform not in {"linux", "win32"}:
         raise RuntimeError(
-            "This CRESSim CUDA build currently supports Linux only. Install a CPU build on this platform."
+            "This CRESSim CUDA build supports Linux and Windows only. Install a CPU build on this platform."
         )
 
     errors: list[str] = []
@@ -184,7 +228,10 @@ def ensure_cuda_runtime() -> None:
 
     if cudart is None and CUDA_RUNTIME_PROVIDER in {"SYSTEM", "AUTO"}:
         try:
-            cudart = ctypes.CDLL(_soname("cudart"), mode=_library_mode())
+            if sys.platform == "win32":
+                cudart = ctypes.WinDLL(_soname("cudart"))
+            else:
+                cudart = ctypes.CDLL(_soname("cudart"), mode=_library_mode())
         except OSError as exc:
             errors.append(str(exc))
 
@@ -205,7 +252,10 @@ def ensure_cuda_runtime() -> None:
             try:
                 library = _load_from_directories(name, directories)
                 if library is None and CUDA_RUNTIME_PROVIDER in {"SYSTEM", "AUTO"}:
-                    ctypes.CDLL(_soname(name), mode=_library_mode())
+                    if sys.platform == "win32":
+                        ctypes.WinDLL(_soname(name))
+                    else:
+                        ctypes.CDLL(_soname(name), mode=_library_mode())
                 elif library is None:
                     raise OSError(f"{_soname(name)} was not found in managed CUDA package paths")
             except OSError as exc:
