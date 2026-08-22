@@ -88,8 +88,18 @@ function(cressim_neo_configure_dxc_provider)
     endif()
 
     if(WIN32)
-        cressim_neo_find_single_file("${cressim_neo_dxc_SOURCE_DIR}" "dxcompiler.dll" dxc_runtime)
-        cressim_neo_find_single_file("${cressim_neo_dxc_SOURCE_DIR}" "dxil.dll" dxil_runtime)
+        # The Windows release archive contains arm64, x64, and x86 binaries.
+        # GLOB_RECURSE ordering is not an architecture-selection mechanism: in
+        # practice it selects arm64 first, which produces an unloadable DLL in
+        # our x64 wheel. Bundled Windows DXC supports x64 only, so select it
+        # explicitly and fail at configure time if the archive layout changes.
+        set(dxc_runtime "${cressim_neo_dxc_SOURCE_DIR}/bin/x64/dxcompiler.dll")
+        set(dxil_runtime "${cressim_neo_dxc_SOURCE_DIR}/bin/x64/dxil.dll")
+        if(NOT EXISTS "${dxc_runtime}" OR NOT EXISTS "${dxil_runtime}")
+            message(FATAL_ERROR
+                "Pinned DXC archive is missing the Windows x64 runtime: "
+                "${dxc_runtime}; ${dxil_runtime}.")
+        endif()
         set(vulkan_dxc_runtime "${dxc_runtime}")
     else()
         cressim_neo_find_single_file("${cressim_neo_dxc_SOURCE_DIR}" "libdxcompiler.so" dxc_runtime)
