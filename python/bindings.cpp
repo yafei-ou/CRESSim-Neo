@@ -1380,18 +1380,28 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("ibl_quality_tier", &RendererDesc::iblQualityTier,
                        "Image-based-lighting quality tier.");
 
-    py::class_<PhysicsSolverDesc>(m, "PhysicsSolverDesc")
-        .def(py::init<>())
-        .def_readwrite("gravity", &PhysicsSolverDesc::gravity)
-        .def_readwrite("substeps", &PhysicsSolverDesc::substeps)
-        .def_readwrite("default_iterations", &PhysicsSolverDesc::defaultIterations)
-        .def_readwrite("fluid_iterations", &PhysicsSolverDesc::fluidIterations)
-        .def_readwrite("soft_internal_iterations", &PhysicsSolverDesc::softInternalIterations)
-        .def_readwrite("soft_contact_iterations", &PhysicsSolverDesc::softContactIterations)
-        .def_readwrite("rigid_joint_iterations", &PhysicsSolverDesc::rigidJointIterations)
+    py::class_<PhysicsSolverDesc>(m, "PhysicsSolverDesc",
+                                  "Configuration for the GPU physics solver.")
+        .def(py::init<>(), "Initializes the default physics solver configuration.")
+        .def_readwrite("gravity", &PhysicsSolverDesc::gravity,
+                       "Gravity acceleration applied to rigid and particle simulation.")
+        .def_readwrite("substeps", &PhysicsSolverDesc::substeps,
+                       "Physics substeps per frame; values below one are clamped to one.")
+        .def_readwrite("default_iterations", &PhysicsSolverDesc::defaultIterations,
+                       "Fallback position-solver iteration count; values below one are clamped to one.")
+        .def_readwrite("fluid_iterations", &PhysicsSolverDesc::fluidIterations,
+                       "Fluid-solver iteration count; zero uses ``default_iterations``.")
+        .def_readwrite("soft_internal_iterations", &PhysicsSolverDesc::softInternalIterations,
+                       "Soft-body internal-constraint iteration count; zero uses ``default_iterations``.")
+        .def_readwrite("soft_contact_iterations", &PhysicsSolverDesc::softContactIterations,
+                       "Soft-contact iteration count; zero uses ``default_iterations``.")
+        .def_readwrite("rigid_joint_iterations", &PhysicsSolverDesc::rigidJointIterations,
+                       "Rigid-joint iteration count; zero uses ``default_iterations``.")
         .def_readwrite("rigid_rigid_contact_iterations",
-                       &PhysicsSolverDesc::rigidRigidContactIterations)
-        .def_readwrite("enable_blocking_readback", &PhysicsSolverDesc::enableBlockingReadback);
+                       &PhysicsSolverDesc::rigidRigidContactIterations,
+                       "Rigid-contact iteration count; zero uses ``default_iterations``.")
+        .def_readwrite("enable_blocking_readback", &PhysicsSolverDesc::enableBlockingReadback,
+                       "Whether each physics step blocks to read simulated rigid and particle state back to the CPU.");
 
     py::class_<RuntimeConfig>(m, "RuntimeConfig",
                               "Configuration descriptor for initializing the CRESSim-Neo engine runtime.")
