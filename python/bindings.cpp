@@ -1079,16 +1079,18 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("RegularGrid", FluidSourceKind::RegularGrid,
                "Generate fluid particles from a regular grid.");
 
-    py::enum_<ParticleKind>(m, "ParticleKind")
-        .value("SoftSolid", ParticleKind::SoftSolid)
-        .value("Fluid", ParticleKind::Fluid);
+    py::enum_<ParticleKind>(m, "ParticleKind", "Simulation category assigned to a particle.")
+        .value("SoftSolid", ParticleKind::SoftSolid,
+               "Soft-body, strand, or rigid-proxy particle.")
+        .value("Fluid", ParticleKind::Fluid, "Fluid particle.");
 
-    py::enum_<ParticleOwnerType>(m, "ParticleOwnerType")
-        .value("None", ParticleOwnerType::None)
-        .value("SoftBody", ParticleOwnerType::SoftBody)
-        .value("FluidBody", ParticleOwnerType::FluidBody)
-        .value("Strand", ParticleOwnerType::Strand)
-        .value("RigidBody", ParticleOwnerType::RigidBody);
+    py::enum_<ParticleOwnerType>(m, "ParticleOwnerType",
+                                 "Owning simulation object assigned to a particle.")
+        .value("None", ParticleOwnerType::None, "No particle owner.")
+        .value("SoftBody", ParticleOwnerType::SoftBody, "Soft-body particle owner.")
+        .value("FluidBody", ParticleOwnerType::FluidBody, "Fluid-body particle owner.")
+        .value("Strand", ParticleOwnerType::Strand, "Strand particle owner.")
+        .value("RigidBody", ParticleOwnerType::RigidBody, "Rigid-body proxy-particle owner.");
 
     py::enum_<ParticleStrandRole>(m, "ParticleStrandRole",
                                   "Suturing roles assigned to particles.")
@@ -2270,49 +2272,81 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("enable_phase_delay", &UltrasoundProbeComponent::enablePhaseDelay,
                        "Enable phase delay beamforming.");
 
-    py::class_<UltrasoundRendererComponent>(m, "UltrasoundRendererComponent")
-        .def(py::init<>())
-        .def_readwrite("enabled", &UltrasoundRendererComponent::enabled)
-        .def_readwrite("output", &UltrasoundRendererComponent::output)
-        .def_readwrite("output_width", &UltrasoundRendererComponent::outputWidth)
-        .def_readwrite("output_height", &UltrasoundRendererComponent::outputHeight)
+    py::class_<UltrasoundRendererComponent>(
+        m, "UltrasoundRendererComponent",
+        "Renderer binding component for ultrasound B-mode image output generation.")
+        .def(py::init<>(), "Initializes the default ultrasound renderer component.")
+        .def_readwrite("enabled", &UltrasoundRendererComponent::enabled, "Active rendering state.")
+        .def_readwrite("output", &UltrasoundRendererComponent::output,
+                       "Output target binding descriptor.")
+        .def_readwrite("output_width", &UltrasoundRendererComponent::outputWidth,
+                       "Output width in pixels.")
+        .def_readwrite("output_height", &UltrasoundRendererComponent::outputHeight,
+                       "Output height in pixels.")
         .def_readwrite("use_fixed_max_normalization",
-                       &UltrasoundRendererComponent::useFixedMaxNormalization)
-        .def_readwrite("fixed_max_signal", &UltrasoundRendererComponent::fixedMaxSignal);
+                       &UltrasoundRendererComponent::useFixedMaxNormalization,
+                       "Enable fixed maximum signal intensity normalization.")
+        .def_readwrite("fixed_max_signal", &UltrasoundRendererComponent::fixedMaxSignal,
+                       "Fixed maximum signal normalization value.");
 
-    py::class_<UltrasoundProbeLayout>(m, "UltrasoundProbeLayout")
-        .def(py::init<>())
-        .def_readwrite("num_scanlines", &UltrasoundProbeLayout::numScanlines)
-        .def_readwrite("samples_per_scanline", &UltrasoundProbeLayout::samplesPerScanline)
-        .def_readwrite("image_width", &UltrasoundProbeLayout::imageWidth)
-        .def_readwrite("image_height", &UltrasoundProbeLayout::imageHeight)
-        .def_readwrite("color_format", &UltrasoundProbeLayout::colorFormat)
-        .def_readwrite("layered_output_supported", &UltrasoundProbeLayout::layeredOutputSupported);
+    py::class_<UltrasoundProbeLayout>(m, "UltrasoundProbeLayout",
+                                      "Output layout descriptor for ultrasound probe imaging targets.")
+        .def(py::init<>(), "Initializes an empty ultrasound probe layout.")
+        .def_readwrite("num_scanlines", &UltrasoundProbeLayout::numScanlines,
+                       "Total scanlines in probe image.")
+        .def_readwrite("samples_per_scanline", &UltrasoundProbeLayout::samplesPerScanline,
+                       "Acoustic samples per scanline.")
+        .def_readwrite("image_width", &UltrasoundProbeLayout::imageWidth,
+                       "Output B-mode image width (pixels).")
+        .def_readwrite("image_height", &UltrasoundProbeLayout::imageHeight,
+                       "Output B-mode image height (pixels).")
+        .def_readwrite("color_format", &UltrasoundProbeLayout::colorFormat,
+                       "Target texture format.")
+        .def_readwrite("layered_output_supported", &UltrasoundProbeLayout::layeredOutputSupported,
+                       "Support for array/layered render targets.");
 
-    py::class_<UltrasoundAmplitudeRange>(m, "UltrasoundAmplitudeRange")
-        .def(py::init<>())
-        .def(py::init<float, float>(), py::arg("minimum"), py::arg("maximum"))
-        .def_readwrite("minimum", &UltrasoundAmplitudeRange::minimum)
-        .def_readwrite("maximum", &UltrasoundAmplitudeRange::maximum);
+    py::class_<UltrasoundAmplitudeRange>(m, "UltrasoundAmplitudeRange",
+                                          "Signal amplitude range for ultrasound acoustic scatterer reflections.")
+        .def(py::init<>(), "Initializes a zero-valued amplitude range.")
+        .def(py::init<float, float>(), "Initializes an amplitude range.", py::arg("minimum"),
+             py::arg("maximum"))
+        .def_readwrite("minimum", &UltrasoundAmplitudeRange::minimum, "Minimum signal amplitude.")
+        .def_readwrite("maximum", &UltrasoundAmplitudeRange::maximum, "Maximum signal amplitude.");
 
-    py::class_<UltrasoundScattererSourceComponent>(m, "UltrasoundScattererSourceComponent")
-        .def(py::init<>())
-        .def_readwrite("enabled", &UltrasoundScattererSourceComponent::enabled)
-        .def_readwrite("density", &UltrasoundScattererSourceComponent::density)
+    py::class_<UltrasoundScattererSourceComponent>(
+        m, "UltrasoundScattererSourceComponent",
+        "Scatterer point cloud source for generating tissue ultrasound acoustic backscatter.")
+        .def(py::init<>(), "Initializes the default ultrasound scatterer source component.")
+        .def_readwrite("enabled", &UltrasoundScattererSourceComponent::enabled,
+                       "Enable acoustic backscattering.")
+        .def_readwrite("density", &UltrasoundScattererSourceComponent::density,
+                       "Acoustic scatterer point density per cubic meter.")
         .def_readwrite("point_distance_override",
-                       &UltrasoundScattererSourceComponent::pointDistanceOverride);
+                       &UltrasoundScattererSourceComponent::pointDistanceOverride,
+                       "Override spacing between scatterer points.");
 
-    py::class_<UltrasoundProbeResult>(m, "UltrasoundProbeResult")
-        .def(py::init<>())
-        .def_readwrite("prepared", &UltrasoundProbeResult::prepared)
-        .def_readwrite("completed", &UltrasoundProbeResult::completed)
-        .def_readwrite("completed_frame_index", &UltrasoundProbeResult::completedFrameIndex)
-        .def_readwrite("num_scanlines", &UltrasoundProbeResult::numScanlines)
-        .def_readwrite("samples_per_scanline", &UltrasoundProbeResult::samplesPerScanline)
-        .def_readwrite("total_scatterer_count", &UltrasoundProbeResult::totalScattererCount)
-        .def_readwrite("image_width", &UltrasoundProbeResult::imageWidth)
-        .def_readwrite("image_height", &UltrasoundProbeResult::imageHeight)
-        .def_readwrite("image_binding", &UltrasoundProbeResult::imageBinding);
+    py::class_<UltrasoundProbeResult>(
+        m, "UltrasoundProbeResult",
+        "Execution result containing output handles and metadata for ultrasound probe simulation.")
+        .def(py::init<>(), "Initializes an empty ultrasound probe result.")
+        .def_readwrite("prepared", &UltrasoundProbeResult::prepared,
+                       "True if metadata/handles are published for current frame.")
+        .def_readwrite("completed", &UltrasoundProbeResult::completed,
+                       "True if simulation completed for completedFrameIndex.")
+        .def_readwrite("completed_frame_index", &UltrasoundProbeResult::completedFrameIndex,
+                       "Frame index corresponding to completed ultrasound output.")
+        .def_readwrite("num_scanlines", &UltrasoundProbeResult::numScanlines,
+                       "Scanline count in output.")
+        .def_readwrite("samples_per_scanline", &UltrasoundProbeResult::samplesPerScanline,
+                       "Samples per scanline.")
+        .def_readwrite("total_scatterer_count", &UltrasoundProbeResult::totalScattererCount,
+                       "Evaluated scatterer count.")
+        .def_readwrite("image_width", &UltrasoundProbeResult::imageWidth,
+                       "Generated B-mode image width.")
+        .def_readwrite("image_height", &UltrasoundProbeResult::imageHeight,
+                       "Generated B-mode image height.")
+        .def_readwrite("image_binding", &UltrasoundProbeResult::imageBinding,
+                       "Render target binding for generated B-mode texture.");
 
     py::class_<ProceduralDeformableCurveRenderComponent>(
         m, "ProceduralDeformableCurveRenderComponent",
@@ -2495,24 +2529,38 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("enabled", &AuthoredRoutedCableConstraintState::enabled,
                        "Whether the cable constraint is enabled.");
 
-    py::class_<cressim::neo::engine::ColliderHandle>(m, "ColliderHandle")
-        .def(py::init<>())
-        .def_readwrite("id", &cressim::neo::engine::ColliderHandle::id)
-        .def("is_valid", &cressim::neo::engine::ColliderHandle::isValid);
+    py::class_<cressim::neo::engine::ColliderHandle>(m, "ColliderHandle",
+                                                      "Identifier for a collider registered with a World.")
+        .def(py::init<>(), "Initializes an invalid collider handle.")
+        .def_readwrite("id", &cressim::neo::engine::ColliderHandle::id, "Collider identifier.")
+        .def("is_valid", &cressim::neo::engine::ColliderHandle::isValid,
+             "Returns whether this handle has a non-invalid identifier.");
 
-    py::class_<RenderStats>(m, "RenderStats")
-        .def(py::init<>())
-        .def_readwrite("draw_calls", &RenderStats::drawCalls)
-        .def_readwrite("opaque_draw_calls", &RenderStats::opaqueDrawCalls)
-        .def_readwrite("transparent_draw_calls", &RenderStats::transparentDrawCalls)
-        .def_readwrite("shadow_draw_calls", &RenderStats::shadowDrawCalls)
-        .def_readwrite("renderable_count", &RenderStats::renderableCount)
-        .def_readwrite("light_count", &RenderStats::lightCount)
-        .def_readwrite("rendered_camera_count", &RenderStats::renderedCameraCount)
-        .def_readwrite("render_target_resize_requests", &RenderStats::renderTargetResizeRequests)
-        .def_readwrite("render_target_resize_no_ops", &RenderStats::renderTargetResizeNoOps)
-        .def_readwrite("render_target_recreate_count", &RenderStats::renderTargetRecreateCount)
-        .def_readwrite("render_target_resize_conflicts", &RenderStats::renderTargetResizeConflicts);
+    py::class_<RenderStats>(m, "RenderStats",
+                            "Framework-level counters produced by a render frame, not GPU timestamps.")
+        .def(py::init<>(), "Initializes zero-valued render counters.")
+        .def_readwrite("draw_calls", &RenderStats::drawCalls,
+                       "Total opaque, transparent, and shadow draw calls.")
+        .def_readwrite("opaque_draw_calls", &RenderStats::opaqueDrawCalls,
+                       "Opaque-pass draw call count.")
+        .def_readwrite("transparent_draw_calls", &RenderStats::transparentDrawCalls,
+                       "Transparent-pass draw call count.")
+        .def_readwrite("shadow_draw_calls", &RenderStats::shadowDrawCalls,
+                       "Shadow-pass draw call count.")
+        .def_readwrite("renderable_count", &RenderStats::renderableCount,
+                       "Active renderable count observed for the frame.")
+        .def_readwrite("light_count", &RenderStats::lightCount,
+                       "Active directional-light count observed for the frame.")
+        .def_readwrite("rendered_camera_count", &RenderStats::renderedCameraCount,
+                       "Number of camera outputs rendered for the frame.")
+        .def_readwrite("render_target_resize_requests", &RenderStats::renderTargetResizeRequests,
+                       "Number of camera output resize requests processed for the frame.")
+        .def_readwrite("render_target_resize_no_ops", &RenderStats::renderTargetResizeNoOps,
+                       "Number of resize requests requiring no render-target recreation.")
+        .def_readwrite("render_target_recreate_count", &RenderStats::renderTargetRecreateCount,
+                       "Number of render targets recreated for resize requests.")
+        .def_readwrite("render_target_resize_conflicts", &RenderStats::renderTargetResizeConflicts,
+                       "Number of conflicting resize requests for a shared render target.");
 
     py::class_<RenderResourceManager>(m, "RenderResourceManager",
                                       "Registry of mesh, material, and texture resources.")
@@ -2579,85 +2627,134 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("mesh_version", &RenderResourceManager::meshVersion,
              "Returns the mesh version, or 0 for an invalid handle.");
 
-    py::class_<World>(m, "World")
-        .def("create_entity", &World::createEntity, py::arg("env_index") = 0u)
-        .def("destroy_entity", &World::destroyEntity)
-        .def("set_scene_layout", &World::setSceneLayout)
-        .def("scene_layout", &World::sceneLayout, py::return_value_policy::reference_internal)
-        .def("set_entity_environment", &World::setEntityEnvironment)
-        .def("entity_environment", &World::entityEnvironment)
-        .def("set_environment_ibl", &World::setEnvironmentIbl)
-        .def("set_environment_fluid", &World::setEnvironmentFluid)
+    py::class_<World>(m, "World",
+                      "Primary ECS scene graph container managing entities, components, graphics views, and physics bindings.")
+        .def("create_entity", &World::createEntity,
+             "Creates a new entity within the world scene graph.", py::arg("env_index") = 0u)
+        .def("destroy_entity", &World::destroyEntity,
+             "Destroys an existing entity and removes all associated components.")
+        .def("set_scene_layout", &World::setSceneLayout, "Sets the scene layout capacities.")
+        .def("scene_layout", &World::sceneLayout,
+             "Gets the current scene layout capacity descriptor.",
+             py::return_value_policy::reference_internal)
+        .def("set_entity_environment", &World::setEntityEnvironment,
+             "Assigns an entity to a specific environment index.")
+        .def("entity_environment", &World::entityEnvironment,
+             "Gets the environment index assigned to an entity.")
+        .def("set_environment_ibl", &World::setEnvironmentIbl,
+             "Configures Image-Based Lighting (IBL) environment maps for an environment index.")
+        .def("set_environment_fluid", &World::setEnvironmentFluid,
+             "Configures environment fluid properties for an environment index.")
         .def("try_get_environment_ibl",
              [](const World &world, const std::uint32_t envIndex) -> py::object
              {
                  if (const auto *desc = world.tryGetEnvironmentIbl(envIndex))
                  {
                      return py::cast(*desc);
-                 }
-                 return py::none();
-             })
+                }
+                return py::none();
+             }, "Tries to get the Environment IBL descriptor for an environment index.")
         .def("try_get_environment_fluid",
              [](const World &world, const std::uint32_t envIndex) -> py::object
              {
                  if (const auto *desc = world.tryGetEnvironmentFluid(envIndex))
                  {
                      return py::cast(*desc);
-                 }
-                 return py::none();
-             })
-        .def("is_alive", &World::isAlive)
-        .def("entities", &World::entities, py::return_value_policy::reference_internal)
-        .def("set_transform", &World::setTransform)
-        .def("remove_transform", &World::removeTransform)
-        .def("try_get_transform", &World::tryGetTransform)
-        .def("entity_pose_slot", &World::entityPoseSlot)
-        .def("set_mesh_renderer", &World::setMeshRenderer)
-        .def("remove_mesh_renderer", &World::removeMeshRenderer)
-        .def("try_get_mesh_renderer", &World::tryGetMeshRenderer)
-        .def("set_camera", &World::setCamera)
-        .def("remove_camera", &World::removeCamera)
-        .def("try_get_camera", &World::tryGetCamera)
-        .def("set_directional_light", &World::setDirectionalLight)
-        .def("remove_directional_light", &World::removeDirectionalLight)
-        .def("try_get_directional_light", &World::tryGetDirectionalLight)
-        .def("set_point_light", &World::setPointLight)
-        .def("remove_point_light", &World::removePointLight)
-        .def("try_get_point_light", &World::tryGetPointLight)
-        .def("set_spot_light", &World::setSpotLight)
-        .def("remove_spot_light", &World::removeSpotLight)
-        .def("try_get_spot_light", &World::tryGetSpotLight)
-        .def("set_rigid_body", &World::setRigidBody)
-        .def("remove_rigid_body", &World::removeRigidBody)
-        .def("try_get_rigid_body", &World::tryGetRigidBody)
-        .def("set_soft_body", &World::setSoftBody)
-        .def("set_meshfree_soft_body", &World::setMeshfreeSoftBody)
-        .def("remove_soft_body", &World::removeSoftBody)
-        .def("try_get_soft_body", &World::tryGetSoftBody)
-        .def("set_strand", &World::setStrand)
-        .def("remove_strand", &World::removeStrand)
-        .def("try_get_strand", &World::tryGetStrand)
-        .def("set_procedural_deformable_curve_render", &World::setProceduralDeformableCurveRender)
+                }
+                return py::none();
+             }, "Tries to get the Environment fluid descriptor for an environment index.")
+        .def("is_alive", &World::isAlive, "Checks if an entity is alive and active in the world.")
+        .def("entities", &World::entities, "Returns the list of all active entity IDs in the world.",
+             py::return_value_policy::reference_internal)
+        .def("set_transform", &World::setTransform,
+             "Assigns or updates the TransformComponent for an entity.")
+        .def("remove_transform", &World::removeTransform,
+             "Removes the transform component from an entity.")
+        .def("try_get_transform", &World::tryGetTransform,
+             "Returns the transform component for an entity, or None.")
+        .def("entity_pose_slot", &World::entityPoseSlot,
+             "Returns the entity pose slot, or an invalid slot for entities without one.")
+        .def("set_mesh_renderer", &World::setMeshRenderer,
+             "Assigns or updates the MeshRendererComponent for an entity.")
+        .def("remove_mesh_renderer", &World::removeMeshRenderer,
+             "Removes the mesh renderer component from an entity.")
+        .def("try_get_mesh_renderer", &World::tryGetMeshRenderer,
+             "Returns the mesh renderer component for an entity, or None.")
+        .def("set_camera", &World::setCamera, "Assigns or updates the CameraComponent for an entity.")
+        .def("remove_camera", &World::removeCamera, "Removes the camera component from an entity.")
+        .def("try_get_camera", &World::tryGetCamera,
+             "Returns the camera component for an entity, or None.")
+        .def("set_directional_light", &World::setDirectionalLight,
+             "Assigns or updates a DirectionalLightComponent for an entity.")
+        .def("remove_directional_light", &World::removeDirectionalLight,
+             "Removes the directional light component from an entity.")
+        .def("try_get_directional_light", &World::tryGetDirectionalLight,
+             "Returns the directional light component for an entity, or None.")
+        .def("set_point_light", &World::setPointLight,
+             "Assigns or updates a PointLightComponent for an entity.")
+        .def("remove_point_light", &World::removePointLight,
+             "Removes the point light component from an entity.")
+        .def("try_get_point_light", &World::tryGetPointLight,
+             "Returns the point light component for an entity, or None.")
+        .def("set_spot_light", &World::setSpotLight,
+             "Assigns or updates a SpotLightComponent for an entity.")
+        .def("remove_spot_light", &World::removeSpotLight,
+             "Removes the spot light component from an entity.")
+        .def("try_get_spot_light", &World::tryGetSpotLight,
+             "Returns the spot light component for an entity, or None.")
+        .def("set_rigid_body", &World::setRigidBody,
+             "Assigns or updates a RigidBodyComponent for an entity.")
+        .def("remove_rigid_body", &World::removeRigidBody,
+             "Removes the RigidBodyComponent from an entity.")
+        .def("try_get_rigid_body", &World::tryGetRigidBody,
+             "Returns the rigid body component for an entity, or None.")
+        .def("set_soft_body", &World::setSoftBody, "Assigns a SoftBodyComponent to an entity.")
+        .def("set_meshfree_soft_body", &World::setMeshfreeSoftBody,
+             "Assigns a MeshfreeSoftBodyComponent to an entity.")
+        .def("remove_soft_body", &World::removeSoftBody,
+             "Removes the SoftBodyComponent from an entity.")
+        .def("try_get_soft_body", &World::tryGetSoftBody,
+             "Returns the soft body component for an entity, or None.")
+        .def("set_strand", &World::setStrand, "Assigns a StrandComponent to an entity.")
+        .def("remove_strand", &World::removeStrand, "Removes the StrandComponent from an entity.")
+        .def("try_get_strand", &World::tryGetStrand,
+             "Returns the strand component for an entity, or None.")
+        .def("set_procedural_deformable_curve_render", &World::setProceduralDeformableCurveRender,
+             "Assigns a ProceduralDeformableCurveRenderComponent to an entity.")
         .def("remove_procedural_deformable_curve_render",
-             &World::removeProceduralDeformableCurveRender)
+             &World::removeProceduralDeformableCurveRender,
+             "Removes ProceduralDeformableCurveRenderComponent from an entity.")
         .def("try_get_procedural_deformable_curve_render",
-             &World::tryGetProceduralDeformableCurveRender)
-        .def("set_fluid", &World::setFluid)
-        .def("remove_fluid", &World::removeFluid)
-        .def("try_get_fluid", &World::tryGetFluid)
-        .def("set_ultrasound_probe", &World::setUltrasoundProbe)
-        .def("remove_ultrasound_probe", &World::removeUltrasoundProbe)
-        .def("try_get_ultrasound_probe", &World::tryGetUltrasoundProbe)
-        .def("set_ultrasound_renderer", &World::setUltrasoundRenderer)
-        .def("remove_ultrasound_renderer", &World::removeUltrasoundRenderer)
-        .def("try_get_ultrasound_renderer", &World::tryGetUltrasoundRenderer)
-        .def("set_ultrasound_scatterer_source", &World::setUltrasoundScattererSource)
-        .def("remove_ultrasound_scatterer_source", &World::removeUltrasoundScattererSource)
-        .def("try_get_ultrasound_scatterer_source", &World::tryGetUltrasoundScattererSource)
+             &World::tryGetProceduralDeformableCurveRender,
+             "Returns the procedural deformable-curve render component for an entity, or None.")
+        .def("set_fluid", &World::setFluid, "Assigns a FluidComponent to an entity.")
+        .def("remove_fluid", &World::removeFluid, "Removes the FluidComponent from an entity.")
+        .def("try_get_fluid", &World::tryGetFluid,
+             "Returns the fluid component for an entity, or None.")
+        .def("set_ultrasound_probe", &World::setUltrasoundProbe,
+             "Assigns or updates an ultrasound probe component for an entity.")
+        .def("remove_ultrasound_probe", &World::removeUltrasoundProbe,
+             "Removes the ultrasound probe component and its result from an entity.")
+        .def("try_get_ultrasound_probe", &World::tryGetUltrasoundProbe,
+             "Returns the ultrasound probe component for an entity, or None.")
+        .def("set_ultrasound_renderer", &World::setUltrasoundRenderer,
+             "Assigns or updates an ultrasound renderer component for an entity.")
+        .def("remove_ultrasound_renderer", &World::removeUltrasoundRenderer,
+             "Removes the ultrasound renderer component and its result from an entity.")
+        .def("try_get_ultrasound_renderer", &World::tryGetUltrasoundRenderer,
+             "Returns the ultrasound renderer component for an entity, or None.")
+        .def("set_ultrasound_scatterer_source", &World::setUltrasoundScattererSource,
+             "Assigns or updates an ultrasound scatterer source component for an entity.")
+        .def("remove_ultrasound_scatterer_source", &World::removeUltrasoundScattererSource,
+             "Removes the ultrasound scatterer source and its amplitude ranges from an entity.")
+        .def("try_get_ultrasound_scatterer_source", &World::tryGetUltrasoundScattererSource,
+             "Returns the ultrasound scatterer source component for an entity, or None.")
         .def("set_ultrasound_scatterer_amplitude_ranges",
-             &World::setUltrasoundScattererAmplitudeRanges)
+             &World::setUltrasoundScattererAmplitudeRanges,
+             "Sets ultrasound scatterer amplitude ranges for an entity.")
         .def("clear_ultrasound_scatterer_amplitude_ranges",
-             &World::clearUltrasoundScattererAmplitudeRanges)
+             &World::clearUltrasoundScattererAmplitudeRanges,
+             "Clears ultrasound scatterer amplitude ranges for an entity.")
         .def("try_get_ultrasound_scatterer_amplitude_ranges",
              [](const World &world, const cressim::neo::common::EntityId entityId) -> py::object
              {
@@ -2666,7 +2763,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*ranges);
                  }
                  return py::none();
-             })
+             }, "Returns ultrasound scatterer amplitude ranges for an entity, or None.")
         .def("try_get_ultrasound_probe_result",
              [](const World &world, const cressim::neo::common::EntityId entityId) -> py::object
              {
@@ -2675,10 +2772,12 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*result);
                  }
                  return py::none();
-             })
+             }, "Returns the most recently published ultrasound probe result for an entity, or None.")
         .def("upsert_particle_sequence", &World::upsertParticleSequence,
-             py::return_value_policy::reference_internal)
-        .def("remove_particle_sequence", &World::removeParticleSequence)
+             py::return_value_policy::reference_internal,
+             "Creates or updates an authored particle sequence and returns its stored state.")
+        .def("remove_particle_sequence", &World::removeParticleSequence,
+             "Removes an authored particle sequence and returns whether it existed.")
         .def("try_get_particle_sequence",
              [](const World &world,
                 const cressim::neo::physics::ParticleSequenceId sequenceId) -> py::object
@@ -2686,12 +2785,14 @@ PYBIND11_MODULE(_cressim_neo, m)
                  if (const auto *state = world.tryGetParticleSequence(sequenceId))
                  {
                      return py::cast(*state);
-                 }
-                 return py::none();
-             })
+                }
+                return py::none();
+             }, "Returns an authored particle sequence by ID, or None.")
         .def("upsert_particle_distance_constraint", &World::upsertParticleDistanceConstraint,
-             py::return_value_policy::reference_internal)
-        .def("remove_particle_distance_constraint", &World::removeParticleDistanceConstraint)
+             py::return_value_policy::reference_internal,
+             "Creates or updates an authored particle distance constraint and returns its stored state.")
+        .def("remove_particle_distance_constraint", &World::removeParticleDistanceConstraint,
+             "Removes an authored particle distance constraint and returns whether it existed.")
         .def("try_get_particle_distance_constraint",
              [](const World &world,
                 const cressim::neo::physics::ParticleConstraintId constraintId) -> py::object
@@ -2701,9 +2802,11 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*state);
                  }
                  return py::none();
-             })
-        .def("upsert_ball_joint", &World::upsertBallJoint)
-        .def("remove_ball_joint", &World::removeBallJoint)
+             }, "Returns an authored particle distance constraint by ID, or None.")
+        .def("upsert_ball_joint", &World::upsertBallJoint,
+             "Creates or updates a ball joint between two rigid-body entities and returns whether it succeeded.")
+        .def("remove_ball_joint", &World::removeBallJoint,
+             "Removes a ball joint and returns whether it existed.")
         .def("try_get_ball_joint",
              [](const World &world, const cressim::neo::physics::BallJointId jointId) -> py::object
              {
@@ -2712,9 +2815,11 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(remapJointBodiesToEntityIds(world, *state));
                  }
                  return py::none();
-             })
-        .def("upsert_hinge_joint", &World::upsertHingeJoint)
-        .def("remove_hinge_joint", &World::removeHingeJoint)
+             }, "Returns a ball joint by ID, with connected bodies expressed as entity IDs, or None.")
+        .def("upsert_hinge_joint", &World::upsertHingeJoint,
+             "Creates or updates a hinge joint between two rigid-body entities and returns whether it succeeded.")
+        .def("remove_hinge_joint", &World::removeHingeJoint,
+             "Removes a hinge joint and returns whether it existed.")
         .def("try_get_hinge_joint",
              [](const World &world, const cressim::neo::physics::HingeJointId jointId) -> py::object
              {
@@ -2723,9 +2828,11 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(remapJointBodiesToEntityIds(world, *state));
                  }
                  return py::none();
-             })
-        .def("upsert_spherical_joint", &World::upsertSphericalJoint)
-        .def("remove_spherical_joint", &World::removeSphericalJoint)
+             }, "Returns a hinge joint by ID, with connected bodies expressed as entity IDs, or None.")
+        .def("upsert_spherical_joint", &World::upsertSphericalJoint,
+             "Creates or updates a spherical joint between two rigid-body entities and returns whether it succeeded.")
+        .def("remove_spherical_joint", &World::removeSphericalJoint,
+             "Removes a spherical joint and returns whether it existed.")
         .def("try_get_spherical_joint",
              [](const World &world,
                 const cressim::neo::physics::SphericalJointId jointId) -> py::object
@@ -2735,9 +2842,11 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(remapJointBodiesToEntityIds(world, *state));
                  }
                  return py::none();
-             })
-        .def("upsert_slider_joint", &World::upsertSliderJoint)
-        .def("remove_slider_joint", &World::removeSliderJoint)
+             }, "Returns a spherical joint by ID, with connected bodies expressed as entity IDs, or None.")
+        .def("upsert_slider_joint", &World::upsertSliderJoint,
+             "Creates or updates a slider joint between two rigid-body entities and returns whether it succeeded.")
+        .def("remove_slider_joint", &World::removeSliderJoint,
+             "Removes a slider joint and returns whether it existed.")
         .def(
             "try_get_slider_joint",
             [](const World &world, const cressim::neo::physics::SliderJointId jointId) -> py::object
@@ -2747,12 +2856,14 @@ PYBIND11_MODULE(_cressim_neo, m)
                     return py::cast(remapJointBodiesToEntityIds(world, *state));
                 }
                 return py::none();
-            })
+            }, "Returns a slider joint by ID, with connected bodies expressed as entity IDs, or None.")
         .def("upsert_rigid_particle_attachment_constraint",
              [](World &world, const AuthoredRigidParticleAttachmentConstraintState &state)
-             { return world.upsertRigidParticleAttachmentConstraint(state); })
+             { return world.upsertRigidParticleAttachmentConstraint(state); },
+             "Creates or updates a rigid-particle attachment constraint and returns whether it succeeded.")
         .def("remove_rigid_particle_attachment_constraint",
-             &World::removeRigidParticleAttachmentConstraint)
+             &World::removeRigidParticleAttachmentConstraint,
+             "Removes a rigid-particle attachment constraint and returns whether it existed.")
         .def("try_get_rigid_particle_attachment_constraint",
              [](const World &world,
                 const cressim::neo::physics::RigidParticleAttachmentConstraintId constraintId)
@@ -2764,12 +2875,14 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*state);
                  }
                  return py::none();
-             })
+             }, "Returns a rigid-particle attachment constraint by ID, or None.")
         .def("upsert_strand_rigid_attachment_constraint",
              [](World &world, const AuthoredStrandRigidAttachmentConstraintState &state)
-             { return world.upsertStrandRigidAttachmentConstraint(state); })
+             { return world.upsertStrandRigidAttachmentConstraint(state); },
+             "Creates or updates a strand-rigid attachment constraint and returns whether it succeeded.")
         .def("remove_strand_rigid_attachment_constraint",
-             &World::removeStrandRigidAttachmentConstraint)
+             &World::removeStrandRigidAttachmentConstraint,
+             "Removes a strand-rigid attachment constraint and returns whether it existed.")
         .def("try_get_strand_rigid_attachment_constraint",
              [](const World &world,
                 const cressim::neo::physics::StrandRigidAttachmentConstraintId constraintId)
@@ -2780,11 +2893,13 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*state);
                  }
                  return py::none();
-             })
+             }, "Returns a strand-rigid attachment constraint by ID, or None.")
         .def("upsert_rigid_distance_constraint",
              [](World &world, const AuthoredRigidDistanceConstraintState &state)
-             { return world.upsertRigidDistanceConstraint(state); })
-        .def("remove_rigid_distance_constraint", &World::removeRigidDistanceConstraint)
+             { return world.upsertRigidDistanceConstraint(state); },
+             "Creates or updates a rigid distance constraint and returns whether it succeeded.")
+        .def("remove_rigid_distance_constraint", &World::removeRigidDistanceConstraint,
+             "Removes a rigid distance constraint and returns whether it existed.")
         .def("try_get_rigid_distance_constraint",
              [](const World &world,
                 const cressim::neo::physics::RigidDistanceConstraintId constraintId) -> py::object
@@ -2794,11 +2909,13 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*state);
                  }
                  return py::none();
-             })
+             }, "Returns a rigid distance constraint by ID, or None.")
         .def("upsert_routed_cable_constraint",
              [](World &world, const AuthoredRoutedCableConstraintState &state)
-             { return world.upsertRoutedCableConstraint(state); })
-        .def("remove_routed_cable_constraint", &World::removeRoutedCableConstraint)
+             { return world.upsertRoutedCableConstraint(state); },
+             "Creates or updates a routed cable constraint and returns whether it succeeded.")
+        .def("remove_routed_cable_constraint", &World::removeRoutedCableConstraint,
+             "Removes a routed cable constraint and returns whether it existed.")
         .def("try_get_routed_cable_constraint",
              [](const World &world,
                 const cressim::neo::physics::RoutedCableConstraintId constraintId) -> py::object
@@ -2808,10 +2925,12 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*state);
                  }
                  return py::none();
-             })
+             }, "Returns a routed cable constraint by ID, or None.")
         .def("upsert_particle_collision_filter", &World::upsertParticleCollisionFilter,
-             py::return_value_policy::reference_internal)
-        .def("remove_particle_collision_filter", &World::removeParticleCollisionFilter)
+             py::return_value_policy::reference_internal,
+             "Creates or updates an authored particle collision filter and returns its stored state.")
+        .def("remove_particle_collision_filter", &World::removeParticleCollisionFilter,
+             "Removes an authored particle collision filter and returns whether it existed.")
         .def("try_get_particle_collision_filter",
              [](const World &world,
                 const cressim::neo::physics::ParticleCollisionFilterId filterId) -> py::object
@@ -2821,10 +2940,12 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*state);
                  }
                  return py::none();
-             })
+             }, "Returns an authored particle collision filter by ID, or None.")
         .def("upsert_suturing_sequence", &World::upsertSuturingSequence,
-             py::return_value_policy::reference_internal)
-        .def("remove_suturing_sequence", &World::removeSuturingSequence)
+             py::return_value_policy::reference_internal,
+             "Creates or updates an authored suturing sequence and returns its stored state.")
+        .def("remove_suturing_sequence", &World::removeSuturingSequence,
+             "Removes an authored suturing sequence and returns whether it existed.")
         .def("try_get_suturing_sequence",
              [](const World &world,
                 const cressim::neo::physics::SuturingSequenceId sequenceId) -> py::object
@@ -2834,15 +2955,22 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::cast(*state);
                  }
                  return py::none();
-             })
-        .def("add_collider", &World::addCollider)
-        .def("update_collider", &World::updateCollider)
-        .def("remove_collider", &World::removeCollider)
-        .def("replace_colliders", &World::replaceColliders)
-        .def("try_get_collider", &World::tryGetCollider)
+             }, "Returns an authored suturing sequence by ID, or None.")
+        .def("add_collider", &World::addCollider,
+             "Adds a collider to an entity with a rigid body and returns its handle.")
+        .def("update_collider", &World::updateCollider,
+             "Updates the component of a registered collider handle.")
+        .def("remove_collider", &World::removeCollider,
+             "Removes a registered collider handle.")
+        .def("replace_colliders", &World::replaceColliders,
+             "Replaces all colliders on an entity with a rigid body.")
+        .def("try_get_collider", &World::tryGetCollider,
+             "Returns the component for a registered collider handle, or None.")
         .def("collider_handles", &World::colliderHandles,
+             "Returns the collider handles belonging to an entity.",
              py::return_value_policy::reference_internal)
-        .def("try_get_soft_body_authoring_particles", &World::tryGetSoftBodyAuthoringParticles);
+        .def("try_get_soft_body_authoring_particles", &World::tryGetSoftBodyAuthoringParticles,
+             "Returns the authored rest positions for a soft body, or None.");
 
     py::class_<Runtime>(m, "Runtime")
         .def(py::init<>())
@@ -3009,17 +3137,24 @@ PYBIND11_MODULE(_cressim_neo, m)
             },
             py::arg("probe"), py::arg("renderer"));
 
-    m.def("make_cube_mesh", &cressim::neo::examples::helpers::makeCubeMesh, py::arg("half_extent"),
-          py::arg("debug_name") = "Python.CubeMesh", py::arg("uv_scale") = 1.0f);
-    m.def("make_box_mesh", &cressim::neo::examples::helpers::makeBoxMesh, py::arg("half_extents"),
-          py::arg("debug_name"), py::arg("uv_scale_u") = 1.0f, py::arg("uv_scale_v") = 1.0f);
+    m.def("make_cube_mesh", &cressim::neo::examples::helpers::makeCubeMesh,
+          "Creates an origin-centered box mesh with equal half-extents and per-face UVs.",
+          py::arg("half_extent"), py::arg("debug_name") = "Python.CubeMesh",
+          py::arg("uv_scale") = 1.0f);
+    m.def("make_box_mesh", &cressim::neo::examples::helpers::makeBoxMesh,
+          "Creates an origin-centered box mesh with per-axis half-extents and per-face UVs.",
+          py::arg("half_extents"), py::arg("debug_name"), py::arg("uv_scale_u") = 1.0f,
+          py::arg("uv_scale_v") = 1.0f);
     m.def("make_plane_mesh",
           py::overload_cast<float, const std::string &, float>(
               &cressim::neo::examples::helpers::makePlaneMesh),
+          "Creates an origin-centered XZ-plane mesh at y = 0 with upward normals.",
           py::arg("half_extent"), py::arg("debug_name"), py::arg("uv_scale") = 1.0f);
-    m.def("make_sphere_mesh", &cressim::neo::examples::helpers::makeSphereMesh, py::arg("radius"),
-          py::arg("slices"), py::arg("stacks"), py::arg("debug_name"));
-    m.def("make_capsule_mesh", &cressim::neo::examples::helpers::makeCapsuleMesh, py::arg("radius"),
-          py::arg("half_height"), py::arg("slices"), py::arg("hemisphere_rings"),
-          py::arg("body_rings"), py::arg("debug_name"));
+    m.def("make_sphere_mesh", &cressim::neo::examples::helpers::makeSphereMesh,
+          "Creates a UV sphere mesh centered at the origin and tessellated by slices and stacks.",
+          py::arg("radius"), py::arg("slices"), py::arg("stacks"), py::arg("debug_name"));
+    m.def("make_capsule_mesh", &cressim::neo::examples::helpers::makeCapsuleMesh,
+          "Creates a Y-axis capsule mesh with a cylindrical half-height and hemispherical end caps.",
+          py::arg("radius"), py::arg("half_height"), py::arg("slices"),
+          py::arg("hemisphere_rings"), py::arg("body_rings"), py::arg("debug_name"));
 }
