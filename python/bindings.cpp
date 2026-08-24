@@ -1054,10 +1054,14 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Capsule", cressim::neo::physics::ColliderShapeType::Capsule,
                "Capsule collider primitive.");
 
-    py::enum_<AuthoredParticleReferenceType>(m, "AuthoredParticleReferenceType")
-        .value("SoftBodyParticle", AuthoredParticleReferenceType::SoftBodyParticle)
-        .value("StrandParticle", AuthoredParticleReferenceType::StrandParticle)
-        .value("RigidProxyParticle", AuthoredParticleReferenceType::RigidProxyParticle);
+    py::enum_<AuthoredParticleReferenceType>(m, "AuthoredParticleReferenceType",
+                                             "Selects the owner type of an authored particle reference.")
+        .value("SoftBodyParticle", AuthoredParticleReferenceType::SoftBodyParticle,
+               "Particle belonging to a soft body.")
+        .value("StrandParticle", AuthoredParticleReferenceType::StrandParticle,
+               "Particle belonging to a strand.")
+        .value("RigidProxyParticle", AuthoredParticleReferenceType::RigidProxyParticle,
+               "Proxy particle belonging to a rigid body.");
 
     py::enum_<SoftBodySourceKind>(m, "SoftBodySourceKind",
                                   "Selects which member of a soft-body source description is used.")
@@ -2324,105 +2328,172 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("enabled", &ProceduralDeformableCurveRenderComponent::enabled,
                        "Enable rendering.");
 
-    py::class_<SoftBodyAuthoringParticles>(m, "SoftBodyAuthoringParticles")
-        .def(py::init<>())
-        .def_readwrite("particle_count", &SoftBodyAuthoringParticles::particleCount)
-        .def_readwrite("rest_positions", &SoftBodyAuthoringParticles::restPositions);
+    py::class_<SoftBodyAuthoringParticles>(m, "SoftBodyAuthoringParticles",
+                                            "Authoring particle position container for soft body asset creation.")
+        .def(py::init<>(), "Initializes an empty authoring particle container.")
+        .def_readwrite("particle_count", &SoftBodyAuthoringParticles::particleCount,
+                       "Total particle count.")
+        .def_readwrite("rest_positions", &SoftBodyAuthoringParticles::restPositions,
+                       "Rest position coordinate array.");
 
-    py::class_<AuthoredParticleReference>(m, "AuthoredParticleReference")
-        .def(py::init<>())
-        .def_readwrite("entity_id", &AuthoredParticleReference::entityId)
-        .def_readwrite("type", &AuthoredParticleReference::type)
-        .def_readwrite("local_particle_index", &AuthoredParticleReference::localParticleIndex);
+    py::class_<AuthoredParticleReference>(m, "AuthoredParticleReference",
+                                          "Identifies a particle owned by an entity.")
+        .def(py::init<>(), "Initializes a reference with an invalid entity ID.")
+        .def_readwrite("entity_id", &AuthoredParticleReference::entityId,
+                       "Owning soft-body, strand, or rigid-body entity ID.")
+        .def_readwrite("type", &AuthoredParticleReference::type,
+                       "Selects how the entity ID and local particle index are resolved.")
+        .def_readwrite("local_particle_index", &AuthoredParticleReference::localParticleIndex,
+                       "Index within the selected entity's particles or rigid proxy particles.");
 
     py::class_<AuthoredParticleDistanceConstraintState>(m,
-                                                        "AuthoredParticleDistanceConstraintState")
-        .def(py::init<>())
-        .def_readwrite("constraint_id", &AuthoredParticleDistanceConstraintState::constraintId)
-        .def_readwrite("particle_a", &AuthoredParticleDistanceConstraintState::particleA)
-        .def_readwrite("particle_b", &AuthoredParticleDistanceConstraintState::particleB)
-        .def_readwrite("rest_length", &AuthoredParticleDistanceConstraintState::restLength)
-        .def_readwrite("compliance", &AuthoredParticleDistanceConstraintState::compliance)
-        .def_readwrite("enabled", &AuthoredParticleDistanceConstraintState::enabled);
+                                                        "AuthoredParticleDistanceConstraintState",
+                                                        "Authored distance constraint between two referenced particles.")
+        .def(py::init<>(), "Initializes a particle distance constraint with an invalid ID.")
+        .def_readwrite("constraint_id", &AuthoredParticleDistanceConstraintState::constraintId,
+                       "Stable constraint ID; an invalid ID is assigned on upsert.")
+        .def_readwrite("particle_a", &AuthoredParticleDistanceConstraintState::particleA,
+                       "First constrained particle reference.")
+        .def_readwrite("particle_b", &AuthoredParticleDistanceConstraintState::particleB,
+                       "Second constrained particle reference.")
+        .def_readwrite("rest_length", &AuthoredParticleDistanceConstraintState::restLength,
+                       "Non-negative target separation.")
+        .def_readwrite("compliance", &AuthoredParticleDistanceConstraintState::compliance,
+                       "Non-negative constraint compliance.")
+        .def_readwrite("enabled", &AuthoredParticleDistanceConstraintState::enabled,
+                       "Whether the solver enables this constraint.");
 
-    py::class_<AuthoredParticleSequenceState>(m, "AuthoredParticleSequenceState")
-        .def(py::init<>())
-        .def_readwrite("sequence_id", &AuthoredParticleSequenceState::sequenceId)
-        .def_readwrite("entries", &AuthoredParticleSequenceState::entries)
-        .def_readwrite("enabled", &AuthoredParticleSequenceState::enabled);
+    py::class_<AuthoredParticleSequenceState>(m, "AuthoredParticleSequenceState",
+                                               "Ordered authored particle references.")
+        .def(py::init<>(), "Initializes an empty particle sequence.")
+        .def_readwrite("sequence_id", &AuthoredParticleSequenceState::sequenceId,
+                       "Stable sequence ID; an invalid ID is assigned on upsert.")
+        .def_readwrite("entries", &AuthoredParticleSequenceState::entries,
+                       "Ordered particle references in the sequence.")
+        .def_readwrite("enabled", &AuthoredParticleSequenceState::enabled,
+                       "Whether the sequence is enabled.");
 
-    py::class_<AuthoredParticleCollisionFilterState>(m, "AuthoredParticleCollisionFilterState")
-        .def(py::init<>())
-        .def_readwrite("filter_id", &AuthoredParticleCollisionFilterState::filterId)
-        .def_readwrite("particle", &AuthoredParticleCollisionFilterState::particle)
-        .def_readwrite("collision_layer", &AuthoredParticleCollisionFilterState::collisionLayer)
-        .def_readwrite("collision_mask", &AuthoredParticleCollisionFilterState::collisionMask)
-        .def_readwrite("enabled", &AuthoredParticleCollisionFilterState::enabled);
+    py::class_<AuthoredParticleCollisionFilterState>(m, "AuthoredParticleCollisionFilterState",
+                                                      "Collision filtering override for a referenced particle.")
+        .def(py::init<>(), "Initializes a particle collision filter with default layer and mask.")
+        .def_readwrite("filter_id", &AuthoredParticleCollisionFilterState::filterId,
+                       "Stable filter ID; an invalid ID is assigned on upsert.")
+        .def_readwrite("particle", &AuthoredParticleCollisionFilterState::particle,
+                       "Particle reference to which the collision filter applies.")
+        .def_readwrite("collision_layer", &AuthoredParticleCollisionFilterState::collisionLayer,
+                       "Collision layer bit; zero is normalized to one on upsert.")
+        .def_readwrite("collision_mask", &AuthoredParticleCollisionFilterState::collisionMask,
+                       "Collision mask bitfield.")
+        .def_readwrite("enabled", &AuthoredParticleCollisionFilterState::enabled,
+                       "Whether the collision filter is enabled.");
 
-    py::class_<AuthoredSuturingSequenceState>(m, "AuthoredSuturingSequenceState")
-        .def(py::init<>())
-        .def_readwrite("sequence_id", &AuthoredSuturingSequenceState::sequenceId)
-        .def_readwrite("entries", &AuthoredSuturingSequenceState::entries)
-        .def_readwrite("tip_entry_index", &AuthoredSuturingSequenceState::tipEntryIndex)
-        .def_readwrite("path_node_spacing", &AuthoredSuturingSequenceState::pathNodeSpacing)
-        .def_readwrite("enabled", &AuthoredSuturingSequenceState::enabled);
+    py::class_<AuthoredSuturingSequenceState>(m, "AuthoredSuturingSequenceState",
+                                               "Authored suturing path formed from ordered particle references.")
+        .def(py::init<>(), "Initializes an empty suturing sequence.")
+        .def_readwrite("sequence_id", &AuthoredSuturingSequenceState::sequenceId,
+                       "Stable sequence ID; an invalid ID is assigned on upsert.")
+        .def_readwrite("entries", &AuthoredSuturingSequenceState::entries,
+                       "Ordered particle references forming the suturing path.")
+        .def_readwrite("tip_entry_index", &AuthoredSuturingSequenceState::tipEntryIndex,
+                       "Index of the entry selected as the suturing-path tip.")
+        .def_readwrite("path_node_spacing", &AuthoredSuturingSequenceState::pathNodeSpacing,
+                       "Desired spacing between generated path nodes; zero selects a derived spacing.")
+        .def_readwrite("enabled", &AuthoredSuturingSequenceState::enabled,
+                       "Whether the suturing sequence is enabled.");
 
     py::class_<AuthoredRigidParticleAttachmentConstraintState>(
-        m, "AuthoredRigidParticleAttachmentConstraintState")
-        .def(py::init<>())
+        m, "AuthoredRigidParticleAttachmentConstraintState",
+        "Attachment constraint between a referenced particle and a rigid body.")
+        .def(py::init<>(), "Initializes a rigid-particle attachment constraint with an invalid ID.")
         .def_readwrite("constraint_id",
-                       &AuthoredRigidParticleAttachmentConstraintState::constraintId)
-        .def_readwrite("particle", &AuthoredRigidParticleAttachmentConstraintState::particle)
+                       &AuthoredRigidParticleAttachmentConstraintState::constraintId,
+                       "Stable constraint ID; an invalid ID is assigned on upsert.")
+        .def_readwrite("particle", &AuthoredRigidParticleAttachmentConstraintState::particle,
+                       "Particle reference to attach.")
         .def_readwrite("rigid_body_entity_id",
-                       &AuthoredRigidParticleAttachmentConstraintState::rigidBodyEntityId)
-        .def_readwrite("local_anchor", &AuthoredRigidParticleAttachmentConstraintState::localAnchor)
-        .def_readwrite("compliance", &AuthoredRigidParticleAttachmentConstraintState::compliance)
-        .def_readwrite("enabled", &AuthoredRigidParticleAttachmentConstraintState::enabled);
+                       &AuthoredRigidParticleAttachmentConstraintState::rigidBodyEntityId,
+                       "Rigid-body entity ID providing the attachment anchor.")
+        .def_readwrite("local_anchor", &AuthoredRigidParticleAttachmentConstraintState::localAnchor,
+                       "Anchor position in rigid-body local space.")
+        .def_readwrite("compliance", &AuthoredRigidParticleAttachmentConstraintState::compliance,
+                       "Non-negative attachment compliance.")
+        .def_readwrite("enabled", &AuthoredRigidParticleAttachmentConstraintState::enabled,
+                       "Whether the attachment is enabled.");
 
     py::class_<AuthoredStrandRigidAttachmentConstraintState>(
-        m, "AuthoredStrandRigidAttachmentConstraintState")
-        .def(py::init<>())
-        .def_readwrite("constraint_id", &AuthoredStrandRigidAttachmentConstraintState::constraintId)
+        m, "AuthoredStrandRigidAttachmentConstraintState",
+        "One-way attachment in which a rigid body drives a strand station pose.")
+        .def(py::init<>(), "Initializes a strand-rigid attachment constraint with an invalid ID.")
+        .def_readwrite("constraint_id", &AuthoredStrandRigidAttachmentConstraintState::constraintId,
+                       "Stable constraint ID; an invalid ID is assigned on upsert.")
         .def_readwrite("strand_entity_id",
-                       &AuthoredStrandRigidAttachmentConstraintState::strandEntityId)
+                       &AuthoredStrandRigidAttachmentConstraintState::strandEntityId,
+                       "Strand entity ID containing the attached segment.")
         .def_readwrite("local_segment_index",
-                       &AuthoredStrandRigidAttachmentConstraintState::localSegmentIndex)
-        .def_readwrite("segment_t", &AuthoredStrandRigidAttachmentConstraintState::segmentT)
+                       &AuthoredStrandRigidAttachmentConstraintState::localSegmentIndex,
+                       "Index of the attached strand segment.")
+        .def_readwrite("segment_t", &AuthoredStrandRigidAttachmentConstraintState::segmentT,
+                       "Position along the segment, clamped to the range [0, 1] on upsert.")
         .def_readwrite("rigid_body_entity_id",
-                       &AuthoredStrandRigidAttachmentConstraintState::rigidBodyEntityId)
-        .def_readwrite("local_anchor", &AuthoredStrandRigidAttachmentConstraintState::localAnchor)
+                       &AuthoredStrandRigidAttachmentConstraintState::rigidBodyEntityId,
+                       "Rigid-body entity ID driving the strand station.")
+        .def_readwrite("local_anchor", &AuthoredStrandRigidAttachmentConstraintState::localAnchor,
+                       "Anchor position in rigid-body local space.")
         .def_readwrite("local_rotation",
-                       &AuthoredStrandRigidAttachmentConstraintState::localRotation)
+                       &AuthoredStrandRigidAttachmentConstraintState::localRotation,
+                       "Station orientation relative to the rigid body; normalized on upsert.")
         .def_readwrite("translation_compliance",
-                       &AuthoredStrandRigidAttachmentConstraintState::translationCompliance)
+                       &AuthoredStrandRigidAttachmentConstraintState::translationCompliance,
+                       "Non-negative translation compliance.")
         .def_readwrite("rotation_compliance",
-                       &AuthoredStrandRigidAttachmentConstraintState::rotationCompliance)
-        .def_readwrite("enabled", &AuthoredStrandRigidAttachmentConstraintState::enabled);
+                       &AuthoredStrandRigidAttachmentConstraintState::rotationCompliance,
+                       "Non-negative rotation compliance.")
+        .def_readwrite("enabled", &AuthoredStrandRigidAttachmentConstraintState::enabled,
+                       "Whether the attachment is enabled.");
 
-    py::class_<AuthoredRigidDistanceConstraintState>(m, "AuthoredRigidDistanceConstraintState")
-        .def(py::init<>())
-        .def_readwrite("constraint_id", &AuthoredRigidDistanceConstraintState::constraintId)
-        .def_readwrite("entity_a", &AuthoredRigidDistanceConstraintState::entityA)
-        .def_readwrite("entity_b", &AuthoredRigidDistanceConstraintState::entityB)
-        .def_readwrite("local_anchor_a", &AuthoredRigidDistanceConstraintState::localAnchorA)
-        .def_readwrite("local_anchor_b", &AuthoredRigidDistanceConstraintState::localAnchorB)
-        .def_readwrite("rest_distance", &AuthoredRigidDistanceConstraintState::restDistance)
-        .def_readwrite("compliance", &AuthoredRigidDistanceConstraintState::compliance)
-        .def_readwrite("enabled", &AuthoredRigidDistanceConstraintState::enabled);
+    py::class_<AuthoredRigidDistanceConstraintState>(m, "AuthoredRigidDistanceConstraintState",
+                                                      "Distance constraint between anchors on two rigid bodies.")
+        .def(py::init<>(), "Initializes a rigid distance constraint with an invalid ID.")
+        .def_readwrite("constraint_id", &AuthoredRigidDistanceConstraintState::constraintId,
+                       "Stable constraint ID; an invalid ID is assigned on upsert.")
+        .def_readwrite("entity_a", &AuthoredRigidDistanceConstraintState::entityA,
+                       "First rigid-body entity ID.")
+        .def_readwrite("entity_b", &AuthoredRigidDistanceConstraintState::entityB,
+                       "Second rigid-body entity ID.")
+        .def_readwrite("local_anchor_a", &AuthoredRigidDistanceConstraintState::localAnchorA,
+                       "Anchor position in the first rigid body's local space.")
+        .def_readwrite("local_anchor_b", &AuthoredRigidDistanceConstraintState::localAnchorB,
+                       "Anchor position in the second rigid body's local space.")
+        .def_readwrite("rest_distance", &AuthoredRigidDistanceConstraintState::restDistance,
+                       "Non-negative target distance between anchors.")
+        .def_readwrite("compliance", &AuthoredRigidDistanceConstraintState::compliance,
+                       "Non-negative constraint compliance.")
+        .def_readwrite("enabled", &AuthoredRigidDistanceConstraintState::enabled,
+                       "Whether the constraint is enabled.");
 
-    py::class_<AuthoredRoutedCableRoutePoint>(m, "AuthoredRoutedCableRoutePoint")
-        .def(py::init<>())
-        .def_readwrite("entity_id", &AuthoredRoutedCableRoutePoint::entityId)
-        .def_readwrite("local_guide_offset", &AuthoredRoutedCableRoutePoint::localGuideOffset);
+    py::class_<AuthoredRoutedCableRoutePoint>(m, "AuthoredRoutedCableRoutePoint",
+                                               "Guide point on a rigid body used to route a cable.")
+        .def(py::init<>(), "Initializes a route point with an invalid entity ID.")
+        .def_readwrite("entity_id", &AuthoredRoutedCableRoutePoint::entityId,
+                       "Rigid-body entity ID containing the guide point.")
+        .def_readwrite("local_guide_offset", &AuthoredRoutedCableRoutePoint::localGuideOffset,
+                       "Guide-point position in rigid-body local space.");
 
-    py::class_<AuthoredRoutedCableConstraintState>(m, "AuthoredRoutedCableConstraintState")
-        .def(py::init<>())
-        .def_readwrite("constraint_id", &AuthoredRoutedCableConstraintState::constraintId)
-        .def_readwrite("route_points", &AuthoredRoutedCableConstraintState::routePoints)
-        .def_readwrite("target_length", &AuthoredRoutedCableConstraintState::targetLength)
-        .def_readwrite("compliance", &AuthoredRoutedCableConstraintState::compliance)
-        .def_readwrite("tension_only", &AuthoredRoutedCableConstraintState::tensionOnly)
-        .def_readwrite("enabled", &AuthoredRoutedCableConstraintState::enabled);
+    py::class_<AuthoredRoutedCableConstraintState>(m, "AuthoredRoutedCableConstraintState",
+                                                    "Cable-length constraint routed through rigid-body guide points.")
+        .def(py::init<>(), "Initializes a routed cable constraint with an invalid ID.")
+        .def_readwrite("constraint_id", &AuthoredRoutedCableConstraintState::constraintId,
+                       "Stable constraint ID; an invalid ID is assigned on upsert.")
+        .def_readwrite("route_points", &AuthoredRoutedCableConstraintState::routePoints,
+                       "Ordered rigid-body guide points; at least two are required on upsert.")
+        .def_readwrite("target_length", &AuthoredRoutedCableConstraintState::targetLength,
+                       "Non-negative target cable length.")
+        .def_readwrite("compliance", &AuthoredRoutedCableConstraintState::compliance,
+                       "Non-negative constraint compliance.")
+        .def_readwrite("tension_only", &AuthoredRoutedCableConstraintState::tensionOnly,
+                       "Whether the constraint resists stretching only.")
+        .def_readwrite("enabled", &AuthoredRoutedCableConstraintState::enabled,
+                       "Whether the cable constraint is enabled.");
 
     py::class_<cressim::neo::engine::ColliderHandle>(m, "ColliderHandle")
         .def(py::init<>())
