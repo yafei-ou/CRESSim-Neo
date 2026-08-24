@@ -2972,8 +2972,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("try_get_soft_body_authoring_particles", &World::tryGetSoftBodyAuthoringParticles,
              "Returns the authored rest positions for a soft body, or None.");
 
-    py::class_<Runtime>(m, "Runtime")
-        .def(py::init<>())
+    py::class_<Runtime>(m, "Runtime",
+                        "Main engine runtime coordinator managing GPU devices, physics solvers, graphics, and custom compute passes.")
+        .def(py::init<>(), "Constructs an uninitialized runtime.")
         .def(
             "initialize",
             [](Runtime &runtime, py::object configObject)
@@ -2991,15 +2992,22 @@ PYBIND11_MODULE(_cressim_neo, m)
             "Returns:\n"
             "    True if initialization succeeds; false otherwise.",
             py::arg("config") = py::none())
-        .def("shutdown", &Runtime::shutdown)
+        .def("shutdown", &Runtime::shutdown,
+             "Shuts down the engine runtime and releases allocated GPU/physics resources.")
         .def("get_info", &Runtime::getInfo,
              "Returns engine version and optional feature support information.")
-        .def("set_gravity", &Runtime::setGravity, py::arg("gravity"))
-        .def("prepare", &Runtime::prepare)
-        .def("upload_world", &Runtime::uploadWorld)
-        .def("create_shared_buffer", &Runtime::createSharedBuffer)
-        .def("destroy_shared_buffer", &Runtime::destroySharedBuffer)
-        .def("list_shared_buffers", &Runtime::listSharedBuffers)
+        .def("set_gravity", &Runtime::setGravity,
+             "Sets the physics solver gravity when the runtime is initialized.", py::arg("gravity"))
+        .def("prepare", &Runtime::prepare,
+             "Prepares authored world, render, and ultrasound state for upload.")
+        .def("upload_world", &Runtime::uploadWorld,
+             "Uploads prepared world state to physics and GPU resources. Returns whether upload succeeded.")
+        .def("create_shared_buffer", &Runtime::createSharedBuffer,
+             "Creates an engine-owned shared GPU buffer. Returns an invalid handle when unavailable.")
+        .def("destroy_shared_buffer", &Runtime::destroySharedBuffer,
+             "Destroys a shared-buffer handle. Exported DLPack tensors may retain its storage.")
+        .def("list_shared_buffers", &Runtime::listSharedBuffers,
+             "Returns metadata for all registered shared buffers, or an empty list when unavailable.")
         .def("try_get_shared_buffer_info",
              [](Runtime &runtime, const SharedBufferHandle handle) -> py::object
              {
@@ -3009,7 +3017,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::none();
                  }
                  return py::cast(info);
-             })
+             }, "Returns metadata for a shared buffer, or None when the handle is unavailable.")
         .def("try_get_shared_buffer_cuda_view",
              [](Runtime &runtime, const SharedBufferHandle handle) -> py::object
              {
@@ -3019,9 +3027,11 @@ PYBIND11_MODULE(_cressim_neo, m)
                      return py::none();
                  }
                  return py::cast(view);
-             })
-        .def("sync_shared_buffer_to_cuda", &Runtime::syncSharedBufferToCuda)
-        .def("sync_shared_buffer_from_cuda", &Runtime::syncSharedBufferFromCuda)
+             }, "Returns the CUDA device view for a shared buffer, or None when unavailable.")
+        .def("sync_shared_buffer_to_cuda", &Runtime::syncSharedBufferToCuda,
+             "Makes prior Vulkan or D3D compute writes visible to subsequent CUDA work.")
+        .def("sync_shared_buffer_from_cuda", &Runtime::syncSharedBufferFromCuda,
+             "Makes prior CUDA work visible to subsequent Vulkan or D3D compute work.")
         .def("get_prepared_rigid_layout_mapping",
              [](Runtime &runtime)
              {
@@ -3031,7 +3041,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                      throw std::runtime_error("Prepared rigid layout mapping is unavailable.");
                  }
                  return mapping;
-             })
+             }, "Returns the prepared rigid-body and collider layout mapping. Raises RuntimeError when unavailable.")
         .def("get_prepared_constraint_layout_mapping",
              [](Runtime &runtime)
              {
@@ -3041,7 +3051,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                      throw std::runtime_error("Prepared constraint layout mapping is unavailable.");
                  }
                  return mapping;
-             })
+             }, "Returns the prepared rigid-adjacent constraint layout mapping. Raises RuntimeError when unavailable.")
         .def("get_prepared_particle_layout_mapping",
              [](Runtime &runtime)
              {
@@ -3051,7 +3061,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                      throw std::runtime_error("Prepared particle layout mapping is unavailable.");
                  }
                  return mapping;
-             })
+             }, "Returns the prepared particle and deformable layout mapping. Raises RuntimeError when unavailable.")
         .def("get_prepared_joint_layout_mapping",
              [](Runtime &runtime)
              {
@@ -3061,12 +3071,17 @@ PYBIND11_MODULE(_cressim_neo, m)
                      throw std::runtime_error("Prepared joint layout mapping is unavailable.");
                  }
                  return mapping;
-             })
-        .def("shared_buffer_to_dlpack", &exportSharedBufferToDLPack)
-        .def("step_physics", &Runtime::stepPhysics)
-        .def("step_simulation_sensors", &Runtime::stepSimulationSensors)
-        .def("step_visual_sensors", &Runtime::stepVisualSensors)
-        .def("end_frame", &Runtime::endFrame)
+             }, "Returns the prepared ball, hinge, spherical, and slider joint layout mapping. Raises RuntimeError when unavailable.")
+        .def("shared_buffer_to_dlpack", &exportSharedBufferToDLPack,
+             "Exports a CUDA-imported shared-buffer view as a DLPack capsule. Raises RuntimeError for an unavailable view or invalid tensor descriptor.")
+        .def("step_physics", &Runtime::stepPhysics,
+             "Advances physics for a frame after world upload. Returns whether the step succeeded.")
+        .def("step_simulation_sensors", &Runtime::stepSimulationSensors,
+             "Updates GPU scene state and advances simulation sensors for a frame. Returns whether execution succeeded.")
+        .def("step_visual_sensors", &Runtime::stepVisualSensors,
+             "Updates GPU scene state and renders visual sensors for a frame.")
+        .def("end_frame", &Runtime::endFrame,
+             "Ends the active GPU frame, if one exists.")
         .def("list_custom_compute_resources", &Runtime::listCustomComputeResources,
              "Lists custom compute resources registered for the uploaded world. Returns an empty list when unavailable.")
         .def("create_custom_compute_pass", &Runtime::createCustomComputePass,
@@ -3088,13 +3103,16 @@ PYBIND11_MODULE(_cressim_neo, m)
              "Destroys a registered custom compute pass. Returns ``True`` if the handle was registered.",
              py::arg("handle"))
         .def("last_render_stats", &Runtime::lastRenderStats,
+             "Returns statistics from the most recent visual-sensor render.",
              py::return_value_policy::reference_internal)
         .def(
             "world", [](Runtime &runtime) -> World & { return runtime.getWorld(); },
+            "Returns the runtime-owned world.",
             py::return_value_policy::reference_internal)
         .def(
             "resources", [](Runtime &runtime) -> RenderResourceManager &
-            { return runtime.getResources(); }, py::return_value_policy::reference_internal)
+            { return runtime.getResources(); }, "Returns the runtime-owned render resource manager.",
+            py::return_value_policy::reference_internal)
         .def("create_render_target",
              [](Runtime &runtime, const GpuRenderTargetDesc &desc)
              {
@@ -3103,15 +3121,15 @@ PYBIND11_MODULE(_cressim_neo, m)
                  {
                      throw std::runtime_error("Runtime GPU device is unavailable.");
                  }
-                 return device->renderTargetSystem().createRenderTarget(desc);
-             })
+                return device->renderTargetSystem().createRenderTarget(desc);
+             }, "Creates a GPU render target. Raises RuntimeError when the GPU device is unavailable.")
         .def("is_valid_render_target",
              [](Runtime &runtime, const GpuRenderTargetHandle target)
              {
                  auto *device = runtime.getGpuDevice();
                  return device != nullptr &&
                         device->renderTargetSystem().isValidRenderTarget(target);
-             })
+             }, "Returns whether a GPU render-target handle is valid.")
         .def("request_render_target_readback",
              [](Runtime &runtime, const GpuRenderTargetBinding &binding)
              {
@@ -3121,8 +3139,9 @@ PYBIND11_MODULE(_cressim_neo, m)
                      throw std::runtime_error("Runtime GPU device is unavailable.");
                  }
                  return device->renderTargetSystem().requestRenderTargetReadback(binding);
-             })
-        .def("try_get_render_target_readback", &tryGetRenderTargetReadback)
+             }, "Requests asynchronous readback of a render-target binding. Raises RuntimeError when the GPU device is unavailable.")
+        .def("try_get_render_target_readback", &tryGetRenderTargetReadback,
+             "Returns a completed render-target readback event, or None while unavailable.")
         .def(
             "compute_ultrasound_probe_layout",
             [](const Runtime &runtime, const UltrasoundProbeComponent &probe,
@@ -3135,6 +3154,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                 }
                 return layout;
             },
+            "Computes an ultrasound output layout for probe and renderer components. Raises RuntimeError when layout computation fails.",
             py::arg("probe"), py::arg("renderer"));
 
     m.def("make_cube_mesh", &cressim::neo::examples::helpers::makeCubeMesh,
