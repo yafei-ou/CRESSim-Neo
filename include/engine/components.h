@@ -148,11 +148,11 @@ struct ColliderComponent
     std::uint32_t collisionMask  = 0xffffffffu; ///< Bitmask collision filtering mask.
 };
 
-/// @brief Tetrahedron mesh-based soft body component for surgical tissue deformation.
+/// @brief Soft body component supporting tetrahedral and meshfree particle sources.
 struct SoftBodyComponent
 {
     physics::SoftBodySourceDesc source{};             ///< Source mesh file or tetrahedral asset descriptor.
-    physics::SoftBodyMaterialDesc material{};         ///< Elastic material parameters (Young's Modulus, Poisson Ratio).
+    physics::SoftBodyMaterialDesc material{};         ///< Particle contact material parameters.
     float particleMass           = 1.0f;              ///< Mass per node particle.
     float particleRadius         = 0.125f;            ///< Collision radius per particle.
     float edgeCompliance         = 0.0f;              ///< Extended Position Based Dynamics (XPBD) edge constraint compliance.
@@ -166,7 +166,7 @@ struct SoftBodyComponent
 /// @brief Meshfree / particle-based soft body component for point cloud elastic simulation.
 struct MeshfreeSoftBodyComponent
 {
-    std::vector<Diligent::float3> particles;            ///< Particle position list.
+    std::vector<Diligent::float3> particles;            ///< Particle rest position list.
     std::vector<Diligent::float3> surfaceRestPositions; ///< Surface mesh rest position coordinates.
     std::vector<Diligent::float3> surfaceNormals;       ///< Surface mesh normal vectors.
     std::vector<Diligent::uint3> surfaceTriangles;      ///< Surface mesh triangle indices.
@@ -184,7 +184,7 @@ struct MeshfreeSoftBodyComponent
 /// @brief 1D elastic strand component for surgical threads and sutures.
 struct StrandComponent
 {
-    physics::StrandMaterialDesc material{};            ///< Material parameters for strand bending/stretching.
+    physics::StrandMaterialDesc material{};            ///< Particle contact material parameters.
     std::vector<Diligent::float3> restPositions{};      ///< Rest positions of strand particles.
     std::vector<std::uint32_t> staticParticleIndices;  ///< Fixed node particle indices.
     float particleMass           = 1.0f;              ///< Mass per strand node particle.
