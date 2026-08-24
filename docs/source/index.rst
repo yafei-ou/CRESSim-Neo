@@ -27,8 +27,9 @@ GPU computations to be interleaved with simulation.
 
 Start with :doc:`Getting Started <getting-started/index>` to build the C++ SDK
 or install the Python bindings. Read the :doc:`User Guide <guides/index>` for
-the runtime model and scene-authoring workflow, and use the :doc:`API Reference
-<reference/index>` for complete interface details.
+the runtime model and scene-authoring workflow. The :doc:`Developer Guide
+<developers/index>` covers contributions, releases, and compliance. Use the
+:doc:`API Reference <reference/index>` for complete interface details.
 
 .. toctree::
    :maxdepth: 2
@@ -36,4 +37,5 @@ the runtime model and scene-authoring workflow, and use the :doc:`API Reference
 
    getting-started/index
    guides/index
+   developers/index
    reference/index
