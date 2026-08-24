@@ -1,26 +1,35 @@
 # Build CRESSim-Neo
 
 CRESSim-Neo is a C++17 simulation engine with optional Python bindings. A
-normal CMake build produces the native libraries, and the Python build adds the
+normal CMake build produces the native libraries; enabling Python adds the
 `cressim_neo` extension module.
 
 ## Prerequisites
 
-- CMake 3.18 or newer
-- Clang and Clang++ with C++17 support; the top-level CMake project selects
-  Clang explicitly
-- A C++ build tool; Ninja is recommended
-- Python 3.10 or newer, plus its development headers, when building Python
-  bindings
-- A Vulkan-capable graphics driver and runtime for Vulkan-backed programs
+- CMake 3.23 or newer to use the supported CMake presets. Manual configuration
+  supports CMake 3.18 or newer.
+- Python 3.10 or newer. The enabled Diligent Vulkan/SPIR-V toolchain needs a
+  Python interpreter even when CRESSim-Neo's Python bindings are disabled.
+- Linux: Clang/Clang++ with C++17 support and Ninja.
+- Windows: Visual Studio 2022 with the **Desktop development with C++**
+  workload and a Windows SDK.
+- macOS: Xcode Command Line Tools, Ninja, and the LunarG Vulkan SDK with
+  MoltenVK. Set `VULKAN_SDK` before configuration. Apple Silicon is the
+  regularly supported source-build tier; Intel and universal builds are not
+  regularly validated.
+- Linux viewer builds: development packages for Xcursor, Xext, Xi, Xinerama,
+  and XRandR.
+- Python development headers when building Python bindings.
+- A Vulkan-capable graphics driver/runtime for Vulkan-backed programs.
 
-On Ubuntu or Debian, install system dependencies with `apt`:
+On Ubuntu or Debian, install the standard Linux dependencies with:
 
 ```bash
 sudo apt update
 sudo apt install -y \
   build-essential \
   clang \
+  clang++ \
   cmake \
   ninja-build \
   python3-dev \
@@ -28,125 +37,126 @@ sudo apt install -y \
   python3-pip \
   git \
   libvulkan-dev \
-  vulkan-tools
+  vulkan-tools \
+  libxcursor-dev \
+  libxext-dev \
+  libxi-dev \
+  libxinerama-dev \
+  libxrandr-dev
 ```
 
-By default, configuration downloads the pinned DXC runtime release with a
-SHA-256 check. CMake therefore needs network access the first time it populates
-its build-directory cache.
-
-Initialize the repository submodules before configuring a build:
+Linux and Windows use a pinned DXC runtime by default; CMake downloads it and
+verifies its SHA-256 the first time it populates a build-directory cache.
+Initialize the pinned submodules before configuring:
 
 ```bash
 git submodule update --init --recursive
 ```
 
-In particular, Python-enabled CMake builds require the pinned
-`extern/pybind11` submodule. The current CMake configuration does not fall back
-to an installed or downloaded copy of pybind11.
-
-For PyTorch CUDA interoperability, use the same Python interpreter environment
-for PyTorch and CRESSim-Neo, and build CRESSim-Neo with a CUDA toolkit compatible
-with that PyTorch installation. A virtual environment is optional; it does not
-by itself select or unify the CUDA runtime libraries used by the two projects.
-The current CUDA/Torch workflow is validated on Arch Linux with system Python;
-other distributions should be treated as unvalidated until tested.
+Keep the intended virtual or Conda environment active when building Python so
+CMake and pip use the same interpreter. macOS uses the Vulkan SDK's MoltenVK
+and disables DXC. It is a source-build-only, best-effort tier: CUDA interop,
+Ultrasound, and macOS release wheels are not provided.
 
 ## Native development
 
-### Guided setup
+`CMakePresets.json` is the canonical native configuration interface. Release
+and debug presets build the shared SDK, viewer, and examples; Python, tests,
+CUDA interop, and Ultrasound are off by default.
 
-The guided setup script currently supports Linux only. On other platforms, use
-the {ref}`manual-cmake-configuration` instructions below.
-
-For the normal shared-SDK workflow, configure a Release or Debug build with:
-
-```bash
-scripts/configure_builds.sh
-```
-
-The helper selects supported project features and safely preserves the generator
-of existing build directories. New directories can use Ninja or Unix Makefiles.
-It prints the commands for the configured build. Select Python bindings when
-the same CMake build should produce the Python component.
-
-Build and install with standard CMake commands. For example, for a Release
-build with all three install components enabled:
+### Linux
 
 ```bash
-cmake --build build/linux-release --parallel
-cmake --install build/linux-release --component CXXSDK
-cmake --install build/linux-release --component Examples
-cmake --install build/linux-release --component Python
+cmake --preset linux-release
+cmake --build --preset linux-release --parallel
 ```
 
-The project defines three install components:
-
-- `CXXSDK` installs the shared C++ libraries, public headers, standard models,
-  environment maps, shaders, their authoring sources, and the CMake package.
-  Assets are installed under `share/cressim-neo/assets`.
-- `Examples` installs the enabled standalone C++ example executables. Install
-  `CXXSDK` alongside it so their default asset paths resolve.
-- `Python` installs the `cressim_neo` module, its native runtime libraries,
-  Python sources, shaders, models, and environment maps into the configured
-  CMake prefix's Python `site-packages` location. It is not a `pip` install.
-
-Pass `--prefix "$HOME/.local"` to an install command when a custom prefix is
-needed. Static C++ SDK installation is not currently a supported public
-workflow.
-
-All runtime assets resolve through one root: set `CRESSIM_NEO_ASSET_DIR` to use
-a custom asset directory; otherwise C++ resolves the installed asset tree and
-Python resolves its package-local `cressim_neo/assets` directory. Explicit
-shader or model paths still take precedence where supported.
-
-(manual-cmake-configuration)=
-### Manual CMake configuration
-
-Use this equivalent workflow when scripting, automating, or choosing CMake
-options directly. Configure a Release build with Python bindings enabled:
+Use `linux-debug` for interactive debugging. `linux-ci` is a headless test
+profile:
 
 ```bash
-cmake -S . -B build/linux-release \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCRESSIM_NEO_BUILD_PYTHON=ON
-cmake --build build/linux-release --parallel
+cmake --preset linux-ci
+cmake --build --preset linux-ci --parallel
+ctest --preset linux-ci
 ```
 
-Add `-G Ninja` to the configure command to use Ninja.
-
-For a smaller headless build, disable the default viewer and examples:
+### macOS
 
 ```bash
-cmake -S . -B build/linux-release \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCRESSIM_NEO_BUILD_PYTHON=ON \
-  -DCRESSIM_NEO_BUILD_VIEWER=OFF \
-  -DCRESSIM_NEO_BUILD_EXAMPLES=OFF
+export VULKAN_SDK=/path/to/vulkansdk-macos
+cmake --preset macos-release
+cmake --build --preset macos-release --parallel
+cmake --install build/macos-release --component CXXSDK
+cmake --install build/macos-release --component Examples
 ```
 
-Useful optional CMake switches are:
+Use `macos-debug` for development and `macos-ci` for a lean, headless local
+CTest profile.
 
-- `-DBUILD_TESTING=ON` — build the test tree.
-- `-DCRESSIM_NEO_ENABLE_CLANG_TIDY=ON` — run clang-tidy as part of C++ builds.
-- `-DCRESSIM_NEO_ENABLE_CUDA_INTEROP=ON` — require and enable CUDAToolkit.
-- `-DCRESSIM_NEO_ENABLE_ULTRASOUND=ON` — enable CRESSim-Ultrasound. This also
-  requires CUDA interop and a working CUDA compiler.
-- `-DCRESSIM_NEO_DXC_PROVIDER=SYSTEM` — let Diligent use DXC discovered from
-  local SDK paths instead of downloading the pinned runtime. This is intended
-  only for local development.
-- `-DCRESSIM_NEO_DXC_PROVIDER=OFF` — do not provision DXC. Vulkan falls back
-  from DXC-only features and the Windows D3D12 shader path is unsupported.
+### Windows
+
+```powershell
+cmake --preset windows-vs2022-release
+cmake --build --preset windows-vs2022-release --parallel
+cmake --install build/windows-vs2022-release --config Release --component CXXSDK
+cmake --install build/windows-vs2022-release --config Release --component Examples
+```
+
+Use `windows-vs2022-debug` for debugging. The `windows-vs2022-ci` preset is a
+headless local verification profile; run it with its matching build and test
+presets. Visual Studio is multi-config, so use `--config` for installation.
+
+### Components and customization
+
+The install components are:
+
+- `CXXSDK`: shared C++ libraries, public headers, standard assets, shaders,
+  and the CMake package. Assets are installed below
+  `share/cressim-neo/assets`.
+- `Examples`: enabled standalone C++ executables. Install `CXXSDK` with it so
+  their default asset paths resolve.
+- `Python`: the `cressim_neo` module, native runtime libraries, package files,
+  shaders, models, and environment maps.
+
+Set a prefix while configuring (or use the same `--prefix` for every install
+component):
+
+```bash
+cmake --preset linux-release -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+```
+
+Without an override, native installations go below the build directory, for
+example `build/linux-release/install`. Static C++ SDK installation is not a
+supported public workflow. Set `CRESSIM_NEO_ASSET_DIR` to use a custom asset
+tree; otherwise C++ uses installed assets and Python uses package-local assets.
+
+Pass `-D` options after a preset to customize it. For example:
+
+```bash
+cmake --preset linux-release -DCRESSIM_NEO_BUILD_PYTHON=ON
+cmake --build --preset linux-release --parallel
+```
+
+For a headless build, add `-DCRESSIM_NEO_BUILD_VIEWER=OFF` and
+`-DCRESSIM_NEO_BUILD_EXAMPLES=OFF`. Other useful switches are:
+
+- `-DBUILD_TESTING=ON`
+- `-DCRESSIM_NEO_ENABLE_CLANG_TIDY=ON`
+- `-DCRESSIM_NEO_ENABLE_CUDA_INTEROP=ON`
+- `-DCRESSIM_NEO_ENABLE_ULTRASOUND=ON` (also requires CUDA interop and a CUDA
+  compiler)
+- `-DCRESSIM_NEO_CUDA_RUNTIME_PROVIDER=SYSTEM` for a locally built Python CUDA
+  extension (`AUTO` is the local-development default; `MANAGED` is for
+  distributed CUDA-wheel lanes)
+- `-DCRESSIM_NEO_DXC_PROVIDER=SYSTEM` to use SDK-provided DXC, or `OFF` to omit
+  DXC. Without DXC, DXC-only Vulkan features fall back and Windows D3D12 is
+  unsupported.
 
 ### Consuming an installed C++ SDK
-
-After installing `CXXSDK` to a prefix, point a consumer project at it:
 
 ```bash
 cmake -S . -B build -DCMAKE_PREFIX_PATH="$HOME/.local"
 ```
-
-Its `CMakeLists.txt` can link the engine as follows:
 
 ```cmake
 find_package(CRESSimNeo CONFIG REQUIRED)
@@ -155,45 +165,33 @@ target_link_libraries(my_application PRIVATE CRESSimNeo::engine)
 
 ## Python package development and wheels
 
-`pyproject.toml` uses scikit-build-core to drive the same CMake project. Its
-wheel configuration builds only the Python component, with viewer, examples,
-tests, CUDA interoperability, and ultrasound disabled. This makes the standard
-wheel independent of a CUDA toolchain.
-
-Build a wheel:
+`pyproject.toml` uses scikit-build-core and builds the Python component and
+interactive viewer, with examples, tests, CUDA interop, and Ultrasound off.
+Build a local wheel with:
 
 ```bash
-scripts/build_wheel.sh
+scripts/build_local_wheel.sh
+python -m pip install dist/cressim_neo-*.whl
+python -c "import cressim_neo; print(cressim_neo.__file__)"
 ```
 
-Or manually build with:
+On Windows, activate the intended environment and run
+`./scripts/build_local_wheel.ps1`. On macOS, build from a recursive checkout
+with `VULKAN_SDK` set and DXC disabled:
 
 ```bash
-CMAKE_BUILD_PARALLEL_LEVEL=4 python3 -m pip wheel --no-deps --wheel-dir dist .
+python -m pip wheel --no-deps --wheel-dir dist \
+  -C cmake.define.CRESSIM_NEO_DXC_PROVIDER=OFF .
 ```
 
-To build a local wheel with interactive viewer bindings, use
-`scripts/build_wheel.sh --viewer`. Do not publish that artifact beside a
-headless wheel with the same package version and platform tag.
-
-Install and verify the resulting wheel with the interpreter that will run the
-application:
+For editable development, run `python -m pip install -e .`. Package builds can
+take several minutes; use the preset-based native build for frequent C++
+iteration. The local wheel requires NumPy; Gymnasium is optional:
 
 ```bash
-python3 -m pip install dist/cressim_neo-*.whl
-python3 -c "import cressim_neo; print(cressim_neo.__file__)"
+python -m pip install 'cressim-neo[gymnasium]'
 ```
 
-For an editable installation:
-
-```bash
-python3 -m pip install -e .
-```
-
-The current package requires NumPy. PyTorch and Gymnasium are optional:
-
-```bash
-python3 -m pip install 'cressim-neo[torch,gymnasium]'
-```
-
-Continue with {doc}`first-scene` after installation.
+Local wheels do not include CUDA interop or Ultrasound. Install PyTorch
+separately when needed, and use the release-wheel workflow for CUDA-enabled
+Linux or Windows distributions.

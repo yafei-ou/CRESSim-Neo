@@ -20,13 +20,10 @@ normally unnecessary.
 ## Scene Authoring
 
 A scene is configured by registering entities, components, and physics
-constraints through the C++ or Python API. The engine compiles the required HLSL
-shaders, allocates device memory, and generates structural layout mapping
-caches.
-
-Configure the scene layout before initializing the runtime. Each entity is
-created with the environment index to which its simulation and rendering state
-belongs.
+constraints through the C++ or Python API. Supply the scene-layout capacities
+in `RuntimeConfig` when initializing the runtime; the runtime applies that
+layout before any entities are authored. Each entity is created with the
+environment index to which its simulation and rendering state belongs.
 
 | C++ | Python |
 | --- | --- |
@@ -36,8 +33,10 @@ belongs.
 | {cpp:func}`Runtime::getWorld <cressim::neo::engine::Runtime::getWorld>` | {py:meth}`Runtime.world <cressim_neo.Runtime.world>` |
 | {cpp:func}`World::createEntity <cressim::neo::engine::World::createEntity>` | {py:meth}`World.create_entity <cressim_neo.World.create_entity>` |
 
-The authored world is prepared and uploaded at initialization and whenever
-host-authored scene state changes need to reach GPU resources. It is not
+After authoring a scene, call `prepare()` and then `uploadWorld()` before
+physics or custom-compute execution. `prepare()` updates render resources and
+other prepared state; `uploadWorld()` synchronizes the physics and GPU scene.
+Repeat that sequence whenever host-authored structural state changes. It is not
 required for an otherwise unchanged steady-state frame.
 
 | C++ | Python |
@@ -92,8 +91,8 @@ loop:
    as ultrasound synthesis, and writes to GPU render targets.
 4. Optional user-defined **custom compute passes** are dispatched for custom
    tasks, such as post-processing, data packaging, and post-physics
-   calculations. These passes can be inserted between any stages of the frame
-   loop.
+   calculations. After the world has been uploaded, they can be inserted where
+   their inputs are current.
 5. **Frame finalization** synchronizes the GPU and completes any requested data
    readbacks.
 
