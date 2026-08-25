@@ -15,9 +15,9 @@ struct JointLayoutMapping
     std::uint32_t hingeJointCount     = 0u;
     std::uint32_t sphericalJointCount = 0u;
     std::uint32_t sliderJointCount    = 0u;
-    // Prepared host-side rigid-joint slot-layout invalidation key produced by prepare().
-    // This describes when authored slot interpretation changes and is not the same as the live
-    // GPU custom-compute resource bindingGeneration exposed after uploadWorld().
+    /// Prepared host-side rigid-joint slot-layout invalidation key produced by prepare().
+    /// This describes when authored slot interpretation changes and is not the same as the live
+    /// GPU custom-compute resource bindingGeneration exposed after uploadWorld().
     std::uint64_t layoutRevision      = 0u;
 
     std::vector<physics::BallJointId> ballJointIds;

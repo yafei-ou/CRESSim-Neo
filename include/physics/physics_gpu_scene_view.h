@@ -55,11 +55,11 @@ struct PhysicsGpuRigidSceneView
         nullptr; ///< GPU buffer of collider contiguous ranges.
     Diligent::IBuffer *bodyColliderIndicesBuffer =
         nullptr; ///< GPU buffer of flattened collider indices.
-    // Constraint item buffers preserve prepare()/uploadWorld()-resolved slot ownership but allow
-    // runtime mutation of supported per-slot fields through custom compute. For rigid-particle
-    // attachments this includes the live descriptor payload read directly by the solver
-    // (`particleIndex`, `rigidBodyIndex`, `compliance`, `enabled`) as long as the caller does not
-    // assume prepared host-side layout mappings will reflect those GPU-only edits.
+    /// Constraint item buffers preserve prepare()/uploadWorld()-resolved slot ownership but allow
+    /// runtime mutation of supported per-slot fields through custom compute. For rigid-particle
+    /// attachments this includes the live descriptor payload read directly by the solver
+    /// (`particleIndex`, `rigidBodyIndex`, `compliance`, `enabled`) as long as the caller does not
+    /// assume prepared host-side layout mappings will reflect those GPU-only edits.
     Diligent::IBuffer *rigidParticleAttachmentsBuffer =
         nullptr; ///< GPU buffer of RigidParticleAttachmentConstraint descriptors.
     Diligent::IBuffer *strandRigidAttachmentsBuffer =

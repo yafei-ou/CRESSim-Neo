@@ -567,8 +567,8 @@ struct AuthoredRigidParticleAttachmentConstraintState
 /// segment.
 struct AuthoredStrandRigidAttachmentConstraintState
 {
-    // This constraint is intentionally one-way: the rigid body drives the strand
-    // station pose, but the strand does not push force or torque back into the rigid body.
+    /// This constraint is intentionally one-way: the rigid body drives the strand
+    /// station pose, but the strand does not push force or torque back into the rigid body.
     StrandRigidAttachmentConstraintId constraintId =
         kInvalidStrandRigidAttachmentConstraintId;              ///< Unique constraint ID.
     common::EntityId strandEntityId = common::kInvalidEntityId; ///< Strand entity ID.
@@ -635,8 +635,8 @@ struct AuthoredSuturingSequenceState
     SuturingSequenceId sequenceId = kInvalidSuturingSequenceId; ///< Unique suturing sequence ID.
     std::vector<AuthoredParticleReference>
         entries{}; ///< Ordered needle and thread particle references.
-    // The selected tip entry authors the suturing path. In the current prototype,
-    // the sequence tip and tail also suppress same-soft-body exterior contact.
+    /// The selected tip entry authors the suturing path. In the current prototype,
+    /// the sequence tip and tail also suppress same-soft-body exterior contact.
     std::uint32_t tipEntryIndex = 0u; ///< Index into entries designating the needle tip.
     float pathNodeSpacing = 0.0f; ///< Desired spacing between generated path interpolation nodes.
     bool enabled          = true; ///< Whether suturing tracking is active.
@@ -649,8 +649,8 @@ struct DeformableDistanceConstraint
     std::uint32_t particleB = 0u;   ///< Index of second particle.
     float restLength        = 0.0f; ///< Target rest distance.
     float compliance        = 0.0f; ///< XPBD constraint compliance.
-    // Keep authored constraints resident in the GPU edge buffer so enable/disable can be
-    // evaluated by the solver instead of changing the constraint's GPU identity.
+    /// Keep authored constraints resident in the GPU edge buffer so enable/disable can be
+    /// evaluated by the solver instead of changing the constraint's GPU identity.
     std::uint32_t enabled   = 1u; ///< Constraint enabled flag (0 or 1).
     std::uint32_t reserved0 = 0u; ///< Reserved padding.
     std::uint32_t reserved1 = 0u; ///< Reserved padding.

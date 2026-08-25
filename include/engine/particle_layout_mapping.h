@@ -14,9 +14,9 @@ struct ParticleLayoutMapping
     std::uint32_t softBodyCount  = 0u;
     std::uint32_t fluidCount     = 0u;
     std::uint32_t strandCount    = 0u;
-    // Prepared host-side particle/deformable slot-layout invalidation key produced by prepare().
-    // This describes when authored slot interpretation changes and is not the same as the live
-    // GPU custom-compute resource bindingGeneration exposed after uploadWorld().
+    /// Prepared host-side particle/deformable slot-layout invalidation key produced by prepare().
+    /// This describes when authored slot interpretation changes and is not the same as the live
+    /// GPU custom-compute resource bindingGeneration exposed after uploadWorld().
     std::uint64_t layoutRevision = 0u;
 
     std::vector<std::uint32_t> environmentIndices;

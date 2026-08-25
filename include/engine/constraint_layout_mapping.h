@@ -14,10 +14,10 @@ struct RigidParticleAttachmentConstraintLayoutMapping
 {
     std::uint32_t count = 0u;
 
-    // This prepared mapping reflects authored host-side references resolved by prepare().
-    // Runtime GPU edits to the live rigid-particle attachment descriptor buffer after
-    // uploadWorld() (for example retargeting `particleIndex`) do not feed back into these
-    // arrays until the host reauthors and prepares again.
+    /// This prepared mapping reflects authored host-side references resolved by prepare().
+    /// Runtime GPU edits to the live rigid-particle attachment descriptor buffer after
+    /// uploadWorld() (for example retargeting `particleIndex`) do not feed back into these
+    /// arrays until the host reauthors and prepares again.
     std::vector<physics::RigidParticleAttachmentConstraintId> constraintIds;
     std::vector<std::uint32_t> environmentIndices;
     std::vector<physics::RigidBodyId> rigidBodyIds;
@@ -57,9 +57,9 @@ struct RoutedCableConstraintLayoutMapping
 
 struct ConstraintLayoutMapping
 {
-    // Prepared host-side constraint-layout invalidation key produced by prepare().
-    // This describes when authored slot interpretation changes and is not the same as the live
-    // GPU custom-compute resource bindingGeneration exposed after uploadWorld().
+    /// Prepared host-side constraint-layout invalidation key produced by prepare().
+    /// This describes when authored slot interpretation changes and is not the same as the live
+    /// GPU custom-compute resource bindingGeneration exposed after uploadWorld().
     std::uint64_t layoutRevision = 0u;
 
     RigidParticleAttachmentConstraintLayoutMapping rigidParticleAttachments;
