@@ -7,7 +7,8 @@
 #include <memory>
 
 /// @file cuda_interop.h
-/// @brief CUDA / Direct3D12 / Vulkan external memory interop and timeline semaphore synchronization primitives.
+/// @brief CUDA / Direct3D12 / Vulkan external memory interop and timeline semaphore synchronization
+/// primitives.
 
 namespace Diligent
 {
@@ -67,7 +68,8 @@ private:
     std::unique_ptr<Impl> mImpl;
 };
 
-/// @brief External timeline semaphore bridging Vulkan/D3D12 GPU timeline fences with CUDA stream synchronization.
+/// @brief External timeline semaphore bridging Vulkan/D3D12 GPU timeline fences with CUDA stream
+/// synchronization.
 class CRESSIM_NEO_GPU_API CudaExternalTimelineSemaphore
 {
 public:
@@ -176,7 +178,8 @@ private:
     std::unique_ptr<Impl> mImpl;
 };
 
-/// @brief High-level synchronization bridge managing shared graphics/CUDA buffers, streams, and timeline fences.
+/// @brief High-level synchronization bridge managing shared graphics/CUDA buffers, streams, and
+/// timeline fences.
 class CRESSIM_NEO_GPU_API CudaSharedBufferBridge
 {
 public:
@@ -203,15 +206,18 @@ public:
     /// @param buffer Source shared export buffer.
     /// @return True on success.
     bool bindSharedBuffer(const SharedExportBuffer &buffer);
-    /// @brief Signals from CUDA and instructs the graphics device context to wait for CUDA work completion.
+    /// @brief Signals from CUDA and instructs the graphics device context to wait for CUDA work
+    /// completion.
     /// @param context Device context to synchronize.
     /// @return True on success.
     bool synchronizeToDeviceContext(Diligent::IDeviceContext *context);
-    /// @brief Signals from graphics and instructs the CUDA stream to wait for graphics work completion.
+    /// @brief Signals from graphics and instructs the CUDA stream to wait for graphics work
+    /// completion.
     /// @param context Device context executing the graphics work.
     /// @return True on success.
     bool synchronizeFromDeviceContext(Diligent::IDeviceContext *context);
-    /// @brief Asynchronously copies device memory from the shared buffer to host memory via the internal CUDA stream.
+    /// @brief Asynchronously copies device memory from the shared buffer to host memory via the
+    /// internal CUDA stream.
     /// @param dst Destination host memory pointer.
     /// @param src Source CUDA device pointer.
     /// @param sizeBytes Transfer size in bytes.

@@ -17,7 +17,8 @@
 namespace cressim::neo::engine
 {
 
-/// @brief Primary ECS scene graph container managing entities, components, graphics views, and physics bindings.
+/// @brief Primary ECS scene graph container managing entities, components, graphics views, and
+/// physics bindings.
 class CRESSIM_NEO_ENGINE_API World
 {
 public:

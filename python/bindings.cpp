@@ -421,33 +421,30 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("w", &Diligent::uint4::w, "W component.");
 
     py::class_<Diligent::QuaternionF>(m, "Quaternion",
-                                       "Single-precision quaternion used for 3D rotations.")
+                                      "Single-precision quaternion used for 3D rotations.")
         .def(py::init<float, float, float, float>(), py::arg("x") = 0.0f, py::arg("y") = 0.0f,
              py::arg("z") = 0.0f, py::arg("w") = 1.0f,
              "Initializes quaternion components; the default is the identity rotation.")
         .def_property(
             "x", [](const Diligent::QuaternionF &q) { return q.q.x; },
-            [](Diligent::QuaternionF &q, const float value) { q.q.x = value; },
-            "X component.")
+            [](Diligent::QuaternionF &q, const float value) { q.q.x = value; }, "X component.")
         .def_property(
             "y", [](const Diligent::QuaternionF &q) { return q.q.y; },
-            [](Diligent::QuaternionF &q, const float value) { q.q.y = value; },
-            "Y component.")
+            [](Diligent::QuaternionF &q, const float value) { q.q.y = value; }, "Y component.")
         .def_property(
             "z", [](const Diligent::QuaternionF &q) { return q.q.z; },
-            [](Diligent::QuaternionF &q, const float value) { q.q.z = value; },
-            "Z component.")
+            [](Diligent::QuaternionF &q, const float value) { q.q.z = value; }, "Z component.")
         .def_property(
             "w", [](const Diligent::QuaternionF &q) { return q.q.w; },
-            [](Diligent::QuaternionF &q, const float value) { q.q.w = value; },
-            "W component.");
+            [](Diligent::QuaternionF &q, const float value) { q.q.w = value; }, "W component.");
 
     py::enum_<GpuBackend>(m, "GpuBackend", "GPU execution backend.")
         .value("Null", GpuBackend::Null, "Backend without GPU execution.")
         .value("D3D12", GpuBackend::D3D12, "Direct3D 12 backend.")
         .value("Vulkan", GpuBackend::Vulkan, "Vulkan backend.");
 
-    py::enum_<RenderOutputMode>(m, "RenderOutputMode", "Destination selection mode for rendered output.")
+    py::enum_<RenderOutputMode>(m, "RenderOutputMode",
+                                "Destination selection mode for rendered output.")
         .value("ManagedPrimary", RenderOutputMode::ManagedPrimary,
                "Use the runtime-managed primary output.")
         .value("ExplicitSurface", RenderOutputMode::ExplicitSurface,
@@ -460,7 +457,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Texture", CustomComputeResourceKind::Texture, "Texture image resource.");
 
     py::enum_<CustomComputeResourceAccess>(
-        m, "CustomComputeResourceAccess", "Access permission mode for custom compute shader resources.")
+        m, "CustomComputeResourceAccess",
+        "Access permission mode for custom compute shader resources.")
         .value("ReadOnly", CustomComputeResourceAccess::ReadOnly, "Read-only shader resource.")
         .value("WriteOnly", CustomComputeResourceAccess::WriteOnly,
                "Write-only unordered access resource.")
@@ -468,12 +466,13 @@ PYBIND11_MODULE(_cressim_neo, m)
                "Read-write unordered access resource.");
 
     py::enum_<GpuRenderTargetTexturePlane>(m, "GpuRenderTargetTexturePlane",
-                                            "Texture attachment selected from a render target.")
+                                           "Texture attachment selected from a render target.")
         .value("Color", GpuRenderTargetTexturePlane::Color, "Color attachment.")
         .value("Depth", GpuRenderTargetTexturePlane::Depth, "Depth attachment.");
 
-    py::enum_<CustomComputeDispatchMode>(m, "CustomComputeDispatchMode",
-                                         "Compute dispatch mode for executing custom compute passes.")
+    py::enum_<CustomComputeDispatchMode>(
+        m, "CustomComputeDispatchMode",
+        "Compute dispatch mode for executing custom compute passes.")
         .value("ExplicitGroupCount", CustomComputeDispatchMode::ExplicitGroupCount,
                "Dispatch using explicit 3D thread group counts.")
         .value("ResourceElementCount", CustomComputeDispatchMode::ResourceElementCount,
@@ -481,24 +480,25 @@ PYBIND11_MODULE(_cressim_neo, m)
 
     py::enum_<SharedBufferAccess>(m, "SharedBufferAccess",
                                   "Access permission flags for shared engine GPU buffers.")
-        .value("ReadOnly", SharedBufferAccess::ReadOnly,
-               "Buffer is read-only by shaders/compute.")
+        .value("ReadOnly", SharedBufferAccess::ReadOnly, "Buffer is read-only by shaders/compute.")
         .value("WriteOnly", SharedBufferAccess::WriteOnly,
                "Buffer is write-only by shaders/compute.")
         .value("ReadWrite", SharedBufferAccess::ReadWrite,
                "Buffer supports read and write access.");
 
-    py::enum_<SharedBufferBindFlags>(m, "SharedBufferBindFlags",
-                                     "Binding usage flags for shared GPU buffers.", py::arithmetic())
+    py::enum_<SharedBufferBindFlags>(
+        m, "SharedBufferBindFlags", "Binding usage flags for shared GPU buffers.", py::arithmetic())
         .value("None", SharedBufferBindFlags::None, "No binding flags specified.")
         .value("ShaderResource", SharedBufferBindFlags::ShaderResource,
                "Bindable as a Shader Resource View (SRV).")
         .value("UnorderedAccess", SharedBufferBindFlags::UnorderedAccess,
                "Bindable as an Unordered Access View (UAV).")
-        .def("__or__", [](const SharedBufferBindFlags lhs, const SharedBufferBindFlags rhs)
-             { return lhs | rhs; }, "Bitwise OR operator for SharedBufferBindFlags.")
-        .def("__and__", [](const SharedBufferBindFlags lhs, const SharedBufferBindFlags rhs)
-             { return lhs & rhs; }, "Bitwise AND operator for SharedBufferBindFlags.");
+        .def(
+            "__or__", [](const SharedBufferBindFlags lhs, const SharedBufferBindFlags rhs)
+            { return lhs | rhs; }, "Bitwise OR operator for SharedBufferBindFlags.")
+        .def(
+            "__and__", [](const SharedBufferBindFlags lhs, const SharedBufferBindFlags rhs)
+            { return lhs & rhs; }, "Bitwise AND operator for SharedBufferBindFlags.");
 
     py::enum_<SharedBufferTensorDTypeCode>(
         m, "SharedBufferTensorDTypeCode",
@@ -509,7 +509,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Bool", SharedBufferTensorDTypeCode::Bool, "Boolean.");
 
     py::class_<CustomComputePassHandle>(
-        m, "CustomComputePassHandle", "Handle wrapper identifying a registered custom compute shader pass.")
+        m, "CustomComputePassHandle",
+        "Handle wrapper identifying a registered custom compute shader pass.")
         .def(py::init<>(), "Initializes an invalid custom compute pass handle.")
         .def_readwrite("id", &CustomComputePassHandle::id, "Unique handle identifier.")
         .def("is_valid", &CustomComputePassHandle::isValid,
@@ -544,11 +545,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("debug_name", &SharedBufferInfo::debugName, "Debug label.")
         .def_readwrite("element_stride_bytes", &SharedBufferInfo::elementStrideBytes,
                        "Element stride in bytes.")
-        .def_readwrite("element_count", &SharedBufferInfo::elementCount,
-                       "Current element count.")
+        .def_readwrite("element_count", &SharedBufferInfo::elementCount, "Current element count.")
         .def_readwrite("capacity", &SharedBufferInfo::capacity, "Total element capacity.")
-        .def_readwrite("size_bytes", &SharedBufferInfo::sizeBytes,
-                       "Total allocated size in bytes.")
+        .def_readwrite("size_bytes", &SharedBufferInfo::sizeBytes, "Total allocated size in bytes.")
         .def_readwrite("access", &SharedBufferInfo::access, "Access mode.")
         .def_readwrite("bind_flags", &SharedBufferInfo::bindFlags, "Binding flags.")
         .def_readwrite("exportable", &SharedBufferInfo::exportable,
@@ -556,12 +555,14 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("imported_into_cuda", &SharedBufferInfo::importedIntoCuda,
                        "True if buffer is currently imported into CUDA.");
 
-    py::class_<SharedBufferCudaView>(m, "SharedBufferCudaView",
-                                     "View descriptor exposing CUDA device memory pointer and size for interop.")
+    py::class_<SharedBufferCudaView>(
+        m, "SharedBufferCudaView",
+        "View descriptor exposing CUDA device memory pointer and size for interop.")
         .def(py::init<>(), "Initializes an invalid CUDA device-memory view.")
-        .def_property_readonly("device_pointer", [](const SharedBufferCudaView &view)
-                               { return reinterpret_cast<std::uintptr_t>(view.devicePointer); },
-                               "Raw CUDA device pointer. Exposed to Python as an integer address.")
+        .def_property_readonly(
+            "device_pointer", [](const SharedBufferCudaView &view)
+            { return reinterpret_cast<std::uintptr_t>(view.devicePointer); },
+            "Raw CUDA device pointer. Exposed to Python as an integer address.")
         .def_readwrite("size_bytes", &SharedBufferCudaView::sizeBytes,
                        "Size of accessible device memory in bytes.")
         .def_readwrite("device_ordinal", &SharedBufferCudaView::deviceOrdinal,
@@ -575,8 +576,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def(py::init<>(), "Initializes metadata for a scalar float32 tensor at the buffer start.")
         .def_readwrite("shape", &SharedBufferTensorDesc::shape, "Tensor dimensions shape array.")
         .def_readwrite("strides", &SharedBufferTensorDesc::strides, "Tensor strides array.")
-        .def_readwrite("dtype_code", &SharedBufferTensorDesc::dtypeCode,
-                       "Element data type code.")
+        .def_readwrite("dtype_code", &SharedBufferTensorDesc::dtypeCode, "Element data type code.")
         .def_readwrite("dtype_bits", &SharedBufferTensorDesc::dtypeBits,
                        "Element bit width (e.g. 32 for float32).")
         .def_readwrite("dtype_lanes", &SharedBufferTensorDesc::dtypeLanes,
@@ -589,8 +589,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def(py::init<>(), "Initializes an invalid render-target handle.")
         .def_readwrite("id", &GpuRenderTargetHandle::id, "Opaque render-target identifier.");
 
-    py::class_<GpuRenderTargetBinding>(m, "GpuRenderTargetBinding",
-                                       "Selection of one or more array layers in an offscreen render target.")
+    py::class_<GpuRenderTargetBinding>(
+        m, "GpuRenderTargetBinding",
+        "Selection of one or more array layers in an offscreen render target.")
         .def(py::init<>(), "Initializes a binding with an invalid target.")
         .def_readwrite("target", &GpuRenderTargetBinding::target, "Target to bind.")
         .def_readwrite("first_layer", &GpuRenderTargetBinding::firstLayer,
@@ -601,17 +602,16 @@ PYBIND11_MODULE(_cressim_neo, m)
              "Returns whether the binding has a valid target identifier and a nonzero layer count.")
         .def(py::self == py::self, "Returns whether two bindings select the same target layers.");
 
-    py::class_<RigidLayoutMapping>(
-        m, "RigidLayoutMapping",
-        "Prepared host-side slot layout for rigid bodies and colliders.")
+    py::class_<RigidLayoutMapping>(m, "RigidLayoutMapping",
+                                   "Prepared host-side slot layout for rigid bodies and colliders.")
         .def(py::init<>(), "Initializes an empty rigid-body and collider layout mapping.")
         .def_readwrite("rigid_body_count", &RigidLayoutMapping::rigidBodyCount,
                        "Number of rigid-body slots in the prepared layout.")
         .def_readwrite("collider_count", &RigidLayoutMapping::colliderCount,
                        "Number of collider slots in the prepared layout.")
-        .def_readwrite(
-            "layout_revision", &RigidLayoutMapping::layoutRevision,
-            "Prepared rigid/collider slot-layout invalidation key produced by ``Runtime.prepare()``.")
+        .def_readwrite("layout_revision", &RigidLayoutMapping::layoutRevision,
+                       "Prepared rigid/collider slot-layout invalidation key produced by "
+                       "``Runtime.prepare()``.")
         .def_readwrite("rigid_body_ids", &RigidLayoutMapping::rigidBodyIds,
                        "Physics rigid-body IDs, indexed by rigid-body slot.")
         .def_readwrite("rigid_body_entity_ids", &RigidLayoutMapping::rigidBodyEntityIds,
@@ -672,9 +672,10 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("particle_entity_ids",
                        &RigidParticleAttachmentConstraintLayoutMapping::particleEntityIds,
                        "Entity IDs that own the referenced particles.")
-        .def_readwrite("particle_reference_types",
-                       &RigidParticleAttachmentConstraintLayoutMapping::particleReferenceTypes,
-                       "Numeric ``AuthoredParticleReferenceType`` values for the referenced particles.")
+        .def_readwrite(
+            "particle_reference_types",
+            &RigidParticleAttachmentConstraintLayoutMapping::particleReferenceTypes,
+            "Numeric ``AuthoredParticleReferenceType`` values for the referenced particles.")
         .def_readwrite("particle_local_indices",
                        &RigidParticleAttachmentConstraintLayoutMapping::particleLocalIndices,
                        "Particle indices local to their owning entities.")
@@ -737,8 +738,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         m, "ConstraintLayoutMapping",
         "Prepared host-side slot layout for rigid-adjacent constraints.")
         .def(py::init<>(), "Initializes an empty constraint layout mapping.")
-        .def_readwrite("layout_revision", &ConstraintLayoutMapping::layoutRevision,
-                       "Prepared constraint slot-layout invalidation key produced by ``Runtime.prepare()``.")
+        .def_readwrite(
+            "layout_revision", &ConstraintLayoutMapping::layoutRevision,
+            "Prepared constraint slot-layout invalidation key produced by ``Runtime.prepare()``.")
         .def_readwrite("rigid_particle_attachments",
                        &ConstraintLayoutMapping::rigidParticleAttachments,
                        "Prepared layout for rigid-particle attachment constraints.")
@@ -748,8 +750,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("routed_cables", &ConstraintLayoutMapping::routedCables,
                        "Prepared layout for routed cable constraints.");
 
-    py::class_<JointLayoutMapping>(
-        m, "JointLayoutMapping", "Prepared host-side slot layout for rigid joints.")
+    py::class_<JointLayoutMapping>(m, "JointLayoutMapping",
+                                   "Prepared host-side slot layout for rigid joints.")
         .def(py::init<>(), "Initializes an empty rigid-joint layout mapping.")
         .def_readwrite("ball_joint_count", &JointLayoutMapping::ballJointCount,
                        "Number of ball joint slots.")
@@ -759,8 +761,9 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Number of spherical joint slots.")
         .def_readwrite("slider_joint_count", &JointLayoutMapping::sliderJointCount,
                        "Number of slider joint slots.")
-        .def_readwrite("layout_revision", &JointLayoutMapping::layoutRevision,
-                       "Prepared rigid-joint slot-layout invalidation key produced by ``Runtime.prepare()``.")
+        .def_readwrite(
+            "layout_revision", &JointLayoutMapping::layoutRevision,
+            "Prepared rigid-joint slot-layout invalidation key produced by ``Runtime.prepare()``.")
         .def_readwrite("ball_joint_ids", &JointLayoutMapping::ballJointIds,
                        "Ball joint IDs for the ball joint slots.")
         .def_readwrite("ball_environment_indices", &JointLayoutMapping::ballEnvironmentIndices,
@@ -824,7 +827,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("strand_count", &ParticleLayoutMapping::strandCount,
                        "Number of prepared strand slots.")
         .def_readwrite("layout_revision", &ParticleLayoutMapping::layoutRevision,
-                       "Prepared particle/deformable slot-layout invalidation key produced by ``Runtime.prepare()``.")
+                       "Prepared particle/deformable slot-layout invalidation key produced by "
+                       "``Runtime.prepare()``.")
         .def_readwrite("environment_indices", &ParticleLayoutMapping::environmentIndices,
                        "Environment indices by prepared particle slot.")
         .def_readwrite("particle_kinds", &ParticleLayoutMapping::particleKinds,
@@ -883,8 +887,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("strand_particle_counts", &ParticleLayoutMapping::strandParticleCounts,
                        "Particle counts for the prepared strand slots.");
 
-    py::class_<CustomComputeResourceDesc>(
-        m, "CustomComputeResourceDesc", "Metadata descriptor for a custom compute GPU resource.")
+    py::class_<CustomComputeResourceDesc>(m, "CustomComputeResourceDesc",
+                                          "Metadata descriptor for a custom compute GPU resource.")
         .def(py::init<>(), "Initializes a custom compute GPU resource descriptor.")
         .def_readwrite("key", &CustomComputeResourceDesc::key,
                        "Unique resource string identifier key.")
@@ -946,8 +950,7 @@ PYBIND11_MODULE(_cressim_neo, m)
             "shader_directory",
             [](const CustomComputePassDesc &desc) { return desc.shaderDirectory.string(); },
             [](CustomComputePassDesc &desc, const std::string &value)
-            { desc.shaderDirectory = value; },
-            "Root directory for shader source files.")
+            { desc.shaderDirectory = value; }, "Root directory for shader source files.")
         .def_readwrite("shader_path", &CustomComputePassDesc::shaderPath,
                        "Shader source path relative to shaderDirectory.")
         .def_readwrite("shader_source", &CustomComputePassDesc::shaderSource,
@@ -995,7 +998,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("dispatch", &CustomComputePassDesc::dispatch, "Dispatch parameters.");
 
     py::enum_<Diligent::TEXTURE_FORMAT>(m, "TextureFormat",
-                                         "Texture formats supported by the Python binding.")
+                                        "Texture formats supported by the Python binding.")
         .value("Unknown", Diligent::TEX_FORMAT_UNKNOWN,
                "Unspecified format; uses an API-specific default where supported.")
         .value("RGBA8Unorm", Diligent::TEX_FORMAT_RGBA8_UNORM,
@@ -1012,8 +1015,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                "Single-channel 32-bit floating-point format.")
         .value("R32Uint", Diligent::TEX_FORMAT_R32_UINT,
                "Single-channel 32-bit unsigned integer format.")
-        .value("D32Float", Diligent::TEX_FORMAT_D32_FLOAT,
-               "32-bit floating-point depth format.");
+        .value("D32Float", Diligent::TEX_FORMAT_D32_FLOAT, "32-bit floating-point depth format.");
 
     py::enum_<CameraComponent::Product>(m, "CameraProduct",
                                         "Output product modes rendered by the camera.")
@@ -1037,25 +1039,24 @@ PYBIND11_MODULE(_cressim_neo, m)
                "Skybox / Image-Based Lighting cubemap background.");
 
     py::enum_<cressim::neo::physics::RigidBodyType>(m, "RigidBodyType",
-                                                     "Rigid body simulation types.")
-        .value("Static", cressim::neo::physics::RigidBodyType::Static,
-               "Static rigid body.")
+                                                    "Rigid body simulation types.")
+        .value("Static", cressim::neo::physics::RigidBodyType::Static, "Static rigid body.")
         .value("Kinematic", cressim::neo::physics::RigidBodyType::Kinematic,
                "Kinematic rigid body.")
         .value("Dynamic", cressim::neo::physics::RigidBodyType::Dynamic,
                "Dynamically simulated rigid body.");
 
     py::enum_<cressim::neo::physics::ColliderShapeType>(m, "ColliderShapeType",
-                                                         "Collider primitive geometry types.")
+                                                        "Collider primitive geometry types.")
         .value("Sphere", cressim::neo::physics::ColliderShapeType::Sphere,
                "Spherical collider primitive.")
-        .value("Box", cressim::neo::physics::ColliderShapeType::Box,
-               "Box collider primitive.")
+        .value("Box", cressim::neo::physics::ColliderShapeType::Box, "Box collider primitive.")
         .value("Capsule", cressim::neo::physics::ColliderShapeType::Capsule,
                "Capsule collider primitive.");
 
-    py::enum_<AuthoredParticleReferenceType>(m, "AuthoredParticleReferenceType",
-                                             "Selects the owner type of an authored particle reference.")
+    py::enum_<AuthoredParticleReferenceType>(
+        m, "AuthoredParticleReferenceType",
+        "Selects the owner type of an authored particle reference.")
         .value("SoftBodyParticle", AuthoredParticleReferenceType::SoftBodyParticle,
                "Particle belonging to a soft body.")
         .value("StrandParticle", AuthoredParticleReferenceType::StrandParticle,
@@ -1080,8 +1081,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                "Generate fluid particles from a regular grid.");
 
     py::enum_<ParticleKind>(m, "ParticleKind", "Simulation category assigned to a particle.")
-        .value("SoftSolid", ParticleKind::SoftSolid,
-               "Soft-body, strand, or rigid-proxy particle.")
+        .value("SoftSolid", ParticleKind::SoftSolid, "Soft-body, strand, or rigid-proxy particle.")
         .value("Fluid", ParticleKind::Fluid, "Fluid particle.");
 
     py::enum_<ParticleOwnerType>(m, "ParticleOwnerType",
@@ -1092,18 +1092,16 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Strand", ParticleOwnerType::Strand, "Strand particle owner.")
         .value("RigidBody", ParticleOwnerType::RigidBody, "Rigid-body proxy-particle owner.");
 
-    py::enum_<ParticleStrandRole>(m, "ParticleStrandRole",
-                                  "Suturing roles assigned to particles.")
+    py::enum_<ParticleStrandRole>(m, "ParticleStrandRole", "Suturing roles assigned to particles.")
         .value("None", ParticleStrandRole::None, "No suturing role.")
-        .value("NeedleTip", ParticleStrandRole::NeedleTip,
-               "Tip particle of a suturing sequence.")
+        .value("NeedleTip", ParticleStrandRole::NeedleTip, "Tip particle of a suturing sequence.")
         .value("NeedleBody", ParticleStrandRole::NeedleBody,
                "Non-tip needle particle of a suturing sequence.")
-        .value("Thread", ParticleStrandRole::Thread,
-               "Thread particle of a suturing sequence.");
+        .value("Thread", ParticleStrandRole::Thread, "Thread particle of a suturing sequence.");
 
-    py::enum_<RigidJointDriveMode>(m, "RigidJointDriveMode",
-                                   "Rigid-joint drive control modes; availability depends on joint type.")
+    py::enum_<RigidJointDriveMode>(
+        m, "RigidJointDriveMode",
+        "Rigid-joint drive control modes; availability depends on joint type.")
         .value("None", RigidJointDriveMode::None, "Disable joint drive control.")
         .value("TargetPosition", RigidJointDriveMode::TargetPosition,
                "Position-drive mode for hinge and slider joints.")
@@ -1130,9 +1128,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("CurveLit", MaterialProgramFamily::CurveLit,
                "Material program for curve render geometry.");
 
-    py::enum_<cressim::neo::graphics::MaterialFeatureFlags>(m, "MaterialFeatureFlags",
-                                                            py::arithmetic(),
-                                                            "Bit flags enabling material shader features.")
+    py::enum_<cressim::neo::graphics::MaterialFeatureFlags>(
+        m, "MaterialFeatureFlags", py::arithmetic(), "Bit flags enabling material shader features.")
         .value("None", cressim::neo::graphics::MaterialFeatureFlags::None,
                "Enable no optional features.")
         .value("AlphaTest", cressim::neo::graphics::MaterialFeatureFlags::AlphaTest,
@@ -1147,10 +1144,8 @@ PYBIND11_MODULE(_cressim_neo, m)
     py::enum_<MaterialRenderMode>(m, "MaterialRenderMode",
                                   "Selects the render pass and alpha behavior of a material.")
         .value("Opaque", MaterialRenderMode::Opaque, "Render in the opaque pass.")
-        .value("Cutout", MaterialRenderMode::Cutout,
-               "Render with alpha testing enabled.")
-        .value("Transparent", MaterialRenderMode::Transparent,
-               "Render in the transparent pass.");
+        .value("Cutout", MaterialRenderMode::Cutout, "Render with alpha testing enabled.")
+        .value("Transparent", MaterialRenderMode::Transparent, "Render in the transparent pass.");
 
     py::enum_<TextureColorSpace>(m, "TextureColorSpace", "Specifies a texture color space.")
         .value("Linear", TextureColorSpace::Linear, "Use linear color space.")
@@ -1163,17 +1158,17 @@ PYBIND11_MODULE(_cressim_neo, m)
     py::enum_<TextureMipPolicy>(m, "TextureMipPolicy", "Specifies a stored texture mipmap policy.")
         .value("Disabled", TextureMipPolicy::Disabled, "Mipmap generation is disabled.")
         .value("Generate", TextureMipPolicy::Generate,
-               "Mipmap generation is requested; current resource registration does not generate mipmaps.");
+               "Mipmap generation is requested; current resource registration does not generate "
+               "mipmaps.");
 
     py::enum_<TextureDimension>(m, "TextureDimension", "Specifies a texture dimension.")
-        .value("Texture2D", TextureDimension::Texture2D, "A two-dimensional texture with one layer.")
+        .value("Texture2D", TextureDimension::Texture2D,
+               "A two-dimensional texture with one layer.")
         .value("TextureCube", TextureDimension::TextureCube, "A cubemap texture with six layers.");
 
-    py::enum_<IblQualityTier>(m, "IblQualityTier",
-                              "Selects the image-based-lighting quality tier.")
+    py::enum_<IblQualityTier>(m, "IblQualityTier", "Selects the image-based-lighting quality tier.")
         .value("Off", IblQualityTier::Off, "Disable image-based lighting.")
-        .value("DiffuseOnly", IblQualityTier::DiffuseOnly,
-               "Use diffuse image-based lighting only.")
+        .value("DiffuseOnly", IblQualityTier::DiffuseOnly, "Use diffuse image-based lighting only.")
         .value("Full", IblQualityTier::Full,
                "Use diffuse and prefiltered specular image-based lighting.");
 
@@ -1211,34 +1206,43 @@ PYBIND11_MODULE(_cressim_neo, m)
     py::class_<GpuRenderTargetDesc>(m, "GpuRenderTargetDesc",
                                     "Descriptor for creating an offscreen GPU render target.")
         .def(py::init<>(), "Initializes the descriptor with its default attachment settings.")
-        .def_readwrite("width", &GpuRenderTargetDesc::width,
-                       "Target width in pixels; zero selects the current presentation width or 1280.")
-        .def_readwrite("height", &GpuRenderTargetDesc::height,
-                       "Target height in pixels; zero selects the current presentation height or 720.")
+        .def_readwrite(
+            "width", &GpuRenderTargetDesc::width,
+            "Target width in pixels; zero selects the current presentation width or 1280.")
+        .def_readwrite(
+            "height", &GpuRenderTargetDesc::height,
+            "Target height in pixels; zero selects the current presentation height or 720.")
         .def_readwrite("array_size", &GpuRenderTargetDesc::arraySize,
                        "Number of array layers in each attachment.")
-        .def_readwrite("color", &GpuRenderTargetDesc::color, "Whether to create a color attachment.")
-        .def_readwrite("depth", &GpuRenderTargetDesc::depth, "Whether to create a depth attachment.")
-        .def_readwrite("color_format", &GpuRenderTargetDesc::colorFormat,
-                       "Color attachment format; ``TextureFormat.Unknown`` selects an automatic format.")
-        .def_readwrite("depth_format", &GpuRenderTargetDesc::depthFormat,
-                       "Depth attachment format; ``TextureFormat.Unknown`` selects an automatic format.")
+        .def_readwrite("color", &GpuRenderTargetDesc::color,
+                       "Whether to create a color attachment.")
+        .def_readwrite("depth", &GpuRenderTargetDesc::depth,
+                       "Whether to create a depth attachment.")
+        .def_readwrite(
+            "color_format", &GpuRenderTargetDesc::colorFormat,
+            "Color attachment format; ``TextureFormat.Unknown`` selects an automatic format.")
+        .def_readwrite(
+            "depth_format", &GpuRenderTargetDesc::depthFormat,
+            "Depth attachment format; ``TextureFormat.Unknown`` selects an automatic format.")
         .def_readwrite("layered_rendering", &GpuRenderTargetDesc::layeredRendering,
                        "Whether attachment textures support layered rendering.")
         .def_readwrite("shader_readable", &GpuRenderTargetDesc::shaderReadable,
                        "Whether later shader passes may sample the attachments.")
-        .def_readwrite("unordered_access", &GpuRenderTargetDesc::unorderedAccess,
-                       "Whether the color attachment supports unordered-access views for compute passes.")
+        .def_readwrite(
+            "unordered_access", &GpuRenderTargetDesc::unorderedAccess,
+            "Whether the color attachment supports unordered-access views for compute passes.")
         .def_readwrite("debug_name", &GpuRenderTargetDesc::debugName,
                        "Diagnostic label for the render target.");
 
-    py::class_<GpuRenderTargetReadbackRequest>(m, "GpuRenderTargetReadbackRequest",
-                                               "Opaque per-device handle for a queued render-target readback.")
+    py::class_<GpuRenderTargetReadbackRequest>(
+        m, "GpuRenderTargetReadbackRequest",
+        "Opaque per-device handle for a queued render-target readback.")
         .def(py::init<>(), "Initializes an invalid readback request.")
         .def_readwrite("id", &GpuRenderTargetReadbackRequest::id, "Opaque request identifier.");
 
-    py::class_<GpuRenderTargetReadbackEvent>(m, "GpuRenderTargetReadbackEvent",
-                                             "Completed CPU-side readback of an offscreen render target.")
+    py::class_<GpuRenderTargetReadbackEvent>(
+        m, "GpuRenderTargetReadbackEvent",
+        "Completed CPU-side readback of an offscreen render target.")
         .def(py::init<>(), "Initializes an empty readback event.")
         .def_readwrite("binding", &GpuRenderTargetReadbackEvent::binding,
                        "Render-target layers read back by this event.")
@@ -1273,7 +1277,8 @@ PYBIND11_MODULE(_cressim_neo, m)
 
     py::class_<cressim::neo::common::SceneLayoutDesc>(
         m, "SceneLayoutDesc",
-        "Capacity configuration for the environments, renderable objects, lights, and cameras in a scene.")
+        "Capacity configuration for the environments, renderable objects, lights, and cameras in a "
+        "scene.")
         .def(py::init<>(), "Initializes the descriptor with its default capacities.")
         .def_readwrite("env_count", &cressim::neo::common::SceneLayoutDesc::envCount,
                        "Number of simulation and rendering environments.")
@@ -1294,8 +1299,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("total_camera_capacity", &cressim::neo::common::SceneLayoutDesc::totalCameraCapacity,
              "Returns the total camera capacity across all environments.");
 
-    py::class_<cressim::neo::gpu::GpuRenderViewport>(m, "GpuRenderViewport",
-                                                      "Normalized viewport rectangle relative to a bound render target.")
+    py::class_<cressim::neo::gpu::GpuRenderViewport>(
+        m, "GpuRenderViewport", "Normalized viewport rectangle relative to a bound render target.")
         .def(py::init<>(), "Initializes a viewport covering the complete render target.")
         .def_readwrite("x", &cressim::neo::gpu::GpuRenderViewport::x,
                        "Normalized left coordinate in the range [0, 1].")
@@ -1313,15 +1318,16 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Whether to create a presentation swap chain.")
         .def_readwrite("sync_interval", &GpuDeviceDesc::PresentationDesc::syncInterval,
                        "Swap-chain presentation interval; one enables v-sync and zero disables it.")
-        .def_readwrite("preferred_color_format",
-                       &GpuDeviceDesc::PresentationDesc::preferredColorFormat,
-                       "Preferred swap-chain color format; ``TextureFormat.Unknown`` lets the backend choose.")
+        .def_readwrite(
+            "preferred_color_format", &GpuDeviceDesc::PresentationDesc::preferredColorFormat,
+            "Preferred swap-chain color format; ``TextureFormat.Unknown`` lets the backend choose.")
         .def_property(
             "native_window", [](const GpuDeviceDesc::PresentationDesc &desc)
             { return reinterpret_cast<std::uintptr_t>(desc.nativeWindow); },
             [](GpuDeviceDesc::PresentationDesc &desc, const std::uintptr_t value)
             { desc.nativeWindow = reinterpret_cast<void *>(value); },
-            "Platform-native window pointer represented as an integer (Win32 HWND or macOS NSView).")
+            "Platform-native window pointer represented as an integer (Win32 HWND or macOS "
+            "NSView).")
         .def_readwrite("native_window_id", &GpuDeviceDesc::PresentationDesc::nativeWindowId,
                        "Platform-native window ID (X11 Window or XCB window handle on Linux).")
         .def_property(
@@ -1337,9 +1343,11 @@ PYBIND11_MODULE(_cressim_neo, m)
             { desc.nativeConnection = reinterpret_cast<void *>(value); },
             "XCB connection pointer represented as an integer.");
 
-    py::class_<GpuDeviceDesc>(m, "GpuDeviceDesc",
-                              "Configuration for initializing the GPU device and its shader source search paths.")
-        .def(py::init<>(), "Initializes the descriptor with a Vulkan backend preference and validation enabled.")
+    py::class_<GpuDeviceDesc>(
+        m, "GpuDeviceDesc",
+        "Configuration for initializing the GPU device and its shader source search paths.")
+        .def(py::init<>(),
+             "Initializes the descriptor with a Vulkan backend preference and validation enabled.")
         .def_readwrite("preferred_backend", &GpuDeviceDesc::preferredBackend,
                        "Preferred GPU execution backend.")
         .def_readwrite("enable_validation", &GpuDeviceDesc::enableValidation,
@@ -1373,7 +1381,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                     desc.shaderIncludeDirectories.emplace_back(value);
                 }
             },
-            "Ordered application shader-header search roots. Engine headers remain available under ``shader_directory/include``.");
+            "Ordered application shader-header search roots. Engine headers remain available under "
+            "``shader_directory/include``.");
 
     py::class_<RendererDesc>(m, "RendererDesc", "Configuration for the graphics renderer.")
         .def(py::init<>(), "Initializes the renderer with image-based lighting disabled.")
@@ -1387,12 +1396,14 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Gravity acceleration applied to rigid and particle simulation.")
         .def_readwrite("substeps", &PhysicsSolverDesc::substeps,
                        "Physics substeps per frame; values below one are clamped to one.")
-        .def_readwrite("default_iterations", &PhysicsSolverDesc::defaultIterations,
-                       "Fallback position-solver iteration count; values below one are clamped to one.")
+        .def_readwrite(
+            "default_iterations", &PhysicsSolverDesc::defaultIterations,
+            "Fallback position-solver iteration count; values below one are clamped to one.")
         .def_readwrite("fluid_iterations", &PhysicsSolverDesc::fluidIterations,
                        "Fluid-solver iteration count; zero uses ``default_iterations``.")
-        .def_readwrite("soft_internal_iterations", &PhysicsSolverDesc::softInternalIterations,
-                       "Soft-body internal-constraint iteration count; zero uses ``default_iterations``.")
+        .def_readwrite(
+            "soft_internal_iterations", &PhysicsSolverDesc::softInternalIterations,
+            "Soft-body internal-constraint iteration count; zero uses ``default_iterations``.")
         .def_readwrite("soft_contact_iterations", &PhysicsSolverDesc::softContactIterations,
                        "Soft-contact iteration count; zero uses ``default_iterations``.")
         .def_readwrite("rigid_joint_iterations", &PhysicsSolverDesc::rigidJointIterations,
@@ -1401,10 +1412,12 @@ PYBIND11_MODULE(_cressim_neo, m)
                        &PhysicsSolverDesc::rigidRigidContactIterations,
                        "Rigid-contact iteration count; zero uses ``default_iterations``.")
         .def_readwrite("enable_blocking_readback", &PhysicsSolverDesc::enableBlockingReadback,
-                       "Whether each physics step blocks to read simulated rigid and particle state back to the CPU.");
+                       "Whether each physics step blocks to read simulated rigid and particle "
+                       "state back to the CPU.");
 
-    py::class_<RuntimeConfig>(m, "RuntimeConfig",
-                              "Configuration descriptor for initializing the CRESSim-Neo engine runtime.")
+    py::class_<RuntimeConfig>(
+        m, "RuntimeConfig",
+        "Configuration descriptor for initializing the CRESSim-Neo engine runtime.")
         .def(py::init<>(), "Initializes the default runtime configuration.")
         .def_readwrite("gpu_device_desc", &RuntimeConfig::gpuDeviceDesc,
                        "Desired GPU device configuration.")
@@ -1412,15 +1425,13 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Scene layout capacity settings.")
         .def_readwrite("renderer_desc", &RuntimeConfig::rendererDesc,
                        "Graphics renderer parameters.")
-        .def_readwrite("physics_desc", &RuntimeConfig::physicsDesc,
-                       "Physics solver parameters.");
+        .def_readwrite("physics_desc", &RuntimeConfig::physicsDesc, "Physics solver parameters.");
 
 #ifdef CRESSIM_NEO_PYTHON_HAS_VIEWER
     py::class_<DebugViewerAppDesc>(m, "DebugViewerAppDesc",
                                    "Configuration for the debug viewer application.")
         .def(py::init<>(), "Initializes the default debug viewer configuration.")
-        .def_readwrite("window_title", &DebugViewerAppDesc::windowTitle,
-                       "Window title.")
+        .def_readwrite("window_title", &DebugViewerAppDesc::windowTitle, "Window title.")
         .def_readwrite("width", &DebugViewerAppDesc::width,
                        "Requested render target and window width in pixels.")
         .def_readwrite("height", &DebugViewerAppDesc::height,
@@ -1451,8 +1462,9 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Upper bound for free-camera movement speed.")
         .def_readwrite("fixed_delta_seconds", &DebugViewerAppDesc::fixedDeltaSeconds,
                        "Fixed frame delta in seconds.")
-        .def_readwrite("use_fixed_timestep", &DebugViewerAppDesc::useFixedTimestep,
-                       "Whether viewer ticks use ``fixed_delta_seconds`` instead of wall-clock time.")
+        .def_readwrite(
+            "use_fixed_timestep", &DebugViewerAppDesc::useFixedTimestep,
+            "Whether viewer ticks use ``fixed_delta_seconds`` instead of wall-clock time.")
         .def_readwrite("step_simulation", &DebugViewerAppDesc::stepSimulation,
                        "Whether each viewer tick advances simulation physics and sensors.")
         .def_readwrite("max_frames", &DebugViewerAppDesc::maxFrames,
@@ -1464,8 +1476,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("stats_interval_frames", &DebugViewerAppDesc::statsIntervalFrames,
                        "Frame interval used to update displayed statistics.");
 
-    py::class_<DebugViewerCameraBinding>(
-        m, "DebugViewerCameraBinding", "Viewer camera selection and optional input overrides.")
+    py::class_<DebugViewerCameraBinding>(m, "DebugViewerCameraBinding",
+                                         "Viewer camera selection and optional input overrides.")
         .def(py::init<>(), "Initializes an empty debug viewer camera binding.")
         .def_readwrite("camera_entity", &DebugViewerCameraBinding::cameraEntity,
                        "Entity ID of the camera controlled and presented by the viewer.")
@@ -1507,7 +1519,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                     fn(frame, py::cast(&runtime, py::return_value_policy::reference));
                 };
             },
-            "Callable invoked before each viewer tick as ``callback(frame_context, runtime)``; set to ``None`` to clear it.")
+            "Callable invoked before each viewer tick as ``callback(frame_context, runtime)``; set "
+            "to ``None`` to clear it.")
         .def_property(
             "after_tick",
             [](py::object self) -> py::object
@@ -1533,14 +1546,18 @@ PYBIND11_MODULE(_cressim_neo, m)
                     fn(frame, py::cast(&runtime, py::return_value_policy::reference));
                 };
             },
-            "Callable invoked after each viewer tick as ``callback(frame_context, runtime)``; set to ``None`` to clear it.");
+            "Callable invoked after each viewer tick as ``callback(frame_context, runtime)``; set "
+            "to ``None`` to clear it.");
 
     py::class_<DebugViewerApp>(m, "DebugViewerApp", "Interactive debug viewer application.")
         .def(py::init<>(), "Constructs a debug viewer application.")
-        .def("initialize", [](DebugViewerApp &viewer, const DebugViewerAppDesc &desc,
-                              RuntimeConfig &config) { return viewer.initialize(desc, config); },
-             "Initializes the viewer and updates ``config`` with presentation settings. Returns ``False`` if the viewer cannot be initialized.",
-             py::arg("desc"), py::arg("config"))
+        .def(
+            "initialize",
+            [](DebugViewerApp &viewer, const DebugViewerAppDesc &desc, RuntimeConfig &config)
+            { return viewer.initialize(desc, config); },
+            "Initializes the viewer and updates ``config`` with presentation settings. Returns "
+            "``False`` if the viewer cannot be initialized.",
+            py::arg("desc"), py::arg("config"))
         .def(
             "run",
             [](DebugViewerApp &viewer, py::object runtime_obj, py::object binding_obj,
@@ -1557,7 +1574,9 @@ PYBIND11_MODULE(_cressim_neo, m)
                     callbacks_obj.cast<const DebugViewerCallbacks &>();
                 return viewer.run(runtime, binding, callbacks);
             },
-            "Runs the viewer loop using a valid camera entity and initialized runtime. Optional callbacks receive ``(FrameContext, Runtime)``. Returns ``False`` if setup or execution fails.",
+            "Runs the viewer loop using a valid camera entity and initialized runtime. Optional "
+            "callbacks receive ``(FrameContext, Runtime)``. Returns ``False`` if setup or "
+            "execution fails.",
             py::arg("runtime"), py::arg("binding"), py::arg("callbacks") = py::none())
         .def("request_exit", &DebugViewerApp::requestExit,
              "Requests that the active viewer loop exit.")
@@ -1565,8 +1584,9 @@ PYBIND11_MODULE(_cressim_neo, m)
              "Shuts down the viewer and releases its window resources.");
 #endif
 
-    py::class_<RuntimeInfo>(m, "RuntimeInfo",
-                            "Information structure holding engine version and optional feature support flags.")
+    py::class_<RuntimeInfo>(
+        m, "RuntimeInfo",
+        "Information structure holding engine version and optional feature support flags.")
         .def(py::init<>(), "Initializes empty runtime information.")
         .def_readwrite("engine_version", &RuntimeInfo::engineVersion,
                        "Full semver engine version string.")
@@ -1585,32 +1605,34 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def(py::init<>(), "Initializes an invalid mesh handle.")
         .def_readwrite("id", &MeshHandle::id, "Resource identifier.");
 
-    py::class_<MaterialHandle>(m, "MaterialHandle", "Handle identifying a registered material resource.")
+    py::class_<MaterialHandle>(m, "MaterialHandle",
+                               "Handle identifying a registered material resource.")
         .def(py::init<>(), "Initializes an invalid material handle.")
         .def_readwrite("id", &MaterialHandle::id, "Resource identifier.");
 
-    py::class_<TextureHandle>(m, "TextureHandle", "Handle identifying a registered texture resource.")
+    py::class_<TextureHandle>(m, "TextureHandle",
+                              "Handle identifying a registered texture resource.")
         .def(py::init<>(), "Initializes an invalid texture handle.")
         .def_readwrite("id", &TextureHandle::id, "Resource identifier.");
 
     py::class_<MeshResourceDesc::Vertex>(m, "MeshVertex", "Vertex data for a mesh resource.")
-        .def(py::init<>(), "Initializes a vertex with default position, normal, texture coordinates, and tangent.")
+        .def(
+            py::init<>(),
+            "Initializes a vertex with default position, normal, texture coordinates, and tangent.")
         .def_readwrite("position", &MeshResourceDesc::Vertex::position, "Vertex position.")
         .def_readwrite("normal", &MeshResourceDesc::Vertex::normal, "Vertex normal.")
-        .def_readwrite("tex_coord_u", &MeshResourceDesc::Vertex::texCoordU,
-                       "U texture coordinate.")
-        .def_readwrite("tex_coord_v", &MeshResourceDesc::Vertex::texCoordV,
-                       "V texture coordinate.")
+        .def_readwrite("tex_coord_u", &MeshResourceDesc::Vertex::texCoordU, "U texture coordinate.")
+        .def_readwrite("tex_coord_v", &MeshResourceDesc::Vertex::texCoordV, "V texture coordinate.")
         .def_readwrite("tangent", &MeshResourceDesc::Vertex::tangent,
                        "Tangent vector with handedness in its w component.");
 
     py::class_<MeshResourceDesc>(m, "MeshResourceDesc", "Describes mesh data to register.")
         .def(py::init<>(), "Initializes an empty mesh description.")
         .def_readwrite("debug_name", &MeshResourceDesc::debugName, "Debug name for the mesh.")
-        .def_readwrite("vertices", &MeshResourceDesc::vertices,
-                       "Mesh vertices. Registration normalizes normals and generates or repairs tangents.")
-        .def_readwrite("indices", &MeshResourceDesc::indices,
-                       "Triangle index buffer.");
+        .def_readwrite(
+            "vertices", &MeshResourceDesc::vertices,
+            "Mesh vertices. Registration normalizes normals and generates or repairs tangents.")
+        .def_readwrite("indices", &MeshResourceDesc::indices, "Triangle index buffer.");
 
     py::class_<MaterialPipelineDesc>(m, "MaterialPipelineDesc",
                                      "Describes the shader program and features of a material.")
@@ -1625,7 +1647,8 @@ PYBIND11_MODULE(_cressim_neo, m)
     py::class_<MaterialResourceDesc>(m, "MaterialResourceDesc",
                                      "Describes a material resource to register.")
         .def(py::init<>(), "Initializes a default opaque material.")
-        .def_readwrite("debug_name", &MaterialResourceDesc::debugName, "Debug name for the material.")
+        .def_readwrite("debug_name", &MaterialResourceDesc::debugName,
+                       "Debug name for the material.")
         .def_readwrite("base_color", &MaterialResourceDesc::baseColor, "Base color factor.")
         .def_readwrite("metallic", &MaterialResourceDesc::metallic, "Metallic factor.")
         .def_readwrite("roughness", &MaterialResourceDesc::roughness, "Roughness factor.")
@@ -1634,7 +1657,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("base_color_texture", &MaterialResourceDesc::baseColorTexture,
                        "Base-color texture handle.")
         .def_readwrite("normal_texture", &MaterialResourceDesc::normalTexture,
-                       "Normal-map texture handle. Registration enables the NormalMap feature when its identifier is not invalid.")
+                       "Normal-map texture handle. Registration enables the NormalMap feature when "
+                       "its identifier is not invalid.")
         .def_readwrite("metallic_roughness_texture",
                        &MaterialResourceDesc::metallicRoughnessTexture,
                        "Metallic-roughness texture handle.")
@@ -1644,30 +1668,33 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Ambient-occlusion texture handle.")
         .def_readwrite("pipeline", &MaterialResourceDesc::pipeline,
                        "Material pipeline description.")
-        .def_readwrite("render_mode", &MaterialResourceDesc::renderMode,
-                       "Material render mode. Registration enables AlphaTest exactly for Cutout materials.")
-        .def_readwrite("render_order", &MaterialResourceDesc::renderOrder,
-                       "Orders materials only within the same render mode; lower values draw earlier.")
+        .def_readwrite(
+            "render_mode", &MaterialResourceDesc::renderMode,
+            "Material render mode. Registration enables AlphaTest exactly for Cutout materials.")
+        .def_readwrite(
+            "render_order", &MaterialResourceDesc::renderOrder,
+            "Orders materials only within the same render mode; lower values draw earlier.")
         .def_readwrite("opacity", &MaterialResourceDesc::opacity, "Base-color alpha factor.")
         .def_readwrite("casts_shadows", &MaterialResourceDesc::castsShadows,
                        "Whether the material casts shadows.")
         .def_readwrite("receives_shadows", &MaterialResourceDesc::receivesShadows,
                        "Whether the material receives shadows.");
 
-    py::class_<TextureResourceDesc::SubresourceDesc>(m, "TextureSubresourceDesc",
-                                                      "Pixel data for one texture mip level and layer.")
+    py::class_<TextureResourceDesc::SubresourceDesc>(
+        m, "TextureSubresourceDesc", "Pixel data for one texture mip level and layer.")
         .def(py::init<>(), "Initializes an empty subresource description.")
         .def_readwrite("pixel_data", &TextureResourceDesc::SubresourceDesc::pixelData,
                        "Raw pixel bytes for the subresource.");
 
-    py::class_<TextureResourceDesc>(m, "TextureResourceDesc",
-                                    "Describes texture data to register.")
+    py::class_<TextureResourceDesc>(m, "TextureResourceDesc", "Describes texture data to register.")
         .def(py::init<>(), "Initializes a one-pixel, one-mip 2D RGBA8 linear texture description.")
         .def_readwrite("debug_name", &TextureResourceDesc::debugName, "Debug name for the texture.")
-        .def_readwrite("width", &TextureResourceDesc::width,
-                       "Base-level texture width in pixels. Registration clamps it to at least one.")
-        .def_readwrite("height", &TextureResourceDesc::height,
-                       "Base-level texture height in pixels. Registration clamps it to at least one.")
+        .def_readwrite(
+            "width", &TextureResourceDesc::width,
+            "Base-level texture width in pixels. Registration clamps it to at least one.")
+        .def_readwrite(
+            "height", &TextureResourceDesc::height,
+            "Base-level texture height in pixels. Registration clamps it to at least one.")
         .def_readwrite("mip_level_count", &TextureResourceDesc::mipLevelCount,
                        "Number of mip levels. Registration clamps it to at least one.")
         .def_readwrite("dimension", &TextureResourceDesc::dimension, "Texture dimension.")
@@ -1675,16 +1702,20 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("color_space", &TextureResourceDesc::colorSpace, "Texture color space.")
         .def_readwrite("mip_policy", &TextureResourceDesc::mipPolicy,
                        "Requested mipmap policy retained with the resource description.")
-        .def_readwrite("subresources", &TextureResourceDesc::subresources,
-                       "Mip-major pixel data: one entry per mip and layer; cube textures have six layers.")
+        .def_readwrite(
+            "subresources", &TextureResourceDesc::subresources,
+            "Mip-major pixel data: one entry per mip and layer; cube textures have six layers.")
         .def_readwrite("pixel_data", &TextureResourceDesc::pixelData,
-                       "Convenience base-level pixel data used at registration only when subresources is empty.");
+                       "Convenience base-level pixel data used at registration only when "
+                       "subresources is empty.");
 
     py::class_<MeshRendererComponent>(
         m, "MeshRendererComponent",
         "Mesh renderer component binding a 3D mesh and material for visual rendering.")
-        .def(py::init<>(), "Initializes a mesh renderer with invalid resource handles and visible set to true.")
-        .def_readwrite("mesh", &MeshRendererComponent::mesh, "Handle to the geometry mesh resource.")
+        .def(py::init<>(),
+             "Initializes a mesh renderer with invalid resource handles and visible set to true.")
+        .def_readwrite("mesh", &MeshRendererComponent::mesh,
+                       "Handle to the geometry mesh resource.")
         .def_readwrite("material", &MeshRendererComponent::material,
                        "Handle to the visual material resource.")
         .def_readwrite("segmentation_id", &MeshRendererComponent::segmentationId,
@@ -1692,15 +1723,18 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("visible", &MeshRendererComponent::visible,
                        "Visibility flag for camera rendering.");
 
-    py::class_<CameraComponent>(m, "CameraComponent",
-                                "Camera component defining projection, view targets, and rendering modes.")
-        .def(py::init<>(), "Initializes a camera with the default projection, output, and clear settings.")
+    py::class_<CameraComponent>(
+        m, "CameraComponent",
+        "Camera component defining projection, view targets, and rendering modes.")
+        .def(py::init<>(),
+             "Initializes a camera with the default projection, output, and clear settings.")
         .def_readwrite("vertical_fov_degrees", &CameraComponent::verticalFovDegrees,
                        "Vertical Field-of-View in degrees.")
         .def_readwrite("near_clip", &CameraComponent::nearClip, "Near clipping plane distance.")
         .def_readwrite("far_clip", &CameraComponent::farClip, "Far clipping plane distance.")
         .def_readwrite("product", &CameraComponent::product, "Rendered camera output product type.")
-        .def_readwrite("output", &CameraComponent::output, "Target render output binding descriptor.")
+        .def_readwrite("output", &CameraComponent::output,
+                       "Target render output binding descriptor.")
         .def_readwrite("output_width", &CameraComponent::outputWidth,
                        "Optional explicit target width (0 for default).")
         .def_readwrite("output_height", &CameraComponent::outputHeight,
@@ -1713,8 +1747,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Whether to clear target depth buffer before rendering.")
         .def_readwrite("clear_color_value", &CameraComponent::clearColorValue,
                        "Clear color RGBA values.")
-        .def_readwrite("clear_depth_value", &CameraComponent::clearDepthValue,
-                       "Clear depth value.")
+        .def_readwrite("clear_depth_value", &CameraComponent::clearDepthValue, "Clear depth value.")
         .def_readwrite("background_mode", &CameraComponent::backgroundMode,
                        "Camera background rendering mode.")
         .def_readwrite("render_order", &CameraComponent::renderOrder,
@@ -1724,7 +1757,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         m, "DirectionalLightComponent",
         "Directional light source for global scene illumination and shadow mapping.")
         .def(py::init<>(), "Initializes a downward white directional light that casts shadows.")
-        .def_readwrite("direction", &DirectionalLightComponent::direction, "Light direction vector.")
+        .def_readwrite("direction", &DirectionalLightComponent::direction,
+                       "Light direction vector.")
         .def_readwrite("color", &DirectionalLightComponent::color, "Light color RGB values.")
         .def_readwrite("intensity", &DirectionalLightComponent::intensity,
                        "Illumination intensity multiplier.")
@@ -1739,8 +1773,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("casts_shadows", &DirectionalLightComponent::castsShadows,
                        "Enable shadow map generation.");
 
-    py::class_<PointLightComponent>(m, "PointLightComponent",
-                                    "Point light source emitting light uniformly in all directions.")
+    py::class_<PointLightComponent>(
+        m, "PointLightComponent", "Point light source emitting light uniformly in all directions.")
         .def(py::init<>(), "Initializes a white point light that does not cast shadows.")
         .def_readwrite("color", &PointLightComponent::color, "Light color RGB values.")
         .def_readwrite("intensity", &PointLightComponent::intensity,
@@ -1750,8 +1784,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("casts_shadows", &PointLightComponent::castsShadows,
                        "Enable shadow map generation.");
 
-    py::class_<SpotLightComponent>(m, "SpotLightComponent",
-                                   "Spot light source emitting a cone of light in a specified direction.")
+    py::class_<SpotLightComponent>(
+        m, "SpotLightComponent",
+        "Spot light source emitting a cone of light in a specified direction.")
         .def(py::init<>(), "Initializes a downward white spot light that does not cast shadows.")
         .def_readwrite("direction", &SpotLightComponent::direction,
                        "Spot light emission direction.")
@@ -1767,9 +1802,11 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("casts_shadows", &SpotLightComponent::castsShadows,
                        "Enable shadow map generation.");
 
-    py::class_<EnvironmentIblDesc>(m, "EnvironmentIblDesc",
-                                   "Describes image-based lighting and skybox textures for an environment.")
-        .def(py::init<>(), "Initializes an environment IBL description with invalid texture handles.")
+    py::class_<EnvironmentIblDesc>(
+        m, "EnvironmentIblDesc",
+        "Describes image-based lighting and skybox textures for an environment.")
+        .def(py::init<>(),
+             "Initializes an environment IBL description with invalid texture handles.")
         .def_readwrite("background_cubemap", &EnvironmentIblDesc::backgroundCubemap,
                        "Cubemap used for the environment background.")
         .def_readwrite("irradiance_cubemap", &EnvironmentIblDesc::irradianceCubemap,
@@ -1785,8 +1822,9 @@ PYBIND11_MODULE(_cressim_neo, m)
              "Returns false for Off; for DiffuseOnly, checks that the irradiance handle ID is not "
              "invalid; for Full, checks the irradiance and prefiltered specular handle IDs.");
 
-    py::class_<EnvironmentFluidDesc>(m, "EnvironmentFluidDesc",
-                                     "Configures fluid surface filtering and compositing for an environment.")
+    py::class_<EnvironmentFluidDesc>(
+        m, "EnvironmentFluidDesc",
+        "Configures fluid surface filtering and compositing for an environment.")
         .def(py::init<>(), "Initializes the default fluid rendering configuration.")
         .def_readwrite("smoothness", &EnvironmentFluidDesc::smoothness,
                        "Fluid surface smoothness passed to the composite shader.")
@@ -1796,12 +1834,14 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Fresnel factor passed to the composite shader.")
         .def_readwrite("depth_edge_threshold", &EnvironmentFluidDesc::depthEdgeThreshold,
                        "Depth discontinuity threshold used for fluid normal reconstruction.")
-        .def_readwrite("filter_radius_pixels", &EnvironmentFluidDesc::filterRadiusPixels,
-                       "Maximum fluid depth-filter radius in pixels; values below one are clamped to one.")
+        .def_readwrite(
+            "filter_radius_pixels", &EnvironmentFluidDesc::filterRadiusPixels,
+            "Maximum fluid depth-filter radius in pixels; values below one are clamped to one.")
         .def_readwrite("filter_world_radius", &EnvironmentFluidDesc::filterWorldRadius,
                        "World-space fluid depth-filter radius; values at or below 1e-4 use 0.18.")
-        .def_readwrite("filter_depth_threshold", &EnvironmentFluidDesc::filterDepthThreshold,
-                       "Depth threshold for fluid depth filtering; values at or below 1e-4 use 1e-4.")
+        .def_readwrite(
+            "filter_depth_threshold", &EnvironmentFluidDesc::filterDepthThreshold,
+            "Depth threshold for fluid depth filtering; values at or below 1e-4 use 1e-4.")
         .def_readwrite("enable_background_refraction",
                        &EnvironmentFluidDesc::enableBackgroundRefraction,
                        "Whether fluid compositing refracts the background color.")
@@ -1812,7 +1852,8 @@ PYBIND11_MODULE(_cressim_neo, m)
 
     py::class_<ParticleContactMaterialDesc>(m, "ParticleContactMaterialDesc",
                                             "Contact material parameters for particles.")
-        .def(py::init<>(), "Initializes a contact material with zero friction, restitution, and damping.")
+        .def(py::init<>(),
+             "Initializes a contact material with zero friction, restitution, and damping.")
         .def_readwrite("friction", &ParticleContactMaterialDesc::friction,
                        "Dynamic friction coefficient.")
         .def_readwrite("restitution", &ParticleContactMaterialDesc::restitution,
@@ -1820,17 +1861,17 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("damping", &ParticleContactMaterialDesc::damping,
                        "Contact damping coefficient.")
         .def_readwrite("static_friction", &ParticleContactMaterialDesc::staticFriction,
-                       "Static friction coefficient; a negative value uses friction when the material is normalized.");
+                       "Static friction coefficient; a negative value uses friction when the "
+                       "material is normalized.");
 
-    py::class_<SoftBodyRegularGridSource>(m, "SoftBodyRegularGridSource",
-                                          "Parameters for generating a tetrahedral soft body from a regular grid.")
+    py::class_<SoftBodyRegularGridSource>(
+        m, "SoftBodyRegularGridSource",
+        "Parameters for generating a tetrahedral soft body from a regular grid.")
         .def(py::init<>(), "Initializes a one-unit grid with target particle spacing 0.25.")
-        .def_readwrite("size", &SoftBodyRegularGridSource::size,
-                       "Grid extent in object space.")
+        .def_readwrite("size", &SoftBodyRegularGridSource::size, "Grid extent in object space.")
         .def_readwrite("target_particle_spacing", &SoftBodyRegularGridSource::targetParticleSpacing,
                        "Target distance between generated grid particles.")
-        .def_readwrite("static_particle_indices",
-                       &SoftBodyRegularGridSource::staticParticleIndices,
+        .def_readwrite("static_particle_indices", &SoftBodyRegularGridSource::staticParticleIndices,
                        "Generated particle indices to make static.");
 
     py::class_<SoftBodyTetMeshSource>(m, "SoftBodyTetMeshSource",
@@ -1839,8 +1880,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("object_space_rest_positions",
                        &SoftBodyTetMeshSource::objectSpaceRestPositions,
                        "Object-space rest positions of tetrahedral-mesh vertices.")
-        .def_readwrite("tet_vertex_indices", &SoftBodyTetMeshSource::tetVertexIndices,
-                       "Flat tetrahedron index buffer; each group of four indices defines one tetrahedron.")
+        .def_readwrite(
+            "tet_vertex_indices", &SoftBodyTetMeshSource::tetVertexIndices,
+            "Flat tetrahedron index buffer; each group of four indices defines one tetrahedron.")
         .def_readwrite("static_particle_indices", &SoftBodyTetMeshSource::staticParticleIndices,
                        "Particle indices to make static.");
 
@@ -1887,17 +1929,18 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("meshfree_particles", &SoftBodySourceDesc::meshfreeParticles,
                        "Source data used when kind is MeshfreeParticles.");
 
-    py::class_<FluidRegularGridSource>(m, "FluidRegularGridSource",
-                                       "Parameters for generating fluid particles from a regular grid.")
+    py::class_<FluidRegularGridSource>(
+        m, "FluidRegularGridSource",
+        "Parameters for generating fluid particles from a regular grid.")
         .def(py::init<>(), "Initializes a one-unit grid with target particle spacing 0.25.")
         .def_readwrite("size", &FluidRegularGridSource::size, "Grid extent in object space.")
         .def_readwrite("target_particle_spacing", &FluidRegularGridSource::targetParticleSpacing,
                        "Target distance between generated fluid particles.");
 
-    py::class_<FluidSourceDesc>(m, "FluidSourceDesc", "Selects and stores source data for a fluid body.")
+    py::class_<FluidSourceDesc>(m, "FluidSourceDesc",
+                                "Selects and stores source data for a fluid body.")
         .def(py::init<>(), "Initializes a regular-grid fluid source.")
-        .def_readwrite("kind", &FluidSourceDesc::kind,
-                       "Selects which source-data member is used.")
+        .def_readwrite("kind", &FluidSourceDesc::kind, "Selects which source-data member is used.")
         .def_readwrite("regular_grid", &FluidSourceDesc::regularGrid,
                        "Source data used when kind is RegularGrid.");
 
@@ -1927,9 +1970,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("cfl_coefficient", &FluidMaterialDesc::cflCoefficient,
                        "Coefficient used to derive the fluid CFL radius.");
 
-    py::class_<RigidBodyComponent>(
-        m, "RigidBodyComponent",
-        "Rigid body component defining linear/angular velocity, mass properties, and kinematic targets.")
+    py::class_<RigidBodyComponent>(m, "RigidBodyComponent",
+                                   "Rigid body component defining linear/angular velocity, mass "
+                                   "properties, and kinematic targets.")
         .def(py::init<>(), "Initializes the default rigid body component.")
         .def_readwrite("linear_velocity", &RigidBodyComponent::linearVelocity,
                        "Linear velocity vector.")
@@ -2027,11 +2070,14 @@ PYBIND11_MODULE(_cressim_neo, m)
                        &HingeJointState::suppressConnectedBodyCollisions,
                        "Suppress collisions between the connected bodies.")
         .def_readwrite("drive_mode", &HingeJointState::driveMode, "Hinge drive control mode.")
-        .def_readwrite("limit_enabled", &HingeJointState::limitEnabled, "Enable hinge angle limits.")
+        .def_readwrite("limit_enabled", &HingeJointState::limitEnabled,
+                       "Enable hinge angle limits.")
         .def_readwrite("body_a", &HingeJointState::bodyA,
-                       "First connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+                       "First connected body ID. Use an entity ID when upserting through World; "
+                       "retrieved states contain a rigid-body ID.")
         .def_readwrite("body_b", &HingeJointState::bodyB,
-                       "Second connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+                       "Second connected body ID. Use an entity ID when upserting through World; "
+                       "retrieved states contain a rigid-body ID.")
         .def_readwrite("local_anchor_a", &HingeJointState::localAnchorA,
                        "Joint anchor in body A local coordinates.")
         .def_readwrite("local_anchor_b", &HingeJointState::localAnchorB,
@@ -2066,17 +2112,19 @@ PYBIND11_MODULE(_cressim_neo, m)
                        &BallJointState::suppressConnectedBodyCollisions,
                        "Suppress collisions between the connected bodies.")
         .def_readwrite("body_a", &BallJointState::bodyA,
-                       "First connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+                       "First connected body ID. Use an entity ID when upserting through World; "
+                       "retrieved states contain a rigid-body ID.")
         .def_readwrite("body_b", &BallJointState::bodyB,
-                       "Second connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+                       "Second connected body ID. Use an entity ID when upserting through World; "
+                       "retrieved states contain a rigid-body ID.")
         .def_readwrite("local_anchor_a", &BallJointState::localAnchorA,
                        "Joint anchor in body A local coordinates.")
         .def_readwrite("local_anchor_b", &BallJointState::localAnchorB,
                        "Joint anchor in body B local coordinates.");
 
-    py::class_<SphericalJointState>(
-        m, "SphericalJointState",
-        "State for a spherical joint with optional swing, twist, and orientation-drive constraints.")
+    py::class_<SphericalJointState>(m, "SphericalJointState",
+                                    "State for a spherical joint with optional swing, twist, and "
+                                    "orientation-drive constraints.")
         .def(py::init<>(), "Initializes the default spherical-joint state.")
         .def_readwrite("joint_id", &SphericalJointState::jointId,
                        "Joint identifier; an invalid ID creates a joint on upsert.")
@@ -2089,9 +2137,11 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("limit_enabled", &SphericalJointState::limitEnabled,
                        "Enable swing and twist limits.")
         .def_readwrite("body_a", &SphericalJointState::bodyA,
-                       "First connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+                       "First connected body ID. Use an entity ID when upserting through World; "
+                       "retrieved states contain a rigid-body ID.")
         .def_readwrite("body_b", &SphericalJointState::bodyB,
-                       "Second connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+                       "Second connected body ID. Use an entity ID when upserting through World; "
+                       "retrieved states contain a rigid-body ID.")
         .def_readwrite("local_anchor_a", &SphericalJointState::localAnchorA,
                        "Joint anchor in body A local coordinates.")
         .def_readwrite("local_anchor_b", &SphericalJointState::localAnchorB,
@@ -2120,7 +2170,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Target orientation for orientation drive control.");
 
     py::class_<SliderJointState>(m, "SliderJointState",
-                                "State for a slider joint between two rigid bodies.")
+                                 "State for a slider joint between two rigid bodies.")
         .def(py::init<>(), "Initializes the default slider-joint state.")
         .def_readwrite("joint_id", &SliderJointState::jointId,
                        "Joint identifier; an invalid ID creates a joint on upsert.")
@@ -2132,9 +2182,11 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("limit_enabled", &SliderJointState::limitEnabled,
                        "Enable slider position limits.")
         .def_readwrite("body_a", &SliderJointState::bodyA,
-                       "First connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+                       "First connected body ID. Use an entity ID when upserting through World; "
+                       "retrieved states contain a rigid-body ID.")
         .def_readwrite("body_b", &SliderJointState::bodyB,
-                       "Second connected body ID. Use an entity ID when upserting through World; retrieved states contain a rigid-body ID.")
+                       "Second connected body ID. Use an entity ID when upserting through World; "
+                       "retrieved states contain a rigid-body ID.")
         .def_readwrite("local_anchor_a", &SliderJointState::localAnchorA,
                        "Joint anchor in body A local coordinates.")
         .def_readwrite("local_anchor_b", &SliderJointState::localAnchorB,
@@ -2171,8 +2223,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("local_rotation", &ColliderComponent::localRotation,
                        "Local offset rotation relative to transform.")
         .def_readwrite("enabled", &ColliderComponent::enabled, "Active collision state.")
-        .def_readwrite("friction", &ColliderComponent::friction,
-                       "Dynamic friction coefficient.")
+        .def_readwrite("friction", &ColliderComponent::friction, "Dynamic friction coefficient.")
         .def_readwrite("static_friction", &ColliderComponent::staticFriction,
                        "Static friction coefficient (-1 to reuse dynamic friction).")
         .def_readwrite("restitution", &ColliderComponent::restitution,
@@ -2211,13 +2262,12 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Enable suturing path tracking.")
         .def_readwrite("path_node_spacing", &StrandComponent::pathNodeSpacing,
                        "Node spacing along suturing path.")
-        .def_readwrite("collision_layer", &StrandComponent::collisionLayer,
-                       "Collision layer.")
-        .def_readwrite("collision_mask", &StrandComponent::collisionMask,
-                       "Collision mask.");
+        .def_readwrite("collision_layer", &StrandComponent::collisionLayer, "Collision layer.")
+        .def_readwrite("collision_mask", &StrandComponent::collisionMask, "Collision mask.");
 
-    py::class_<FluidComponent>(m, "FluidComponent",
-                               "Particle-based fluid simulation component (SPH / Position-Based Fluids).")
+    py::class_<FluidComponent>(
+        m, "FluidComponent",
+        "Particle-based fluid simulation component (SPH / Position-Based Fluids).")
         .def(py::init<>(), "Initializes the default fluid component.")
         .def_readwrite("source", &FluidComponent::source,
                        "Fluid particle emitter/initializer source descriptor.")
@@ -2228,10 +2278,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("particle_mass", &FluidComponent::particleMass, "Fluid particle mass.")
         .def_readwrite("particle_radius", &FluidComponent::particleRadius,
                        "Particle interaction radius.")
-        .def_readwrite("collision_layer", &FluidComponent::collisionLayer,
-                       "Collision layer.")
-        .def_readwrite("collision_mask", &FluidComponent::collisionMask,
-                       "Collision mask.");
+        .def_readwrite("collision_layer", &FluidComponent::collisionLayer, "Collision layer.")
+        .def_readwrite("collision_mask", &FluidComponent::collisionMask, "Collision mask.");
 
     py::class_<UltrasoundProbeComponent>(
         m, "UltrasoundProbeComponent",
@@ -2299,8 +2347,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("fixed_max_signal", &UltrasoundRendererComponent::fixedMaxSignal,
                        "Fixed maximum signal normalization value.");
 
-    py::class_<UltrasoundProbeLayout>(m, "UltrasoundProbeLayout",
-                                      "Output layout descriptor for ultrasound probe imaging targets.")
+    py::class_<UltrasoundProbeLayout>(
+        m, "UltrasoundProbeLayout",
+        "Output layout descriptor for ultrasound probe imaging targets.")
         .def(py::init<>(), "Initializes an empty ultrasound probe layout.")
         .def_readwrite("num_scanlines", &UltrasoundProbeLayout::numScanlines,
                        "Total scanlines in probe image.")
@@ -2315,8 +2364,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("layered_output_supported", &UltrasoundProbeLayout::layeredOutputSupported,
                        "Support for array/layered render targets.");
 
-    py::class_<UltrasoundAmplitudeRange>(m, "UltrasoundAmplitudeRange",
-                                          "Signal amplitude range for ultrasound acoustic scatterer reflections.")
+    py::class_<UltrasoundAmplitudeRange>(
+        m, "UltrasoundAmplitudeRange",
+        "Signal amplitude range for ultrasound acoustic scatterer reflections.")
         .def(py::init<>(), "Initializes a zero-valued amplitude range.")
         .def(py::init<float, float>(), "Initializes an amplitude range.", py::arg("minimum"),
              py::arg("maximum"))
@@ -2360,7 +2410,8 @@ PYBIND11_MODULE(_cressim_neo, m)
 
     py::class_<ProceduralDeformableCurveRenderComponent>(
         m, "ProceduralDeformableCurveRenderComponent",
-        "Procedural render component for generating tube meshes along deformable curves (strands/sutures).")
+        "Procedural render component for generating tube meshes along deformable curves "
+        "(strands/sutures).")
         .def(py::init<>(), "Initializes the default procedural deformable-curve render component.")
         .def_readwrite("sequence_id", &ProceduralDeformableCurveRenderComponent::sequenceId,
                        "Target particle sequence ID.")
@@ -2372,8 +2423,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("enabled", &ProceduralDeformableCurveRenderComponent::enabled,
                        "Enable rendering.");
 
-    py::class_<SoftBodyAuthoringParticles>(m, "SoftBodyAuthoringParticles",
-                                            "Authoring particle position container for soft body asset creation.")
+    py::class_<SoftBodyAuthoringParticles>(
+        m, "SoftBodyAuthoringParticles",
+        "Authoring particle position container for soft body asset creation.")
         .def(py::init<>(), "Initializes an empty authoring particle container.")
         .def_readwrite("particle_count", &SoftBodyAuthoringParticles::particleCount,
                        "Total particle count.")
@@ -2390,9 +2442,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("local_particle_index", &AuthoredParticleReference::localParticleIndex,
                        "Index within the selected entity's particles or rigid proxy particles.");
 
-    py::class_<AuthoredParticleDistanceConstraintState>(m,
-                                                        "AuthoredParticleDistanceConstraintState",
-                                                        "Authored distance constraint between two referenced particles.")
+    py::class_<AuthoredParticleDistanceConstraintState>(
+        m, "AuthoredParticleDistanceConstraintState",
+        "Authored distance constraint between two referenced particles.")
         .def(py::init<>(), "Initializes a particle distance constraint with an invalid ID.")
         .def_readwrite("constraint_id", &AuthoredParticleDistanceConstraintState::constraintId,
                        "Stable constraint ID; an invalid ID is assigned on upsert.")
@@ -2408,7 +2460,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Whether the solver enables this constraint.");
 
     py::class_<AuthoredParticleSequenceState>(m, "AuthoredParticleSequenceState",
-                                               "Ordered authored particle references.")
+                                              "Ordered authored particle references.")
         .def(py::init<>(), "Initializes an empty particle sequence.")
         .def_readwrite("sequence_id", &AuthoredParticleSequenceState::sequenceId,
                        "Stable sequence ID; an invalid ID is assigned on upsert.")
@@ -2417,8 +2469,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("enabled", &AuthoredParticleSequenceState::enabled,
                        "Whether the sequence is enabled.");
 
-    py::class_<AuthoredParticleCollisionFilterState>(m, "AuthoredParticleCollisionFilterState",
-                                                      "Collision filtering override for a referenced particle.")
+    py::class_<AuthoredParticleCollisionFilterState>(
+        m, "AuthoredParticleCollisionFilterState",
+        "Collision filtering override for a referenced particle.")
         .def(py::init<>(), "Initializes a particle collision filter with default layer and mask.")
         .def_readwrite("filter_id", &AuthoredParticleCollisionFilterState::filterId,
                        "Stable filter ID; an invalid ID is assigned on upsert.")
@@ -2431,8 +2484,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("enabled", &AuthoredParticleCollisionFilterState::enabled,
                        "Whether the collision filter is enabled.");
 
-    py::class_<AuthoredSuturingSequenceState>(m, "AuthoredSuturingSequenceState",
-                                               "Authored suturing path formed from ordered particle references.")
+    py::class_<AuthoredSuturingSequenceState>(
+        m, "AuthoredSuturingSequenceState",
+        "Authored suturing path formed from ordered particle references.")
         .def(py::init<>(), "Initializes an empty suturing sequence.")
         .def_readwrite("sequence_id", &AuthoredSuturingSequenceState::sequenceId,
                        "Stable sequence ID; an invalid ID is assigned on upsert.")
@@ -2440,8 +2494,9 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Ordered particle references forming the suturing path.")
         .def_readwrite("tip_entry_index", &AuthoredSuturingSequenceState::tipEntryIndex,
                        "Index of the entry selected as the suturing-path tip.")
-        .def_readwrite("path_node_spacing", &AuthoredSuturingSequenceState::pathNodeSpacing,
-                       "Desired spacing between generated path nodes; zero selects a derived spacing.")
+        .def_readwrite(
+            "path_node_spacing", &AuthoredSuturingSequenceState::pathNodeSpacing,
+            "Desired spacing between generated path nodes; zero selects a derived spacing.")
         .def_readwrite("enabled", &AuthoredSuturingSequenceState::enabled,
                        "Whether the suturing sequence is enabled.");
 
@@ -2495,8 +2550,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("enabled", &AuthoredStrandRigidAttachmentConstraintState::enabled,
                        "Whether the attachment is enabled.");
 
-    py::class_<AuthoredRigidDistanceConstraintState>(m, "AuthoredRigidDistanceConstraintState",
-                                                      "Distance constraint between anchors on two rigid bodies.")
+    py::class_<AuthoredRigidDistanceConstraintState>(
+        m, "AuthoredRigidDistanceConstraintState",
+        "Distance constraint between anchors on two rigid bodies.")
         .def(py::init<>(), "Initializes a rigid distance constraint with an invalid ID.")
         .def_readwrite("constraint_id", &AuthoredRigidDistanceConstraintState::constraintId,
                        "Stable constraint ID; an invalid ID is assigned on upsert.")
@@ -2516,15 +2572,16 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Whether the constraint is enabled.");
 
     py::class_<AuthoredRoutedCableRoutePoint>(m, "AuthoredRoutedCableRoutePoint",
-                                               "Guide point on a rigid body used to route a cable.")
+                                              "Guide point on a rigid body used to route a cable.")
         .def(py::init<>(), "Initializes a route point with an invalid entity ID.")
         .def_readwrite("entity_id", &AuthoredRoutedCableRoutePoint::entityId,
                        "Rigid-body entity ID containing the guide point.")
         .def_readwrite("local_guide_offset", &AuthoredRoutedCableRoutePoint::localGuideOffset,
                        "Guide-point position in rigid-body local space.");
 
-    py::class_<AuthoredRoutedCableConstraintState>(m, "AuthoredRoutedCableConstraintState",
-                                                    "Cable-length constraint routed through rigid-body guide points.")
+    py::class_<AuthoredRoutedCableConstraintState>(
+        m, "AuthoredRoutedCableConstraintState",
+        "Cable-length constraint routed through rigid-body guide points.")
         .def(py::init<>(), "Initializes a routed cable constraint with an invalid ID.")
         .def_readwrite("constraint_id", &AuthoredRoutedCableConstraintState::constraintId,
                        "Stable constraint ID; an invalid ID is assigned on upsert.")
@@ -2539,15 +2596,16 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("enabled", &AuthoredRoutedCableConstraintState::enabled,
                        "Whether the cable constraint is enabled.");
 
-    py::class_<cressim::neo::engine::ColliderHandle>(m, "ColliderHandle",
-                                                      "Identifier for a collider registered with a World.")
+    py::class_<cressim::neo::engine::ColliderHandle>(
+        m, "ColliderHandle", "Identifier for a collider registered with a World.")
         .def(py::init<>(), "Initializes an invalid collider handle.")
         .def_readwrite("id", &cressim::neo::engine::ColliderHandle::id, "Collider identifier.")
         .def("is_valid", &cressim::neo::engine::ColliderHandle::isValid,
              "Returns whether this handle has a non-invalid identifier.");
 
-    py::class_<RenderStats>(m, "RenderStats",
-                            "Framework-level counters produced by a render frame, not GPU timestamps.")
+    py::class_<RenderStats>(
+        m, "RenderStats",
+        "Framework-level counters produced by a render frame, not GPU timestamps.")
         .def(py::init<>(), "Initializes zero-valued render counters.")
         .def_readwrite("draw_calls", &RenderStats::drawCalls,
                        "Total opaque, transparent, and shadow draw calls.")
@@ -2592,53 +2650,58 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("is_valid_texture",
              py::overload_cast<TextureHandle>(&RenderResourceManager::isValid, py::const_),
              "Returns whether a texture handle identifies a registered texture.")
-        .def("try_get_mesh",
-             [](const RenderResourceManager &resources, const MeshHandle mesh) -> py::object
-             {
-                 if (const auto *desc = resources.tryGetMesh(mesh))
-                 {
-                     return py::cast(*desc);
-                 }
-                 return py::none();
-             },
-             "Returns a copy of a registered mesh description, or None for an invalid handle.")
-        .def("try_get_material",
-             [](const RenderResourceManager &resources, const MaterialHandle material) -> py::object
-             {
-                 if (const auto *desc = resources.tryGetMaterial(material))
-                 {
-                     return py::cast(*desc);
-                 }
-                 return py::none();
-             },
-             "Returns a copy of a registered material description, or None for an invalid handle.")
-        .def("try_get_texture",
-             [](const RenderResourceManager &resources, const TextureHandle texture) -> py::object
-             {
-                 if (const auto *desc = resources.tryGetTexture(texture))
-                 {
-                     return py::cast(*desc);
-                 }
-                 return py::none();
-             },
-             "Returns a copy of a registered texture description, or None for an invalid handle.")
-        .def("try_get_mesh_local_bounds",
-             [](const RenderResourceManager &resources, const MeshHandle mesh) -> py::object
-             {
-                 Diligent::float3 boundsMin{};
-                 Diligent::float3 boundsMax{};
-                 if (!resources.tryGetMeshLocalBounds(mesh, boundsMin, boundsMax))
-                 {
-                     return py::none();
-                 }
-                 return py::make_tuple(boundsMin, boundsMax);
-             },
-             "Returns (minimum, maximum) local bounds for a non-empty registered mesh, or None.")
+        .def(
+            "try_get_mesh",
+            [](const RenderResourceManager &resources, const MeshHandle mesh) -> py::object
+            {
+                if (const auto *desc = resources.tryGetMesh(mesh))
+                {
+                    return py::cast(*desc);
+                }
+                return py::none();
+            },
+            "Returns a copy of a registered mesh description, or None for an invalid handle.")
+        .def(
+            "try_get_material",
+            [](const RenderResourceManager &resources, const MaterialHandle material) -> py::object
+            {
+                if (const auto *desc = resources.tryGetMaterial(material))
+                {
+                    return py::cast(*desc);
+                }
+                return py::none();
+            },
+            "Returns a copy of a registered material description, or None for an invalid handle.")
+        .def(
+            "try_get_texture",
+            [](const RenderResourceManager &resources, const TextureHandle texture) -> py::object
+            {
+                if (const auto *desc = resources.tryGetTexture(texture))
+                {
+                    return py::cast(*desc);
+                }
+                return py::none();
+            },
+            "Returns a copy of a registered texture description, or None for an invalid handle.")
+        .def(
+            "try_get_mesh_local_bounds",
+            [](const RenderResourceManager &resources, const MeshHandle mesh) -> py::object
+            {
+                Diligent::float3 boundsMin{};
+                Diligent::float3 boundsMax{};
+                if (!resources.tryGetMeshLocalBounds(mesh, boundsMin, boundsMax))
+                {
+                    return py::none();
+                }
+                return py::make_tuple(boundsMin, boundsMax);
+            },
+            "Returns (minimum, maximum) local bounds for a non-empty registered mesh, or None.")
         .def("mesh_version", &RenderResourceManager::meshVersion,
              "Returns the mesh version, or 0 for an invalid handle.");
 
     py::class_<World>(m, "World",
-                      "Primary ECS scene graph container managing entities, components, graphics views, and physics bindings.")
+                      "Primary ECS scene graph container managing entities, components, graphics "
+                      "views, and physics bindings.")
         .def("create_entity", &World::createEntity,
              "Creates a new entity within the world scene graph.", py::arg("env_index") = 0u)
         .def("destroy_entity", &World::destroyEntity,
@@ -2655,26 +2718,31 @@ PYBIND11_MODULE(_cressim_neo, m)
              "Configures Image-Based Lighting (IBL) environment maps for an environment index.")
         .def("set_environment_fluid", &World::setEnvironmentFluid,
              "Configures environment fluid properties for an environment index.")
-        .def("try_get_environment_ibl",
-             [](const World &world, const std::uint32_t envIndex) -> py::object
-             {
-                 if (const auto *desc = world.tryGetEnvironmentIbl(envIndex))
-                 {
-                     return py::cast(*desc);
+        .def(
+            "try_get_environment_ibl",
+            [](const World &world, const std::uint32_t envIndex) -> py::object
+            {
+                if (const auto *desc = world.tryGetEnvironmentIbl(envIndex))
+                {
+                    return py::cast(*desc);
                 }
                 return py::none();
-             }, "Tries to get the Environment IBL descriptor for an environment index.")
-        .def("try_get_environment_fluid",
-             [](const World &world, const std::uint32_t envIndex) -> py::object
-             {
-                 if (const auto *desc = world.tryGetEnvironmentFluid(envIndex))
-                 {
-                     return py::cast(*desc);
+            },
+            "Tries to get the Environment IBL descriptor for an environment index.")
+        .def(
+            "try_get_environment_fluid",
+            [](const World &world, const std::uint32_t envIndex) -> py::object
+            {
+                if (const auto *desc = world.tryGetEnvironmentFluid(envIndex))
+                {
+                    return py::cast(*desc);
                 }
                 return py::none();
-             }, "Tries to get the Environment fluid descriptor for an environment index.")
+            },
+            "Tries to get the Environment fluid descriptor for an environment index.")
         .def("is_alive", &World::isAlive, "Checks if an entity is alive and active in the world.")
-        .def("entities", &World::entities, "Returns the list of all active entity IDs in the world.",
+        .def("entities", &World::entities,
+             "Returns the list of all active entity IDs in the world.",
              py::return_value_policy::reference_internal)
         .def("set_transform", &World::setTransform,
              "Assigns or updates the TransformComponent for an entity.")
@@ -2690,7 +2758,8 @@ PYBIND11_MODULE(_cressim_neo, m)
              "Removes the mesh renderer component from an entity.")
         .def("try_get_mesh_renderer", &World::tryGetMeshRenderer,
              "Returns the mesh renderer component for an entity, or None.")
-        .def("set_camera", &World::setCamera, "Assigns or updates the CameraComponent for an entity.")
+        .def("set_camera", &World::setCamera,
+             "Assigns or updates the CameraComponent for an entity.")
         .def("remove_camera", &World::removeCamera, "Removes the camera component from an entity.")
         .def("try_get_camera", &World::tryGetCamera,
              "Returns the camera component for an entity, or None.")
@@ -2765,96 +2834,116 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("clear_ultrasound_scatterer_amplitude_ranges",
              &World::clearUltrasoundScattererAmplitudeRanges,
              "Clears ultrasound scatterer amplitude ranges for an entity.")
-        .def("try_get_ultrasound_scatterer_amplitude_ranges",
-             [](const World &world, const cressim::neo::common::EntityId entityId) -> py::object
-             {
-                 if (const auto *ranges = world.tryGetUltrasoundScattererAmplitudeRanges(entityId))
-                 {
-                     return py::cast(*ranges);
-                 }
-                 return py::none();
-             }, "Returns ultrasound scatterer amplitude ranges for an entity, or None.")
-        .def("try_get_ultrasound_probe_result",
-             [](const World &world, const cressim::neo::common::EntityId entityId) -> py::object
-             {
-                 if (const auto *result = world.tryGetUltrasoundProbeResult(entityId))
-                 {
-                     return py::cast(*result);
-                 }
-                 return py::none();
-             }, "Returns the most recently published ultrasound probe result for an entity, or None.")
+        .def(
+            "try_get_ultrasound_scatterer_amplitude_ranges",
+            [](const World &world, const cressim::neo::common::EntityId entityId) -> py::object
+            {
+                if (const auto *ranges = world.tryGetUltrasoundScattererAmplitudeRanges(entityId))
+                {
+                    return py::cast(*ranges);
+                }
+                return py::none();
+            },
+            "Returns ultrasound scatterer amplitude ranges for an entity, or None.")
+        .def(
+            "try_get_ultrasound_probe_result",
+            [](const World &world, const cressim::neo::common::EntityId entityId) -> py::object
+            {
+                if (const auto *result = world.tryGetUltrasoundProbeResult(entityId))
+                {
+                    return py::cast(*result);
+                }
+                return py::none();
+            },
+            "Returns the most recently published ultrasound probe result for an entity, or None.")
         .def("upsert_particle_sequence", &World::upsertParticleSequence,
              py::return_value_policy::reference_internal,
              "Creates or updates an authored particle sequence and returns its stored state.")
         .def("remove_particle_sequence", &World::removeParticleSequence,
              "Removes an authored particle sequence and returns whether it existed.")
-        .def("try_get_particle_sequence",
-             [](const World &world,
-                const cressim::neo::physics::ParticleSequenceId sequenceId) -> py::object
-             {
-                 if (const auto *state = world.tryGetParticleSequence(sequenceId))
-                 {
-                     return py::cast(*state);
+        .def(
+            "try_get_particle_sequence",
+            [](const World &world,
+               const cressim::neo::physics::ParticleSequenceId sequenceId) -> py::object
+            {
+                if (const auto *state = world.tryGetParticleSequence(sequenceId))
+                {
+                    return py::cast(*state);
                 }
                 return py::none();
-             }, "Returns an authored particle sequence by ID, or None.")
+            },
+            "Returns an authored particle sequence by ID, or None.")
         .def("upsert_particle_distance_constraint", &World::upsertParticleDistanceConstraint,
              py::return_value_policy::reference_internal,
-             "Creates or updates an authored particle distance constraint and returns its stored state.")
+             "Creates or updates an authored particle distance constraint and returns its stored "
+             "state.")
         .def("remove_particle_distance_constraint", &World::removeParticleDistanceConstraint,
              "Removes an authored particle distance constraint and returns whether it existed.")
-        .def("try_get_particle_distance_constraint",
-             [](const World &world,
-                const cressim::neo::physics::ParticleConstraintId constraintId) -> py::object
-             {
-                 if (const auto *state = world.tryGetParticleDistanceConstraint(constraintId))
-                 {
-                     return py::cast(*state);
-                 }
-                 return py::none();
-             }, "Returns an authored particle distance constraint by ID, or None.")
+        .def(
+            "try_get_particle_distance_constraint",
+            [](const World &world,
+               const cressim::neo::physics::ParticleConstraintId constraintId) -> py::object
+            {
+                if (const auto *state = world.tryGetParticleDistanceConstraint(constraintId))
+                {
+                    return py::cast(*state);
+                }
+                return py::none();
+            },
+            "Returns an authored particle distance constraint by ID, or None.")
         .def("upsert_ball_joint", &World::upsertBallJoint,
-             "Creates or updates a ball joint between two rigid-body entities and returns whether it succeeded.")
+             "Creates or updates a ball joint between two rigid-body entities and returns whether "
+             "it succeeded.")
         .def("remove_ball_joint", &World::removeBallJoint,
              "Removes a ball joint and returns whether it existed.")
-        .def("try_get_ball_joint",
-             [](const World &world, const cressim::neo::physics::BallJointId jointId) -> py::object
-             {
-                 if (const auto *state = world.tryGetBallJoint(jointId))
-                 {
-                     return py::cast(remapJointBodiesToEntityIds(world, *state));
-                 }
-                 return py::none();
-             }, "Returns a ball joint by ID, with connected bodies expressed as entity IDs, or None.")
+        .def(
+            "try_get_ball_joint",
+            [](const World &world, const cressim::neo::physics::BallJointId jointId) -> py::object
+            {
+                if (const auto *state = world.tryGetBallJoint(jointId))
+                {
+                    return py::cast(remapJointBodiesToEntityIds(world, *state));
+                }
+                return py::none();
+            },
+            "Returns a ball joint by ID, with connected bodies expressed as entity IDs, or None.")
         .def("upsert_hinge_joint", &World::upsertHingeJoint,
-             "Creates or updates a hinge joint between two rigid-body entities and returns whether it succeeded.")
+             "Creates or updates a hinge joint between two rigid-body entities and returns whether "
+             "it succeeded.")
         .def("remove_hinge_joint", &World::removeHingeJoint,
              "Removes a hinge joint and returns whether it existed.")
-        .def("try_get_hinge_joint",
-             [](const World &world, const cressim::neo::physics::HingeJointId jointId) -> py::object
-             {
-                 if (const auto *state = world.tryGetHingeJoint(jointId))
-                 {
-                     return py::cast(remapJointBodiesToEntityIds(world, *state));
-                 }
-                 return py::none();
-             }, "Returns a hinge joint by ID, with connected bodies expressed as entity IDs, or None.")
+        .def(
+            "try_get_hinge_joint",
+            [](const World &world, const cressim::neo::physics::HingeJointId jointId) -> py::object
+            {
+                if (const auto *state = world.tryGetHingeJoint(jointId))
+                {
+                    return py::cast(remapJointBodiesToEntityIds(world, *state));
+                }
+                return py::none();
+            },
+            "Returns a hinge joint by ID, with connected bodies expressed as entity IDs, or None.")
         .def("upsert_spherical_joint", &World::upsertSphericalJoint,
-             "Creates or updates a spherical joint between two rigid-body entities and returns whether it succeeded.")
+             "Creates or updates a spherical joint between two rigid-body entities and returns "
+             "whether it succeeded.")
         .def("remove_spherical_joint", &World::removeSphericalJoint,
              "Removes a spherical joint and returns whether it existed.")
-        .def("try_get_spherical_joint",
-             [](const World &world,
-                const cressim::neo::physics::SphericalJointId jointId) -> py::object
-             {
-                 if (const auto *state = world.tryGetSphericalJoint(jointId))
-                 {
-                     return py::cast(remapJointBodiesToEntityIds(world, *state));
-                 }
-                 return py::none();
-             }, "Returns a spherical joint by ID, with connected bodies expressed as entity IDs, or None.")
+        .def(
+            "try_get_spherical_joint",
+            [](const World &world,
+               const cressim::neo::physics::SphericalJointId jointId) -> py::object
+            {
+                if (const auto *state = world.tryGetSphericalJoint(jointId))
+                {
+                    return py::cast(remapJointBodiesToEntityIds(world, *state));
+                }
+                return py::none();
+            },
+            "Returns a spherical joint by ID, with connected bodies expressed as entity IDs, or "
+            "None.")
         .def("upsert_slider_joint", &World::upsertSliderJoint,
-             "Creates or updates a slider joint between two rigid-body entities and returns whether it succeeded.")
+             "Creates or updates a slider joint between two rigid-body entities and returns "
+             "whether it succeeded.")
         .def("remove_slider_joint", &World::removeSliderJoint,
              "Removes a slider joint and returns whether it existed.")
         .def(
@@ -2866,112 +2955,130 @@ PYBIND11_MODULE(_cressim_neo, m)
                     return py::cast(remapJointBodiesToEntityIds(world, *state));
                 }
                 return py::none();
-            }, "Returns a slider joint by ID, with connected bodies expressed as entity IDs, or None.")
-        .def("upsert_rigid_particle_attachment_constraint",
-             [](World &world, const AuthoredRigidParticleAttachmentConstraintState &state)
-             { return world.upsertRigidParticleAttachmentConstraint(state); },
-             "Creates or updates a rigid-particle attachment constraint and returns whether it succeeded.")
+            },
+            "Returns a slider joint by ID, with connected bodies expressed as entity IDs, or None.")
+        .def(
+            "upsert_rigid_particle_attachment_constraint",
+            [](World &world, const AuthoredRigidParticleAttachmentConstraintState &state)
+            { return world.upsertRigidParticleAttachmentConstraint(state); },
+            "Creates or updates a rigid-particle attachment constraint and returns whether it "
+            "succeeded.")
         .def("remove_rigid_particle_attachment_constraint",
              &World::removeRigidParticleAttachmentConstraint,
              "Removes a rigid-particle attachment constraint and returns whether it existed.")
-        .def("try_get_rigid_particle_attachment_constraint",
-             [](const World &world,
-                const cressim::neo::physics::RigidParticleAttachmentConstraintId constraintId)
-                 -> py::object
-             {
-                 if (const auto *state =
-                         world.tryGetRigidParticleAttachmentConstraint(constraintId))
-                 {
-                     return py::cast(*state);
-                 }
-                 return py::none();
-             }, "Returns a rigid-particle attachment constraint by ID, or None.")
-        .def("upsert_strand_rigid_attachment_constraint",
-             [](World &world, const AuthoredStrandRigidAttachmentConstraintState &state)
-             { return world.upsertStrandRigidAttachmentConstraint(state); },
-             "Creates or updates a strand-rigid attachment constraint and returns whether it succeeded.")
+        .def(
+            "try_get_rigid_particle_attachment_constraint",
+            [](const World &world,
+               const cressim::neo::physics::RigidParticleAttachmentConstraintId constraintId)
+                -> py::object
+            {
+                if (const auto *state = world.tryGetRigidParticleAttachmentConstraint(constraintId))
+                {
+                    return py::cast(*state);
+                }
+                return py::none();
+            },
+            "Returns a rigid-particle attachment constraint by ID, or None.")
+        .def(
+            "upsert_strand_rigid_attachment_constraint",
+            [](World &world, const AuthoredStrandRigidAttachmentConstraintState &state)
+            { return world.upsertStrandRigidAttachmentConstraint(state); },
+            "Creates or updates a strand-rigid attachment constraint and returns whether it "
+            "succeeded.")
         .def("remove_strand_rigid_attachment_constraint",
              &World::removeStrandRigidAttachmentConstraint,
              "Removes a strand-rigid attachment constraint and returns whether it existed.")
-        .def("try_get_strand_rigid_attachment_constraint",
-             [](const World &world,
-                const cressim::neo::physics::StrandRigidAttachmentConstraintId constraintId)
-                 -> py::object
-             {
-                 if (const auto *state = world.tryGetStrandRigidAttachmentConstraint(constraintId))
-                 {
-                     return py::cast(*state);
-                 }
-                 return py::none();
-             }, "Returns a strand-rigid attachment constraint by ID, or None.")
-        .def("upsert_rigid_distance_constraint",
-             [](World &world, const AuthoredRigidDistanceConstraintState &state)
-             { return world.upsertRigidDistanceConstraint(state); },
-             "Creates or updates a rigid distance constraint and returns whether it succeeded.")
+        .def(
+            "try_get_strand_rigid_attachment_constraint",
+            [](const World &world,
+               const cressim::neo::physics::StrandRigidAttachmentConstraintId constraintId)
+                -> py::object
+            {
+                if (const auto *state = world.tryGetStrandRigidAttachmentConstraint(constraintId))
+                {
+                    return py::cast(*state);
+                }
+                return py::none();
+            },
+            "Returns a strand-rigid attachment constraint by ID, or None.")
+        .def(
+            "upsert_rigid_distance_constraint",
+            [](World &world, const AuthoredRigidDistanceConstraintState &state)
+            { return world.upsertRigidDistanceConstraint(state); },
+            "Creates or updates a rigid distance constraint and returns whether it succeeded.")
         .def("remove_rigid_distance_constraint", &World::removeRigidDistanceConstraint,
              "Removes a rigid distance constraint and returns whether it existed.")
-        .def("try_get_rigid_distance_constraint",
-             [](const World &world,
-                const cressim::neo::physics::RigidDistanceConstraintId constraintId) -> py::object
-             {
-                 if (const auto *state = world.tryGetRigidDistanceConstraint(constraintId))
-                 {
-                     return py::cast(*state);
-                 }
-                 return py::none();
-             }, "Returns a rigid distance constraint by ID, or None.")
-        .def("upsert_routed_cable_constraint",
-             [](World &world, const AuthoredRoutedCableConstraintState &state)
-             { return world.upsertRoutedCableConstraint(state); },
-             "Creates or updates a routed cable constraint and returns whether it succeeded.")
+        .def(
+            "try_get_rigid_distance_constraint",
+            [](const World &world,
+               const cressim::neo::physics::RigidDistanceConstraintId constraintId) -> py::object
+            {
+                if (const auto *state = world.tryGetRigidDistanceConstraint(constraintId))
+                {
+                    return py::cast(*state);
+                }
+                return py::none();
+            },
+            "Returns a rigid distance constraint by ID, or None.")
+        .def(
+            "upsert_routed_cable_constraint",
+            [](World &world, const AuthoredRoutedCableConstraintState &state)
+            { return world.upsertRoutedCableConstraint(state); },
+            "Creates or updates a routed cable constraint and returns whether it succeeded.")
         .def("remove_routed_cable_constraint", &World::removeRoutedCableConstraint,
              "Removes a routed cable constraint and returns whether it existed.")
-        .def("try_get_routed_cable_constraint",
-             [](const World &world,
-                const cressim::neo::physics::RoutedCableConstraintId constraintId) -> py::object
-             {
-                 if (const auto *state = world.tryGetRoutedCableConstraint(constraintId))
-                 {
-                     return py::cast(*state);
-                 }
-                 return py::none();
-             }, "Returns a routed cable constraint by ID, or None.")
+        .def(
+            "try_get_routed_cable_constraint",
+            [](const World &world,
+               const cressim::neo::physics::RoutedCableConstraintId constraintId) -> py::object
+            {
+                if (const auto *state = world.tryGetRoutedCableConstraint(constraintId))
+                {
+                    return py::cast(*state);
+                }
+                return py::none();
+            },
+            "Returns a routed cable constraint by ID, or None.")
         .def("upsert_particle_collision_filter", &World::upsertParticleCollisionFilter,
              py::return_value_policy::reference_internal,
-             "Creates or updates an authored particle collision filter and returns its stored state.")
+             "Creates or updates an authored particle collision filter and returns its stored "
+             "state.")
         .def("remove_particle_collision_filter", &World::removeParticleCollisionFilter,
              "Removes an authored particle collision filter and returns whether it existed.")
-        .def("try_get_particle_collision_filter",
-             [](const World &world,
-                const cressim::neo::physics::ParticleCollisionFilterId filterId) -> py::object
-             {
-                 if (const auto *state = world.tryGetParticleCollisionFilter(filterId))
-                 {
-                     return py::cast(*state);
-                 }
-                 return py::none();
-             }, "Returns an authored particle collision filter by ID, or None.")
+        .def(
+            "try_get_particle_collision_filter",
+            [](const World &world,
+               const cressim::neo::physics::ParticleCollisionFilterId filterId) -> py::object
+            {
+                if (const auto *state = world.tryGetParticleCollisionFilter(filterId))
+                {
+                    return py::cast(*state);
+                }
+                return py::none();
+            },
+            "Returns an authored particle collision filter by ID, or None.")
         .def("upsert_suturing_sequence", &World::upsertSuturingSequence,
              py::return_value_policy::reference_internal,
              "Creates or updates an authored suturing sequence and returns its stored state.")
         .def("remove_suturing_sequence", &World::removeSuturingSequence,
              "Removes an authored suturing sequence and returns whether it existed.")
-        .def("try_get_suturing_sequence",
-             [](const World &world,
-                const cressim::neo::physics::SuturingSequenceId sequenceId) -> py::object
-             {
-                 if (const auto *state = world.tryGetSuturingSequence(sequenceId))
-                 {
-                     return py::cast(*state);
-                 }
-                 return py::none();
-             }, "Returns an authored suturing sequence by ID, or None.")
+        .def(
+            "try_get_suturing_sequence",
+            [](const World &world,
+               const cressim::neo::physics::SuturingSequenceId sequenceId) -> py::object
+            {
+                if (const auto *state = world.tryGetSuturingSequence(sequenceId))
+                {
+                    return py::cast(*state);
+                }
+                return py::none();
+            },
+            "Returns an authored suturing sequence by ID, or None.")
         .def("add_collider", &World::addCollider,
              "Adds a collider to an entity with a rigid body and returns its handle.")
         .def("update_collider", &World::updateCollider,
              "Updates the component of a registered collider handle.")
-        .def("remove_collider", &World::removeCollider,
-             "Removes a registered collider handle.")
+        .def("remove_collider", &World::removeCollider, "Removes a registered collider handle.")
         .def("replace_colliders", &World::replaceColliders,
              "Replaces all colliders on an entity with a rigid body.")
         .def("try_get_collider", &World::tryGetCollider,
@@ -2983,7 +3090,8 @@ PYBIND11_MODULE(_cressim_neo, m)
              "Returns the authored rest positions for a soft body, or None.");
 
     py::class_<Runtime>(m, "Runtime",
-                        "Main engine runtime coordinator managing GPU devices, physics solvers, graphics, and custom compute passes.")
+                        "Main engine runtime coordinator managing GPU devices, physics solvers, "
+                        "graphics, and custom compute passes.")
         .def(py::init<>(), "Constructs an uninitialized runtime.")
         .def(
             "initialize",
@@ -2998,7 +3106,8 @@ PYBIND11_MODULE(_cressim_neo, m)
             },
             "Initializes the engine runtime with the specified configuration parameters.\n\n"
             "Args:\n"
-            "    config: Runtime configuration options including GPU, physics, and renderer settings. ``None`` uses the default configuration.\n\n"
+            "    config: Runtime configuration options including GPU, physics, and renderer "
+            "settings. ``None`` uses the default configuration.\n\n"
             "Returns:\n"
             "    True if initialization succeeds; false otherwise.",
             py::arg("config") = py::none())
@@ -3011,145 +3120,178 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("prepare", &Runtime::prepare,
              "Prepares authored world, render, and ultrasound state for upload.")
         .def("upload_world", &Runtime::uploadWorld,
-             "Uploads prepared world state to physics and GPU resources. Returns whether upload succeeded.")
+             "Uploads prepared world state to physics and GPU resources. Returns whether upload "
+             "succeeded.")
         .def("create_shared_buffer", &Runtime::createSharedBuffer,
-             "Creates an engine-owned shared GPU buffer. Returns an invalid handle when unavailable.")
+             "Creates an engine-owned shared GPU buffer. Returns an invalid handle when "
+             "unavailable.")
         .def("destroy_shared_buffer", &Runtime::destroySharedBuffer,
              "Destroys a shared-buffer handle. Exported DLPack tensors may retain its storage.")
         .def("list_shared_buffers", &Runtime::listSharedBuffers,
-             "Returns metadata for all registered shared buffers, or an empty list when unavailable.")
-        .def("try_get_shared_buffer_info",
-             [](Runtime &runtime, const SharedBufferHandle handle) -> py::object
-             {
-                 SharedBufferInfo info{};
-                 if (!runtime.tryGetSharedBufferInfo(handle, info))
-                 {
-                     return py::none();
-                 }
-                 return py::cast(info);
-             }, "Returns metadata for a shared buffer, or None when the handle is unavailable.")
-        .def("try_get_shared_buffer_cuda_view",
-             [](Runtime &runtime, const SharedBufferHandle handle) -> py::object
-             {
-                 SharedBufferCudaView view{};
-                 if (!runtime.tryGetSharedBufferCudaView(handle, view))
-                 {
-                     return py::none();
-                 }
-                 return py::cast(view);
-             }, "Returns the CUDA device view for a shared buffer, or None when unavailable.")
+             "Returns metadata for all registered shared buffers, or an empty list when "
+             "unavailable.")
+        .def(
+            "try_get_shared_buffer_info",
+            [](Runtime &runtime, const SharedBufferHandle handle) -> py::object
+            {
+                SharedBufferInfo info{};
+                if (!runtime.tryGetSharedBufferInfo(handle, info))
+                {
+                    return py::none();
+                }
+                return py::cast(info);
+            },
+            "Returns metadata for a shared buffer, or None when the handle is unavailable.")
+        .def(
+            "try_get_shared_buffer_cuda_view",
+            [](Runtime &runtime, const SharedBufferHandle handle) -> py::object
+            {
+                SharedBufferCudaView view{};
+                if (!runtime.tryGetSharedBufferCudaView(handle, view))
+                {
+                    return py::none();
+                }
+                return py::cast(view);
+            },
+            "Returns the CUDA device view for a shared buffer, or None when unavailable.")
         .def("sync_shared_buffer_to_cuda", &Runtime::syncSharedBufferToCuda,
              "Makes prior Vulkan or D3D compute writes visible to subsequent CUDA work.")
         .def("sync_shared_buffer_from_cuda", &Runtime::syncSharedBufferFromCuda,
              "Makes prior CUDA work visible to subsequent Vulkan or D3D compute work.")
-        .def("get_prepared_rigid_layout_mapping",
-             [](Runtime &runtime)
-             {
-                 RigidLayoutMapping mapping{};
-                 if (!runtime.tryGetPreparedRigidLayoutMapping(mapping))
-                 {
-                     throw std::runtime_error("Prepared rigid layout mapping is unavailable.");
-                 }
-                 return mapping;
-             }, "Returns the prepared rigid-body and collider layout mapping. Raises RuntimeError when unavailable.")
-        .def("get_prepared_constraint_layout_mapping",
-             [](Runtime &runtime)
-             {
-                 ConstraintLayoutMapping mapping{};
-                 if (!runtime.tryGetPreparedConstraintLayoutMapping(mapping))
-                 {
-                     throw std::runtime_error("Prepared constraint layout mapping is unavailable.");
-                 }
-                 return mapping;
-             }, "Returns the prepared rigid-adjacent constraint layout mapping. Raises RuntimeError when unavailable.")
-        .def("get_prepared_particle_layout_mapping",
-             [](Runtime &runtime)
-             {
-                 ParticleLayoutMapping mapping{};
-                 if (!runtime.tryGetPreparedParticleLayoutMapping(mapping))
-                 {
-                     throw std::runtime_error("Prepared particle layout mapping is unavailable.");
-                 }
-                 return mapping;
-             }, "Returns the prepared particle and deformable layout mapping. Raises RuntimeError when unavailable.")
-        .def("get_prepared_joint_layout_mapping",
-             [](Runtime &runtime)
-             {
-                 JointLayoutMapping mapping{};
-                 if (!runtime.tryGetPreparedJointLayoutMapping(mapping))
-                 {
-                     throw std::runtime_error("Prepared joint layout mapping is unavailable.");
-                 }
-                 return mapping;
-             }, "Returns the prepared ball, hinge, spherical, and slider joint layout mapping. Raises RuntimeError when unavailable.")
+        .def(
+            "get_prepared_rigid_layout_mapping",
+            [](Runtime &runtime)
+            {
+                RigidLayoutMapping mapping{};
+                if (!runtime.tryGetPreparedRigidLayoutMapping(mapping))
+                {
+                    throw std::runtime_error("Prepared rigid layout mapping is unavailable.");
+                }
+                return mapping;
+            },
+            "Returns the prepared rigid-body and collider layout mapping. Raises RuntimeError when "
+            "unavailable.")
+        .def(
+            "get_prepared_constraint_layout_mapping",
+            [](Runtime &runtime)
+            {
+                ConstraintLayoutMapping mapping{};
+                if (!runtime.tryGetPreparedConstraintLayoutMapping(mapping))
+                {
+                    throw std::runtime_error("Prepared constraint layout mapping is unavailable.");
+                }
+                return mapping;
+            },
+            "Returns the prepared rigid-adjacent constraint layout mapping. Raises RuntimeError "
+            "when unavailable.")
+        .def(
+            "get_prepared_particle_layout_mapping",
+            [](Runtime &runtime)
+            {
+                ParticleLayoutMapping mapping{};
+                if (!runtime.tryGetPreparedParticleLayoutMapping(mapping))
+                {
+                    throw std::runtime_error("Prepared particle layout mapping is unavailable.");
+                }
+                return mapping;
+            },
+            "Returns the prepared particle and deformable layout mapping. Raises RuntimeError when "
+            "unavailable.")
+        .def(
+            "get_prepared_joint_layout_mapping",
+            [](Runtime &runtime)
+            {
+                JointLayoutMapping mapping{};
+                if (!runtime.tryGetPreparedJointLayoutMapping(mapping))
+                {
+                    throw std::runtime_error("Prepared joint layout mapping is unavailable.");
+                }
+                return mapping;
+            },
+            "Returns the prepared ball, hinge, spherical, and slider joint layout mapping. Raises "
+            "RuntimeError when unavailable.")
         .def("shared_buffer_to_dlpack", &exportSharedBufferToDLPack,
-             "Exports a CUDA-imported shared-buffer view as a DLPack capsule. Raises RuntimeError for an unavailable view or invalid tensor descriptor.")
+             "Exports a CUDA-imported shared-buffer view as a DLPack capsule. Raises RuntimeError "
+             "for an unavailable view or invalid tensor descriptor.")
         .def("step_physics", &Runtime::stepPhysics,
              "Advances physics for a frame after world upload. Returns whether the step succeeded.")
         .def("step_simulation_sensors", &Runtime::stepSimulationSensors,
-             "Updates GPU scene state and advances simulation sensors for a frame. Returns whether execution succeeded.")
+             "Updates GPU scene state and advances simulation sensors for a frame. Returns whether "
+             "execution succeeded.")
         .def("step_visual_sensors", &Runtime::stepVisualSensors,
              "Updates GPU scene state and renders visual sensors for a frame.")
-        .def("end_frame", &Runtime::endFrame,
-             "Ends the active GPU frame, if one exists.")
+        .def("end_frame", &Runtime::endFrame, "Ends the active GPU frame, if one exists.")
         .def("list_custom_compute_resources", &Runtime::listCustomComputeResources,
-             "Lists custom compute resources registered for the uploaded world. Returns an empty list when unavailable.")
+             "Lists custom compute resources registered for the uploaded world. Returns an empty "
+             "list when unavailable.")
         .def("create_custom_compute_pass", &Runtime::createCustomComputePass,
-             "Compiles and registers a custom compute pass for the uploaded world. Returns an invalid handle if creation fails.",
+             "Compiles and registers a custom compute pass for the uploaded world. Returns an "
+             "invalid handle if creation fails.",
              py::arg("desc"))
-        .def("update_custom_compute_pass_constants",
-             [](Runtime &runtime, const CustomComputePassHandle handle, py::bytes data)
-             {
-                 std::string bytes = data;
-                 return runtime.updateCustomComputePassConstants(
-                     handle, std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
-             },
-             "Updates a custom compute pass's constant-buffer data. Returns ``False`` for an invalid handle, a pass without constants, or an oversized payload.",
-             py::arg("handle"), py::arg("data"))
+        .def(
+            "update_custom_compute_pass_constants",
+            [](Runtime &runtime, const CustomComputePassHandle handle, py::bytes data)
+            {
+                std::string bytes = data;
+                return runtime.updateCustomComputePassConstants(
+                    handle, std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
+            },
+            "Updates a custom compute pass's constant-buffer data. Returns ``False`` for an "
+            "invalid handle, a pass without constants, or an oversized payload.",
+            py::arg("handle"), py::arg("data"))
         .def("execute_custom_compute_pass", &Runtime::executeCustomComputePass,
-             "Executes a registered custom compute pass for the uploaded world. Returns ``False`` if the pass or its required resources are unavailable or changed.",
+             "Executes a registered custom compute pass for the uploaded world. Returns ``False`` "
+             "if the pass or its required resources are unavailable or changed.",
              py::arg("handle"))
         .def("destroy_custom_compute_pass", &Runtime::destroyCustomComputePass,
-             "Destroys a registered custom compute pass. Returns ``True`` if the handle was registered.",
+             "Destroys a registered custom compute pass. Returns ``True`` if the handle was "
+             "registered.",
              py::arg("handle"))
         .def("last_render_stats", &Runtime::lastRenderStats,
              "Returns statistics from the most recent visual-sensor render.",
              py::return_value_policy::reference_internal)
         .def(
             "world", [](Runtime &runtime) -> World & { return runtime.getWorld(); },
-            "Returns the runtime-owned world.",
+            "Returns the runtime-owned world.", py::return_value_policy::reference_internal)
+        .def(
+            "resources",
+            [](Runtime &runtime) -> RenderResourceManager & { return runtime.getResources(); },
+            "Returns the runtime-owned render resource manager.",
             py::return_value_policy::reference_internal)
         .def(
-            "resources", [](Runtime &runtime) -> RenderResourceManager &
-            { return runtime.getResources(); }, "Returns the runtime-owned render resource manager.",
-            py::return_value_policy::reference_internal)
-        .def("create_render_target",
-             [](Runtime &runtime, const GpuRenderTargetDesc &desc)
-             {
-                 auto *device = runtime.getGpuDevice();
-                 if (device == nullptr)
-                 {
-                     throw std::runtime_error("Runtime GPU device is unavailable.");
-                 }
+            "create_render_target",
+            [](Runtime &runtime, const GpuRenderTargetDesc &desc)
+            {
+                auto *device = runtime.getGpuDevice();
+                if (device == nullptr)
+                {
+                    throw std::runtime_error("Runtime GPU device is unavailable.");
+                }
                 return device->renderTargetSystem().createRenderTarget(desc);
-             }, "Creates a GPU render target. Raises RuntimeError when the GPU device is unavailable.")
-        .def("is_valid_render_target",
-             [](Runtime &runtime, const GpuRenderTargetHandle target)
-             {
-                 auto *device = runtime.getGpuDevice();
-                 return device != nullptr &&
-                        device->renderTargetSystem().isValidRenderTarget(target);
-             }, "Returns whether a GPU render-target handle is valid.")
-        .def("request_render_target_readback",
-             [](Runtime &runtime, const GpuRenderTargetBinding &binding)
-             {
-                 auto *device = runtime.getGpuDevice();
-                 if (device == nullptr)
-                 {
-                     throw std::runtime_error("Runtime GPU device is unavailable.");
-                 }
-                 return device->renderTargetSystem().requestRenderTargetReadback(binding);
-             }, "Requests asynchronous readback of a render-target binding. Raises RuntimeError when the GPU device is unavailable.")
+            },
+            "Creates a GPU render target. Raises RuntimeError when the GPU device is unavailable.")
+        .def(
+            "is_valid_render_target",
+            [](Runtime &runtime, const GpuRenderTargetHandle target)
+            {
+                auto *device = runtime.getGpuDevice();
+                return device != nullptr &&
+                       device->renderTargetSystem().isValidRenderTarget(target);
+            },
+            "Returns whether a GPU render-target handle is valid.")
+        .def(
+            "request_render_target_readback",
+            [](Runtime &runtime, const GpuRenderTargetBinding &binding)
+            {
+                auto *device = runtime.getGpuDevice();
+                if (device == nullptr)
+                {
+                    throw std::runtime_error("Runtime GPU device is unavailable.");
+                }
+                return device->renderTargetSystem().requestRenderTargetReadback(binding);
+            },
+            "Requests asynchronous readback of a render-target binding. Raises RuntimeError when "
+            "the GPU device is unavailable.")
         .def("try_get_render_target_readback", &tryGetRenderTargetReadback,
              "Returns a completed render-target readback event, or None while unavailable.")
         .def(
@@ -3164,7 +3306,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                 }
                 return layout;
             },
-            "Computes an ultrasound output layout for probe and renderer components. Raises RuntimeError when layout computation fails.",
+            "Computes an ultrasound output layout for probe and renderer components. Raises "
+            "RuntimeError when layout computation fails.",
             py::arg("probe"), py::arg("renderer"));
 
     m.def("make_cube_mesh", &cressim::neo::examples::helpers::makeCubeMesh,
@@ -3183,8 +3326,9 @@ PYBIND11_MODULE(_cressim_neo, m)
     m.def("make_sphere_mesh", &cressim::neo::examples::helpers::makeSphereMesh,
           "Creates a UV sphere mesh centered at the origin and tessellated by slices and stacks.",
           py::arg("radius"), py::arg("slices"), py::arg("stacks"), py::arg("debug_name"));
-    m.def("make_capsule_mesh", &cressim::neo::examples::helpers::makeCapsuleMesh,
-          "Creates a Y-axis capsule mesh with a cylindrical half-height and hemispherical end caps.",
-          py::arg("radius"), py::arg("half_height"), py::arg("slices"),
-          py::arg("hemisphere_rings"), py::arg("body_rings"), py::arg("debug_name"));
+    m.def(
+        "make_capsule_mesh", &cressim::neo::examples::helpers::makeCapsuleMesh,
+        "Creates a Y-axis capsule mesh with a cylindrical half-height and hemispherical end caps.",
+        py::arg("radius"), py::arg("half_height"), py::arg("slices"), py::arg("hemisphere_rings"),
+        py::arg("body_rings"), py::arg("debug_name"));
 }

@@ -188,16 +188,15 @@ bool SharedBufferService::synchronizeFromCuda(const SharedBufferHandle handle,
                           "' is not imported into CUDA.");
         return false;
     }
-    const bool synchronized = it->second->cudaBridge.synchronizeToDeviceContext(context);
+    const bool synchronized     = it->second->cudaBridge.synchronizeToDeviceContext(context);
     it->second->cudaWaitPending = it->second->cudaWaitPending || synchronized;
     return synchronized;
 }
 
 bool SharedBufferService::flushPendingCudaWaits() noexcept
 {
-    const bool hasPendingWait = std::any_of(
-        mBuffers.begin(), mBuffers.end(),
-        [](const auto &entry) { return entry.second->cudaWaitPending; });
+    const bool hasPendingWait = std::any_of(mBuffers.begin(), mBuffers.end(), [](const auto &entry)
+                                            { return entry.second->cudaWaitPending; });
     if (!hasPendingWait)
     {
         return true;

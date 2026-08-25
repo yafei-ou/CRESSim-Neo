@@ -7,13 +7,13 @@ namespace cressim::neo::common
 {
 
 /// @brief Unique numeric identifier for entities within an ECS scene graph or World.
-using EntityId                      = std::uint32_t;
+using EntityId = std::uint32_t;
 
 /// @brief Sentinel constant representing an invalid or unallocated EntityId.
 constexpr EntityId kInvalidEntityId = 0;
 
 /// @brief Unique numeric identifier for managed engine resources (meshes, textures, materials).
-using ResourceId                        = std::uint32_t;
+using ResourceId = std::uint32_t;
 
 /// @brief Sentinel constant representing an invalid or unallocated ResourceId.
 constexpr ResourceId kInvalidResourceId = 0;

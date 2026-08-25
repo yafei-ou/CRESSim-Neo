@@ -11,7 +11,8 @@
 #include <vector>
 
 /// @file host_scene.h
-/// @brief Host CPU scene graph data structures, camera views, light sources, and renderable instance records.
+/// @brief Host CPU scene graph data structures, camera views, light sources, and renderable
+/// instance records.
 
 namespace cressim::neo::graphics
 {
@@ -26,14 +27,14 @@ enum class CameraBackgroundMode : std::uint32_t
 /// @brief Host representation of a renderable mesh entity placed in an environment.
 struct RenderableInstance
 {
-    common::EntityId entityId    = common::kInvalidEntityId; ///< Entity identifier in scene graph.
-    std::uint32_t envIndex       = 0u;                       ///< Zero-based environment index.
-    std::uint32_t objectSlot     = 0xffffffffu;              ///< Slot index within the environment's object array.
-    bool visible                 = true;                     ///< Visibility toggle flag.
-    std::uint32_t segmentationId = 0u;                       ///< Categorical integer ID for segmentation mask rendering.
-    common::Transform worldTransform{};                      ///< World-space 3D transform.
-    MeshHandle mesh{};                                       ///< Bound geometry mesh handle.
-    MaterialHandle material{};                               ///< Bound surface material handle.
+    common::EntityId entityId = common::kInvalidEntityId; ///< Entity identifier in scene graph.
+    std::uint32_t envIndex    = 0u;                       ///< Zero-based environment index.
+    std::uint32_t objectSlot  = 0xffffffffu; ///< Slot index within the environment's object array.
+    bool visible              = true;        ///< Visibility toggle flag.
+    std::uint32_t segmentationId = 0u;  ///< Categorical integer ID for segmentation mask rendering.
+    common::Transform worldTransform{}; ///< World-space 3D transform.
+    MeshHandle mesh{};                  ///< Bound geometry mesh handle.
+    MaterialHandle material{};          ///< Bound surface material handle.
 };
 
 /// @brief Host representation of a virtual camera sensor.
@@ -56,17 +57,18 @@ struct CameraData
     float farClip            = 1000.0f;                   ///< Far clipping plane distance.
     Product product          = Product::ColorDepth;       ///< Output product type.
 
-    gpu::RenderOutputBinding output{};                    ///< Output surface destination binding.
-    std::uint32_t outputWidth  = 0;                       ///< Target width in pixels (0 uses destination size).
-    std::uint32_t outputHeight = 0;                       ///< Target height in pixels (0 uses destination size).
-    gpu::GpuRenderViewport viewport{};                    ///< Normalized subregion viewport.
-    bool clearColor = true;                               ///< Clear color attachment flag.
-    bool clearDepth = true;                               ///< Clear depth attachment flag.
+    gpu::RenderOutputBinding output{}; ///< Output surface destination binding.
+    std::uint32_t outputWidth  = 0;    ///< Target width in pixels (0 uses destination size).
+    std::uint32_t outputHeight = 0;    ///< Target height in pixels (0 uses destination size).
+    gpu::GpuRenderViewport viewport{}; ///< Normalized subregion viewport.
+    bool clearColor = true;            ///< Clear color attachment flag.
+    bool clearDepth = true;            ///< Clear depth attachment flag.
     Diligent::float4 clearColorValue{0.0f, 0.0f, 0.0f, 1.0f}; ///< Clear color value.
-    float clearDepthValue               = 1.0f;           ///< Clear depth value.
-    CameraBackgroundMode backgroundMode = CameraBackgroundMode::ClearColor; ///< Background skybox mode.
+    float clearDepthValue = 1.0f;                             ///< Clear depth value.
+    CameraBackgroundMode backgroundMode =
+        CameraBackgroundMode::ClearColor; ///< Background skybox mode.
 
-    std::uint32_t renderOrder = 0;                        ///< Scheduling order for cameras drawing to shared targets.
+    std::uint32_t renderOrder = 0; ///< Scheduling order for cameras drawing to shared targets.
 };
 
 /// @brief Host representation of a directional, spot, or point light source.
@@ -74,35 +76,44 @@ struct LightData
 {
     common::EntityId entityId = common::kInvalidEntityId; ///< Light entity ID.
     std::uint32_t envIndex    = 0u;                       ///< Environment index hosting the light.
-    std::uint32_t lightSlot   = 0xffffffffu;              ///< Light slot index within the environment.
-    GpuLightType type         = GpuLightType::Directional;///< Light source type.
-    Diligent::float3 position{0.0f, 0.0f, 0.0f};          ///< World position (for spot and point lights).
-    Diligent::float3 direction{0.0f, -1.0f, 0.0f};        ///< World emission direction.
-    Diligent::float3 color{1.0f, 1.0f, 1.0f};             ///< Linear RGB radiant flux color.
-    float intensity          = 1.0f;                      ///< Radiant intensity multiplier (Lux or Lumens).
-    float range              = 0.0f;                      ///< Maximum attenuation distance (0 = infinite).
-    float innerConeAngle     = 0.0f;                      ///< Spotlight inner cone angle in radians.
-    float outerConeAngle     = 0.0f;                      ///< Spotlight outer cone falloff angle in radians.
-    float shadowDistance     = 80.0f;                     ///< Maximum shadow projection distance.
-    float shadowFadeDistance = 20.0f;                     ///< Distance over which shadows fade out smoothly.
-    float shadowBias         = 0.0015f;                   ///< Constant shadow depth bias.
-    bool castsShadows        = true;                      ///< Whether light projects shadow maps.
+    std::uint32_t lightSlot   = 0xffffffffu; ///< Light slot index within the environment.
+    GpuLightType type         = GpuLightType::Directional; ///< Light source type.
+    Diligent::float3 position{0.0f, 0.0f, 0.0f};   ///< World position (for spot and point lights).
+    Diligent::float3 direction{0.0f, -1.0f, 0.0f}; ///< World emission direction.
+    Diligent::float3 color{1.0f, 1.0f, 1.0f};      ///< Linear RGB radiant flux color.
+    float intensity          = 1.0f;    ///< Radiant intensity multiplier (Lux or Lumens).
+    float range              = 0.0f;    ///< Maximum attenuation distance (0 = infinite).
+    float innerConeAngle     = 0.0f;    ///< Spotlight inner cone angle in radians.
+    float outerConeAngle     = 0.0f;    ///< Spotlight outer cone falloff angle in radians.
+    float shadowDistance     = 80.0f;   ///< Maximum shadow projection distance.
+    float shadowFadeDistance = 20.0f;   ///< Distance over which shadows fade out smoothly.
+    float shadowBias         = 0.0015f; ///< Constant shadow depth bias.
+    bool castsShadows        = true;    ///< Whether light projects shadow maps.
 };
 
-/// @brief Immutable view bundle referencing host scene instances, cameras, lights, and draw registries for a frame.
+/// @brief Immutable view bundle referencing host scene instances, cameras, lights, and draw
+/// registries for a frame.
 struct HostSceneView
 {
-    const std::vector<RenderableInstance> *renderables                       = nullptr; ///< Array of all renderable instances.
-    const std::vector<GpuRenderableMetadata> *renderableMetadata             = nullptr; ///< Per-renderable GPU metadata flags.
-    const std::vector<CameraData> *cameras                                   = nullptr; ///< Array of active scene cameras.
-    const std::vector<LightData> *lights                                     = nullptr; ///< Array of active scene lights.
-    const std::vector<EnvironmentIblDesc> *environmentIbls                   = nullptr; ///< Per-environment IBL skybox descriptors.
-    const std::vector<EnvironmentFluidDesc> *environmentFluids               = nullptr; ///< Per-environment fluid rendering settings.
-    const std::vector<IndirectCommandRegistryEntry> *opaqueDrawRegistry      = nullptr; ///< Indirect draw commands for opaque pass.
-    const std::vector<TransparentDrawEntry> *transparentDrawRegistry         = nullptr; ///< Sorted commands for transparent pass.
-    const std::vector<IndirectCommandRegistryEntry> *shadowDrawRegistry      = nullptr; ///< Indirect draw commands for directional shadows.
-    const std::vector<IndirectCommandRegistryEntry> *localShadowDrawRegistry = nullptr; ///< Indirect draw commands for local light shadows.
-    const GpuEntitySceneView *gpuEntityScene                                 = nullptr; ///< GPU buffer view bindings.
+    const std::vector<RenderableInstance> *renderables =
+        nullptr; ///< Array of all renderable instances.
+    const std::vector<GpuRenderableMetadata> *renderableMetadata =
+        nullptr;                                      ///< Per-renderable GPU metadata flags.
+    const std::vector<CameraData> *cameras = nullptr; ///< Array of active scene cameras.
+    const std::vector<LightData> *lights   = nullptr; ///< Array of active scene lights.
+    const std::vector<EnvironmentIblDesc> *environmentIbls =
+        nullptr; ///< Per-environment IBL skybox descriptors.
+    const std::vector<EnvironmentFluidDesc> *environmentFluids =
+        nullptr; ///< Per-environment fluid rendering settings.
+    const std::vector<IndirectCommandRegistryEntry> *opaqueDrawRegistry =
+        nullptr; ///< Indirect draw commands for opaque pass.
+    const std::vector<TransparentDrawEntry> *transparentDrawRegistry =
+        nullptr; ///< Sorted commands for transparent pass.
+    const std::vector<IndirectCommandRegistryEntry> *shadowDrawRegistry =
+        nullptr; ///< Indirect draw commands for directional shadows.
+    const std::vector<IndirectCommandRegistryEntry> *localShadowDrawRegistry =
+        nullptr; ///< Indirect draw commands for local light shadows.
+    const GpuEntitySceneView *gpuEntityScene = nullptr; ///< GPU buffer view bindings.
 };
 
 } // namespace cressim::neo::graphics

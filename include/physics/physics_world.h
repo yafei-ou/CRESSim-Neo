@@ -10,32 +10,37 @@
 #include <vector>
 
 /// @file physics_world.h
-/// @brief Host physics world container managing authored simulation bodies, colliders, joints, constraints, and SoA scene snapshot staging.
+/// @brief Host physics world container managing authored simulation bodies, colliders, joints,
+/// constraints, and SoA scene snapshot staging.
 
 namespace cressim::neo::physics
 {
 
-/// @brief Bitmask flags indicating internal data structures that need rebuilding after authoring updates.
+/// @brief Bitmask flags indicating internal data structures that need rebuilding after authoring
+/// updates.
 enum class PhysicsRebuildFlags : std::uint32_t
 {
-    None                             = 0u,        ///< No rebuild required.
-    SoftParticleLayout               = 1u << 0u, ///< Particle memory layout changed.
-    SoftConstraintData               = 1u << 1u, ///< Edge, tetrahedral, or bending constraints changed.
-    SuturingData                     = 1u << 2u, ///< Needle suturing pairing metadata changed.
+    None               = 0u,       ///< No rebuild required.
+    SoftParticleLayout = 1u << 0u, ///< Particle memory layout changed.
+    SoftConstraintData = 1u << 1u, ///< Edge, tetrahedral, or bending constraints changed.
+    SuturingData       = 1u << 2u, ///< Needle suturing pairing metadata changed.
     ResolvedRigidParticleAttachments = 1u << 3u, ///< Rigid-particle attachments need re-resolution.
     ResolvedStrandRigidAttachments   = 1u << 4u, ///< Strand-rigid attachments need re-resolution.
-    ResolvedRigidDistanceConstraints = 1u << 5u, ///< Rigid-to-rigid distance constraints need re-resolution.
-    ResolvedRoutedCables             = 1u << 6u, ///< Routed cable paths need re-resolution.
+    ResolvedRigidDistanceConstraints =
+        1u << 5u,                    ///< Rigid-to-rigid distance constraints need re-resolution.
+    ResolvedRoutedCables = 1u << 6u, ///< Routed cable paths need re-resolution.
 };
 
 CRESSIM_NEO_DEFINE_ENUM_FLAGS(PhysicsRebuildFlags)
 
-/// @brief Host container managing authored physics scene state, rigid bodies, deformable meshes, strands, fluids, joints, and constraints.
+/// @brief Host container managing authored physics scene state, rigid bodies, deformable meshes,
+/// strands, fluids, joints, and constraints.
 ///
-/// `PhysicsWorld` acts as the authoring database and host synchronization bridge for CRESSim-Neo physics.
-/// It maintains authored component states (rigid bodies, colliders, soft bodies, strands, fluids, joints, constraints),
-/// transforms them into compact Structure-of-Arrays (SoA) representations for GPU uploads, tracks revision counters,
-/// and receives simulation writeback updates from GPU solvers.
+/// `PhysicsWorld` acts as the authoring database and host synchronization bridge for CRESSim-Neo
+/// physics. It maintains authored component states (rigid bodies, colliders, soft bodies, strands,
+/// fluids, joints, constraints), transforms them into compact Structure-of-Arrays (SoA)
+/// representations for GPU uploads, tracks revision counters, and receives simulation writeback
+/// updates from GPU solvers.
 class CRESSIM_NEO_PHYSICS_API PhysicsWorld
 {
 public:

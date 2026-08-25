@@ -175,7 +175,8 @@ void logMessage(LogSeverity severity, const SourceLocation &location, Args &&...
     } while (false)
 
 /// @def CRESSIM_LOG_WARNING_ONCE(...)
-/// @brief Logs a formatted warning message only the first time execution passes through the call site.
+/// @brief Logs a formatted warning message only the first time execution passes through the call
+/// site.
 #define CRESSIM_LOG_WARNING_ONCE(...)                                                              \
     do                                                                                             \
     {                                                                                              \
@@ -188,7 +189,8 @@ void logMessage(LogSeverity severity, const SourceLocation &location, Args &&...
     } while (false)
 
 /// @def CRESSIM_LOG_ERROR_ONCE(...)
-/// @brief Logs a formatted error message only the first time execution passes through the call site.
+/// @brief Logs a formatted error message only the first time execution passes through the call
+/// site.
 #define CRESSIM_LOG_ERROR_ONCE(...)                                                                \
     do                                                                                             \
     {                                                                                              \

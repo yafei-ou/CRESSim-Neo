@@ -17,7 +17,8 @@
 #include <vector>
 
 /// @file gpu_device.h
-/// @brief Hardware device abstraction interface, presentation configuration, and shader/pipeline state factories.
+/// @brief Hardware device abstraction interface, presentation configuration, and shader/pipeline
+/// state factories.
 
 namespace cressim::neo::gpu
 {
@@ -36,33 +37,45 @@ struct GpuDeviceDesc
     /// @brief Window swapchain and display presentation configuration.
     struct PresentationDesc
     {
-        bool enabled                                  = false; ///< Whether to create and attach a presentation swapchain.
-        std::uint32_t syncInterval                    = 1;     ///< Vertical synchronization interval (1 = V-Sync enabled, 0 = immediate presentation).
-        Diligent::TEXTURE_FORMAT preferredColorFormat = Diligent::TEX_FORMAT_UNKNOWN; ///< Preferred swapchain surface color format (`TEX_FORMAT_UNKNOWN` chooses default).
+        bool enabled = false;           ///< Whether to create and attach a presentation swapchain.
+        std::uint32_t syncInterval = 1; ///< Vertical synchronization interval (1 = V-Sync enabled,
+                                        ///< 0 = immediate presentation).
+        Diligent::TEXTURE_FORMAT preferredColorFormat =
+            Diligent::TEX_FORMAT_UNKNOWN; ///< Preferred swapchain surface color format
+                                          ///< (`TEX_FORMAT_UNKNOWN` chooses default).
 
-        void *nativeWindow           = nullptr; ///< Platform native window pointer (`HWND` on Windows, `NSView*` on macOS).
-        std::uint64_t nativeWindowId = 0;       ///< Platform native window ID (`Window` for X11, `xcb_window_t` for XCB).
-        void *nativeDisplay          = nullptr; ///< Platform native display connection (`Display*` for X11).
-        void *nativeConnection       = nullptr; ///< Platform native connection (`xcb_connection_t*` for XCB).
+        void *nativeWindow =
+            nullptr; ///< Platform native window pointer (`HWND` on Windows, `NSView*` on macOS).
+        std::uint64_t nativeWindowId =
+            0; ///< Platform native window ID (`Window` for X11, `xcb_window_t` for XCB).
+        void *nativeDisplay = nullptr; ///< Platform native display connection (`Display*` for X11).
+        void *nativeConnection =
+            nullptr; ///< Platform native connection (`xcb_connection_t*` for XCB).
     };
 
     GpuBackend preferredBackend = GpuBackend::Vulkan; ///< Requested graphics API backend.
-    bool enableValidation       = true;               ///< Enable graphics API debug and validation layers.
-    GpuRenderTargetDesc defaultRenderTargetDesc{};    ///< Default descriptor applied to offscreen rendering passes.
-    PresentationDesc presentation{};                  ///< Presentation window and swapchain settings.
-    VulkanShaderCompilerMode vulkanShaderCompilerMode = VulkanShaderCompilerMode::Auto; ///< Shader compiler choice for Vulkan.
-    std::string shaderDirectory;                      ///< Root directory for shader source assets (empty resolves build-time default).
-    std::vector<std::filesystem::path> shaderIncludeDirectories; ///< Additional ordered search paths for HLSL `#include` headers.
+    bool enableValidation       = true; ///< Enable graphics API debug and validation layers.
+    GpuRenderTargetDesc
+        defaultRenderTargetDesc{};   ///< Default descriptor applied to offscreen rendering passes.
+    PresentationDesc presentation{}; ///< Presentation window and swapchain settings.
+    VulkanShaderCompilerMode vulkanShaderCompilerMode =
+        VulkanShaderCompilerMode::Auto; ///< Shader compiler choice for Vulkan.
+    std::string shaderDirectory;        ///< Root directory for shader source assets (empty resolves
+                                        ///< build-time default).
+    std::vector<std::filesystem::path>
+        shaderIncludeDirectories; ///< Additional ordered search paths for HLSL `#include` headers.
 };
 
-/// @brief Hardware graphics and compute device interface managing resources, contexts, and pipelines.
+/// @brief Hardware graphics and compute device interface managing resources, contexts, and
+/// pipelines.
 class CRESSIM_NEO_GPU_API GpuDevice
 {
 public:
     /// @brief Virtual destructor.
     virtual ~GpuDevice() = default;
 
-    /// @brief Initializes the hardware device, creates graphics contexts, and initializes swapchain if enabled.
+    /// @brief Initializes the hardware device, creates graphics contexts, and initializes swapchain
+    /// if enabled.
     /// @param desc Initialization descriptor.
     /// @return True on success, false on failure.
     virtual bool initialize(const GpuDeviceDesc &desc) = 0;
@@ -90,10 +103,12 @@ public:
     /// @param outContext Output reference to populate.
     /// @return True if physics compute context is available.
     virtual bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext)   = 0;
-    /// @brief Inserts a GPU barrier or semaphore wait synchronizing graphics commands after physics compute commands.
+    /// @brief Inserts a GPU barrier or semaphore wait synchronizing graphics commands after physics
+    /// compute commands.
     /// @return True on success.
     virtual bool waitForPhysicsOnGraphics()                                          = 0;
-    /// @brief Inserts a GPU barrier or semaphore wait synchronizing physics compute commands after graphics commands.
+    /// @brief Inserts a GPU barrier or semaphore wait synchronizing physics compute commands after
+    /// graphics commands.
     /// @return True on success.
     virtual bool waitForGraphicsOnPhysics()                                          = 0;
     /// @brief Queries the default render target descriptor configured on this device.
@@ -107,13 +122,15 @@ public:
     /// @brief Enqueues an asynchronous readback request for the primary presentation frame.
     /// @return Tracking readback request handle.
     virtual GpuPresentationReadbackRequest requestPresentationReadback()             = 0;
-    /// @brief Attempts to retrieve downloaded pixel data for a previously enqueued presentation readback request.
+    /// @brief Attempts to retrieve downloaded pixel data for a previously enqueued presentation
+    /// readback request.
     /// @param request Tracking handle.
     /// @param outEvent Output readback event data to populate.
     /// @return True if readback is complete and data was copied.
     virtual bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
                                             GpuPresentationReadbackEvent &outEvent)  = 0;
-    /// @brief Checks whether the hardware device supports native floating-point atomic operations in compute shaders.
+    /// @brief Checks whether the hardware device supports native floating-point atomic operations
+    /// in compute shaders.
     /// @return True if native float atomics supported.
     virtual bool supportsNativePhysicsFloatAtomics() const                           = 0;
     /// @brief Retrieves the root directory path containing entry-point shaders.

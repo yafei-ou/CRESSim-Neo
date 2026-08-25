@@ -10,12 +10,13 @@ namespace cressim::neo::physics
 {
 
 /// @brief Bitmask isolating the 31-bit particle collision phase group ID.
-constexpr std::uint32_t kParticlePhaseGroupMask       = 0x7fffffffu;
+constexpr std::uint32_t kParticlePhaseGroupMask = 0x7fffffffu;
 
 /// @brief Bit flag indicating whether intra-group particle self-collision is enabled.
 constexpr std::uint32_t kParticlePhaseSelfCollideFlag = 0x80000000u;
 
-/// @brief Packs a particle phase group ID and a self-collision boolean into a single 32-bit integer.
+/// @brief Packs a particle phase group ID and a self-collision boolean into a single 32-bit
+/// integer.
 /// @param groupId Unique phase group identifier (lower 31 bits).
 /// @param selfCollisionEnabled Whether particles in this group can collide with each other.
 /// @return Packed 32-bit particle phase bitfield.

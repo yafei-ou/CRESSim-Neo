@@ -17,7 +17,8 @@
 #include <vector>
 
 /// @file gpu_compute_pass.h
-/// @brief Compute pipeline state object (PSO) wrapper, shader resource bindings (SRB), and threadgroup dispatch helpers.
+/// @brief Compute pipeline state object (PSO) wrapper, shader resource bindings (SRB), and
+/// threadgroup dispatch helpers.
 
 namespace cressim::neo::gpu
 {
@@ -25,9 +26,12 @@ namespace cressim::neo::gpu
 /// @brief Binding descriptor mapping a GPU buffer to a named compute shader resource variable.
 struct GpuBufferBinding
 {
-    const char *variableName            = nullptr; ///< Shader HLSL resource variable name (e.g. `g_Positions`).
-    Diligent::IBuffer *buffer           = nullptr; ///< Pointer to target GPU buffer.
-    Diligent::BUFFER_VIEW_TYPE viewType = Diligent::BUFFER_VIEW_UNDEFINED; ///< Buffer view type (`BUFFER_VIEW_SHADER_RESOURCE` or `BUFFER_VIEW_UNORDERED_ACCESS`).
+    const char *variableName =
+        nullptr; ///< Shader HLSL resource variable name (e.g. `g_Positions`).
+    Diligent::IBuffer *buffer = nullptr; ///< Pointer to target GPU buffer.
+    Diligent::BUFFER_VIEW_TYPE viewType =
+        Diligent::BUFFER_VIEW_UNDEFINED; ///< Buffer view type (`BUFFER_VIEW_SHADER_RESOURCE` or
+                                         ///< `BUFFER_VIEW_UNORDERED_ACCESS`).
 };
 
 /// @brief Binding descriptor mapping a GPU texture view to a named compute shader variable.
@@ -40,18 +44,20 @@ struct GpuTextureBinding
 /// @brief Blueprint descriptor for compiling and creating a compute pipeline state object.
 struct GpuComputePassDefinition
 {
-    const char *shaderPath                                = nullptr; ///< Filesystem path to HLSL compute shader file.
-    const char *shaderName                                = nullptr; ///< Debug identifier for the compiled compute shader.
-    const char *psoName                                   = nullptr; ///< Debug identifier for the compute pipeline state.
-    const Diligent::ShaderResourceVariableDesc *variables = nullptr; ///< Array of dynamic/mutable shader variable descriptors.
-    std::size_t variableCount                             = 0u;      ///< Number of variable descriptors.
-    const Diligent::ShaderMacro *macros                   = nullptr; ///< Preprocessor macro definitions array.
-    std::size_t macroCount                                = 0u;      ///< Number of macro definitions.
-    const char *entryPoint                                = nullptr; ///< Entry point function name (e.g. "main" or "CSMain").
-    const char *shaderSource                              = nullptr; ///< Optional in-memory raw HLSL source string.
+    const char *shaderPath = nullptr; ///< Filesystem path to HLSL compute shader file.
+    const char *shaderName = nullptr; ///< Debug identifier for the compiled compute shader.
+    const char *psoName    = nullptr; ///< Debug identifier for the compute pipeline state.
+    const Diligent::ShaderResourceVariableDesc *variables =
+        nullptr; ///< Array of dynamic/mutable shader variable descriptors.
+    std::size_t variableCount           = 0u;      ///< Number of variable descriptors.
+    const Diligent::ShaderMacro *macros = nullptr; ///< Preprocessor macro definitions array.
+    std::size_t macroCount              = 0u;      ///< Number of macro definitions.
+    const char *entryPoint   = nullptr; ///< Entry point function name (e.g. "main" or "CSMain").
+    const char *shaderSource = nullptr; ///< Optional in-memory raw HLSL source string.
 };
 
-/// @brief Wrapper managing a compute pipeline state object (PSO) and reusable shader resource binding (SRB) variants.
+/// @brief Wrapper managing a compute pipeline state object (PSO) and reusable shader resource
+/// binding (SRB) variants.
 class CRESSIM_NEO_GPU_API GpuComputePass
 {
 public:
@@ -59,13 +65,15 @@ public:
     /// @param device GPU device reference.
     /// @param streamFactory Shader file stream provider factory.
     /// @param immediateContextMask Bitmask of device contexts that can execute this pass.
-    /// @param definition Pass definition containing shader source paths, macros, and variable layouts.
+    /// @param definition Pass definition containing shader source paths, macros, and variable
+    /// layouts.
     /// @return True on success.
     bool initialize(GpuDevice &device, Diligent::IShaderSourceInputStreamFactory *streamFactory,
                     Diligent::Uint64 immediateContextMask,
                     const GpuComputePassDefinition &definition);
 
-    /// @brief Creates an additional shader resource binding (SRB) variant for concurrent/distinct parameter sets.
+    /// @brief Creates an additional shader resource binding (SRB) variant for concurrent/distinct
+    /// parameter sets.
     /// @return True on success.
     bool createVariant();
     /// @brief Preallocates a specified total number of SRB variants.
@@ -115,7 +123,8 @@ public:
                   const std::array<GpuBufferBinding, N> &bindings, std::uint32_t groupCountX,
                   std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u);
 
-    /// @brief Binds buffer resources and dispatches indirect compute threadgroups from GPU argument buffer.
+    /// @brief Binds buffer resources and dispatches indirect compute threadgroups from GPU argument
+    /// buffer.
     /// @tparam N Number of buffer bindings.
     /// @param computeContext Device context executing dispatch.
     /// @param variantIndex SRB variant index.
@@ -129,7 +138,8 @@ public:
                           Diligent::IBuffer *indirectArgsBuffer,
                           Diligent::Uint64 indirectArgsOffset = 0u);
 
-    /// @brief Binds both buffer and texture resources, committing and dispatching compute threadgroups.
+    /// @brief Binds both buffer and texture resources, committing and dispatching compute
+    /// threadgroups.
     /// @tparam NB Number of buffer bindings.
     /// @tparam NT Number of texture bindings.
     /// @param computeContext Device context executing dispatch.

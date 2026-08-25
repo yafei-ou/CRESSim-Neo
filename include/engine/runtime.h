@@ -30,24 +30,25 @@ struct UltrasoundProbeLayout;
 /// @brief Configuration descriptor for initializing the CRESSim-Neo engine runtime.
 struct RuntimeConfig
 {
-    gpu::GpuDeviceDesc gpuDeviceDesc{};      ///< Desired GPU device configuration.
-    common::SceneLayoutDesc sceneLayout{};   ///< Scene layout capacity settings.
-    graphics::RendererDesc rendererDesc{};   ///< Graphics renderer parameters.
+    gpu::GpuDeviceDesc gpuDeviceDesc{};       ///< Desired GPU device configuration.
+    common::SceneLayoutDesc sceneLayout{};    ///< Scene layout capacity settings.
+    graphics::RendererDesc rendererDesc{};    ///< Graphics renderer parameters.
     physics::PhysicsSolverDesc physicsDesc{}; ///< Physics solver parameters.
 };
 
 /// @brief Information structure holding engine version and optional feature support flags.
 struct RuntimeInfo
 {
-    std::string engineVersion;            ///< Full semver engine version string.
-    std::uint32_t engineVersionMajor = 0u; ///< Major version number.
-    std::uint32_t engineVersionMinor = 0u; ///< Minor version number.
-    std::uint32_t engineVersionPatch = 0u; ///< Patch version number.
+    std::string engineVersion;                ///< Full semver engine version string.
+    std::uint32_t engineVersionMajor = 0u;    ///< Major version number.
+    std::uint32_t engineVersionMinor = 0u;    ///< Minor version number.
+    std::uint32_t engineVersionPatch = 0u;    ///< Patch version number.
     bool cudaInteropSupported        = false; ///< True if CUDA interop is enabled and available.
-    bool ultrasoundSupported         = false; ///< True if CRESSim-Ultrasound integration is available.
+    bool ultrasoundSupported = false; ///< True if CRESSim-Ultrasound integration is available.
 };
 
-/// @brief Main engine runtime coordinator managing GPU devices, physics solvers, graphics, and custom compute passes.
+/// @brief Main engine runtime coordinator managing GPU devices, physics solvers, graphics, and
+/// custom compute passes.
 class CRESSIM_NEO_ENGINE_API Runtime
 {
 public:

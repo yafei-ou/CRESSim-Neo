@@ -59,36 +59,37 @@ struct SharedBufferHandle
 /// @brief Descriptor for creating an engine-owned shared GPU buffer.
 struct SharedBufferDesc
 {
-    std::string debugName;             ///< Debug label for GPU diagnostic tools.
+    std::string debugName;                 ///< Debug label for GPU diagnostic tools.
     std::uint32_t elementStrideBytes = 0u; ///< Stride per element in bytes.
     std::uint32_t elementCount       = 0u; ///< Initial element count.
     std::uint32_t minimumCapacity    = 0u; ///< Minimum allocation capacity.
     SharedBufferAccess access        = SharedBufferAccess::ReadWrite; ///< Access mode.
     SharedBufferBindFlags bindFlags =
-        SharedBufferBindFlags::ShaderResource | SharedBufferBindFlags::UnorderedAccess; ///< GPU binding usage flags.
+        SharedBufferBindFlags::ShaderResource |
+        SharedBufferBindFlags::UnorderedAccess; ///< GPU binding usage flags.
 };
 
 /// @brief Detailed information and runtime state for a shared GPU buffer.
 struct SharedBufferInfo
 {
-    SharedBufferHandle handle{};       ///< Buffer handle.
-    std::string debugName;             ///< Debug label.
+    SharedBufferHandle handle{};           ///< Buffer handle.
+    std::string debugName;                 ///< Debug label.
     std::uint32_t elementStrideBytes = 0u; ///< Element stride in bytes.
     std::uint32_t elementCount       = 0u; ///< Current element count.
     std::uint32_t capacity           = 0u; ///< Total element capacity.
     std::uint64_t sizeBytes          = 0u; ///< Total allocated size in bytes.
     SharedBufferAccess access        = SharedBufferAccess::ReadWrite; ///< Access mode.
-    SharedBufferBindFlags bindFlags  = SharedBufferBindFlags::None;  ///< Binding flags.
-    bool exportable                  = false; ///< True if buffer is exportable for CUDA/DLPack interop.
-    bool importedIntoCuda            = false; ///< True if buffer is currently imported into CUDA.
+    SharedBufferBindFlags bindFlags  = SharedBufferBindFlags::None;   ///< Binding flags.
+    bool exportable       = false; ///< True if buffer is exportable for CUDA/DLPack interop.
+    bool importedIntoCuda = false; ///< True if buffer is currently imported into CUDA.
 };
 
 /// @brief View descriptor exposing CUDA device memory pointer and size for interop.
 struct SharedBufferCudaView
 {
     void *devicePointer        = nullptr; ///< Raw CUDA device pointer.
-    std::uint64_t sizeBytes    = 0u;     ///< Size of accessible device memory in bytes.
-    std::int32_t deviceOrdinal = -1;     ///< CUDA device ordinal index.
+    std::uint64_t sizeBytes    = 0u;      ///< Size of accessible device memory in bytes.
+    std::int32_t deviceOrdinal = -1;      ///< CUDA device ordinal index.
 
     /// @brief Checks if the CUDA device view is valid.
     /// @return True if valid, false otherwise.
@@ -135,10 +136,11 @@ struct SharedBufferTensorDesc
 {
     std::vector<std::int64_t> shape;   ///< Tensor dimensions shape array.
     std::vector<std::int64_t> strides; ///< Tensor strides array.
-    SharedBufferTensorDTypeCode dtypeCode = SharedBufferTensorDTypeCode::Float; ///< Element data type code.
-    std::uint8_t dtypeBits                = 32u;   ///< Element bit width (e.g. 32 for float32).
-    std::uint16_t dtypeLanes              = 1u;    ///< Vector lanes count per element.
-    std::uint64_t byteOffset              = 0u;    ///< Byte offset from buffer start.
+    SharedBufferTensorDTypeCode dtypeCode =
+        SharedBufferTensorDTypeCode::Float; ///< Element data type code.
+    std::uint8_t dtypeBits   = 32u;         ///< Element bit width (e.g. 32 for float32).
+    std::uint16_t dtypeLanes = 1u;          ///< Vector lanes count per element.
+    std::uint64_t byteOffset = 0u;          ///< Byte offset from buffer start.
 };
 
 } // namespace cressim::neo::engine

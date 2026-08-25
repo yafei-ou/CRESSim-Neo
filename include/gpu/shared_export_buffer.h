@@ -11,7 +11,8 @@
 #include <memory>
 
 /// @file shared_export_buffer.h
-/// @brief GPU buffer container supporting native OS handle export for external CUDA / compute interop.
+/// @brief GPU buffer container supporting native OS handle export for external CUDA / compute
+/// interop.
 
 namespace Diligent
 {
@@ -24,7 +25,8 @@ namespace cressim::neo::gpu
 
 class CudaSharedBuffer;
 
-/// @brief Structured GPU buffer that can be shared across API boundaries via native OS memory handles.
+/// @brief Structured GPU buffer that can be shared across API boundaries via native OS memory
+/// handles.
 class CRESSIM_NEO_GPU_API SharedExportBuffer
 {
 public:
@@ -36,7 +38,8 @@ public:
     SharedExportBuffer(const SharedExportBuffer &)            = delete;
     SharedExportBuffer &operator=(const SharedExportBuffer &) = delete;
 
-    /// @brief Ensures a structured buffer of at least the specified element capacity exists, allocating or reallocating if needed.
+    /// @brief Ensures a structured buffer of at least the specified element capacity exists,
+    /// allocating or reallocating if needed.
     /// @param renderDevice Graphics device interface.
     /// @param name Debug identifier for the buffer.
     /// @param elementStride Stride of an individual element in bytes.
@@ -46,7 +49,8 @@ public:
     /// @param usage Buffer memory usage (e.g. USAGE_DEFAULT).
     /// @param cpuAccess Allowed CPU access flags.
     /// @param immediateContextMask Bitmask of device contexts that can access this buffer.
-    /// @param queueFamilyIndices Optional array of Vulkan queue family indices for concurrent sharing.
+    /// @param queueFamilyIndices Optional array of Vulkan queue family indices for concurrent
+    /// sharing.
     /// @param queueFamilyIndexCount Number of queue family indices.
     /// @return True on success.
     bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,

@@ -11,12 +11,14 @@ namespace cressim::neo::common
 
 /// @brief Represents a 3D affine transformation composed of translation, orientation, and scale.
 ///
-/// It is used across physics, graphics, and ECS transform components (`engine::TransformComponent`).
+/// It is used across physics, graphics, and ECS transform components
+/// (`engine::TransformComponent`).
 struct Transform
 {
-    Diligent::float3 position{0.0f, 0.0f, 0.0f};           ///< World-space 3D translation (x, y, z).
-    Diligent::QuaternionF rotation{0.0f, 0.0f, 0.0f, 1.0f};///< World-space orientation quaternion (x, y, z, w).
-    Diligent::float3 scale{1.0f, 1.0f, 1.0f};              ///< Per-axis 3D scale factors (sx, sy, sz).
+    Diligent::float3 position{0.0f, 0.0f, 0.0f}; ///< World-space 3D translation (x, y, z).
+    Diligent::QuaternionF rotation{0.0f, 0.0f, 0.0f,
+                                   1.0f};     ///< World-space orientation quaternion (x, y, z, w).
+    Diligent::float3 scale{1.0f, 1.0f, 1.0f}; ///< Per-axis 3D scale factors (sx, sy, sz).
 
     /// @brief Checks equality with another Transform.
     /// @param rhs Right-hand side Transform to compare against.

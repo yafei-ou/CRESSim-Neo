@@ -13,7 +13,7 @@ struct NativeHandle
 #if defined(_WIN32)
     void *win32Handle = nullptr; ///< Windows NT shared handle (`HANDLE`).
 #else
-    int fd = -1;                 ///< POSIX file descriptor for Vulkan memory handle sharing (Opaque Fd).
+    int fd = -1; ///< POSIX file descriptor for Vulkan memory handle sharing (Opaque Fd).
 #endif
 };
 

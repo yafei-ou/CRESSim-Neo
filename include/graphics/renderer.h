@@ -15,7 +15,8 @@
 #include <optional>
 
 /// @file renderer.h
-/// @brief Multi-pass clustered forward HDR renderer, post-processing tonemapping, and visual debug overlays.
+/// @brief Multi-pass clustered forward HDR renderer, post-processing tonemapping, and visual debug
+/// overlays.
 
 namespace cressim::neo::physics
 {
@@ -39,7 +40,8 @@ struct RendererDesc
     IblQualityTier iblQualityTier = IblQualityTier::Off; ///< Image-based lighting quality tier.
 };
 
-/// @brief Per-frame rendering options, camera presentation routing, and debug visualization switches.
+/// @brief Per-frame rendering options, camera presentation routing, and debug visualization
+/// switches.
 struct RenderFrameOptions
 {
     /// @brief Destination display routing configuration for an explicit offscreen target.
@@ -53,12 +55,12 @@ struct RenderFrameOptions
             Segmentation = 2u, ///< Categorical segmentation ID mask.
         };
 
-        gpu::GpuRenderTargetBinding binding{};          ///< Source target binding.
-        gpu::GpuRenderTargetDesc sourceTargetDesc{};    ///< Source target descriptor.
-        SourceKind sourceKind       = SourceKind::Color;///< Output channel category.
-        bool sourceIsDisplayEncoded = false;            ///< True if source buffer is already sRGB encoded.
-        float nearClip              = 0.01f;            ///< Near plane for depth visualization.
-        float farClip               = 1000.0f;          ///< Far plane for depth visualization.
+        gpu::GpuRenderTargetBinding binding{};           ///< Source target binding.
+        gpu::GpuRenderTargetDesc sourceTargetDesc{};     ///< Source target descriptor.
+        SourceKind sourceKind       = SourceKind::Color; ///< Output channel category.
+        bool sourceIsDisplayEncoded = false;   ///< True if source buffer is already sRGB encoded.
+        float nearClip              = 0.01f;   ///< Near plane for depth visualization.
+        float farClip               = 1000.0f; ///< Far plane for depth visualization.
 
         /// @brief Checks if the output binding refers to a valid target.
         /// @return True if valid.
@@ -71,14 +73,17 @@ struct RenderFrameOptions
     /// @brief Debug visualization options for particle physics point clouds.
     struct DebugParticleOptions
     {
-        bool enabled                  = false;                    ///< Enable particle sphere/billboard debug rendering.
-        Diligent::float4 color        = {0.2f, 0.8f, 1.0f, 1.0f}; ///< Default particle color (RGBA).
-        Diligent::float4 staticColor  = {1.0f, 0.18f, 0.08f, 1.0f};///< Color for pinned/static particles.
-        Diligent::float4 edgeColor    = {1.0f, 0.86f, 0.18f, 1.0f};///< Color for distance constraint debug lines.
-        bool useParticleRadii         = true;                     ///< Use actual particle radii instead of fallbackRadius.
-        bool highlightStaticParticles = true;                     ///< Visually tint static particles differently.
-        bool drawConstraintEdges      = false;                    ///< Draw wireframe edges between constrained particle pairs.
-        float fallbackRadius          = 0.15f;                    ///< Fallback radius in world units if unassigned.
+        bool enabled                 = false; ///< Enable particle sphere/billboard debug rendering.
+        Diligent::float4 color       = {0.2f, 0.8f, 1.0f, 1.0f}; ///< Default particle color (RGBA).
+        Diligent::float4 staticColor = {1.0f, 0.18f, 0.08f,
+                                        1.0f}; ///< Color for pinned/static particles.
+        Diligent::float4 edgeColor   = {1.0f, 0.86f, 0.18f,
+                                        1.0f}; ///< Color for distance constraint debug lines.
+        bool useParticleRadii = true; ///< Use actual particle radii instead of fallbackRadius.
+        bool highlightStaticParticles = true; ///< Visually tint static particles differently.
+        bool drawConstraintEdges =
+            false;                    ///< Draw wireframe edges between constrained particle pairs.
+        float fallbackRadius = 0.15f; ///< Fallback radius in world units if unassigned.
     };
 
     /// @brief Debug visualization options for routed cable paths.
@@ -99,14 +104,18 @@ struct RenderFrameOptions
         float opacity    = 1.0f;  ///< Visual opacity.
     };
 
-    common::EntityId presentedCameraEntity = common::kInvalidEntityId; ///< Primary camera entity blitted to the window presentation swapchain.
-    std::optional<PresentedExplicitOutput> presentedExplicitOutput{};   ///< Optional explicit offscreen output blitted to presentation.
-    std::optional<gpu::GpuPresentationTargetDesc> presentationTarget{};  ///< Presentation swapchain description.
-    ToneMapper toneMapper = ToneMapper::Reinhard;                      ///< Tonemapping operator.
-    float exposure        = 1.0f;                                      ///< Exposure compensation scale factor.
-    DebugParticleOptions debugParticles{};                             ///< Particle debug rendering options.
-    DebugRoutedCableOptions debugRoutedCables{};                       ///< Routed cable debug options.
-    DebugStrandFrameOptions debugStrandFrames{};                       ///< Strand frame debug options.
+    common::EntityId presentedCameraEntity =
+        common::kInvalidEntityId; ///< Primary camera entity blitted to the window presentation
+                                  ///< swapchain.
+    std::optional<PresentedExplicitOutput>
+        presentedExplicitOutput{}; ///< Optional explicit offscreen output blitted to presentation.
+    std::optional<gpu::GpuPresentationTargetDesc>
+        presentationTarget{};                     ///< Presentation swapchain description.
+    ToneMapper toneMapper = ToneMapper::Reinhard; ///< Tonemapping operator.
+    float exposure        = 1.0f;                 ///< Exposure compensation scale factor.
+    DebugParticleOptions debugParticles{};        ///< Particle debug rendering options.
+    DebugRoutedCableOptions debugRoutedCables{};  ///< Routed cable debug options.
+    DebugStrandFrameOptions debugStrandFrames{};  ///< Strand frame debug options.
 
     /// @brief Default constructor.
     RenderFrameOptions() = default;
@@ -125,7 +134,8 @@ struct RenderFrameOptions
     {
     }
 
-    /// @brief Convenience constructor specifying presented camera, explicit output, and presentation target.
+    /// @brief Convenience constructor specifying presented camera, explicit output, and
+    /// presentation target.
     /// @param presentedCameraEntityIn Camera entity ID.
     /// @param presentedExplicitOutputIn Explicit output binding to present.
     /// @param presentationTargetIn Presentation target description.
@@ -146,20 +156,24 @@ struct RenderFrameOptions
 /// @brief Frame rendering performance and draw call instrumentation metrics.
 struct RenderStats
 {
-    std::uint32_t drawCalls                   = 0; ///< Total graphics draw calls executed.
-    std::uint32_t opaqueDrawCalls             = 0; ///< Opaque forward pass draw calls.
-    std::uint32_t transparentDrawCalls        = 0; ///< Transparent pass draw calls.
-    std::uint32_t shadowDrawCalls             = 0; ///< Shadow map cascade and local light draw calls.
-    std::uint32_t renderableCount             = 0; ///< Total candidate renderable objects evaluated.
-    std::uint32_t lightCount                  = 0; ///< Total scene light sources.
-    std::uint32_t renderedCameraCount         = 0; ///< Total cameras rendered during the frame.
-    std::uint32_t renderTargetResizeRequests  = 0; ///< Number of offscreen render target resize requests.
-    std::uint32_t renderTargetResizeNoOps     = 0; ///< Resize requests where target dimensions were unchanged.
-    std::uint32_t renderTargetRecreateCount   = 0; ///< Number of render target texture recreations.
-    std::uint32_t renderTargetResizeConflicts = 0; ///< Conflicts where shared targets had mismatched requests.
+    std::uint32_t drawCalls            = 0; ///< Total graphics draw calls executed.
+    std::uint32_t opaqueDrawCalls      = 0; ///< Opaque forward pass draw calls.
+    std::uint32_t transparentDrawCalls = 0; ///< Transparent pass draw calls.
+    std::uint32_t shadowDrawCalls      = 0; ///< Shadow map cascade and local light draw calls.
+    std::uint32_t renderableCount      = 0; ///< Total candidate renderable objects evaluated.
+    std::uint32_t lightCount           = 0; ///< Total scene light sources.
+    std::uint32_t renderedCameraCount  = 0; ///< Total cameras rendered during the frame.
+    std::uint32_t renderTargetResizeRequests =
+        0; ///< Number of offscreen render target resize requests.
+    std::uint32_t renderTargetResizeNoOps =
+        0; ///< Resize requests where target dimensions were unchanged.
+    std::uint32_t renderTargetRecreateCount = 0; ///< Number of render target texture recreations.
+    std::uint32_t renderTargetResizeConflicts =
+        0; ///< Conflicts where shared targets had mismatched requests.
 };
 
-/// @brief Primary clustered forward HDR renderer executing scene culling, shadow passes, surface shading, and post-processing.
+/// @brief Primary clustered forward HDR renderer executing scene culling, shadow passes, surface
+/// shading, and post-processing.
 class CRESSIM_NEO_GRAPHICS_API Renderer
 {
 public:
@@ -172,13 +186,15 @@ public:
     /// @brief Destructor releasing renderer pipelines and GPU passes.
     ~Renderer();
 
-    /// @brief Initializes graphics pipelines, shadow passes, compute culling, and post-processing filters.
+    /// @brief Initializes graphics pipelines, shadow passes, compute culling, and post-processing
+    /// filters.
     /// @return True on success.
     bool initialize();
     /// @brief Executes complete scene rendering for all active cameras and outputs.
     /// @param frameContext Temporal frame context.
     /// @param sceneView Scene graph and camera/light data view.
-    /// @param physicsScene Optional physics GPU buffer views for deformable skinning and debug overlays.
+    /// @param physicsScene Optional physics GPU buffer views for deformable skinning and debug
+    /// overlays.
     /// @param options Per-frame presentation and tonemapping options.
     /// @return RenderStats struct containing draw call and execution metrics.
     RenderStats render(const common::FrameContext &frameContext, const HostSceneView &sceneView,

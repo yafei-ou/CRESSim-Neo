@@ -15,12 +15,15 @@
 namespace cressim::neo::physics
 {
 
-/// @brief Surface geometry representation comprising vertex positions, normals, and triangle indices.
+/// @brief Surface geometry representation comprising vertex positions, normals, and triangle
+/// indices.
 struct SurfaceMeshData
 {
-    std::vector<Diligent::float3> surfaceRestPositions; ///< Object-space rest positions of mesh vertices.
-    std::vector<Diligent::float3> surfaceNormals;       ///< Per-vertex surface normal vectors.
-    std::vector<Diligent::uint3> surfaceTriangles;      ///< Triangle index triplets indexing vertex arrays.
+    std::vector<Diligent::float3>
+        surfaceRestPositions;                     ///< Object-space rest positions of mesh vertices.
+    std::vector<Diligent::float3> surfaceNormals; ///< Per-vertex surface normal vectors.
+    std::vector<Diligent::uint3>
+        surfaceTriangles; ///< Triangle index triplets indexing vertex arrays.
 };
 
 /// @brief Reads an OBJ format triangle surface mesh from disk.

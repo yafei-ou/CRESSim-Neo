@@ -13,7 +13,8 @@
 #include <vector>
 
 /// @file gpu_types.h
-/// @brief Fundamental GPU types, backend enumerations, render target descriptors, and graphics/compute context views.
+/// @brief Fundamental GPU types, backend enumerations, render target descriptors, and
+/// graphics/compute context views.
 
 namespace cressim::neo::gpu
 {
@@ -48,7 +49,8 @@ struct GpuRenderTargetHandle
     common::ResourceId id = common::kInvalidResourceId; ///< Unique numeric resource identifier.
 };
 
-/// @brief Target attachment binding specifying an offscreen target and optional 2D texture array layer range.
+/// @brief Target attachment binding specifying an offscreen target and optional 2D texture array
+/// layer range.
 struct GpuRenderTargetBinding
 {
     GpuRenderTargetHandle target{}; ///< Bound render target resource handle.
@@ -72,7 +74,8 @@ struct GpuRenderTargetBinding
     }
 };
 
-/// @brief Identifies whether a texture operation targets the color or depth plane of a render target.
+/// @brief Identifies whether a texture operation targets the color or depth plane of a render
+/// target.
 enum class GpuRenderTargetTexturePlane
 {
     Color, ///< Color attachment texture.
@@ -90,23 +93,31 @@ enum class RenderOutputMode
 struct RenderOutputBinding
 {
     RenderOutputMode mode = RenderOutputMode::ManagedPrimary; ///< Routing destination mode.
-    GpuRenderTargetBinding binding{};                         ///< Offscreen target binding (used when mode == ExplicitSurface).
+    GpuRenderTargetBinding
+        binding{}; ///< Offscreen target binding (used when mode == ExplicitSurface).
 };
 
 /// @brief Configuration descriptor for allocating offscreen 2D or 2D-array render targets.
 struct GpuRenderTargetDesc
 {
-    std::uint32_t width                  = 0;     ///< Pixel width (0 inherits presentation size, falling back to 1280).
-    std::uint32_t height                 = 0;     ///< Pixel height (0 inherits presentation size, falling back to 720).
-    std::uint32_t arraySize              = 1;     ///< Number of 2D texture array slices (e.g. for multi-camera batched rendering).
-    bool color                           = true;  ///< Whether to allocate a color attachment texture.
-    bool depth                           = true;  ///< Whether to allocate a depth/stencil attachment texture.
-    bool layeredRendering                = false; ///< Enable single-pass multi-layer rendering via geometry/mesh shaders.
-    Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;  ///< Color texture format (`TEX_FORMAT_UNKNOWN` uses default RGBA8_UNORM).
-    Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;///< Depth texture format.
-    bool shaderReadable                  = true;  ///< Enables shader resource views (SRVs) for sampling in subsequent passes.
-    bool unorderedAccess                 = false; ///< Enables unordered access views (UAVs) for compute shader writeback.
-    std::string debugName;                        ///< Optional debug name assigned to the GPU texture objects.
+    std::uint32_t width  = 0; ///< Pixel width (0 inherits presentation size, falling back to 1280).
+    std::uint32_t height = 0; ///< Pixel height (0 inherits presentation size, falling back to 720).
+    std::uint32_t arraySize =
+        1; ///< Number of 2D texture array slices (e.g. for multi-camera batched rendering).
+    bool color = true; ///< Whether to allocate a color attachment texture.
+    bool depth = true; ///< Whether to allocate a depth/stencil attachment texture.
+    bool layeredRendering =
+        false; ///< Enable single-pass multi-layer rendering via geometry/mesh shaders.
+    Diligent::TEXTURE_FORMAT colorFormat =
+        Diligent::TEX_FORMAT_UNKNOWN; ///< Color texture format (`TEX_FORMAT_UNKNOWN` uses default
+                                      ///< RGBA8_UNORM).
+    Diligent::TEXTURE_FORMAT depthFormat =
+        Diligent::TEX_FORMAT_D32_FLOAT; ///< Depth texture format.
+    bool shaderReadable =
+        true; ///< Enables shader resource views (SRVs) for sampling in subsequent passes.
+    bool unorderedAccess =
+        false;             ///< Enables unordered access views (UAVs) for compute shader writeback.
+    std::string debugName; ///< Optional debug name assigned to the GPU texture objects.
 };
 
 /// @brief Normalized viewport rectangle defining the active rendering subregion.
@@ -121,30 +132,32 @@ struct GpuRenderViewport
 /// @brief Clear values and flags applied when beginning a render pass.
 struct GpuRenderPassBeginDesc
 {
-    bool clearColor          = true;                     ///< Whether to clear the color attachment upon begin.
-    bool clearDepth          = true;                     ///< Whether to clear the depth attachment upon begin.
+    bool clearColor          = true; ///< Whether to clear the color attachment upon begin.
+    bool clearDepth          = true; ///< Whether to clear the depth attachment upon begin.
     float clearColorValue[4] = {0.0f, 0.0f, 0.0f, 1.0f}; ///< RGBA clear color values.
-    float clearDepthValue    = 1.0f;                     ///< Depth clear value (typically 1.0 for standard depth).
+    float clearDepthValue    = 1.0f; ///< Depth clear value (typically 1.0 for standard depth).
 };
 
 /// @brief Event payload containing downloaded pixel data copied from an offscreen render target.
 struct GpuRenderTargetReadbackEvent
 {
-    GpuRenderTargetBinding binding{};                             ///< Source render target binding.
-    std::uint64_t frameIndex             = 0;                     ///< Frame counter at the time of readback capture.
-    Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN; ///< Format of color pixel buffer.
-    std::uint32_t colorWidth             = 0;                     ///< Width of color image in pixels.
-    std::uint32_t colorHeight            = 0;                     ///< Height of color image in pixels.
-    std::uint32_t colorRowStrideBytes    = 0;                     ///< Stride between consecutive rows in bytes.
-    std::vector<std::uint8_t> colorBytes{};                       ///< Raw downloaded color byte buffer.
-    std::uint32_t width                  = 0;                     ///< Legacy alias for color width.
-    std::uint32_t height                 = 0;                     ///< Legacy alias for color height.
-    std::uint32_t rowStrideBytes         = 0;                     ///< Legacy alias for color row stride.
-    Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN; ///< Format of depth pixel buffer.
-    std::uint32_t depthWidth             = 0;                     ///< Width of depth image in pixels.
-    std::uint32_t depthHeight            = 0;                     ///< Height of depth image in pixels.
-    std::uint32_t depthRowStrideBytes    = 0;                     ///< Row stride of depth buffer in bytes.
-    std::vector<std::uint8_t> depthBytes{};                       ///< Raw downloaded depth byte buffer.
+    GpuRenderTargetBinding binding{}; ///< Source render target binding.
+    std::uint64_t frameIndex = 0;     ///< Frame counter at the time of readback capture.
+    Diligent::TEXTURE_FORMAT colorFormat =
+        Diligent::TEX_FORMAT_UNKNOWN;       ///< Format of color pixel buffer.
+    std::uint32_t colorWidth          = 0;  ///< Width of color image in pixels.
+    std::uint32_t colorHeight         = 0;  ///< Height of color image in pixels.
+    std::uint32_t colorRowStrideBytes = 0;  ///< Stride between consecutive rows in bytes.
+    std::vector<std::uint8_t> colorBytes{}; ///< Raw downloaded color byte buffer.
+    std::uint32_t width          = 0;       ///< Legacy alias for color width.
+    std::uint32_t height         = 0;       ///< Legacy alias for color height.
+    std::uint32_t rowStrideBytes = 0;       ///< Legacy alias for color row stride.
+    Diligent::TEXTURE_FORMAT depthFormat =
+        Diligent::TEX_FORMAT_UNKNOWN;       ///< Format of depth pixel buffer.
+    std::uint32_t depthWidth          = 0;  ///< Width of depth image in pixels.
+    std::uint32_t depthHeight         = 0;  ///< Height of depth image in pixels.
+    std::uint32_t depthRowStrideBytes = 0;  ///< Row stride of depth buffer in bytes.
+    std::vector<std::uint8_t> depthBytes{}; ///< Raw downloaded depth byte buffer.
 };
 
 /// @brief Tracking handle for an asynchronous offscreen render target readback request.
@@ -156,14 +169,17 @@ struct GpuRenderTargetReadbackRequest
 /// @brief Geometry and format description of the primary presentation swapchain.
 struct GpuPresentationTargetDesc
 {
-    std::uint32_t width                  = 0; ///< Swapchain width in pixels.
-    std::uint32_t height                 = 0; ///< Swapchain height in pixels.
-    Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN; ///< Swapchain color format.
-    Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN; ///< Swapchain depth format.
-    bool hasDepth                        = false;                        ///< Whether a presentation depth buffer is attached.
+    std::uint32_t width  = 0; ///< Swapchain width in pixels.
+    std::uint32_t height = 0; ///< Swapchain height in pixels.
+    Diligent::TEXTURE_FORMAT colorFormat =
+        Diligent::TEX_FORMAT_UNKNOWN; ///< Swapchain color format.
+    Diligent::TEXTURE_FORMAT depthFormat =
+        Diligent::TEX_FORMAT_UNKNOWN; ///< Swapchain depth format.
+    bool hasDepth = false;            ///< Whether a presentation depth buffer is attached.
 };
 
-/// @brief Event payload containing pixel data captured from the primary presentation window swapchain.
+/// @brief Event payload containing pixel data captured from the primary presentation window
+/// swapchain.
 struct GpuPresentationReadbackEvent
 {
     std::uint64_t frameIndex             = 0; ///< Frame index of capture.
@@ -187,11 +203,14 @@ struct GpuGraphicsBackendContext
     Diligent::IDeviceContext *graphicsContext = nullptr; ///< Active graphics device context.
     Diligent::ISwapChain *primarySwapChain    = nullptr; ///< Primary window presentation swapchain.
     std::uint32_t contextId                   = 0u;      ///< Zero-based context index.
-    Diligent::COMMAND_QUEUE_TYPE queueType    = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN; ///< Hardware queue category.
-    GpuRenderTargetBinding activeRenderTargetBinding{};  ///< Currently bound offscreen target binding.
-    bool hasActiveRenderTarget                             = false; ///< True if an offscreen target is bound.
-    bool activeRenderTargetHasDepth                        = false; ///< True if bound target has a depth attachment.
-    Diligent::TEXTURE_FORMAT activeRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN; ///< Bound color format.
+    Diligent::COMMAND_QUEUE_TYPE queueType =
+        Diligent::COMMAND_QUEUE_TYPE_UNKNOWN; ///< Hardware queue category.
+    GpuRenderTargetBinding
+        activeRenderTargetBinding{};         ///< Currently bound offscreen target binding.
+    bool hasActiveRenderTarget      = false; ///< True if an offscreen target is bound.
+    bool activeRenderTargetHasDepth = false; ///< True if bound target has a depth attachment.
+    Diligent::TEXTURE_FORMAT activeRenderTargetColorFormat =
+        Diligent::TEX_FORMAT_UNKNOWN; ///< Bound color format.
 };
 
 /// @brief Hardware compute context bundle passed into asynchronous or immediate compute passes.
@@ -200,7 +219,8 @@ struct GpuComputeBackendContext
     Diligent::IRenderDevice *renderDevice    = nullptr; ///< Underlying Diligent graphics device.
     Diligent::IDeviceContext *computeContext = nullptr; ///< Active compute device context.
     std::uint32_t contextId                  = 0;       ///< Zero-based context index.
-    Diligent::COMMAND_QUEUE_TYPE queueType   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN; ///< Hardware queue category.
+    Diligent::COMMAND_QUEUE_TYPE queueType =
+        Diligent::COMMAND_QUEUE_TYPE_UNKNOWN; ///< Hardware queue category.
 };
 
 } // namespace cressim::neo::gpu
