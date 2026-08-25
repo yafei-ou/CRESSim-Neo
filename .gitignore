@@ -57,6 +57,10 @@ dist
 .codex
 .DS_Store
 
+# Documentation artifacts
+latex
+html
+
 # Python
 __pycache__
 *.pt
