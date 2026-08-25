@@ -7,7 +7,7 @@ composition, and frame export.
 ## Paper videos
 
 `showcases/python/record_py_scenes.py` records the seven environments discussed in
-`root.pdf`: CartPole, SoftBodyPush, FluidPour, TargetCenter, TissueRetract,
+the paper: CartPole, SoftBodyPush, FluidPour, TargetCenter, TissueRetract,
 BloodSuction, and UltrasoundScan.  It defaults to standard 1080p H.264 at
 30 fps and can record every scene or a selected subset:
 

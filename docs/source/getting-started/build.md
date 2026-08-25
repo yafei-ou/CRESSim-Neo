@@ -191,10 +191,11 @@ python -m pip wheel --no-deps --wheel-dir dist \
 
 For editable development, run `python -m pip install -e .`. Package builds can
 take several minutes; use the preset-based native build for frequent C++
-iteration. The local wheel requires NumPy; Gymnasium is optional:
+iteration. The local wheel requires NumPy. Install Gymnasium separately when
+its environment wrappers are needed:
 
 ```bash
-python -m pip install 'cressim-neo[gymnasium]'
+python -m pip install gymnasium
 ```
 
 Local wheels do not include CUDA interop or Ultrasound. Install PyTorch

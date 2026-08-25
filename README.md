@@ -43,7 +43,12 @@ sudo apt install -y \
   python3-pip \
   git \
   libvulkan-dev \
-  vulkan-tools
+  vulkan-tools \
+  libxcursor-dev \
+  libxext-dev \
+  libxi-dev \
+  libxinerama-dev \
+  libxrandr-dev
 ```
 
 By default, Linux and Windows configuration downloads a pinned DXC runtime release with a
@@ -280,10 +285,10 @@ CMAKE_BUILD_PARALLEL_LEVEL=4 python -m pip wheel --no-deps --wheel-dir dist .
 ```
 
 The local wheel has no CUDA interop or Ultrasound dependency and requires
-NumPy. Gymnasium is optional:
+NumPy. Install Gymnasium separately when its environment wrappers are needed:
 
 ```bash
-python -m pip install 'cressim-neo[gymnasium]'
+python -m pip install gymnasium
 ```
 
 The local wheel workflow does not require PyTorch. Install PyTorch separately

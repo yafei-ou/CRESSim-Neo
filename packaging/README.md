@@ -63,8 +63,9 @@ Release wheels are built in controlled manylinux containers and written to
 | `cu130` | CUDA 13.0 | Yes | `../docker/manylinux-cu130/Dockerfile` | `../docker/ubuntu-cu130/Dockerfile` |
 | `cu132` | CUDA 13.2 | Yes | `../docker/manylinux-cu132/Dockerfile` | `../docker/ubuntu-cu132/Dockerfile` |
 
-Each CUDA lane pins the official PyTorch wheel and its CUDA runtime bundle in
-its wheel metadata and `requirements.lock`.
+Each CUDA lane pins its CUDA runtime bundle in wheel metadata. Its
+`requirements.lock` separately pins the matching official PyTorch wheel used
+by the CUDA runtime tests.
 
 ### Linux compatibility floor
 
