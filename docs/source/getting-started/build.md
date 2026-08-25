@@ -1,6 +1,8 @@
 # Build CRESSim-Neo
 
-CRESSim-Neo is a C++17 simulation engine with optional Python bindings. A
+CRESSim-Neo is a C++17 simulation engine with optional Python bindings.
+Third-party C++ dependencies (including Diligent Engine, pybind11, and GLFW)
+are managed as in-tree git submodules and built automatically by CMake. A
 normal CMake build produces the native libraries; enabling Python adds the
 `cressim_neo` extension module.
 
@@ -47,7 +49,10 @@ sudo apt install -y \
 
 Linux and Windows use a pinned DXC runtime by default; CMake downloads it and
 verifies its SHA-256 the first time it populates a build-directory cache.
-Initialize the pinned submodules before configuring:
+In-tree dependencies—such as Diligent Engine (`extern/DiligentEngine`),
+GLFW (`extern/glfw`), and pybind11 (`extern/pybind11`)—are tracked as git
+submodules, require no manual user handling or system-level installation, and
+are compiled automatically. Simply initialize them when checking out the repository:
 
 ```bash
 git submodule update --init --recursive
@@ -195,3 +200,29 @@ python -m pip install 'cressim-neo[gymnasium]'
 Local wheels do not include CUDA interop or Ultrasound. Install PyTorch
 separately when needed, and use the release-wheel workflow for CUDA-enabled
 Linux or Windows distributions.
+
+## Distribution and packaging strategy
+
+The long-term distribution plan addresses target environments across platforms:
+
+- **Stable Linux / Windows releases:** Distributed as prebuilt native binaries
+  (C++ SDK, viewer, standalone examples) with a pinned CUDA-runtime prerequisite
+  matching the build toolchain.
+- **Python on mainstream platforms:** Pinned CUDA-specific wheels (`cu126`, `cu130`,
+  `cu132`) with pinned NVIDIA pip runtime dependencies, installed in isolated
+  virtual or Conda environments alongside matching PyTorch wheels.
+- **Arch Linux / rolling distributions:** Source-based `PKGBUILD` utilizing the
+  system CUDA toolkit and official `python-pytorch-cuda` package. Rolling distributions
+  maintain synchronized system Python, CUDA, and PyTorch packages natively, so no
+  upstream prebuilt CUDA wheel is required.
+
+:::{note}
+**PyTorch CUDA runtime compatibility:**
+Torch interoperability (DLPack and CUDA external memory exchange) strictly requires
+that CRESSim-Neo links and interacts with the exact same CUDA runtime as PyTorch.
+On stable Linux distributions and Windows, system Python packages and system CUDA
+installations frequently conflict with PyTorch's bundled CUDA runtime wheels.
+Performing a system-Python install with system CUDA on stable Linux/Windows is
+therefore unsupported for Torch-interoperable workflows; users should rely on
+isolated virtual environments with matching wheels or distribution packages via `PKGBUILD`.
+:::
