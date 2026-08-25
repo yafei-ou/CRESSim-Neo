@@ -3,7 +3,11 @@
 
 #include "cressim_neo/visibility.h"
 
+/// @file export.h
+/// @brief Symbol export macros for the CRESSim-Neo interactive debug viewer application library.
+
 #if defined(CRESSIM_NEO_STATIC)
+/// @brief Macro for exporting/importing symbols from the CRESSim-Neo viewer shared library.
 #define CRESSIM_NEO_VIEWER_API
 #elif defined(_WIN32)
 #if defined(CRESSIM_NEO_VIEWER_EXPORT)
