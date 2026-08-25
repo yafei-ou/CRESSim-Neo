@@ -2,7 +2,9 @@
 
 The documentation site uses Sphinx with MyST Markdown and reStructuredText.
 Doxygen supplies the C++ API XML through Breathe, and Sphinx imports the built
-Python package to generate the Python reference.
+native Python bindings module to generate the Python reference. Package-level
+Python helpers, including PSM and other environment implementations, are not
+part of that reference.
 
 On Arch Linux, install the documented toolchain:
 

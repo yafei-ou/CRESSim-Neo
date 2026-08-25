@@ -80,7 +80,8 @@ build directory. Sphinx and Breathe then consume that XML. Doxygen does not
 produce a separate HTML website. The generated C++ reference is organized by
 the `common`, `engine`, `physics`, `gpu`, `graphics`, and `viewer` namespaces.
 The Python API reference is generated in the same site from the compiled
-package.
+native bindings module. Package-level Python helpers, including PSM and other
+environment implementations, are intentionally excluded.
 
 All generated documentation remains under the ignored `build/` directory and
 must not be committed.
