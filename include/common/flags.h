@@ -3,6 +3,12 @@
 
 #include <type_traits>
 
+/// @file flags.h
+/// @brief Type-safe bitmask enumeration operators and flag utilities.
+
+/// @def CRESSIM_NEO_DEFINE_ENUM_FLAGS(EnumType)
+/// @brief Generates bitwise operators (`|`, `&`, `|=`) and a `hasFlag` helper for a scoped enumeration.
+/// @param EnumType Scoped enumeration type to enable as a bitmask.
 #define CRESSIM_NEO_DEFINE_ENUM_FLAGS(EnumType)                                                    \
     constexpr EnumType operator|(EnumType lhs, EnumType rhs) noexcept                              \
     {                                                                                              \
