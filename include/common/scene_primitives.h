@@ -12,10 +12,6 @@ namespace cressim::neo::common
 {
 
 /// @brief Capacity descriptor specifying limits and environment counts for multi-environment scenes.
-///
-/// In Python, this type is exposed as `cressim_neo.SceneLayoutDesc`.
-///
-/// @see cressim_neo.SceneLayoutDesc
 struct SceneLayoutDesc
 {
     std::uint32_t envCount                   = 1u;    ///< Number of parallel simulation and rendering environments.

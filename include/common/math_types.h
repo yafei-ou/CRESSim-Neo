@@ -11,10 +11,7 @@ namespace cressim::neo::common
 
 /// @brief Represents a 3D affine transformation composed of translation, orientation, and scale.
 ///
-/// In Python, this type is exposed as `cressim_neo.Transform` with `position`, `rotation`, and `scale` attributes.
 /// It is used across physics, graphics, and ECS transform components (`engine::TransformComponent`).
-///
-/// @see cressim_neo.Transform
 struct Transform
 {
     Diligent::float3 position{0.0f, 0.0f, 0.0f};           ///< World-space 3D translation (x, y, z).

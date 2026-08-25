@@ -7,8 +7,6 @@ namespace cressim::neo::common
 {
 
 /// @brief Unique numeric identifier for entities within an ECS scene graph or World.
-///
-/// In Python, entity handles and identifiers are passed as native unsigned integers.
 using EntityId                      = std::uint32_t;
 
 /// @brief Sentinel constant representing an invalid or unallocated EntityId.
