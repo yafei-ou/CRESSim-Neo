@@ -771,8 +771,7 @@ bool GpuDeviceImpl::initializeVulkan()
                          VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
                          " with shaderBufferFloat32AtomicAdd=VK_TRUE.");
         CRESSIM_LOG_INFO("Requesting layered shadow-map export via ",
-                         VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME,
-                         ".");
+                         VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME, ".");
 #if CRESSIM_NEO_HAS_CUDA_INTEROP
         CRESSIM_LOG_INFO("Requesting Vulkan CUDA interop instance extensions: ",
                          VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME, ", ",

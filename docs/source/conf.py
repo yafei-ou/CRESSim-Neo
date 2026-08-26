@@ -8,10 +8,12 @@ from sphinx import addnodes
 
 project = "CRESSim-Neo"
 author = "CRESSim-Neo contributors"
+html_title = "CRESSim-Neo Documentation"
 
 extensions = [
     "breathe",
     "myst_parser",
+    "sphinx_design",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
@@ -21,6 +23,7 @@ source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",
 }
+myst_enable_extensions = ["colon_fence"]
 
 python_package_dir = os.environ.get("CRESSIM_NEO_PYTHON_PACKAGE_DIR")
 if not python_package_dir:
@@ -49,7 +52,21 @@ autodoc_default_options = {
 autosummary_generate = True
 
 html_theme = "pydata_sphinx_theme"
+html_theme_options = {
+    "logo": {
+        "text": "CRESSim-Neo Documentation",
+    },
+    "secondary_sidebar_items": {
+        "**": ["page-toc", "edit-this-page", "sourcelink"],
+        "index": [],
+    },
+}
 html_static_path = []
+templates_path = ["_templates"]
+html_sidebars = {
+    "**": ["components/sidebar-nav-bs.html"],
+    "index": [],
+}
 
 
 def _unlink_python_none_references(app, doctree):

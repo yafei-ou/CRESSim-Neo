@@ -290,8 +290,8 @@ void resetExportableTimelineSemaphore(TimelineSemaphoreState &state) noexcept
     state.fence        = nullptr;
     state.renderDevice = nullptr;
     state.deviceType   = Diligent::RENDER_DEVICE_TYPE_UNDEFINED;
-    state.vkSemaphore = VK_NULL_HANDLE;
-    state.initialized = false;
+    state.vkSemaphore  = VK_NULL_HANDLE;
+    state.initialized  = false;
 }
 
 bool exportSemaphoreHandle(const TimelineSemaphoreState &state, NativeHandle &outHandle) noexcept

@@ -16,70 +16,146 @@
 #include <string>
 #include <vector>
 
+/// @file gpu_compute_pass.h
+/// @brief Compute pipeline state object (PSO) wrapper, shader resource bindings (SRB), and
+/// threadgroup dispatch helpers.
+
 namespace cressim::neo::gpu
 {
 
+/// @brief Binding descriptor mapping a GPU buffer to a named compute shader resource variable.
 struct GpuBufferBinding
 {
-    const char *variableName            = nullptr;
-    Diligent::IBuffer *buffer           = nullptr;
-    Diligent::BUFFER_VIEW_TYPE viewType = Diligent::BUFFER_VIEW_UNDEFINED;
+    const char *variableName =
+        nullptr; ///< Shader HLSL resource variable name (e.g. `g_Positions`).
+    Diligent::IBuffer *buffer = nullptr; ///< Pointer to target GPU buffer.
+    Diligent::BUFFER_VIEW_TYPE viewType =
+        Diligent::BUFFER_VIEW_UNDEFINED; ///< Buffer view type (`BUFFER_VIEW_SHADER_RESOURCE` or
+                                         ///< `BUFFER_VIEW_UNORDERED_ACCESS`).
 };
 
+/// @brief Binding descriptor mapping a GPU texture view to a named compute shader variable.
 struct GpuTextureBinding
 {
-    const char *variableName     = nullptr;
-    Diligent::ITextureView *view = nullptr;
+    const char *variableName     = nullptr; ///< Shader HLSL variable name.
+    Diligent::ITextureView *view = nullptr; ///< Pointer to texture view (SRV or UAV).
 };
 
+/// @brief Blueprint descriptor for compiling and creating a compute pipeline state object.
 struct GpuComputePassDefinition
 {
-    const char *shaderPath                                = nullptr;
-    const char *shaderName                                = nullptr;
-    const char *psoName                                   = nullptr;
-    const Diligent::ShaderResourceVariableDesc *variables = nullptr;
-    std::size_t variableCount                             = 0u;
-    const Diligent::ShaderMacro *macros                   = nullptr;
-    std::size_t macroCount                                = 0u;
-    const char *entryPoint                                = nullptr;
-    const char *shaderSource                              = nullptr;
+    const char *shaderPath = nullptr; ///< HLSL file path; set exactly one of this and shaderSource.
+    const char *shaderName = nullptr; ///< Debug identifier for the compiled compute shader.
+    const char *psoName    = nullptr; ///< Debug identifier for the compute pipeline state.
+    const Diligent::ShaderResourceVariableDesc *variables =
+        nullptr; ///< Array of dynamic/mutable shader variable descriptors.
+    std::size_t variableCount           = 0u;      ///< Number of variable descriptors.
+    const Diligent::ShaderMacro *macros = nullptr; ///< Preprocessor macro definitions array.
+    std::size_t macroCount              = 0u;      ///< Number of macro definitions.
+    const char *entryPoint   = nullptr; ///< Entry point function name (e.g. "main" or "CSMain").
+    const char *shaderSource = nullptr; ///< Alternative in-memory HLSL source; mutually exclusive
+                                        ///< with shaderPath.
 };
 
+/// @brief Wrapper managing a compute pipeline state object (PSO) and reusable shader resource
+/// binding (SRB) variants.
 class CRESSIM_NEO_GPU_API GpuComputePass
 {
 public:
+    /// @brief Compiles the shader and initializes the compute pipeline state object.
+    /// @param device GPU device reference.
+    /// @param streamFactory Shader file stream provider factory.
+    /// @param immediateContextMask Bitmask of device contexts that can execute this pass.
+    /// @param definition Pass definition containing shader source paths, macros, and variable
+    /// layouts.
+    /// @return False unless exactly one shader source is supplied, @p streamFactory is non-null,
+    /// shader/PSO creation succeeds, and the initial SRB can be created.
     bool initialize(GpuDevice &device, Diligent::IShaderSourceInputStreamFactory *streamFactory,
                     Diligent::Uint64 immediateContextMask,
                     const GpuComputePassDefinition &definition);
 
+    /// @brief Creates an additional shader resource binding (SRB) variant for concurrent/distinct
+    /// parameter sets.
+    /// @return True on success.
     bool createVariant();
+
+    /// @brief Ensures at least a specified total number of SRB variants are allocated.
+    /// @param totalVariantCount Minimum total number of variants.
+    /// @return True on success.
     bool createVariants(std::size_t totalVariantCount);
+
+    /// @brief Forces recreation of all allocated SRB variant instances from the parent PSO.
+    /// @return True on success.
     bool forceRecreateAllVariants();
 
+    /// @brief Retrieves the raw Diligent pipeline state object.
+    /// @return Pointer to Diligent::IPipelineState.
     Diligent::IPipelineState *pipelineState() const
     {
         return mPso.RawPtr();
     }
+
+    /// @brief Retrieves the default (index 0) shader resource binding.
+    /// @return Pointer to Diligent::IShaderResourceBinding or nullptr.
     Diligent::IShaderResourceBinding *defaultSrb() const
     {
         return mVariants.empty() ? nullptr : mVariants[0].srb.RawPtr();
     }
+
+    /// @brief Retrieves the shader resource binding for a specific variant index.
+    /// @param index Zero-based variant index.
+    /// @return Pointer to Diligent::IShaderResourceBinding or nullptr.
     Diligent::IShaderResourceBinding *variantSrb(std::size_t index) const;
 
+    /// @brief Binds an array of buffer variables to an SRB variant without dispatching.
+    /// @tparam N Number of buffer bindings.
+    /// @param variantIndex Target SRB variant index.
+    /// @param bindings Array of buffer bindings.
+    /// @return True on success.
     template <std::size_t N>
     bool bindVariant(std::size_t variantIndex, const std::array<GpuBufferBinding, N> &bindings);
 
+    /// @brief Binds buffer resources and dispatches compute threadgroups.
+    /// @tparam N Number of buffer bindings.
+    /// @param computeContext Device context to execute dispatch on.
+    /// @param variantIndex SRB variant index.
+    /// @param bindings Array of buffer bindings.
+    /// @param groupCountX Number of threadgroups in X dimension.
+    /// @param groupCountY Number of threadgroups in Y dimension.
+    /// @param groupCountZ Number of threadgroups in Z dimension.
+    /// @return True on success.
     template <std::size_t N>
     bool dispatch(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
                   const std::array<GpuBufferBinding, N> &bindings, std::uint32_t groupCountX,
                   std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u);
 
+    /// @brief Binds buffer resources and dispatches indirect compute threadgroups from GPU argument
+    /// buffer.
+    /// @tparam N Number of buffer bindings.
+    /// @param computeContext Device context executing dispatch.
+    /// @param variantIndex SRB variant index.
+    /// @param bindings Array of buffer bindings.
+    /// @param indirectArgsBuffer GPU buffer containing dispatch argument counts.
+    /// @param indirectArgsOffset Byte offset into indirect argument buffer.
+    /// @return True on success.
     template <std::size_t N>
     bool dispatchIndirect(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
                           const std::array<GpuBufferBinding, N> &bindings,
                           Diligent::IBuffer *indirectArgsBuffer,
                           Diligent::Uint64 indirectArgsOffset = 0u);
 
+    /// @brief Binds both buffer and texture resources, committing and dispatching compute
+    /// threadgroups.
+    /// @tparam NB Number of buffer bindings.
+    /// @tparam NT Number of texture bindings.
+    /// @param computeContext Device context executing dispatch.
+    /// @param variantIndex SRB variant index.
+    /// @param bufferBindings Array of buffer bindings.
+    /// @param textureBindings Array of texture bindings.
+    /// @param groupCountX Number of threadgroups in X dimension.
+    /// @param groupCountY Number of threadgroups in Y dimension.
+    /// @param groupCountZ Number of threadgroups in Z dimension.
+    /// @return True on success.
     template <std::size_t NB, std::size_t NT>
     bool dispatchResources(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
                            const std::array<GpuBufferBinding, NB> &bufferBindings,

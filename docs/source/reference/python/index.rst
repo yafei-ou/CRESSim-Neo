@@ -1,6 +1,4 @@
-Python API reference
-====================
+Python bindings API reference
+=============================
 
-.. automodule:: cressim_neo
-   :imported-members:
-
+.. automodule:: cressim_neo._cressim_neo

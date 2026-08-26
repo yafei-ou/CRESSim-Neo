@@ -10,7 +10,7 @@ Install the documentation toolchain from the official repositories:
 
 ```bash
 sudo pacman -S doxygen python-sphinx python-breathe python-myst-parser \
-  python-pydata-sphinx-theme
+  python-sphinx-design python-pydata-sphinx-theme
 ```
 
 Verify the installation:
@@ -18,7 +18,7 @@ Verify the installation:
 ```bash
 doxygen --version
 sphinx-build --version
-python -c "import breathe, myst_parser; print('Breathe and MyST available')"
+python -c "import breathe, myst_parser, sphinx_design; print('Documentation extensions available')"
 ```
 
 Graphviz is not currently required. It may be added later if the documentation
@@ -80,7 +80,8 @@ build directory. Sphinx and Breathe then consume that XML. Doxygen does not
 produce a separate HTML website. The generated C++ reference is organized by
 the `common`, `engine`, `physics`, `gpu`, `graphics`, and `viewer` namespaces.
 The Python API reference is generated in the same site from the compiled
-package.
+native bindings module. Package-level Python helpers, including PSM and other
+environment implementations, are intentionally excluded.
 
 All generated documentation remains under the ignored `build/` directory and
 must not be committed.

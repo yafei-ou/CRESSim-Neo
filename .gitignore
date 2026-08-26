@@ -51,10 +51,15 @@ build
 bin
 out
 dist
+.venv
 
 .cache
 .codex
 .DS_Store
+
+# Documentation artifacts
+latex
+html
 
 # Python
 __pycache__

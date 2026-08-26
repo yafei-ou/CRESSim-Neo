@@ -1,7 +1,35 @@
-# Python wheel builds
+# Python wheel builds and packaging
 
 There are two distinct workflows: a host-local developer wheel and reproducible
 release wheels. Do not use a local wheel as a release artifact.
+
+## Distribution and packaging strategy
+
+The long-term packaging architecture is structured around target platforms and their runtime ecosystems:
+
+- **Stable Linux / Windows releases:** Prebuilt native binaries (C++ SDK, viewer, and executables)
+  with a pinned CUDA-runtime prerequisite matching the toolchain release.
+- **Python on mainstream platforms:** CUDA-specific wheels (e.g. `cu126`, `cu130`, `cu132`)
+  with pinned NVIDIA pip runtime dependencies, installed in isolated virtual or Conda
+  environments alongside matching PyTorch wheels.
+- **Arch Linux / rolling distributions:** Source-based `PKGBUILD` that compiles against
+  the distribution's system CUDA and official `python-pytorch-cuda` package. Because rolling
+  distributions keep system Python, system CUDA, and system PyTorch in sync, no upstream
+  prebuilt CUDA wheel is needed.
+
+### Torch interop and CUDA runtime compatibility
+
+Zero-copy Torch interoperability (via DLPack and CUDA external memory) strictly requires that
+CRESSim-Neo brings in and links the exact same CUDA runtime version as PyTorch does.
+
+On stable Linux distributions and Windows, system Python environments and system CUDA
+installations frequently conflict with PyTorch's bundled/pinned CUDA runtime wheels (such as
+`nvidia-cuda-runtime-cu12` or `torch/lib`). Attempting a system-Python install linked against
+system CUDA on stable Linux/Windows creates runtime mismatches and symbol collisions.
+
+Therefore, system-Python installs on stable Linux/Windows are not supported for Torch workflows.
+Mainstream platforms should always use isolated virtual environments with matching CUDA wheels,
+while rolling distributions should build against system CUDA and system PyTorch via `PKGBUILD`.
 
 ## Local developer wheel
 
@@ -35,8 +63,9 @@ Release wheels are built in controlled manylinux containers and written to
 | `cu130` | CUDA 13.0 | Yes | `../docker/manylinux-cu130/Dockerfile` | `../docker/ubuntu-cu130/Dockerfile` |
 | `cu132` | CUDA 13.2 | Yes | `../docker/manylinux-cu132/Dockerfile` | `../docker/ubuntu-cu132/Dockerfile` |
 
-Each CUDA lane pins the official PyTorch wheel and its CUDA runtime bundle in
-its wheel metadata and `requirements.lock`.
+Each CUDA lane pins its CUDA runtime bundle in wheel metadata. Its
+`requirements.lock` separately pins the matching official PyTorch wheel used
+by the CUDA runtime tests.
 
 ### Linux compatibility floor
 

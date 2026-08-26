@@ -168,6 +168,10 @@ def main() -> int:
     except ImportError as exc:
         raise RuntimeError("This script requires matplotlib.") from exc
 
+    # Embed TrueType fonts in PDF output so it does not contain Type 3 glyphs.
+    plt.rcParams["pdf.fonttype"] = 42
+    plt.rcParams["ps.fonttype"] = 42
+
     rows = parse_benchmark_log(args.input)
     grouped = filter_mode(rows, args.mode)
     if not grouped:

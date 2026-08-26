@@ -3,7 +3,11 @@
 
 #include "cressim_neo/visibility.h"
 
+/// @file export.h
+/// @brief DLL export and import symbol visibility macros for the Common module.
+
 #if defined(CRESSIM_NEO_STATIC)
+/// @brief Symbol export macro for the Common module in static or shared builds.
 #define CRESSIM_NEO_COMMON_API
 #elif defined(_WIN32)
 #if defined(CRESSIM_NEO_COMMON_EXPORT)
