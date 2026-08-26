@@ -25,8 +25,10 @@ namespace cressim::neo::gpu
 
 class CudaSharedBuffer;
 
-/// @brief Structured GPU buffer that can be shared across API boundaries via native OS memory
-/// handles.
+/// @brief Structured GPU buffer that attempts native OS-handle sharing across API boundaries.
+///
+/// If native shared allocation is unavailable or fails, allocation falls back to an engine-only
+/// Diligent buffer; inspect isExportable() before attempting CUDA import.
 class CRESSIM_NEO_GPU_API SharedExportBuffer
 {
 public:
@@ -52,7 +54,8 @@ public:
     /// @param queueFamilyIndices Optional array of Vulkan queue family indices for concurrent
     /// sharing.
     /// @param queueFamilyIndexCount Number of queue family indices.
-    /// @return True on success.
+    /// @return False only when allocation fails or @p renderDevice/@p elementStride is invalid.
+    /// A successful fallback allocation may still be non-exportable.
     bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
                                 std::uint32_t elementStride, std::uint32_t requiredElementCount,
                                 std::uint32_t minimumCapacity, Diligent::BIND_FLAGS bindFlags,

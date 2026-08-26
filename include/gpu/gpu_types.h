@@ -21,6 +21,7 @@ namespace cressim::neo::gpu
 
 /// @brief Generates a 64-bit bitmask corresponding to a specific device context identifier.
 /// @param contextId Zero-based context index.
+/// @pre @p contextId is less than 64.
 /// @return 64-bit bitmask with bit `contextId` set.
 constexpr Diligent::Uint64 contextMaskForId(std::uint32_t contextId) noexcept
 {
@@ -85,7 +86,8 @@ enum class GpuRenderTargetTexturePlane
 /// @brief Output routing mode for render passes.
 enum class RenderOutputMode
 {
-    ManagedPrimary,  ///< Render to the default presentation swapchain.
+    ManagedPrimary,  ///< Render ColorDepth output to a renderer-managed offscreen target; a chosen
+                     ///< camera may then be resolved to the presentation swapchain.
     ExplicitSurface, ///< Render to an explicitly bound offscreen target surface.
 };
 

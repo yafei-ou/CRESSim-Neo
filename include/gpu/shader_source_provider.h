@@ -56,10 +56,11 @@ public:
 
     /// @brief Retrieves the Diligent input stream factory for compiling shaders with nested
     /// includes.
-    /// @return Pointer to Diligent::IShaderSourceInputStreamFactory.
+    /// @return Pointer to Diligent::IShaderSourceInputStreamFactory, or nullptr if the source or
+    /// configured include directories cannot be resolved.
     Diligent::IShaderSourceInputStreamFactory *streamFactory();
-    /// @brief Gets the root directory from which entry-point shaders are loaded.
-    /// @return Filesystem path to shader source directory.
+    /// @brief Gets the resolved root directory from which entry-point shaders are loaded.
+    /// @return Empty path if source-directory resolution fails.
     std::filesystem::path sourceDirectory();
 
 private:

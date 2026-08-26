@@ -49,6 +49,7 @@ struct EnvironmentIblBakeOptions
 /// @param options Baking resolution and sample count options.
 /// @return Populated EnvironmentIblDesc referencing the registered background, irradiance, and
 /// specular cubemaps.
+/// @throws std::runtime_error if face dimensions do not match.
 CRESSIM_NEO_GRAPHICS_API EnvironmentIblDesc createEnvironmentIblFromCubemapImages(
     RenderResourceManager &resources, const std::array<EnvironmentCubemapImage, 6u> &faces,
     const EnvironmentIblBakeOptions &options = {});
@@ -59,6 +60,7 @@ CRESSIM_NEO_GRAPHICS_API EnvironmentIblDesc createEnvironmentIblFromCubemapImage
 /// @param facePaths Array of 6 filesystem paths to image files.
 /// @param options Baking options.
 /// @return Populated EnvironmentIblDesc referencing the registered cubemaps.
+/// @throws std::runtime_error if an image cannot be loaded or the loaded face dimensions differ.
 CRESSIM_NEO_GRAPHICS_API EnvironmentIblDesc createEnvironmentIblFromCubemapFiles(
     RenderResourceManager &resources, const std::array<std::filesystem::path, 6u> &facePaths,
     const EnvironmentIblBakeOptions &options = {});

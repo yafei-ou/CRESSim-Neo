@@ -83,9 +83,11 @@ public:
     virtual void shutdown()                            = 0;
 
     /// @brief Begins a new rendering and simulation frame.
+    /// @note A second call while a frame is active is ignored.
     /// @param frameContext Temporal frame context state.
     virtual void beginFrame(const common::FrameContext &frameContext) = 0;
     /// @brief Ends the current frame, executing presentation and queuing asynchronous readbacks.
+    /// @note A call without a matching beginFrame() is ignored.
     /// @param frameContext Temporal frame context state.
     virtual void endFrame(const common::FrameContext &frameContext)   = 0;
     /// @brief Retrieves the offscreen render target management system.
@@ -120,13 +122,15 @@ public:
     /// @return True if presentation swapchain is active.
     virtual bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc)    = 0;
     /// @brief Enqueues an asynchronous readback request for the primary presentation frame.
-    /// @return Tracking readback request handle.
+    /// @return Tracking request handle, or an invalid handle when no presentation swapchain is
+    /// active.
     virtual GpuPresentationReadbackRequest requestPresentationReadback()             = 0;
-    /// @brief Attempts to retrieve downloaded pixel data for a previously enqueued presentation
+    /// @brief Attempts to retrieve and consume pixel data for a previously enqueued presentation
     /// readback request.
     /// @param request Tracking handle.
     /// @param outEvent Output readback event data to populate.
-    /// @return True if readback is complete and data was copied.
+    /// @return True if a completed event was available; false if invalid, incomplete, or already
+    /// consumed.
     virtual bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
                                             GpuPresentationReadbackEvent &outEvent)  = 0;
     /// @brief Checks whether the hardware device supports native floating-point atomic operations

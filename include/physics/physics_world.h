@@ -104,44 +104,73 @@ public:
     AuthoredParticleSequenceState &upsertParticleSequence(
         const AuthoredParticleSequenceState &state);
     /// @brief Inserts or updates an authored particle-to-particle distance constraint.
+    ///
+    /// An invalid or unknown ID creates a new constraint. Negative rest length and compliance are
+    /// clamped to zero. Particle references are retained as authored here and resolved when the
+    /// derived state is rebuilt.
     /// @param state Constraint state.
-    /// @return Reference to stored constraint.
+    /// @return Reference to the normalized stored constraint.
     AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
         const AuthoredParticleDistanceConstraintState &state);
     /// @brief Inserts or updates an authored rigid-to-particle attachment constraint.
+    ///
+    /// The referenced particle and rigid body must exist and belong to the same environment.
+    /// Negative compliance is clamped to zero. An invalid or unknown constraint ID creates a new
+    /// constraint; on success, @p outAuthored receives its normalized state when non-null.
     /// @param state Constraint state to insert or update.
-    /// @param outAuthored Optional output pointer receiving the updated constraint state.
-    /// @return True on success.
+    /// @param outAuthored Optional output pointer receiving the normalized stored constraint.
+    /// @return False if either reference is invalid, out of range, or in a different environment.
     bool upsertRigidParticleAttachmentConstraint(
         const AuthoredRigidParticleAttachmentConstraintState &state,
         AuthoredRigidParticleAttachmentConstraintState *outAuthored = nullptr);
     /// @brief Inserts or updates an authored strand-to-rigid attachment constraint.
+    ///
+    /// The strand segment and rigid body must exist and belong to the same environment. `segmentT`
+    /// is clamped to [0, 1], the local rotation is normalized, and negative compliance values are
+    /// clamped to zero. An invalid or unknown constraint ID creates a new constraint.
     /// @param state Constraint state.
-    /// @param outAuthored Optional output pointer receiving the updated state.
-    /// @return True on success.
+    /// @param outAuthored Optional output pointer receiving the normalized stored state.
+    /// @return False if the strand segment or rigid body is invalid, or their environments differ.
     bool upsertStrandRigidAttachmentConstraint(
         const AuthoredStrandRigidAttachmentConstraintState &state,
         AuthoredStrandRigidAttachmentConstraintState *outAuthored = nullptr);
     /// @brief Inserts or updates an authored rigid-to-rigid distance constraint.
+    ///
+    /// The bodies must be distinct existing rigid bodies in the same environment. Negative rest
+    /// distance and compliance are clamped to zero. An invalid or unknown constraint ID creates a
+    /// new constraint.
     /// @param state Constraint state.
-    /// @param outAuthored Optional output pointer receiving the updated state.
-    /// @return True on success.
+    /// @param outAuthored Optional output pointer receiving the normalized stored state.
+    /// @return False if either body is invalid, both names refer to the same body, or environments
+    /// differ.
     bool upsertRigidDistanceConstraint(const AuthoredRigidDistanceConstraintState &state,
                                        AuthoredRigidDistanceConstraintState *outAuthored = nullptr);
     /// @brief Inserts or updates an authored routed cable constraint.
+    ///
+    /// The route must contain at least two guide points on existing rigid bodies in one
+    /// environment; adjacent guide points may not use the same body. Negative target length and
+    /// compliance are clamped to zero. An invalid or unknown constraint ID creates a new
+    /// constraint.
     /// @param state Constraint state.
-    /// @param outAuthored Optional output pointer receiving the updated state.
-    /// @return True on success.
+    /// @param outAuthored Optional output pointer receiving the normalized stored state.
+    /// @return False if the route is too short, has an invalid body, crosses environments, or
+    /// repeats a body at adjacent points.
     bool upsertRoutedCableConstraint(const AuthoredRoutedCableConstraintState &state,
                                      AuthoredRoutedCableConstraintState *outAuthored = nullptr);
     /// @brief Inserts or updates an authored particle collision filter.
+    ///
+    /// An invalid or unknown filter ID creates a new filter. A zero collision layer is normalized
+    /// to layer 1; the particle reference is retained as authored and resolved on rebuild.
     /// @param state Filter state.
-    /// @return Reference to stored filter state.
+    /// @return Reference to the normalized stored filter state.
     AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
         const AuthoredParticleCollisionFilterState &state);
     /// @brief Inserts or updates an authored suturing sequence.
+    ///
+    /// An invalid or unknown ID creates a new sequence. Negative path-node spacing is clamped to
+    /// zero, and the tip index is clamped to the entries (or set to zero for an empty sequence).
     /// @param state Sequence state.
-    /// @return Reference to stored suturing sequence state.
+    /// @return Reference to the normalized stored suturing sequence state.
     AuthoredSuturingSequenceState &upsertSuturingSequence(
         const AuthoredSuturingSequenceState &state);
     /// @brief Removes a soft body by its entity ID.
@@ -189,20 +218,38 @@ public:
     /// @return True if removed, false otherwise.
     bool removeSuturingSequence(SuturingSequenceId sequenceId);
     /// @brief Inserts or updates an articulated ball joint.
+    ///
+    /// The two body IDs must name distinct registered rigid bodies in the same environment. An
+    /// invalid joint ID creates a new joint.
     /// @param state Ball joint state.
-    /// @return True on success.
+    /// @return False if either body is invalid, both body IDs are equal, or environments differ.
     bool upsertBallJoint(const BallJointState &state);
     /// @brief Inserts or updates an articulated spherical joint.
+    ///
+    /// The bodies must be distinct registered rigid bodies in the same environment. Rotations are
+    /// normalized, negative compliance and swing limits are clamped to zero, reversed enabled
+    /// twist limits are reordered, and disabled limits are reset. Only `None` and
+    /// `TargetOrientation` drive modes are accepted.
     /// @param state Spherical joint state.
-    /// @return True on success.
+    /// @return False if the body references are invalid, environments differ, or the drive mode is
+    /// unsupported.
     bool upsertSphericalJoint(const SphericalJointState &state);
     /// @brief Inserts or updates an articulated hinge joint.
+    ///
+    /// The bodies must be distinct registered rigid bodies in the same environment. Rotations are
+    /// normalized, negative compliance, damping, and maximum angular velocity are clamped to zero,
+    /// and disabled limits are reset.
     /// @param state Hinge joint state.
-    /// @return True on success.
+    /// @return False if either body is invalid, both body IDs are equal, or environments differ.
     bool upsertHingeJoint(const HingeJointState &state);
     /// @brief Inserts or updates an articulated slider joint.
+    ///
+    /// The bodies must be distinct registered rigid bodies in the same environment. Rotations are
+    /// normalized, reversed enabled limits are reordered, disabled limits are reset, and negative
+    /// compliance, damping, and maximum velocity are clamped to zero. When both local anchors are
+    /// near zero, anchors are derived from body B's current world position.
     /// @param state Slider joint state.
-    /// @return True on success.
+    /// @return False if either body is invalid, both body IDs are equal, or environments differ.
     bool upsertSliderJoint(const SliderJointState &state);
     /// @brief Removes a ball joint.
     /// @param jointId Joint identifier to remove.
@@ -503,8 +550,13 @@ public:
     /// @param data Curve rendering descriptor data.
     void setCurveRenderData(const CurveRenderDataHost &data);
     /// @brief Ensures all derived GPU-ready SoA tables and constraints are up to date.
+    ///
+    /// Although const, this call may rebuild internal cached mappings, resolved constraints, and
+    /// joint/collider derived tables.
     void ensureDerivedStateUpToDate() const noexcept;
     /// @brief Ensures soft-body derived topology and particle layout tables are up to date.
+    ///
+    /// This may rebuild particle, constraint, and suturing caches.
     void ensureSoftBodyDerivedStateUpToDate() noexcept;
     /// @brief Gets indices of rigid bodies modified since last GPU upload.
     /// @return Vector of dirty rigid body indices.

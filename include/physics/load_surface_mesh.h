@@ -34,9 +34,9 @@ struct SurfaceMeshData
 CRESSIM_NEO_PHYSICS_API bool readObjSurfaceMesh(const std::filesystem::path &path,
                                                 SurfaceMeshData &mesh, std::string &errorMessage);
 
-/// @brief Loads an OBJ format triangle surface mesh from disk, throwing an exception on failure.
+/// @brief Loads an OBJ format triangle surface mesh from disk.
 /// @param path File system path to the `.obj` file.
-/// @return Loaded SurfaceMeshData structure.
+/// @return Loaded mesh, or an empty mesh after logging a read/parse failure.
 CRESSIM_NEO_PHYSICS_API SurfaceMeshData loadObjSurfaceMesh(const std::filesystem::path &path);
 
 } // namespace cressim::neo::physics

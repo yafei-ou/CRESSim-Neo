@@ -166,7 +166,7 @@ public:
     /// @return Buffer size in bytes.
     std::uint64_t sizeBytes() const noexcept;
     /// @brief Retrieves the CUDA device ordinal index hosting the buffer.
-    /// @return Zero-based CUDA device index.
+    /// @return Zero-based CUDA device index, or -1 when the mapped pointer cannot be queried.
     std::int32_t deviceOrdinal() const noexcept;
 
     /// @brief Checks if CUDA interop build support is available.
@@ -206,13 +206,15 @@ public:
     /// @param buffer Source shared export buffer.
     /// @return True on success.
     bool bindSharedBuffer(const SharedExportBuffer &buffer);
-    /// @brief Signals from CUDA and instructs the graphics device context to wait for CUDA work
-    /// completion.
+    /// @brief Performs a device-wide CUDA synchronization, then signals a fence that graphics
+    /// waits on.
+    ///
+    /// This conservative synchronization covers CUDA/Torch writes on streams not known to the
+    /// bridge.
     /// @param context Device context to synchronize.
     /// @return True on success.
     bool synchronizeToDeviceContext(Diligent::IDeviceContext *context);
-    /// @brief Signals from graphics and instructs the CUDA stream to wait for graphics work
-    /// completion.
+    /// @brief Signals graphics completion and queues a wait on CUDA's default stream.
     /// @param context Device context executing the graphics work.
     /// @return True on success.
     bool synchronizeFromDeviceContext(Diligent::IDeviceContext *context);
@@ -237,7 +239,7 @@ public:
     /// @return Size in bytes.
     std::uint64_t sizeBytes() const noexcept;
     /// @brief Retrieves the CUDA device ordinal hosting the buffer.
-    /// @return CUDA device index.
+    /// @return CUDA device index, or -1 when the mapped pointer cannot be queried.
     std::int32_t deviceOrdinal() const noexcept;
 
     /// @brief Checks if CUDA interop is supported in this build.

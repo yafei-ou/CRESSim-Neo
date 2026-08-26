@@ -188,7 +188,8 @@ public:
 
     /// @brief Initializes graphics pipelines, shadow passes, compute culling, and post-processing
     /// filters.
-    /// @return True on success.
+    /// @return True on success. When no graphics backend is available, initialization still
+    /// succeeds but creates no GPU pipelines.
     bool initialize();
     /// @brief Executes complete scene rendering for all active cameras and outputs.
     /// @param frameContext Temporal frame context.
@@ -196,7 +197,9 @@ public:
     /// @param physicsScene Optional physics GPU buffer views for deformable skinning and debug
     /// overlays.
     /// @param options Per-frame presentation and tonemapping options.
-    /// @return RenderStats struct containing draw call and execution metrics.
+    /// @return RenderStats containing draw-call and execution metrics. An uninitialized renderer
+    /// returns all zeros; when no graphics backend is available or GPU-scene preparation fails,
+    /// draw/execution counters remain zero but host renderable/light counts may be populated.
     RenderStats render(const common::FrameContext &frameContext, const HostSceneView &sceneView,
                        const physics::PhysicsGpuSceneView *physicsScene,
                        const RenderFrameOptions &options = RenderFrameOptions{});

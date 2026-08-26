@@ -271,14 +271,22 @@ public:
     RenderResourceManager &operator=(RenderResourceManager &&other) noexcept;
 
     /// @brief Registers a new mesh asset and allocates a unique handle.
+    ///
+    /// Missing or invalid tangent data is generated or repaired in the stored descriptor.
     /// @param desc Mesh geometry descriptor.
     /// @return Allocated MeshHandle.
     MeshHandle registerMesh(const MeshResourceDesc &desc);
     /// @brief Registers a new surface material and allocates a unique handle.
+    ///
+    /// The stored descriptor derives AlphaTest from Cutout mode and enables NormalMap when a
+    /// normal texture is supplied.
     /// @param desc Material descriptor.
     /// @return Allocated MaterialHandle.
     MaterialHandle registerMaterial(const MaterialResourceDesc &desc);
     /// @brief Registers a new texture and allocates a unique handle.
+    ///
+    /// Stored width, height, and mip count are clamped to at least one. A non-empty pixelData
+    /// payload is copied into the first subresource when explicit subresources are absent.
     /// @param desc Texture descriptor.
     /// @return Allocated TextureHandle.
     TextureHandle registerTexture(const TextureResourceDesc &desc);
@@ -316,9 +324,9 @@ public:
     bool tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3 &outMin,
                                Diligent::float3 &outMax) const noexcept;
 
-    /// @brief Retrieves the monotonic mutation revision number for a mesh asset.
+    /// @brief Retrieves the registration version for a mesh asset.
     /// @param mesh Mesh handle.
-    /// @return 64-bit revision version counter.
+    /// @return One for a registered mesh, or zero for an invalid handle.
     std::uint64_t meshVersion(MeshHandle mesh) const noexcept;
 
 private:

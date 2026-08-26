@@ -26,12 +26,12 @@ public:
 
     /// @brief Allocates an offscreen render target texture set based on the provided descriptor.
     /// @param desc Target geometry and texture format specification.
-    /// @return Allocated render target handle.
+    /// @return Allocated render target handle, or an invalid handle if allocation fails.
     virtual GpuRenderTargetHandle createRenderTarget(const GpuRenderTargetDesc &desc) = 0;
     /// @brief Resizes an existing render target's pixel dimensions.
     /// @param target Handle of the target to resize.
-    /// @param width New width in pixels.
-    /// @param height New height in pixels.
+    /// @param width New width in pixels; zero preserves the current width.
+    /// @param height New height in pixels; zero preserves the current height.
     /// @return GpuRenderTargetUpdateResult status code.
     virtual GpuRenderTargetUpdateResult resizeRenderTarget(GpuRenderTargetHandle target,
                                                            std::uint32_t width,
@@ -43,6 +43,8 @@ public:
     virtual GpuRenderTargetUpdateResult reconfigureRenderTarget(
         GpuRenderTargetHandle target, const GpuRenderTargetDesc &desc)      = 0;
     /// @brief Destroys and deallocates an offscreen render target.
+    ///
+    /// Pending readbacks for the target become completed events with empty pixel payloads.
     /// @param target Handle of target to destroy.
     virtual void destroyRenderTarget(GpuRenderTargetHandle target)          = 0;
     /// @brief Checks whether the given target handle refers to an allocated, active render target.

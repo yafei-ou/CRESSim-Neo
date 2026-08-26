@@ -52,7 +52,9 @@ struct RuntimeInfo
 class CRESSIM_NEO_ENGINE_API Runtime
 {
 public:
+    /// @brief Constructs an uninitialized runtime.
     Runtime();
+    /// @brief Shuts down the runtime if necessary.
     ~Runtime();
 
     Runtime(const Runtime &)            = delete;
@@ -68,46 +70,63 @@ public:
     /// @brief Shuts down the engine runtime and releases allocated GPU/physics resources.
     void shutdown();
 
-    /// Prepares authored world and render state for GPU upload.
+    /// @brief Prepares authored world and render state for GPU upload.
     ///
-    /// Call uploadWorld() after this method and before stepPhysics() or custom-compute
-    /// execution.
+    /// Call uploadWorld() after this method and before stepPhysics() or custom-compute execution.
+    /// Does nothing before initialize().
     void prepare();
 
-    /// Uploads the prepared physics and render scene state to GPU resources.
-    /// @return True if all required uploads succeed.
+    /// @brief Uploads the prepared physics and render scene state to GPU resources.
+    /// @return True if all required uploads succeed; false before initialize().
     bool uploadWorld();
 
-    /// Advances physics using the supplied frame context.
+    /// @brief Advances physics using the supplied frame context.
     ///
     /// Requires a successful uploadWorld() call after the most recent prepare().
     /// @return True if the physics step succeeds.
     bool stepPhysics(const common::FrameContext &frameContext);
 
-    /// Executes simulation-driven sensors, including ultrasound when configured.
-    /// @return True if the sensor work succeeds.
+    /// @brief Executes simulation-driven sensors, including ultrasound when configured.
+    /// @return False before initialize() or if the ultrasound system reports failure.
     bool stepSimulationSensors(const common::FrameContext &frameContext);
 
-    /// Updates the GPU scene and renders visual sensors for the supplied frame.
+    /// @brief Updates the GPU scene and renders visual sensors for the supplied frame.
+    /// @note Does nothing before initialize().
     void stepVisualSensors(const common::FrameContext &frameContext);
 
-    /// Ends the active device frame and submits queued presentation/readback work.
+    /// @brief Ends the active device frame and submits queued presentation/readback work.
+    /// @note Does nothing before initialize() or when no device frame is active.
     void endFrame(const common::FrameContext &frameContext);
 
+    /// @brief Returns the runtime-owned world.
     World &getWorld() noexcept;
+    /// @brief Returns the runtime-owned world.
     const World &getWorld() const noexcept;
 
+    /// @brief Returns the GPU device, or nullptr before initialization and after shutdown.
     gpu::GpuDevice *getGpuDevice() noexcept;
+    /// @brief Returns the GPU device, or nullptr before initialization and after shutdown.
     const gpu::GpuDevice *getGpuDevice() const noexcept;
+    /// @brief Returns the physics solver, or nullptr before initialization and after shutdown.
     physics::PhysicsSolver *getPhysicsSolver() noexcept;
+    /// @brief Returns the physics solver, or nullptr before initialization and after shutdown.
     const physics::PhysicsSolver *getPhysicsSolver() const noexcept;
+    /// @brief Sets gravity for the initialized physics solver.
+    /// @param gravity Gravity acceleration vector.
     void setGravity(const Diligent::float3 &gravity) noexcept;
+    /// @brief Returns statistics from the most recent visual-sensor render.
     const graphics::RenderStats &lastRenderStats() const noexcept;
+    /// @brief Sets options applied to subsequent visual-sensor renders.
+    /// @param options Per-frame rendering options.
     void setRenderFrameOptions(const graphics::RenderFrameOptions &options) noexcept;
+    /// @brief Returns options applied to visual-sensor renders.
     const graphics::RenderFrameOptions &renderFrameOptions() const noexcept;
 
+    /// @brief Returns the runtime-owned render resource manager.
     graphics::RenderResourceManager &getResources() noexcept;
+    /// @brief Returns the runtime-owned render resource manager.
     const graphics::RenderResourceManager &getResources() const noexcept;
+    /// @brief Returns engine version and optional feature support information.
     RuntimeInfo getInfo() const noexcept;
 
     /// Creates an engine-owned structured GPU buffer that can be bound in custom compute.
@@ -141,40 +160,68 @@ public:
     /// Keep the returned lease alive while an external consumer uses an exported buffer view.
     SharedBufferLease retainSharedBufferLease(SharedBufferHandle handle) const;
 
-    /// Returns the current prepared rigid-body/collider slot mapping derived from authored state.
-    /// This is valid after prepare() and does not require uploadWorld().
-    /// The returned layoutRevision is a prepared host-side slot-layout invalidation key and is
-    /// separate from the live GPU custom-compute bindingGeneration exposed after uploadWorld().
+    /// @brief Returns the current prepared rigid-body/collider slot mapping derived from authored
+    /// state. This is valid after prepare() and does not require uploadWorld(). The returned
+    /// layoutRevision is a prepared host-side slot-layout invalidation key and is separate from the
+    /// live GPU custom-compute bindingGeneration exposed after uploadWorld().
+    /// @param outMapping Receives an empty mapping when the runtime is uninitialized.
+    /// @return False when the runtime or physics solver is unavailable.
     bool tryGetPreparedRigidLayoutMapping(RigidLayoutMapping &outMapping) const;
 
-    /// Returns the current prepared rigid-adjacent constraint mapping derived from authored state.
-    /// This is valid after prepare() and does not require uploadWorld().
-    /// The returned layoutRevision is a prepared host-side slot-layout invalidation key and is
-    /// separate from the live GPU custom-compute bindingGeneration exposed after uploadWorld().
+    /// @brief Returns the current prepared rigid-adjacent constraint mapping derived from authored
+    /// state. This is valid after prepare() and does not require uploadWorld(). The returned
+    /// layoutRevision is a prepared host-side slot-layout invalidation key and is separate from the
+    /// live GPU custom-compute bindingGeneration exposed after uploadWorld().
+    /// @param outMapping Receives an empty mapping when the runtime is uninitialized.
+    /// @return False when the runtime or physics solver is unavailable.
     bool tryGetPreparedConstraintLayoutMapping(ConstraintLayoutMapping &outMapping) const;
 
-    /// Returns the current prepared particle/deformable slot mapping derived from authored state.
-    /// This is valid after prepare() and does not require uploadWorld().
-    /// The returned layoutRevision is a prepared host-side slot-layout invalidation key and is
-    /// separate from the live GPU custom-compute bindingGeneration exposed after uploadWorld().
+    /// @brief Returns the current prepared particle/deformable slot mapping derived from authored
+    /// state. This is valid after prepare() and does not require uploadWorld(). The returned
+    /// layoutRevision is a prepared host-side slot-layout invalidation key and is separate from the
+    /// live GPU custom-compute bindingGeneration exposed after uploadWorld().
+    /// @param outMapping Receives an empty mapping when the runtime is uninitialized.
+    /// @return False when the runtime or physics solver is unavailable.
     bool tryGetPreparedParticleLayoutMapping(ParticleLayoutMapping &outMapping) const;
 
-    /// Returns the current prepared rigid-joint slot mapping derived from authored state for
+    /// @brief Returns the current prepared rigid-joint slot mapping derived from authored state for
     /// ball, hinge, spherical, and slider joints. This is valid after prepare() and does not
     /// require uploadWorld(). The returned layoutRevision is a prepared host-side slot-layout
     /// invalidation key and is separate from the live GPU custom-compute bindingGeneration
     /// exposed after uploadWorld().
+    /// @param outMapping Receives an empty mapping when the runtime is uninitialized.
+    /// @return False when the runtime or physics solver is unavailable.
     bool tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) const;
 
+    /// @brief Computes an ultrasound output layout for probe and renderer components.
+    /// @param probeComponent Ultrasound probe configuration.
+    /// @param rendererComponent Ultrasound renderer configuration.
+    /// @param outLayout Output layout to populate.
+    /// @return True if layout computation succeeds.
     bool computeUltrasoundProbeLayout(const UltrasoundProbeComponent &probeComponent,
                                       const UltrasoundRendererComponent &rendererComponent,
                                       UltrasoundProbeLayout &outLayout) const;
 
+    /// @brief Lists custom-compute resources registered for the uploaded world.
+    /// @return Resource descriptors, or an empty vector when unavailable.
     std::vector<CustomComputeResourceDesc> listCustomComputeResources();
+    /// @brief Compiles and registers a custom compute pass for the uploaded world.
+    /// @param desc Compute-pass configuration.
+    /// @return Registered pass handle, or an invalid handle if creation fails.
     CustomComputePassHandle createCustomComputePass(const CustomComputePassDesc &desc);
+    /// @brief Updates a custom compute pass's constant-buffer data.
+    /// @param handle Registered compute-pass handle.
+    /// @param data Replacement constant-buffer bytes.
+    /// @return False for an invalid handle, a pass without constants, or an oversized payload.
     bool updateCustomComputePassConstants(CustomComputePassHandle handle,
                                           const std::vector<std::uint8_t> &data);
+    /// @brief Executes a registered custom compute pass for the uploaded world.
+    /// @param handle Registered compute-pass handle.
+    /// @return False if the pass or its required resources are unavailable or changed.
     bool executeCustomComputePass(CustomComputePassHandle handle);
+    /// @brief Destroys a registered custom compute pass.
+    /// @param handle Registered compute-pass handle.
+    /// @return True if the handle was registered.
     bool destroyCustomComputePass(CustomComputePassHandle handle);
 
 private:

@@ -32,7 +32,7 @@ struct ForwardDrawCommand
     common::ResourceId meshId = common::kInvalidResourceId; ///< Bound mesh resource identifier.
     common::ResourceId materialId =
         common::kInvalidResourceId; ///< Bound material resource identifier.
-    std::uint64_t meshVersion = 0;  ///< Monotonic mesh revision version.
+    std::uint64_t meshVersion = 0;  ///< Mesh registration version used to validate cached GPU data.
     std::uint32_t indexCount  = 0u; ///< Number of indices to draw.
 };
 

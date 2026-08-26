@@ -573,7 +573,8 @@ PYBIND11_MODULE(_cressim_neo, m)
     py::class_<SharedBufferTensorDesc>(
         m, "SharedBufferTensorDesc",
         "Tensor metadata descriptor for exporting a shared buffer to DLPack / PyTorch.")
-        .def(py::init<>(), "Initializes metadata for a scalar float32 tensor at the buffer start.")
+        .def(py::init<>(),
+             "Initializes empty tensor metadata. Set a non-empty shape before exporting.")
         .def_readwrite("shape", &SharedBufferTensorDesc::shape, "Tensor dimensions shape array.")
         .def_readwrite("strides", &SharedBufferTensorDesc::strides, "Tensor strides array.")
         .def_readwrite("dtype_code", &SharedBufferTensorDesc::dtypeCode, "Element data type code.")
@@ -659,7 +660,9 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Number of rigid-particle attachment constraint slots.")
         .def_readwrite("constraint_ids",
                        &RigidParticleAttachmentConstraintLayoutMapping::constraintIds,
-                       "Constraint IDs for the attachment constraint slots.")
+                       "Prepared host-side constraint IDs for attachment slots. Runtime GPU edits "
+                       "to live attachment descriptors do not update this array until reauthoring "
+                       "and preparing again.")
         .def_readwrite("environment_indices",
                        &RigidParticleAttachmentConstraintLayoutMapping::environmentIndices,
                        "Environment indices of the referenced rigid bodies.")
@@ -1555,8 +1558,10 @@ PYBIND11_MODULE(_cressim_neo, m)
             "initialize",
             [](DebugViewerApp &viewer, const DebugViewerAppDesc &desc, RuntimeConfig &config)
             { return viewer.initialize(desc, config); },
-            "Initializes the viewer and updates ``config`` with presentation settings. Returns "
-            "``False`` if the viewer cannot be initialized.",
+            "Initializes the viewer and updates ``config`` with presentation settings and native "
+            "window handles. Zero dimensions are normalized and the two fullscreen modes are "
+            "mutually exclusive. Returns False for validation, GLFW, window, or platform-view "
+            "failures.",
             py::arg("desc"), py::arg("config"))
         .def(
             "run",
@@ -1574,14 +1579,16 @@ PYBIND11_MODULE(_cressim_neo, m)
                     callbacks_obj.cast<const DebugViewerCallbacks &>();
                 return viewer.run(runtime, binding, callbacks);
             },
-            "Runs the viewer loop using a valid camera entity and initialized runtime. Optional "
-            "callbacks receive ``(FrameContext, Runtime)``. Returns ``False`` if setup or "
-            "execution fails.",
+            "Runs the viewer loop using a live camera entity and initialized runtime. before_tick "
+            "runs before prepare/upload/physics and after_tick after end_frame. Headless runs need "
+            "a nonzero max_frames. Returns False for setup, resource, or video-capture failures; "
+            "in-frame upload/physics failures only skip that simulation work.",
             py::arg("runtime"), py::arg("binding"), py::arg("callbacks") = py::none())
         .def("request_exit", &DebugViewerApp::requestExit,
              "Requests that the active viewer loop exit.")
         .def("shutdown", &DebugViewerApp::shutdown,
-             "Shuts down the viewer and releases its window resources.");
+             "Shuts down the viewer and releases its window resources; safe before initialization "
+             "or more than once.");
 #endif
 
     py::class_<RuntimeInfo>(
@@ -2703,17 +2710,22 @@ PYBIND11_MODULE(_cressim_neo, m)
                       "Primary ECS scene graph container managing entities, components, graphics "
                       "views, and physics bindings.")
         .def("create_entity", &World::createEntity,
-             "Creates a new entity within the world scene graph.", py::arg("env_index") = 0u)
+             "Creates a new entity within the world scene graph. Returns an invalid entity ID "
+             "when ``env_index`` is outside the configured environment count.",
+             py::arg("env_index") = 0u)
         .def("destroy_entity", &World::destroyEntity,
              "Destroys an existing entity and removes all associated components.")
-        .def("set_scene_layout", &World::setSceneLayout, "Sets the scene layout capacities.")
+        .def("set_scene_layout", &World::setSceneLayout,
+             "Sets scene layout capacities before any scene authoring occurs. Calls made after "
+             "authoring has begun leave the existing layout unchanged.")
         .def("scene_layout", &World::sceneLayout,
              "Gets the current scene layout capacity descriptor.",
              py::return_value_policy::reference_internal)
         .def("set_entity_environment", &World::setEntityEnvironment,
-             "Assigns an entity to a specific environment index.")
+             "Assigns an entity to a specific environment index, migrating associated state. "
+             "Returns False for an invalid entity or environment index, or when migration fails.")
         .def("entity_environment", &World::entityEnvironment,
-             "Gets the environment index assigned to an entity.")
+             "Gets an entity's environment index, or 0 when the entity is not alive.")
         .def("set_environment_ibl", &World::setEnvironmentIbl,
              "Configures Image-Based Lighting (IBL) environment maps for an environment index.")
         .def("set_environment_fluid", &World::setEnvironmentFluid,
@@ -2728,7 +2740,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                 }
                 return py::none();
             },
-            "Tries to get the Environment IBL descriptor for an environment index.")
+            "Returns the stored Environment IBL descriptor for an initialized environment index, "
+            "including its default value when not explicitly configured; otherwise returns None.")
         .def(
             "try_get_environment_fluid",
             [](const World &world, const std::uint32_t envIndex) -> py::object
@@ -2739,13 +2752,16 @@ PYBIND11_MODULE(_cressim_neo, m)
                 }
                 return py::none();
             },
-            "Tries to get the Environment fluid descriptor for an environment index.")
+            "Returns the stored Environment fluid descriptor for an initialized environment "
+            "index, including its default value when not explicitly configured; otherwise "
+            "returns None.")
         .def("is_alive", &World::isAlive, "Checks if an entity is alive and active in the world.")
         .def("entities", &World::entities,
              "Returns the list of all active entity IDs in the world.",
              py::return_value_policy::reference_internal)
         .def("set_transform", &World::setTransform,
-             "Assigns or updates the TransformComponent for an entity.")
+             "Assigns or updates an entity transform. For a rigid body, this immediately "
+             "teleports its pose without creating a kinematic target.")
         .def("remove_transform", &World::removeTransform,
              "Removes the transform component from an entity.")
         .def("try_get_transform", &World::tryGetTransform,
@@ -2784,14 +2800,17 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("set_rigid_body", &World::setRigidBody,
              "Assigns or updates a RigidBodyComponent for an entity.")
         .def("remove_rigid_body", &World::removeRigidBody,
-             "Removes the RigidBodyComponent from an entity.")
+             "Removes the RigidBodyComponent and all of its colliders from an entity.")
         .def("try_get_rigid_body", &World::tryGetRigidBody,
              "Returns the rigid body component for an entity, or None.")
-        .def("set_soft_body", &World::setSoftBody, "Assigns a SoftBodyComponent to an entity.")
+        .def("set_soft_body", &World::setSoftBody,
+             "Assigns a SoftBodyComponent to an entity. A successful replacement clears its "
+             "authored ultrasound scatterer amplitude ranges.")
         .def("set_meshfree_soft_body", &World::setMeshfreeSoftBody,
              "Assigns a MeshfreeSoftBodyComponent to an entity.")
         .def("remove_soft_body", &World::removeSoftBody,
-             "Removes the SoftBodyComponent from an entity.")
+             "Removes the SoftBodyComponent and its authored ultrasound amplitude ranges; returns "
+             "True when either existed.")
         .def("try_get_soft_body", &World::tryGetSoftBody,
              "Returns the soft body component for an entity, or None.")
         .def("set_strand", &World::setStrand, "Assigns a StrandComponent to an entity.")
@@ -2811,7 +2830,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("try_get_fluid", &World::tryGetFluid,
              "Returns the fluid component for an entity, or None.")
         .def("set_ultrasound_probe", &World::setUltrasoundProbe,
-             "Assigns or updates an ultrasound probe component for an entity.")
+             "Assigns or updates an enabled ultrasound probe component. Passing a disabled "
+             "component removes the probe and its published result.")
         .def("remove_ultrasound_probe", &World::removeUltrasoundProbe,
              "Removes the ultrasound probe component and its result from an entity.")
         .def("try_get_ultrasound_probe", &World::tryGetUltrasoundProbe,
@@ -2823,14 +2843,16 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("try_get_ultrasound_renderer", &World::tryGetUltrasoundRenderer,
              "Returns the ultrasound renderer component for an entity, or None.")
         .def("set_ultrasound_scatterer_source", &World::setUltrasoundScattererSource,
-             "Assigns or updates an ultrasound scatterer source component for an entity.")
+             "Assigns or updates an enabled ultrasound scatterer source component. Passing a "
+             "disabled component removes the source and its amplitude ranges.")
         .def("remove_ultrasound_scatterer_source", &World::removeUltrasoundScattererSource,
              "Removes the ultrasound scatterer source and its amplitude ranges from an entity.")
         .def("try_get_ultrasound_scatterer_source", &World::tryGetUltrasoundScattererSource,
              "Returns the ultrasound scatterer source component for an entity, or None.")
         .def("set_ultrasound_scatterer_amplitude_ranges",
              &World::setUltrasoundScattererAmplitudeRanges,
-             "Sets ultrasound scatterer amplitude ranges for an entity.")
+             "Sets ultrasound scatterer amplitude ranges for a soft-body entity. The list must "
+             "contain exactly one range per authored particle.")
         .def("clear_ultrasound_scatterer_amplitude_ranges",
              &World::clearUltrasoundScattererAmplitudeRanges,
              "Clears ultrasound scatterer amplitude ranges for an entity.")
@@ -2875,8 +2897,9 @@ PYBIND11_MODULE(_cressim_neo, m)
             "Returns an authored particle sequence by ID, or None.")
         .def("upsert_particle_distance_constraint", &World::upsertParticleDistanceConstraint,
              py::return_value_policy::reference_internal,
-             "Creates or updates an authored particle distance constraint and returns its stored "
-             "state.")
+             "Creates or updates an authored particle distance constraint and returns its "
+             "normalized stored state. Negative rest length and compliance become zero; particle "
+             "references are resolved when derived state is rebuilt.")
         .def("remove_particle_distance_constraint", &World::removeParticleDistanceConstraint,
              "Removes an authored particle distance constraint and returns whether it existed.")
         .def(
@@ -2893,7 +2916,8 @@ PYBIND11_MODULE(_cressim_neo, m)
             "Returns an authored particle distance constraint by ID, or None.")
         .def("upsert_ball_joint", &World::upsertBallJoint,
              "Creates or updates a ball joint between two rigid-body entities and returns whether "
-             "it succeeded.")
+             "it succeeded. Both entities must be alive, have rigid bodies, and share an "
+             "environment.")
         .def("remove_ball_joint", &World::removeBallJoint,
              "Removes a ball joint and returns whether it existed.")
         .def(
@@ -2909,7 +2933,8 @@ PYBIND11_MODULE(_cressim_neo, m)
             "Returns a ball joint by ID, with connected bodies expressed as entity IDs, or None.")
         .def("upsert_hinge_joint", &World::upsertHingeJoint,
              "Creates or updates a hinge joint between two rigid-body entities and returns whether "
-             "it succeeded.")
+             "it succeeded. Both entities must be alive, have rigid bodies, and share an "
+             "environment.")
         .def("remove_hinge_joint", &World::removeHingeJoint,
              "Removes a hinge joint and returns whether it existed.")
         .def(
@@ -2925,7 +2950,8 @@ PYBIND11_MODULE(_cressim_neo, m)
             "Returns a hinge joint by ID, with connected bodies expressed as entity IDs, or None.")
         .def("upsert_spherical_joint", &World::upsertSphericalJoint,
              "Creates or updates a spherical joint between two rigid-body entities and returns "
-             "whether it succeeded.")
+             "whether it succeeded. Both entities must be alive, have rigid bodies, and share "
+             "an environment.")
         .def("remove_spherical_joint", &World::removeSphericalJoint,
              "Removes a spherical joint and returns whether it existed.")
         .def(
@@ -2943,7 +2969,8 @@ PYBIND11_MODULE(_cressim_neo, m)
             "None.")
         .def("upsert_slider_joint", &World::upsertSliderJoint,
              "Creates or updates a slider joint between two rigid-body entities and returns "
-             "whether it succeeded.")
+             "whether it succeeded. Both entities must be alive, have rigid bodies, and share "
+             "an environment.")
         .def("remove_slider_joint", &World::removeSliderJoint,
              "Removes a slider joint and returns whether it existed.")
         .def(
@@ -2961,8 +2988,9 @@ PYBIND11_MODULE(_cressim_neo, m)
             "upsert_rigid_particle_attachment_constraint",
             [](World &world, const AuthoredRigidParticleAttachmentConstraintState &state)
             { return world.upsertRigidParticleAttachmentConstraint(state); },
-            "Creates or updates a rigid-particle attachment constraint and returns whether it "
-            "succeeded.")
+            "Creates or updates a rigid-particle attachment constraint. The particle and rigid "
+            "body must exist in the same environment; negative compliance becomes zero. Returns "
+            "False for invalid/out-of-range references or different environments.")
         .def("remove_rigid_particle_attachment_constraint",
              &World::removeRigidParticleAttachmentConstraint,
              "Removes a rigid-particle attachment constraint and returns whether it existed.")
@@ -2983,8 +3011,9 @@ PYBIND11_MODULE(_cressim_neo, m)
             "upsert_strand_rigid_attachment_constraint",
             [](World &world, const AuthoredStrandRigidAttachmentConstraintState &state)
             { return world.upsertStrandRigidAttachmentConstraint(state); },
-            "Creates or updates a strand-rigid attachment constraint and returns whether it "
-            "succeeded.")
+            "Creates or updates a strand-rigid attachment constraint. The segment and rigid body "
+            "must exist in the same environment; segment_t is clamped to [0, 1], rotation is "
+            "normalized, and negative compliance becomes zero. Returns False when invalid.")
         .def("remove_strand_rigid_attachment_constraint",
              &World::removeStrandRigidAttachmentConstraint,
              "Removes a strand-rigid attachment constraint and returns whether it existed.")
@@ -3005,7 +3034,9 @@ PYBIND11_MODULE(_cressim_neo, m)
             "upsert_rigid_distance_constraint",
             [](World &world, const AuthoredRigidDistanceConstraintState &state)
             { return world.upsertRigidDistanceConstraint(state); },
-            "Creates or updates a rigid distance constraint and returns whether it succeeded.")
+            "Creates or updates a rigid distance constraint. Bodies must be distinct and share an "
+            "environment; negative rest distance and compliance become zero. Returns False for "
+            "invalid/same-body references or different environments.")
         .def("remove_rigid_distance_constraint", &World::removeRigidDistanceConstraint,
              "Removes a rigid distance constraint and returns whether it existed.")
         .def(
@@ -3024,7 +3055,9 @@ PYBIND11_MODULE(_cressim_neo, m)
             "upsert_routed_cable_constraint",
             [](World &world, const AuthoredRoutedCableConstraintState &state)
             { return world.upsertRoutedCableConstraint(state); },
-            "Creates or updates a routed cable constraint and returns whether it succeeded.")
+            "Creates or updates a routed cable constraint. Its route needs at least two rigid-body "
+            "guide points in one environment with no consecutive duplicate bodies; negative target "
+            "length and compliance become zero. Returns False for an invalid route.")
         .def("remove_routed_cable_constraint", &World::removeRoutedCableConstraint,
              "Removes a routed cable constraint and returns whether it existed.")
         .def(
@@ -3041,8 +3074,9 @@ PYBIND11_MODULE(_cressim_neo, m)
             "Returns a routed cable constraint by ID, or None.")
         .def("upsert_particle_collision_filter", &World::upsertParticleCollisionFilter,
              py::return_value_policy::reference_internal,
-             "Creates or updates an authored particle collision filter and returns its stored "
-             "state.")
+             "Creates or updates an authored particle collision filter and returns its normalized "
+             "stored state. A zero collision layer becomes 1; its particle reference is resolved "
+             "when derived state is rebuilt.")
         .def("remove_particle_collision_filter", &World::removeParticleCollisionFilter,
              "Removes an authored particle collision filter and returns whether it existed.")
         .def(
@@ -3059,7 +3093,9 @@ PYBIND11_MODULE(_cressim_neo, m)
             "Returns an authored particle collision filter by ID, or None.")
         .def("upsert_suturing_sequence", &World::upsertSuturingSequence,
              py::return_value_policy::reference_internal,
-             "Creates or updates an authored suturing sequence and returns its stored state.")
+             "Creates or updates an authored suturing sequence and returns its normalized stored "
+             "state. Negative path-node spacing becomes zero and tip_entry_index is clamped to "
+             "the entries.")
         .def("remove_suturing_sequence", &World::removeSuturingSequence,
              "Removes an authored suturing sequence and returns whether it existed.")
         .def(
@@ -3075,12 +3111,14 @@ PYBIND11_MODULE(_cressim_neo, m)
             },
             "Returns an authored suturing sequence by ID, or None.")
         .def("add_collider", &World::addCollider,
-             "Adds a collider to an entity with a rigid body and returns its handle.")
+             "Adds a collider to an entity with a rigid body and returns its handle, or an "
+             "invalid handle when the entity is invalid, not alive, or has no rigid body.")
         .def("update_collider", &World::updateCollider,
              "Updates the component of a registered collider handle.")
         .def("remove_collider", &World::removeCollider, "Removes a registered collider handle.")
         .def("replace_colliders", &World::replaceColliders,
-             "Replaces all colliders on an entity with a rigid body.")
+             "Replaces all colliders on an entity with a rigid body. Returns False when the "
+             "entity is invalid, not alive, or has no rigid body.")
         .def("try_get_collider", &World::tryGetCollider,
              "Returns the component for a registered collider handle, or None.")
         .def("collider_handles", &World::colliderHandles,
@@ -3118,10 +3156,11 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("set_gravity", &Runtime::setGravity,
              "Sets the physics solver gravity when the runtime is initialized.", py::arg("gravity"))
         .def("prepare", &Runtime::prepare,
-             "Prepares authored world, render, and ultrasound state for upload.")
+             "Prepares authored world, render, and ultrasound state for upload. Does nothing "
+             "before initialization.")
         .def("upload_world", &Runtime::uploadWorld,
-             "Uploads prepared world state to physics and GPU resources. Returns whether upload "
-             "succeeded.")
+             "Uploads prepared world state to physics and GPU resources. Returns False before "
+             "initialization or when an upload fails.")
         .def("create_shared_buffer", &Runtime::createSharedBuffer,
              "Creates an engine-owned shared GPU buffer. Returns an invalid handle when "
              "unavailable.")
@@ -3214,12 +3253,14 @@ PYBIND11_MODULE(_cressim_neo, m)
              "Exports a CUDA-imported shared-buffer view as a DLPack capsule. Raises RuntimeError "
              "for an unavailable view or invalid tensor descriptor.")
         .def("step_physics", &Runtime::stepPhysics,
-             "Advances physics for a frame after world upload. Returns whether the step succeeded.")
+             "Advances physics for a frame after world upload. Returns False before "
+             "initialization or when the step fails.")
         .def("step_simulation_sensors", &Runtime::stepSimulationSensors,
-             "Updates GPU scene state and advances simulation sensors for a frame. Returns whether "
-             "execution succeeded.")
+             "Updates GPU scene state and advances simulation sensors for a frame. Returns False "
+             "before initialization or when ultrasound processing fails.")
         .def("step_visual_sensors", &Runtime::stepVisualSensors,
-             "Updates GPU scene state and renders visual sensors for a frame.")
+             "Updates GPU scene state and renders visual sensors for a frame; does nothing before "
+             "initialization.")
         .def("end_frame", &Runtime::endFrame, "Ends the active GPU frame, if one exists.")
         .def("list_custom_compute_resources", &Runtime::listCustomComputeResources,
              "Lists custom compute resources registered for the uploaded world. Returns an empty "
@@ -3290,10 +3331,12 @@ PYBIND11_MODULE(_cressim_neo, m)
                 }
                 return device->renderTargetSystem().requestRenderTargetReadback(binding);
             },
-            "Requests asynchronous readback of a render-target binding. Raises RuntimeError when "
-            "the GPU device is unavailable.")
+            "Requests asynchronous readback of a render-target binding. Returns an invalid "
+            "request when the target is unknown or the binding does not select exactly one "
+            "layer. Raises RuntimeError when the GPU device is unavailable.")
         .def("try_get_render_target_readback", &tryGetRenderTargetReadback,
-             "Returns a completed render-target readback event, or None while unavailable.")
+             "Returns and consumes a completed render-target readback event. Returns None for "
+             "an invalid, unknown, already-consumed, or incomplete request.")
         .def(
             "compute_ultrasound_probe_layout",
             [](const Runtime &runtime, const UltrasoundProbeComponent &probe,

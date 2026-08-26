@@ -44,7 +44,7 @@ struct GpuTextureBinding
 /// @brief Blueprint descriptor for compiling and creating a compute pipeline state object.
 struct GpuComputePassDefinition
 {
-    const char *shaderPath = nullptr; ///< Filesystem path to HLSL compute shader file.
+    const char *shaderPath = nullptr; ///< HLSL file path; set exactly one of this and shaderSource.
     const char *shaderName = nullptr; ///< Debug identifier for the compiled compute shader.
     const char *psoName    = nullptr; ///< Debug identifier for the compute pipeline state.
     const Diligent::ShaderResourceVariableDesc *variables =
@@ -53,7 +53,8 @@ struct GpuComputePassDefinition
     const Diligent::ShaderMacro *macros = nullptr; ///< Preprocessor macro definitions array.
     std::size_t macroCount              = 0u;      ///< Number of macro definitions.
     const char *entryPoint   = nullptr; ///< Entry point function name (e.g. "main" or "CSMain").
-    const char *shaderSource = nullptr; ///< Optional in-memory raw HLSL source string.
+    const char *shaderSource = nullptr; ///< Alternative in-memory HLSL source; mutually exclusive
+                                        ///< with shaderPath.
 };
 
 /// @brief Wrapper managing a compute pipeline state object (PSO) and reusable shader resource
@@ -67,7 +68,8 @@ public:
     /// @param immediateContextMask Bitmask of device contexts that can execute this pass.
     /// @param definition Pass definition containing shader source paths, macros, and variable
     /// layouts.
-    /// @return True on success.
+    /// @return False unless exactly one shader source is supplied, @p streamFactory is non-null,
+    /// shader/PSO creation succeeds, and the initial SRB can be created.
     bool initialize(GpuDevice &device, Diligent::IShaderSourceInputStreamFactory *streamFactory,
                     Diligent::Uint64 immediateContextMask,
                     const GpuComputePassDefinition &definition);

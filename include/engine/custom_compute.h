@@ -44,26 +44,28 @@ struct CustomComputePassHandle
 /// @brief Metadata descriptor for a custom compute GPU resource.
 struct CustomComputeResourceDesc
 {
-    std::string key; ///< Unique resource string identifier key.
+    std::string key; ///< Resource key used by CustomComputeResourceBindingDesc::resourceKey.
     CustomComputeResourceKind kind =
         CustomComputeResourceKind::Buffer; ///< Resource type kind (Buffer, Texture).
     CustomComputeResourceAccess access = CustomComputeResourceAccess::ReadOnly; ///< Access mode.
     std::uint32_t elementCount         = 0u; ///< Number of elements in resource.
     std::uint32_t elementStrideBytes   = 0u; ///< Stride per element in bytes.
-    std::uint64_t bindingGeneration    = 0u; ///< Resource binding invalidation generation key.
+    std::uint64_t bindingGeneration =
+        0u; ///< Changes when the underlying GPU binding is replaced; recreate dependent passes.
 };
 
-/// @brief Binding descriptor mapping a GPU resource to a compute shader variable name.
+/// @brief Binding descriptor mapping exactly one supported resource source to a shader variable.
 struct CustomComputeResourceBindingDesc
 {
     std::string shaderVariableName;          ///< HLSL shader variable name.
-    std::string resourceKey;                 ///< Registered engine resource key.
-    SharedBufferHandle sharedBufferHandle{}; ///< Optional shared engine GPU buffer handle.
-    gpu::GpuRenderTargetBinding renderTargetBinding{}; ///< Optional render target binding.
+    std::string resourceKey;                 ///< Key returned by listCustomComputeResources().
+    SharedBufferHandle sharedBufferHandle{}; ///< Alternative engine-owned shared buffer source.
+    gpu::GpuRenderTargetBinding renderTargetBinding{}; ///< Alternative shader-readable target.
     gpu::GpuRenderTargetTexturePlane renderTargetTexturePlane =
         gpu::GpuRenderTargetTexturePlane::Color; ///< Texture plane selection (Color, Depth).
     CustomComputeResourceAccess access =
-        CustomComputeResourceAccess::ReadOnly; ///< Resource access mode.
+        CustomComputeResourceAccess::ReadOnly; ///< Requested access; render targets support
+                                               ///< read-only only.
 };
 
 /// @brief Compute dispatch mode for executing custom compute passes.
@@ -81,27 +83,31 @@ struct CustomComputeDispatchDesc
     std::uint32_t groupCountX = 1u; ///< Dispatch thread group count along X dimension.
     std::uint32_t groupCountY = 1u; ///< Dispatch thread group count along Y dimension.
     std::uint32_t groupCountZ = 1u; ///< Dispatch thread group count along Z dimension.
-    std::string countResourceKey;   ///< Resource key used for element count dispatch mode.
+    std::string countResourceKey;   ///< Listed resource key used by ResourceElementCount mode.
 };
 
 /// @brief Complete descriptor for compiling and instantiating a custom compute shader pass.
+///
+/// Set exactly one of shaderPath and shaderSource. File-based shaders require shaderDirectory;
+/// every pass needs at least one resource binding and non-zero thread-group dimensions.
 struct CustomComputePassDesc
 {
     std::string debugName;                 ///< Debug label for diagnostics.
     std::filesystem::path shaderDirectory; ///< Root directory for shader source files.
-    std::string shaderPath;                ///< Shader source path relative to shaderDirectory.
-    std::string shaderSource;              ///< Optional raw HLSL shader source code string.
+    std::string shaderPath;                ///< File source path relative to shaderDirectory.
+    std::string shaderSource;              ///< Alternative in-memory HLSL source.
     std::vector<std::filesystem::path>
         includeDirectories;                  ///< Custom shader search paths for HLSL includes.
     std::string entryPoint         = "main"; ///< Shader entry point function name.
     std::uint32_t threadGroupSizeX = 1u;     ///< Workgroup size X dimension.
     std::uint32_t threadGroupSizeY = 1u;     ///< Workgroup size Y dimension.
     std::uint32_t threadGroupSizeZ = 1u;     ///< Workgroup size Z dimension.
-    std::vector<CustomComputeResourceBindingDesc> resourceBindings; ///< Resource bindings array.
-    std::string constantBufferVariableName;     ///< Constant buffer HLSL variable name.
-    std::uint32_t constantBufferSizeBytes = 0u; ///< Constant buffer size in bytes.
-    std::vector<std::uint8_t> constantData;     ///< Initial constant buffer binary data payload.
-    CustomComputeDispatchDesc dispatch{};       ///< Dispatch parameters.
+    std::vector<CustomComputeResourceBindingDesc>
+        resourceBindings;                       ///< Non-empty resource bindings.
+    std::string constantBufferVariableName;     ///< Empty to omit a constant buffer.
+    std::uint32_t constantBufferSizeBytes = 0u; ///< Requested constant-buffer size in bytes.
+    std::vector<std::uint8_t> constantData; ///< Initial bytes; size also contributes to allocation.
+    CustomComputeDispatchDesc dispatch{};   ///< Dispatch parameters.
 };
 
 } // namespace cressim::neo::engine

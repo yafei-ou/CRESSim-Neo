@@ -53,20 +53,26 @@ CRESSIM_NEO_COMMON_API void setMinLogSeverity(LogSeverity severity) noexcept;
 /// @return Currently active minimum LogSeverity.
 CRESSIM_NEO_COMMON_API LogSeverity minLogSeverity() noexcept;
 
-/// @brief Checks whether messages of the given severity will be processed and logged.
+/// @brief Checks whether the logging helpers will emit a message of the given severity.
 /// @param severity Severity level to test.
-/// @return True if messages at this severity are enabled, false if filtered out.
+/// @return True if @p severity meets the current minimum threshold, false otherwise.
 CRESSIM_NEO_COMMON_API bool shouldLog(LogSeverity severity) noexcept;
 
-/// @brief Registers a custom callback sink for intercepting log messages.
-/// @param callback Function pointer to invoke for each log message.
+/// @brief Registers a callback that observes each message written through writeLogMessage().
+///
+/// Messages continue to be written to the default console sink while a callback is registered.
+/// @param callback Function pointer to invoke after default-sink output.
 /// @param userData User context pointer passed to the callback.
 CRESSIM_NEO_COMMON_API void setLogCallback(LogCallback callback, void *userData) noexcept;
 
 /// @brief Clears any previously registered log callback, resetting to default console output.
 CRESSIM_NEO_COMMON_API void clearLogCallback() noexcept;
 
-/// @brief Writes a formatted message to the logging subsystem.
+/// @brief Writes a message to the default sink and, if registered, the callback.
+///
+/// This low-level function does not apply the minimum severity threshold; use logMessage() or a
+/// CRESSIM_LOG_* macro when threshold filtering is required. The callback receives the original
+/// @p message text, while console output includes formatted severity and source information.
 /// @param severity Log severity level.
 /// @param location Source code origin location.
 /// @param message Log message string content.

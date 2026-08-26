@@ -159,7 +159,8 @@ public:
     ~PhysicsSolver();
 
     /// @brief Initializes GPU compute pipelines, shader passes, and internal state buffers.
-    /// @return True if initialization succeeded, false otherwise.
+    /// @return True if initialization succeeded. With no physics-capable GPU backend, it succeeds
+    /// in headless mode without creating compute pipelines.
     bool initialize();
 
     /// @brief Releases all allocated GPU pipelines, buffers, and resources.
@@ -173,11 +174,12 @@ public:
 
     /// @brief Synchronizes modified authored state from the host PhysicsWorld to GPU buffers.
     /// @param world Physics world containing authored modifications.
-    /// @return True if synchronization and upload succeeded.
+    /// @return True if synchronization and upload succeeded; in headless mode this is a no-op
+    /// success after initialization.
     bool syncWorldState(PhysicsWorld &world);
 
     /// @brief Blocks until GPU compute work finishes and validates metadata buffers.
-    /// @return True if validation succeeded.
+    /// @return False before initialization or when no physics GPU backend is available.
     bool validateGpuMetaBlocking();
 
     /// @brief Sets the global gravitational acceleration vector.

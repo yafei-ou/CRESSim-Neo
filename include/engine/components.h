@@ -28,7 +28,7 @@ struct ColliderHandle
 /// @brief World transform component for spatial positioning, orientation, and scaling.
 struct TransformComponent
 {
-    common::Transform worldTransform{}; ///< 3D world transform matrix/pose.
+    common::Transform worldTransform{}; ///< 3D world-space translation, rotation, and scale.
 };
 
 /// @brief Mesh renderer component binding a 3D mesh and material for visual rendering.
@@ -46,9 +46,10 @@ struct CameraComponent
     /// @brief Output product modes rendered by the camera.
     enum class Product : std::uint32_t
     {
-        ColorDepth        = 0u, ///< Standard RGBA color and depth output.
-        Depth             = 1u, ///< Single-channel depth map output.
-        SegmentationDepth = 2u, ///< Semantic segmentation mask and depth output.
+        ColorDepth = 0u, ///< Standard RGBA color and depth output; supports ManagedPrimary.
+        Depth      = 1u, ///< Single-channel depth output; requires an ExplicitSurface depth target.
+        SegmentationDepth = 2u, ///< Semantic mask and depth output; requires ExplicitSurface
+                                ///< with color+depth and R32_UINT color.
     };
 
     /// @brief Background clear modes for camera rendering.
@@ -63,10 +64,11 @@ struct CameraComponent
     float farClip            = 1000.0f;             ///< Far clipping plane distance.
     Product product          = Product::ColorDepth; ///< Rendered camera output product type.
 
-    gpu::RenderOutputBinding output{}; ///< Target render output binding descriptor.
+    gpu::RenderOutputBinding output{}; ///< Target binding; ManagedPrimary accepts ColorDepth only.
     std::uint32_t outputWidth  = 0;    ///< Optional explicit target width (0 for default).
     std::uint32_t outputHeight = 0;    ///< Optional explicit target height (0 for default).
-    gpu::GpuRenderViewport viewport{}; ///< Viewport rectangle on the output target.
+    gpu::GpuRenderViewport viewport{}; ///< Normalized viewport; honored only for non-layered
+                                       ///< ExplicitSurface targets.
     bool clearColor = true;            ///< Whether to clear target color buffer before rendering.
     bool clearDepth = true;            ///< Whether to clear target depth buffer before rendering.
     Diligent::float4 clearColorValue{0.0f, 0.0f, 0.0f, 1.0f}; ///< Clear color RGBA values.

@@ -28,6 +28,7 @@ enum class SharedBufferBindFlags : std::uint32_t
 };
 
 /// @brief Bitwise OR operator for SharedBufferBindFlags.
+/// @return The union of @p lhs and @p rhs.
 inline constexpr SharedBufferBindFlags operator|(const SharedBufferBindFlags lhs,
                                                  const SharedBufferBindFlags rhs) noexcept
 {
@@ -36,6 +37,7 @@ inline constexpr SharedBufferBindFlags operator|(const SharedBufferBindFlags lhs
 }
 
 /// @brief Bitwise AND operator for SharedBufferBindFlags.
+/// @return The intersection of @p lhs and @p rhs.
 inline constexpr SharedBufferBindFlags operator&(const SharedBufferBindFlags lhs,
                                                  const SharedBufferBindFlags rhs) noexcept
 {
@@ -60,13 +62,12 @@ struct SharedBufferHandle
 struct SharedBufferDesc
 {
     std::string debugName;                 ///< Debug label for GPU diagnostic tools.
-    std::uint32_t elementStrideBytes = 0u; ///< Stride per element in bytes.
-    std::uint32_t elementCount       = 0u; ///< Initial element count.
-    std::uint32_t minimumCapacity    = 0u; ///< Minimum allocation capacity.
+    std::uint32_t elementStrideBytes = 0u; ///< Non-zero stride per element in bytes.
+    std::uint32_t elementCount       = 0u; ///< Non-zero initial element count.
+    std::uint32_t minimumCapacity    = 0u; ///< Optional lower bound on allocated element capacity.
     SharedBufferAccess access        = SharedBufferAccess::ReadWrite; ///< Access mode.
-    SharedBufferBindFlags bindFlags =
-        SharedBufferBindFlags::ShaderResource |
-        SharedBufferBindFlags::UnorderedAccess; ///< GPU binding usage flags.
+    SharedBufferBindFlags bindFlags = SharedBufferBindFlags::ShaderResource |
+                                      SharedBufferBindFlags::UnorderedAccess; ///< Must not be None.
 };
 
 /// @brief Detailed information and runtime state for a shared GPU buffer.
@@ -132,6 +133,8 @@ enum class SharedBufferTensorDTypeCode
 };
 
 /// @brief Tensor metadata descriptor for exporting a shared buffer to DLPack / PyTorch.
+///
+/// The Python export API requires a non-empty shape and byte-aligned, non-zero dtype metadata.
 struct SharedBufferTensorDesc
 {
     std::vector<std::int64_t> shape;   ///< Tensor dimensions shape array.

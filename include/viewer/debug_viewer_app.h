@@ -132,21 +132,34 @@ public:
 
     /// @brief Initializes desktop window, input handlers, and configures runtime presentation
     /// targets.
+    ///
+    /// Zero dimensions and rates are raised to one, and non-positive movement/timing values fall
+    /// back to their defaults. This updates @p inOutRuntimeConfig's presentation settings and
+    /// native window handles. Video capture requires `captureFps <= simulationFps`; exclusive and
+    /// borderless fullscreen cannot both be requested.
     /// @param desc Viewer application configuration settings.
-    /// @param inOutRuntimeConfig Engine runtime configuration updated with native window handles.
-    /// @return True on success.
+    /// @param inOutRuntimeConfig Engine runtime configuration updated for this viewer.
+    /// @return False when validation, GLFW setup, window creation, or platform-view setup fails.
     bool initialize(DebugViewerAppDesc desc, engine::RuntimeConfig &inOutRuntimeConfig);
     /// @brief Enters the application main loop, processing events, ticking simulation, and
     /// rendering frames until exit.
+    ///
+    /// `beforeTick` runs after camera/input updates but before prepare/upload/physics work;
+    /// `afterTick` runs after the frame is ended. The supplied camera must name a live entity with
+    /// a camera component. Headless runs additionally require a nonzero `maxFrames`.
     /// @param runtime Active engine runtime instance.
     /// @param camera Driven camera entity and movement speed settings.
     /// @param callbacks Optional pre-tick and post-tick hook callbacks.
-    /// @return True if execution completed cleanly without errors.
+    /// @return False for invalid setup, missing runtime/camera resources, or video-capture
+    /// failures. Physics/upload failures skip the corresponding simulation work for that frame and
+    /// do not by themselves change this result.
     bool run(engine::Runtime &runtime, DebugViewerCameraBinding camera,
              DebugViewerCallbacks callbacks = {});
     /// @brief Requests the application main loop to terminate after the current frame.
     void requestExit();
     /// @brief Destroys the desktop window and releases viewer subsystems.
+    ///
+    /// Safe to call before initialization or multiple times.
     void shutdown();
 
 private:
