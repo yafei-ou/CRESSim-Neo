@@ -262,6 +262,7 @@ class CRESSIM_NEO_GRAPHICS_API RenderResourceManager
 public:
     /// @brief Default constructor.
     RenderResourceManager();
+
     /// @brief Destructor.
     ~RenderResourceManager();
 
@@ -276,6 +277,7 @@ public:
     /// @param desc Mesh geometry descriptor.
     /// @return Allocated MeshHandle.
     MeshHandle registerMesh(const MeshResourceDesc &desc);
+
     /// @brief Registers a new surface material and allocates a unique handle.
     ///
     /// The stored descriptor derives AlphaTest from Cutout mode and enables NormalMap when a
@@ -283,6 +285,7 @@ public:
     /// @param desc Material descriptor.
     /// @return Allocated MaterialHandle.
     MaterialHandle registerMaterial(const MaterialResourceDesc &desc);
+
     /// @brief Registers a new texture and allocates a unique handle.
     ///
     /// Stored width, height, and mip count are clamped to at least one. A non-empty pixelData
@@ -295,10 +298,12 @@ public:
     /// @param mesh Handle to check.
     /// @return True if valid.
     bool isValid(MeshHandle mesh) const;
+
     /// @brief Validates whether a material handle refers to an existing material resource.
     /// @param material Handle to check.
     /// @return True if valid.
     bool isValid(MaterialHandle material) const;
+
     /// @brief Validates whether a texture handle refers to an existing texture resource.
     /// @param texture Handle to check.
     /// @return True if valid.
@@ -308,14 +313,17 @@ public:
     /// @param mesh Handle to query.
     /// @return Pointer to MeshResourceDesc or nullptr if invalid.
     const MeshResourceDesc *tryGetMesh(MeshHandle mesh) const noexcept;
+
     /// @brief Looks up the material resource descriptor for a valid handle.
     /// @param material Handle to query.
     /// @return Pointer to MaterialResourceDesc or nullptr if invalid.
     const MaterialResourceDesc *tryGetMaterial(MaterialHandle material) const noexcept;
+
     /// @brief Looks up the texture resource descriptor for a valid handle.
     /// @param texture Handle to query.
     /// @return Pointer to TextureResourceDesc or nullptr if invalid.
     const TextureResourceDesc *tryGetTexture(TextureHandle texture) const noexcept;
+
     /// @brief Computes the local axis-aligned bounding box for a registered mesh.
     /// @param mesh Mesh handle.
     /// @param outMin Output minimum corner (xyz).

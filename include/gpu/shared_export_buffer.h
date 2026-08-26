@@ -34,6 +34,7 @@ class CRESSIM_NEO_GPU_API SharedExportBuffer
 public:
     /// @brief Default constructor.
     SharedExportBuffer();
+
     /// @brief Destructor releasing the underlying buffer resource.
     ~SharedExportBuffer();
 
@@ -70,21 +71,27 @@ public:
     /// @brief Retrieves the raw Diligent buffer pointer.
     /// @return Pointer to Diligent::IBuffer.
     Diligent::IBuffer *buffer() const noexcept;
+
     /// @brief Retrieves the reference-counted Diligent buffer smart pointer.
     /// @return Const reference to RefCntAutoPtr<Diligent::IBuffer>.
     const Diligent::RefCntAutoPtr<Diligent::IBuffer> &bufferRef() const noexcept;
+
     /// @brief Retrieves the allocated element capacity.
     /// @return Element capacity.
     std::uint32_t capacity() const noexcept;
+
     /// @brief Retrieves the element stride in bytes.
     /// @return Byte stride per element.
     std::uint32_t elementStride() const noexcept;
+
     /// @brief Retrieves the total buffer size in bytes.
     /// @return Total byte size.
     std::uint64_t sizeBytes() const noexcept;
+
     /// @brief Checks if the buffer was created with OS export flags enabled.
     /// @return True if exportable.
     bool isExportable() const noexcept;
+
     /// @brief Checks if native shared allocation memory was used.
     /// @return True if native shared allocation active.
     bool usesNativeSharedAllocation() const noexcept;

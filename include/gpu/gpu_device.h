@@ -79,52 +79,63 @@ public:
     /// @param desc Initialization descriptor.
     /// @return True on success, false on failure.
     virtual bool initialize(const GpuDeviceDesc &desc) = 0;
+
     /// @brief Destroys all GPU resources and cleanly shuts down the graphics backend.
-    virtual void shutdown()                            = 0;
+    virtual void shutdown() = 0;
 
     /// @brief Begins a new rendering and simulation frame.
     /// @note A second call while a frame is active is ignored.
     /// @param frameContext Temporal frame context state.
     virtual void beginFrame(const common::FrameContext &frameContext) = 0;
+
     /// @brief Ends the current frame, executing presentation and queuing asynchronous readbacks.
     /// @note A call without a matching beginFrame() is ignored.
     /// @param frameContext Temporal frame context state.
-    virtual void endFrame(const common::FrameContext &frameContext)   = 0;
+    virtual void endFrame(const common::FrameContext &frameContext) = 0;
+
     /// @brief Retrieves the offscreen render target management system.
     /// @return Reference to GpuRenderTargetSystem.
-    virtual GpuRenderTargetSystem &renderTargetSystem()               = 0;
+    virtual GpuRenderTargetSystem &renderTargetSystem() = 0;
 
     /// @brief Retrieves the active graphics API backend enum.
     /// @return GpuBackend.
-    virtual GpuBackend backend() const                                               = 0;
+    virtual GpuBackend backend() const = 0;
+
     /// @brief Retrieves the hardware graphics backend context and command queue bundle.
     /// @param outContext Output reference to populate.
     /// @return True if graphics context is available.
     virtual bool tryGetGraphicsBackendContext(GpuGraphicsBackendContext &outContext) = 0;
+
     /// @brief Retrieves the hardware compute backend context dedicated to physics simulation.
     /// @param outContext Output reference to populate.
     /// @return True if physics compute context is available.
-    virtual bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext)   = 0;
+    virtual bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext) = 0;
+
     /// @brief Inserts a GPU barrier or semaphore wait synchronizing graphics commands after physics
     /// compute commands.
     /// @return True on success.
-    virtual bool waitForPhysicsOnGraphics()                                          = 0;
+    virtual bool waitForPhysicsOnGraphics() = 0;
+
     /// @brief Inserts a GPU barrier or semaphore wait synchronizing physics compute commands after
     /// graphics commands.
     /// @return True on success.
-    virtual bool waitForGraphicsOnPhysics()                                          = 0;
+    virtual bool waitForGraphicsOnPhysics() = 0;
+
     /// @brief Queries the default render target descriptor configured on this device.
     /// @param outDesc Output descriptor to populate.
     /// @return True on success.
-    virtual bool tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const   = 0;
+    virtual bool tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const = 0;
+
     /// @brief Queries the geometry and format of the active presentation swapchain.
     /// @param outDesc Output descriptor to populate.
     /// @return True if presentation swapchain is active.
-    virtual bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc)    = 0;
+    virtual bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc) = 0;
+
     /// @brief Enqueues an asynchronous readback request for the primary presentation frame.
     /// @return Tracking request handle, or an invalid handle when no presentation swapchain is
     /// active.
-    virtual GpuPresentationReadbackRequest requestPresentationReadback()             = 0;
+    virtual GpuPresentationReadbackRequest requestPresentationReadback() = 0;
+
     /// @brief Attempts to retrieve and consume pixel data for a previously enqueued presentation
     /// readback request.
     /// @param request Tracking handle.
@@ -132,14 +143,17 @@ public:
     /// @return True if a completed event was available; false if invalid, incomplete, or already
     /// consumed.
     virtual bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
-                                            GpuPresentationReadbackEvent &outEvent)  = 0;
+                                            GpuPresentationReadbackEvent &outEvent) = 0;
+
     /// @brief Checks whether the hardware device supports native floating-point atomic operations
     /// in compute shaders.
     /// @return True if native float atomics supported.
-    virtual bool supportsNativePhysicsFloatAtomics() const                           = 0;
+    virtual bool supportsNativePhysicsFloatAtomics() const = 0;
+
     /// @brief Retrieves the root directory path containing entry-point shaders.
     /// @return String reference to shader directory path.
-    virtual const std::string &shaderSourceDirectory() const                         = 0;
+    virtual const std::string &shaderSourceDirectory() const = 0;
+
     /// @brief Retrieves the active shader source and include paths configuration.
     /// @return ShaderSourceConfig struct.
     virtual ShaderSourceConfig shaderSourceConfig() const
@@ -154,6 +168,7 @@ public:
     /// @return True on success.
     virtual bool createShader(const Diligent::ShaderCreateInfo &createInfo,
                               Diligent::IShader **shader) = 0;
+
     /// @brief Creates a graphics pipeline state object (PSO).
     /// @param createInfo Pipeline state creation descriptor.
     /// @param pipelineState Output pointer to receive created PSO.
@@ -161,6 +176,7 @@ public:
     virtual bool createGraphicsPipelineState(
         const Diligent::GraphicsPipelineStateCreateInfo &createInfo,
         Diligent::IPipelineState **pipelineState) = 0;
+
     /// @brief Creates a compute pipeline state object (PSO).
     /// @param createInfo Compute pipeline creation descriptor.
     /// @param pipelineState Output pointer to receive created compute PSO.

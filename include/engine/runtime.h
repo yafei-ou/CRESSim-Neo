@@ -54,6 +54,7 @@ class CRESSIM_NEO_ENGINE_API Runtime
 public:
     /// @brief Constructs an uninitialized runtime.
     Runtime();
+
     /// @brief Shuts down the runtime if necessary.
     ~Runtime();
 
@@ -100,32 +101,42 @@ public:
 
     /// @brief Returns the runtime-owned world.
     World &getWorld() noexcept;
+
     /// @brief Returns the runtime-owned world.
     const World &getWorld() const noexcept;
 
     /// @brief Returns the GPU device, or nullptr before initialization and after shutdown.
     gpu::GpuDevice *getGpuDevice() noexcept;
+
     /// @brief Returns the GPU device, or nullptr before initialization and after shutdown.
     const gpu::GpuDevice *getGpuDevice() const noexcept;
+
     /// @brief Returns the physics solver, or nullptr before initialization and after shutdown.
     physics::PhysicsSolver *getPhysicsSolver() noexcept;
+
     /// @brief Returns the physics solver, or nullptr before initialization and after shutdown.
     const physics::PhysicsSolver *getPhysicsSolver() const noexcept;
+
     /// @brief Sets gravity for the initialized physics solver.
     /// @param gravity Gravity acceleration vector.
     void setGravity(const Diligent::float3 &gravity) noexcept;
+
     /// @brief Returns statistics from the most recent visual-sensor render.
     const graphics::RenderStats &lastRenderStats() const noexcept;
+
     /// @brief Sets options applied to subsequent visual-sensor renders.
     /// @param options Per-frame rendering options.
     void setRenderFrameOptions(const graphics::RenderFrameOptions &options) noexcept;
+
     /// @brief Returns options applied to visual-sensor renders.
     const graphics::RenderFrameOptions &renderFrameOptions() const noexcept;
 
     /// @brief Returns the runtime-owned render resource manager.
     graphics::RenderResourceManager &getResources() noexcept;
+
     /// @brief Returns the runtime-owned render resource manager.
     const graphics::RenderResourceManager &getResources() const noexcept;
+
     /// @brief Returns engine version and optional feature support information.
     RuntimeInfo getInfo() const noexcept;
 
@@ -205,20 +216,24 @@ public:
     /// @brief Lists custom-compute resources registered for the uploaded world.
     /// @return Resource descriptors, or an empty vector when unavailable.
     std::vector<CustomComputeResourceDesc> listCustomComputeResources();
+
     /// @brief Compiles and registers a custom compute pass for the uploaded world.
     /// @param desc Compute-pass configuration.
     /// @return Registered pass handle, or an invalid handle if creation fails.
     CustomComputePassHandle createCustomComputePass(const CustomComputePassDesc &desc);
+
     /// @brief Updates a custom compute pass's constant-buffer data.
     /// @param handle Registered compute-pass handle.
     /// @param data Replacement constant-buffer bytes.
     /// @return False for an invalid handle, a pass without constants, or an oversized payload.
     bool updateCustomComputePassConstants(CustomComputePassHandle handle,
                                           const std::vector<std::uint8_t> &data);
+
     /// @brief Executes a registered custom compute pass for the uploaded world.
     /// @param handle Registered compute-pass handle.
     /// @return False if the pass or its required resources are unavailable or changed.
     bool executeCustomComputePass(CustomComputePassHandle handle);
+
     /// @brief Destroys a registered custom compute pass.
     /// @param handle Registered compute-pass handle.
     /// @return True if the handle was registered.

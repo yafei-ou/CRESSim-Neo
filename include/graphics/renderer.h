@@ -183,6 +183,7 @@ public:
     /// @param desc Renderer configuration descriptor.
     Renderer(gpu::GpuDevice &device, RenderResourceManager &resourceManager,
              const RendererDesc &desc = RendererDesc{});
+
     /// @brief Destructor releasing renderer pipelines and GPU passes.
     ~Renderer();
 
@@ -191,6 +192,7 @@ public:
     /// @return True on success. When no graphics backend is available, initialization still
     /// succeeds but creates no GPU pipelines.
     bool initialize();
+
     /// @brief Executes complete scene rendering for all active cameras and outputs.
     /// @param frameContext Temporal frame context.
     /// @param sceneView Scene graph and camera/light data view.

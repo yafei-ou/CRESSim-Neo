@@ -78,10 +78,12 @@ public:
     /// parameter sets.
     /// @return True on success.
     bool createVariant();
+
     /// @brief Preallocates a specified total number of SRB variants.
     /// @param totalVariantCount Desired number of variants.
     /// @return True on success.
     bool createVariants(std::size_t totalVariantCount);
+
     /// @brief Forces recreation of all allocated SRB variant instances from the parent PSO.
     /// @return True on success.
     bool forceRecreateAllVariants();
@@ -92,12 +94,14 @@ public:
     {
         return mPso.RawPtr();
     }
+
     /// @brief Retrieves the default (index 0) shader resource binding.
     /// @return Pointer to Diligent::IShaderResourceBinding or nullptr.
     Diligent::IShaderResourceBinding *defaultSrb() const
     {
         return mVariants.empty() ? nullptr : mVariants[0].srb.RawPtr();
     }
+
     /// @brief Retrieves the shader resource binding for a specific variant index.
     /// @param index Zero-based variant index.
     /// @return Pointer to Diligent::IShaderResourceBinding or nullptr.

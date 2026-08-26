@@ -117,14 +117,17 @@ class CRESSIM_NEO_VIEWER_API DebugViewerApp
 public:
     /// @brief Default constructor.
     DebugViewerApp();
+
     /// @brief Destructor releasing window and viewer resources.
     ~DebugViewerApp();
 
     DebugViewerApp(const DebugViewerApp &)            = delete;
     DebugViewerApp &operator=(const DebugViewerApp &) = delete;
+
     /// @brief Move constructor.
     /// @param other Instance to move from.
     DebugViewerApp(DebugViewerApp &&other) noexcept;
+
     /// @brief Move assignment operator.
     /// @param other Instance to move from.
     /// @return Reference to this.
@@ -141,6 +144,7 @@ public:
     /// @param inOutRuntimeConfig Engine runtime configuration updated for this viewer.
     /// @return False when validation, GLFW setup, window creation, or platform-view setup fails.
     bool initialize(DebugViewerAppDesc desc, engine::RuntimeConfig &inOutRuntimeConfig);
+
     /// @brief Enters the application main loop, processing events, ticking simulation, and
     /// rendering frames until exit.
     ///
@@ -155,8 +159,10 @@ public:
     /// do not by themselves change this result.
     bool run(engine::Runtime &runtime, DebugViewerCameraBinding camera,
              DebugViewerCallbacks callbacks = {});
+
     /// @brief Requests the application main loop to terminate after the current frame.
     void requestExit();
+
     /// @brief Destroys the desktop window and releases viewer subsystems.
     ///
     /// Safe to call before initialization or multiple times.

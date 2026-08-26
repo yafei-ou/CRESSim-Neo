@@ -28,6 +28,7 @@ public:
     /// @param desc Target geometry and texture format specification.
     /// @return Allocated render target handle, or an invalid handle if allocation fails.
     virtual GpuRenderTargetHandle createRenderTarget(const GpuRenderTargetDesc &desc) = 0;
+
     /// @brief Resizes an existing render target's pixel dimensions.
     /// @param target Handle of the target to resize.
     /// @param width New width in pixels; zero preserves the current width.
@@ -35,22 +36,26 @@ public:
     /// @return GpuRenderTargetUpdateResult status code.
     virtual GpuRenderTargetUpdateResult resizeRenderTarget(GpuRenderTargetHandle target,
                                                            std::uint32_t width,
-                                                           std::uint32_t height)      = 0;
+                                                           std::uint32_t height) = 0;
+
     /// @brief Reconfigures all properties (formats, flags, layers, dimensions) of a render target.
     /// @param target Handle of the target to reconfigure.
     /// @param desc Updated target descriptor.
     /// @return GpuRenderTargetUpdateResult status code.
     virtual GpuRenderTargetUpdateResult reconfigureRenderTarget(
-        GpuRenderTargetHandle target, const GpuRenderTargetDesc &desc)      = 0;
+        GpuRenderTargetHandle target, const GpuRenderTargetDesc &desc) = 0;
+
     /// @brief Destroys and deallocates an offscreen render target.
     ///
     /// Pending readbacks for the target become completed events with empty pixel payloads.
     /// @param target Handle of target to destroy.
-    virtual void destroyRenderTarget(GpuRenderTargetHandle target)          = 0;
+    virtual void destroyRenderTarget(GpuRenderTargetHandle target) = 0;
+
     /// @brief Checks whether the given target handle refers to an allocated, active render target.
     /// @param target Target handle to check.
     /// @return True if valid.
-    virtual bool isValidRenderTarget(GpuRenderTargetHandle target) const    = 0;
+    virtual bool isValidRenderTarget(GpuRenderTargetHandle target) const = 0;
+
     /// @brief Queries the configuration descriptor of an active render target.
     /// @param target Handle to inspect.
     /// @param outDesc Output descriptor to populate.
@@ -64,6 +69,7 @@ public:
     /// @param viewport Normalized viewport rectangle.
     virtual void setRenderTargetViewport(const GpuRenderTargetBinding &binding,
                                          const GpuRenderViewport &viewport) = 0;
+
     /// @brief Binds the render target attachments to the active graphics context and applies clear
     /// values.
     /// @param binding Target binding and layer range.
@@ -72,12 +78,13 @@ public:
     virtual void beginRenderTarget(const GpuRenderTargetBinding &binding,
                                    const common::FrameContext &frameContext,
                                    const GpuRenderPassBeginDesc &beginDesc) = 0;
+
     /// @brief Unbinds the render target attachments and transitions textures for subsequent
     /// sampling/compute.
     /// @param binding Target binding.
     /// @param frameContext Temporal frame context.
     virtual void endRenderTarget(const GpuRenderTargetBinding &binding,
-                                 const common::FrameContext &frameContext)  = 0;
+                                 const common::FrameContext &frameContext) = 0;
 
     /// @brief Queues a render-target readback request. The copy is submitted when the target or
     /// frame is ended, and the completed event is materialized during frame finalization.
@@ -85,26 +92,30 @@ public:
     /// @return Monotonic tracking request handle, or an invalid handle if the target is unknown
     /// or the binding does not select exactly one layer.
     virtual GpuRenderTargetReadbackRequest requestRenderTargetReadback(
-        const GpuRenderTargetBinding &binding)                                          = 0;
+        const GpuRenderTargetBinding &binding) = 0;
+
     /// @brief Retrieves and consumes the completed event for a readback request.
     /// @param request Tracking handle.
     /// @param outEvent Output readback event payload to populate.
     /// @return True if a completed event was available; false if the request is invalid, unknown,
     /// already consumed, or not yet complete.
     virtual bool tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
-                                            GpuRenderTargetReadbackEvent &outEvent)     = 0;
+                                            GpuRenderTargetReadbackEvent &outEvent) = 0;
+
     /// @brief Retrieves the raw Diligent texture pointer for the target's color attachment.
     /// @param target Render target handle.
     /// @param outTexture Output texture reference.
     /// @return True if target has a color attachment.
     virtual bool tryGetRenderTargetColorTexture(GpuRenderTargetHandle target,
-                                                Diligent::ITexture *&outTexture)        = 0;
+                                                Diligent::ITexture *&outTexture) = 0;
+
     /// @brief Retrieves the raw Diligent texture pointer for the target's depth attachment.
     /// @param target Render target handle.
     /// @param outTexture Output texture reference.
     /// @return True if target has a depth attachment.
     virtual bool tryGetRenderTargetDepthTexture(GpuRenderTargetHandle target,
-                                                Diligent::ITexture *&outTexture)        = 0;
+                                                Diligent::ITexture *&outTexture) = 0;
+
     /// @brief Retrieves the Diligent shader resource view (SRV) for sampling this target in later
     /// passes.
     /// @param binding Target binding and layer slice.

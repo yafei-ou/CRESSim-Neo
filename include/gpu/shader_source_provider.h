@@ -36,16 +36,19 @@ public:
     /// @brief Constructs a shader source provider using full path configuration.
     /// @param config Shader source and include directory configuration.
     explicit ShaderSourceProvider(ShaderSourceConfig config);
+
     /// @brief Compatibility shorthand constructor configuring `<shaderDirectory>/include` as the
     /// include search root.
     /// @param shaderDirectory Path string to base shader directory.
     explicit ShaderSourceProvider(std::string shaderDirectory);
+
     /// @brief Destructor.
     ~ShaderSourceProvider();
 
     /// @brief Move constructor.
     /// @param other Source provider to move from.
     ShaderSourceProvider(ShaderSourceProvider &&other) noexcept;
+
     /// @brief Move assignment operator.
     /// @param other Source provider to move from.
     /// @return Reference to this.
@@ -59,6 +62,7 @@ public:
     /// @return Pointer to Diligent::IShaderSourceInputStreamFactory, or nullptr if the source or
     /// configured include directories cannot be resolved.
     Diligent::IShaderSourceInputStreamFactory *streamFactory();
+
     /// @brief Gets the resolved root directory from which entry-point shaders are loaded.
     /// @return Empty path if source-directory resolution fails.
     std::filesystem::path sourceDirectory();

@@ -37,21 +37,26 @@ class CRESSIM_NEO_ENGINE_API UltrasoundSystem
 public:
     /// @brief Creates an ultrasound system using the supplied GPU device and physics solver.
     UltrasoundSystem(gpu::GpuDevice &device, physics::PhysicsSolver &physicsSolver);
+
     /// @brief Shuts down the system and releases per-probe resources.
     ~UltrasoundSystem();
 
     /// @brief Resets and initializes system state.
     bool initialize();
+
     /// @brief Releases probe runtimes, output targets, and CUDA bridge resources.
     void shutdown();
+
     /// @brief Prepares enabled probes and publishes their current output metadata to @p world.
     /// @return False only when the system is uninitialized or has been disabled after a fatal
     /// ultrasound setup failure; unavailable optional backends cause preparation to be skipped.
     bool prepare(World &world);
+
     /// @brief Executes enabled ultrasound probes for @p frameContext and updates @p world results.
     /// @return False only when the system is uninitialized or disabled after a fatal setup error;
     /// unavailable optional backends cause execution to be skipped.
     bool execute(const common::FrameContext &frameContext, World &world);
+
     /// @brief Computes a probe output layout using the same rules as the free function.
     bool computeProbeLayout(const UltrasoundProbeComponent &probeComponent,
                             const UltrasoundRendererComponent &rendererComponent,
