@@ -24,16 +24,14 @@ set(CRESSIM_NEO_PYTHON_ENVS_PACKAGE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/__init__.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/cartpole.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/torch_env.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/soft_body_pusher_env.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/fluid_pouring_env.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/camera_centering_env.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/ultrasound_centering_env.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/soft_body_env.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/fluid_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/soft_body_push_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/fluid_pour_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/target_center_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/ultrasound_scan_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/psm_builder.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/psm_env.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/psm_soft_grasp_env.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/psm_blood_suction_env.py")
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/tissue_retract_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/envs/blood_suction_env.py")
 set(CRESSIM_NEO_PYTHON_LEGACY_WRAPPER_FILES
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/cartpole.py"
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/torch_env.py"
@@ -41,12 +39,27 @@ set(CRESSIM_NEO_PYTHON_LEGACY_WRAPPER_FILES
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/fluid_pouring_env.py"
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/camera_centering_env.py"
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/ultrasound_centering_env.py"
+    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/soft_body_push_env.py"
+    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/fluid_pour_env.py"
+    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/target_center_env.py"
+    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/ultrasound_scan_env.py"
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/soft_body_env.py"
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/fluid_env.py"
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/psm_builder.py"
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/psm_env.py"
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/psm_soft_grasp_env.py"
-    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/psm_blood_suction_env.py")
+    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/psm_blood_suction_env.py"
+    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/tissue_retract_env.py"
+    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/blood_suction_env.py")
+set(CRESSIM_NEO_PYTHON_LEGACY_ENVS_FILES
+    "${CRESSIM_NEO_PYTHON_ENVS_PACKAGE_DIR}/soft_body_pusher_env.py"
+    "${CRESSIM_NEO_PYTHON_ENVS_PACKAGE_DIR}/fluid_pouring_env.py"
+    "${CRESSIM_NEO_PYTHON_ENVS_PACKAGE_DIR}/camera_centering_env.py"
+    "${CRESSIM_NEO_PYTHON_ENVS_PACKAGE_DIR}/psm_soft_grasp_env.py"
+    "${CRESSIM_NEO_PYTHON_ENVS_PACKAGE_DIR}/psm_blood_suction_env.py"
+    "${CRESSIM_NEO_PYTHON_ENVS_PACKAGE_DIR}/ultrasound_centering_env.py"
+    "${CRESSIM_NEO_PYTHON_ENVS_PACKAGE_DIR}/soft_body_env.py"
+    "${CRESSIM_NEO_PYTHON_ENVS_PACKAGE_DIR}/fluid_env.py")
 
 if(CRESSIM_NEO_HAS_CUDA_INTEROP)
     set(CRESSIM_NEO_PYTHON_CUDA_ENABLED "True")
@@ -376,6 +389,7 @@ add_custom_target(${TARGET_NAME}_package_files ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_ENVS_PACKAGE_DIR}"
     COMMAND ${CMAKE_COMMAND} -E rm -f ${CRESSIM_NEO_PYTHON_LEGACY_WRAPPER_FILES}
+    COMMAND ${CMAKE_COMMAND} -E rm -f ${CRESSIM_NEO_PYTHON_LEGACY_ENVS_FILES}
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CRESSIM_NEO_PYTHON_PACKAGE_INIT}"
         "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/__init__.py"

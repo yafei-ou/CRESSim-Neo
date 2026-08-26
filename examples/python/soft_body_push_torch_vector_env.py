@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import cressim_neo as neo
-from cressim_neo_envs.fluid_pouring_env import FluidPouringTorchVectorEnv
+from cressim_neo_envs.soft_body_push_env import SoftBodyPushTorchVectorEnv
 import torch
 from live_capture_utils import (
     InteractiveImageCapture,
@@ -17,7 +17,7 @@ except ImportError as exc:
 
 
 def scripted_action(
-    env: "FluidPouringTorchVectorEnv", step_index: int
+    env: "SoftBodyPushTorchVectorEnv", step_index: int
 ) -> "torch.Tensor":
     action = torch.zeros(
         (env.env_count, env.ACTION_DIM),
@@ -25,32 +25,26 @@ def scripted_action(
         dtype=env.action_tensor.dtype,
     )
     warmup_steps = 12
-    nudge_steps = 50
-    tilt_steps = 150
-    hold_steps = 200
+    push_steps = 64
+    steer_steps = 32
     if step_index < warmup_steps:
         return action
     motion_step = step_index - warmup_steps
-    if motion_step < nudge_steps:
+    if motion_step < push_steps:
         action[:, 0] = 1.0
         return action
-    motion_step -= nudge_steps
-    if motion_step < tilt_steps:
-        action[:, 1] = -0.5
-        return action
-    motion_step -= tilt_steps
-    if motion_step < hold_steps:
+    motion_step -= push_steps
+    if motion_step < steer_steps:
+        action[:, 1] = 0.35
         return action
     return action
 
 
 def main() -> int:
-    env = FluidPouringTorchVectorEnv(
+    env = SoftBodyPushTorchVectorEnv(
         env_count=1,
-        max_episode_steps=240,
-        position_action_scale=0.01,
-        tilt_action_scale=0.02,
-        source_move_range_x=3.5,
+        max_episode_steps=180,
+        action_scale=0.01,
         enable_rgb_observation=True,
         image_width=512,
         image_height=512,
@@ -63,7 +57,7 @@ def main() -> int:
         capture.update("reset", [("rgb", rgb_tensor_to_numpy(rgb), None)])
         print(f"reset observation shape: {tuple(observation.shape)}")
         print(f"rgb observation shape: {tuple(rgb.shape)}")
-        for step_index in range(240):
+        for step_index in range(120):
             if not plt.fignum_exists(figure.number):
                 break
             action = scripted_action(env, step_index)

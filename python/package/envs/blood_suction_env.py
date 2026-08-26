@@ -18,7 +18,7 @@ try:
     import torch
 except ImportError as exc:
     raise RuntimeError(
-        "cressim_neo_envs.psm_blood_suction_env requires PyTorch to be installed."
+        "cressim_neo_envs.blood_suction_env requires PyTorch to be installed."
     ) from exc
 
 
@@ -1001,7 +1001,7 @@ def _bottom_static_particle_indices(node_path: Path, band_height: float) -> list
     return [index for index, entry in enumerate(entries) if float(entry[2]) <= threshold]
 
 
-class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
+class BloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
     ACTION_DIM = 5
     OBSERVATION_DIM = 13
     OBS_DIM = OBSERVATION_DIM
@@ -2434,4 +2434,4 @@ class PsmBloodSuctionTorchVectorEnv(TorchStagedVectorEnvBase):
         self.runtime = None
 
 
-__all__ = ["PsmBloodSuctionTorchVectorEnv"]
+__all__ = ["BloodSuctionTorchVectorEnv"]

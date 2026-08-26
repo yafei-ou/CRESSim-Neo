@@ -297,7 +297,7 @@ bindings and runtime API; task environments and PSM helpers live in
 
 ```python
 import cressim_neo as neo
-from cressim_neo_envs.cartpole import CartpoleTorchVectorEnv
+from cressim_neo_envs.cartpole import CartPoleTorchVectorEnv
 from cressim_neo_envs.psm_builder import PsmAuthoringConfig
 ```
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import cressim_neo as neo
-from cressim_neo_envs.cartpole import CartpoleTorchVectorEnv
+from cressim_neo_envs.cartpole import CartPoleTorchVectorEnv
 import torch
 from live_capture_utils import (
     InteractiveImageCapture,
@@ -17,7 +17,7 @@ except ImportError as exc:
 
 
 def scripted_action(
-    env: "CartpoleTorchVectorEnv", observation: "torch.Tensor"
+    env: "CartPoleTorchVectorEnv", observation: "torch.Tensor"
 ) -> "torch.Tensor":
     action = torch.zeros(
         env.env_count,
@@ -42,7 +42,7 @@ def scripted_action(
 
 
 def main() -> int:
-    env = CartpoleTorchVectorEnv(
+    env = CartPoleTorchVectorEnv(
         env_count=8,
         max_episode_steps=256,
         image_width=1024,

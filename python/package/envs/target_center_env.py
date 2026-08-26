@@ -10,7 +10,7 @@ try:
     import torch
 except ImportError as exc:
     raise RuntimeError(
-        "cressim_neo_envs.camera_centering_env requires PyTorch to be installed."
+        "cressim_neo_envs.target_center_env requires PyTorch to be installed."
     ) from exc
 
 
@@ -310,7 +310,7 @@ def _quat_from_yaw_pitch(yaw_radians: float, pitch_radians: float) -> neo.Quater
     return quat
 
 
-class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
+class TargetCenterTorchVectorEnv(TorchStagedVectorEnvBase):
     ACTION_DIM = 2
 
     def __init__(

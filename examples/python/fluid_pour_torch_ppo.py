@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 import cressim_neo as neo
-from cressim_neo_envs.fluid_pouring_env import FluidPouringTorchVectorEnv
+from cressim_neo_envs.fluid_pour_env import FluidPourTorchVectorEnv
 
 from ppo_common import PPOTrainConfig, run_inference_continuous, train_ppo_continuous
 
@@ -15,7 +15,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-path",
         type=Path,
-        default=Path("artifacts/fluid_pouring_ppo_final.pt"),
+        default=Path("artifacts/fluid_pour_ppo_final.pt"),
         help="Path used to save the trained model or load it for inference.",
     )
     parser.add_argument("--train-env-count", type=int, default=64)
@@ -31,8 +31,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def make_train_env(env_count: int, max_episode_steps: int) -> FluidPouringTorchVectorEnv:
-    return FluidPouringTorchVectorEnv(
+def make_train_env(env_count: int, max_episode_steps: int) -> FluidPourTorchVectorEnv:
+    return FluidPourTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         success_fraction=0.40,
@@ -45,8 +45,8 @@ def make_train_env(env_count: int, max_episode_steps: int) -> FluidPouringTorchV
 
 def make_infer_env(
     env_count: int, max_episode_steps: int, image_width: int, image_height: int
-) -> FluidPouringTorchVectorEnv:
-    return FluidPouringTorchVectorEnv(
+) -> FluidPourTorchVectorEnv:
+    return FluidPourTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         success_fraction=0.40,
@@ -63,10 +63,10 @@ def make_infer_env(
 def run_training(args: argparse.Namespace) -> int:
     return train_ppo_continuous(
         env_factory=make_train_env,
-        observation_dim=FluidPouringTorchVectorEnv.OBSERVATION_DIM,
-        action_dim=FluidPouringTorchVectorEnv.ACTION_DIM,
+        observation_dim=FluidPourTorchVectorEnv.OBSERVATION_DIM,
+        action_dim=FluidPourTorchVectorEnv.ACTION_DIM,
         config=PPOTrainConfig(
-            name="fluid_pouring",
+            name="fluid_pour",
             model_path=args.model_path,
             train_env_count=args.train_env_count,
             rollout_steps=args.rollout_steps,
@@ -82,7 +82,7 @@ def run_training(args: argparse.Namespace) -> int:
 def run_inference(args: argparse.Namespace) -> int:
     return run_inference_continuous(
         env_factory=make_infer_env,
-        action_dim=FluidPouringTorchVectorEnv.ACTION_DIM,
+        action_dim=FluidPourTorchVectorEnv.ACTION_DIM,
         model_path=args.model_path,
         infer_env_count=args.infer_env_count,
         max_episode_steps=args.max_episode_steps,

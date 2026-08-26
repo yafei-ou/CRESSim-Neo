@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 
 import cressim_neo as neo
-from cressim_neo_envs.ultrasound_centering_env import UltrasoundCenteringTorchVectorEnv
+from cressim_neo_envs.ultrasound_scan_env import UltrasoundScanTorchVectorEnv
 import torch
 from live_capture_utils import (
     InteractiveImageCapture,
@@ -22,7 +22,7 @@ except ImportError as exc:
 
 
 def scripted_action(
-    env: UltrasoundCenteringTorchVectorEnv,
+    env: UltrasoundScanTorchVectorEnv,
     observation: "torch.Tensor",
     step_index: int,
 ) -> "torch.Tensor":
@@ -40,7 +40,7 @@ def scripted_action(
 
 
 def main() -> int:
-    env = UltrasoundCenteringTorchVectorEnv(
+    env = UltrasoundScanTorchVectorEnv(
         env_count=4,
         max_episode_steps=160,
         frame_stack=4,

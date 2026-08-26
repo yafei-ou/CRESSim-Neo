@@ -204,7 +204,7 @@ are in `cressim_neo_envs` and must be imported from their defining modules:
 
 ```python
 import cressim_neo as neo
-from cressim_neo_envs.cartpole import CartpoleTorchVectorEnv
+from cressim_neo_envs.cartpole import CartPoleTorchVectorEnv
 from cressim_neo_envs.psm_env import PsmEnv
 ```
 

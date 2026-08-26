@@ -12,7 +12,7 @@ try:
     import torch
 except ImportError as exc:
     raise RuntimeError(
-        "cressim_neo_envs.ultrasound_centering_env requires PyTorch to be installed."
+        "cressim_neo_envs.ultrasound_scan_env requires PyTorch to be installed."
     ) from exc
 
 
@@ -509,7 +509,7 @@ def _load_linear_probe_visual_mesh(
     return mesh
 
 
-class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
+class UltrasoundScanTorchVectorEnv(TorchStagedVectorEnvBase):
     ACTION_DIM = 2
 
     def __init__(
@@ -574,11 +574,11 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         runtime_info = self.runtime.get_info()
         if not runtime_info.cuda_interop_supported:
             raise RuntimeError(
-                "UltrasoundCenteringTorchVectorEnv requires CUDA interop support in this build."
+                "UltrasoundScanTorchVectorEnv requires CUDA interop support in this build."
             )
         if not runtime_info.ultrasound_supported:
             raise RuntimeError(
-                "UltrasoundCenteringTorchVectorEnv requires ultrasound support in this build."
+                "UltrasoundScanTorchVectorEnv requires ultrasound support in this build."
             )
         if not self.runtime.initialize(config):
             raise RuntimeError("Failed to initialize ultrasound-centering runtime.")
