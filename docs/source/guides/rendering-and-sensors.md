@@ -150,9 +150,9 @@ world.set_mesh_renderer(entity, renderer)
 
 Directional, point, and spot lights are entity components. Point and spot light
 positions come from their entity transform. Directional lights use a direction,
-color, intensity, and optional range; point lights use color, intensity, and
-attenuation range; spot lights additionally use a direction and inner and outer
-cone angles.
+color, and intensity; their `range` field is currently unused. Point lights use
+color, intensity, and attenuation range; spot lights additionally use a direction
+and inner and outer cone angles.
 
 Shadows require both a shadow-casting light and shadow-casting materials.
 `castsShadows` enables shadow-map generation on every light type. Directional

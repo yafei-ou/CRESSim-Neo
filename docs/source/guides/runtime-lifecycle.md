@@ -93,8 +93,8 @@ loop:
    tasks, such as post-processing, data packaging, and post-physics
    calculations. After the world has been uploaded, they can be inserted where
    their inputs are current.
-5. **Frame finalization** synchronizes the GPU and completes any requested data
-   readbacks.
+5. **Frame finalization** submits and finalizes frame work, presents when enabled,
+   and completes any queued data readbacks.
 
 | C++ | Python |
 | --- | --- |

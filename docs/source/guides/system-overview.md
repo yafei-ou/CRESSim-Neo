@@ -39,10 +39,10 @@ CRESSim-Neo is implemented as a standalone C++ simulation engine with a
 low-level GPU execution layer and a high-level Python binding layer.
 
 **C++ Engine Orchestration:** This foundational runtime implements the public
-scene-authoring API, manages the entity-component registry, schedules resource
-uploads (meshes, textures, sensors), and generates Vulkan compute and graphics
-commands. The C++ runtime is fully standalone and can execute independently of
-any Python bindings.
+scene-authoring API, manages the entity-component registry, and schedules
+resource uploads (meshes, textures, sensors) and GPU graphics/compute work.
+The C++ runtime is fully standalone and can execute independently of any Python
+bindings.
 
 **GPU Execution:** The computational backend is built with [Diligent
 Engine](https://diligentgraphics.com/diligent-engine/) and performs all heavy
