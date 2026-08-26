@@ -17,6 +17,13 @@ import struct
 import zlib
 
 import cressim_neo as neo
+from cressim_neo_envs.psm_builder import (
+    PsmAuthoringConfig,
+    PsmBuildResult,
+    author_psm_scene,
+    get_psm_default_runtime_config,
+    set_psm_joint_targets,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -157,7 +164,7 @@ def _rolled_look_rotation(
 
 def _show_only_tool_meshes(
     world: neo.World,
-    build: neo.PsmBuildResult,
+    build: PsmBuildResult,
     tool_type: str,
 ) -> None:
     # Keep just the end-effector assembly.  The builder still authors all links
@@ -194,7 +201,7 @@ def _author_closeup_fill_lights(world: neo.World) -> None:
 
 
 def _render_tool(tool_type: str, width: int, height: int, output_dir: Path) -> Path:
-    runtime_config = neo.get_psm_default_runtime_config(1)
+    runtime_config = get_psm_default_runtime_config(1)
     runtime_config.scene_layout.max_cameras_per_env = 1
     runtime = neo.Runtime()
     if not runtime.initialize(runtime_config):
@@ -202,10 +209,10 @@ def _render_tool(tool_type: str, width: int, height: int, output_dir: Path) -> P
 
     try:
         world = runtime.world()
-        build = neo.author_psm_scene(
+        build = author_psm_scene(
             world,
             runtime.resources(),
-            neo.PsmAuthoringConfig(
+            PsmAuthoringConfig(
                 resolve_root=REPO_ROOT,
                 tool_type=tool_type,
                 env_count=1,
@@ -215,7 +222,7 @@ def _render_tool(tool_type: str, width: int, height: int, output_dir: Path) -> P
             ),
         )
         # Stationary pose, with the needle-driver jaws open enough to identify it.
-        neo.set_psm_joint_targets(world, build, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.55])
+        set_psm_joint_targets(world, build, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.55])
         _show_only_tool_meshes(world, build, tool_type)
         _author_closeup_fill_lights(world)
 

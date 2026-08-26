@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import cressim_neo as neo
+from cressim_neo_envs.fluid_pouring_env import FluidPouringTorchVectorEnv
 import torch
 from live_capture_utils import (
     InteractiveImageCapture,
@@ -16,7 +17,7 @@ except ImportError as exc:
 
 
 def scripted_action(
-    env: "neo.FluidPouringTorchVectorEnv", step_index: int
+    env: "FluidPouringTorchVectorEnv", step_index: int
 ) -> "torch.Tensor":
     action = torch.zeros(
         (env.env_count, env.ACTION_DIM),
@@ -44,7 +45,7 @@ def scripted_action(
 
 
 def main() -> int:
-    env = neo.FluidPouringTorchVectorEnv(
+    env = FluidPouringTorchVectorEnv(
         env_count=1,
         max_episode_steps=240,
         position_action_scale=0.01,

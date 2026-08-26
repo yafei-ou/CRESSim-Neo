@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import cressim_neo as neo
+from cressim_neo_envs.psm_soft_grasp_env import PsmSoftGraspTorchVectorEnv
 
 from ppo_common import PPOTrainConfig, run_inference_continuous, train_ppo_continuous
 
@@ -45,9 +46,9 @@ def _make_base_env(
     image_width: int,
     image_height: int,
     enable_target_marker: bool,
-) -> neo.PsmSoftGraspTorchVectorEnv:
+) -> PsmSoftGraspTorchVectorEnv:
     resolve_root = Path(__file__).resolve().parents[2]
-    return neo.PsmSoftGraspTorchVectorEnv(
+    return PsmSoftGraspTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         enable_rgb_observation=enable_rgb_observation,
@@ -66,7 +67,7 @@ def _make_base_env(
     )
 
 
-def make_train_env(env_count: int, max_episode_steps: int) -> neo.PsmSoftGraspTorchVectorEnv:
+def make_train_env(env_count: int, max_episode_steps: int) -> PsmSoftGraspTorchVectorEnv:
     return _make_base_env(
         env_count,
         max_episode_steps,
@@ -84,7 +85,7 @@ def make_infer_env(
     image_height: int,
     *,
     enable_target_marker: bool,
-) -> neo.PsmSoftGraspTorchVectorEnv:
+) -> PsmSoftGraspTorchVectorEnv:
     return _make_base_env(
         env_count,
         max_episode_steps,
@@ -98,8 +99,8 @@ def make_infer_env(
 def run_training(args: argparse.Namespace) -> int:
     return train_ppo_continuous(
         env_factory=make_train_env,
-        observation_dim=neo.PsmSoftGraspTorchVectorEnv.OBSERVATION_DIM,
-        action_dim=neo.PsmSoftGraspTorchVectorEnv.ACTION_DIM,
+        observation_dim=PsmSoftGraspTorchVectorEnv.OBSERVATION_DIM,
+        action_dim=PsmSoftGraspTorchVectorEnv.ACTION_DIM,
         config=PPOTrainConfig(
             name="psm_soft_grasp",
             model_path=args.model_path,
@@ -123,7 +124,7 @@ def run_inference(args: argparse.Namespace) -> int:
             image_height,
             enable_target_marker=not args.disable_target_marker,
         ),
-        action_dim=neo.PsmSoftGraspTorchVectorEnv.ACTION_DIM,
+        action_dim=PsmSoftGraspTorchVectorEnv.ACTION_DIM,
         model_path=args.model_path,
         infer_env_count=args.infer_env_count,
         max_episode_steps=args.max_episode_steps,

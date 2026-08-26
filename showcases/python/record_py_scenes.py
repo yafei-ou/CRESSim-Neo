@@ -14,6 +14,13 @@ import subprocess
 import sys
 
 import cressim_neo as neo
+from cressim_neo_envs.cartpole import CartpoleTorchVectorEnv
+from cressim_neo_envs.camera_centering_env import CameraCenteringTorchVectorEnv
+from cressim_neo_envs.fluid_pouring_env import FluidPouringTorchVectorEnv
+from cressim_neo_envs.soft_body_pusher_env import SoftBodyPusherTorchVectorEnv
+from cressim_neo_envs.ultrasound_centering_env import UltrasoundCenteringTorchVectorEnv
+from cressim_neo_envs.psm_blood_suction_env import PsmBloodSuctionTorchVectorEnv
+from cressim_neo_envs.psm_soft_grasp_env import PsmSoftGraspTorchVectorEnv
 import numpy as np
 import torch
 
@@ -127,23 +134,23 @@ class TissueRetractPolicy:
 
 def make_scene(scene, width, height, max_steps, motion_scale, ultrasound_height):
     if scene == "cartpole":
-        env = neo.CartpoleTorchVectorEnv(env_count=1, max_episode_steps=max_steps, image_width=width, image_height=height, reset_pole_angle_range_radians=.15)
+        env = CartpoleTorchVectorEnv(env_count=1, max_episode_steps=max_steps, image_width=width, image_height=height, reset_pole_angle_range_radians=.15)
         return env, lambda o, s: simple_policy(env, o, s, scene), env.render
     if scene == "soft_body_push":
-        env = neo.SoftBodyPusherTorchVectorEnv(env_count=1, max_episode_steps=max_steps, action_scale=.01, enable_rgb_observation=True, image_width=width, image_height=height)
+        env = SoftBodyPusherTorchVectorEnv(env_count=1, max_episode_steps=max_steps, action_scale=.01, enable_rgb_observation=True, image_width=width, image_height=height)
     elif scene == "fluid_pour":
-        env = neo.FluidPouringTorchVectorEnv(env_count=1, max_episode_steps=max_steps, position_action_scale=.01, tilt_action_scale=.02, source_move_range_x=3.5, enable_rgb_observation=True, image_width=width, image_height=height)
+        env = FluidPouringTorchVectorEnv(env_count=1, max_episode_steps=max_steps, position_action_scale=.01, tilt_action_scale=.02, source_move_range_x=3.5, enable_rgb_observation=True, image_width=width, image_height=height)
     elif scene == "target_center":
-        env = neo.CameraCenteringTorchVectorEnv(env_count=1, max_episode_steps=max_steps, image_width=width, image_height=height)
+        env = CameraCenteringTorchVectorEnv(env_count=1, max_episode_steps=max_steps, image_width=width, image_height=height)
         return env, lambda o, s: simple_policy(env, o, s, scene), lambda: env.rgb_observation_tensor
     elif scene == "tissue_retract":
-        env = neo.PsmSoftGraspTorchVectorEnv(env_count=1, max_episode_steps=max_steps, enable_rgb_observation=True, enable_target_marker=False, image_width=width, image_height=height, resolve_root=REPO_ROOT)
+        env = PsmSoftGraspTorchVectorEnv(env_count=1, max_episode_steps=max_steps, enable_rgb_observation=True, enable_target_marker=False, image_width=width, image_height=height, resolve_root=REPO_ROOT)
         return env, TissueRetractPolicy(env, motion_scale), env.render
     elif scene == "blood_suction":
-        env = neo.PsmBloodSuctionTorchVectorEnv(env_count=1, max_episode_steps=max_steps, enable_rgb_observation=True, image_width=width, image_height=height, insertion_action_scale=.05, resolve_root=REPO_ROOT)
+        env = PsmBloodSuctionTorchVectorEnv(env_count=1, max_episode_steps=max_steps, enable_rgb_observation=True, image_width=width, image_height=height, insertion_action_scale=.05, resolve_root=REPO_ROOT)
         return env, BloodSuctionPolicy(env), env.render
     else:
-        env = neo.UltrasoundCenteringTorchVectorEnv(env_count=1, max_episode_steps=max_steps, frame_stack=4, image_height=ultrasound_height, probe_num_scanlines=96, probe_line_length=.7, probe_scanline_spacing=.006, enable_rgb_observation=True, render_width=width, render_height=height, resolve_root=REPO_ROOT)
+        env = UltrasoundCenteringTorchVectorEnv(env_count=1, max_episode_steps=max_steps, frame_stack=4, image_height=ultrasound_height, probe_num_scanlines=96, probe_line_length=.7, probe_scanline_spacing=.006, enable_rgb_observation=True, render_width=width, render_height=height, resolve_root=REPO_ROOT)
     return env, lambda o, s: simple_policy(env, o, s, scene), env.render
 
 

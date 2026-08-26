@@ -5,7 +5,7 @@ import os
 import struct
 from pathlib import Path
 
-from . import _cressim_neo as neo
+import cressim_neo as neo
 from .psm_builder import (
     PsmAuthoringConfig,
     author_psm_scene,
@@ -18,7 +18,7 @@ try:
     import torch
 except ImportError as exc:
     raise RuntimeError(
-        "cressim_neo.psm_blood_suction_env requires PyTorch to be installed."
+        "cressim_neo_envs.psm_blood_suction_env requires PyTorch to be installed."
     ) from exc
 
 
@@ -852,7 +852,7 @@ def _find_asset_root(
     asset_root = os.environ.get("CRESSIM_NEO_ASSET_DIR")
     if asset_root:
         search_roots.append(Path(asset_root).expanduser().resolve())
-    search_roots.append(Path(__file__).resolve().parent / "assets")
+    search_roots.append(Path(neo.__file__).resolve().parent / "assets")
     for root in search_roots:
         if (root / required_relative_path).exists():
             return root

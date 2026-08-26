@@ -4,12 +4,12 @@ import math
 import struct
 from dataclasses import dataclass
 
-from . import _cressim_neo as neo
+import cressim_neo as neo
 
 try:
     import torch
 except ImportError as exc:
-    raise RuntimeError("cressim_neo.cartpole requires PyTorch to be installed.") from exc
+    raise RuntimeError("cressim_neo_envs.cartpole requires PyTorch to be installed.") from exc
 
 
 try:

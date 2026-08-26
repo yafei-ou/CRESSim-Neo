@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import cressim_neo as neo
+from cressim_neo_envs.cartpole import CartpoleTorchVectorEnv
 
 from ppo_common import PPOTrainConfig, run_inference_continuous, train_ppo_continuous
 
@@ -29,8 +30,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--log-runtime-libs", action="store_true")
     return parser.parse_args()
 
-def make_train_env(env_count: int, max_episode_steps: int) -> neo.CartpoleTorchVectorEnv:
-    return neo.CartpoleTorchVectorEnv(
+def make_train_env(env_count: int, max_episode_steps: int) -> CartpoleTorchVectorEnv:
+    return CartpoleTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         reset_cart_position_range=0.05,
@@ -42,8 +43,8 @@ def make_train_env(env_count: int, max_episode_steps: int) -> neo.CartpoleTorchV
 
 def make_infer_env(
     env_count: int, max_episode_steps: int, image_width: int, image_height: int
-) -> neo.CartpoleTorchVectorEnv:
-    return neo.CartpoleTorchVectorEnv(
+) -> CartpoleTorchVectorEnv:
+    return CartpoleTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         reset_cart_position_range=0.05,
@@ -58,7 +59,7 @@ def make_infer_env(
 def run_training(args: argparse.Namespace) -> int:
     return train_ppo_continuous(
         env_factory=make_train_env,
-        observation_dim=neo.CartpoleTorchVectorEnv.OBSERVATION_DIM,
+        observation_dim=CartpoleTorchVectorEnv.OBSERVATION_DIM,
         action_dim=1,
         config=PPOTrainConfig(
             name="cartpole",

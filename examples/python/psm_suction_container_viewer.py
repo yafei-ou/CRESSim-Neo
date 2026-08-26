@@ -1,6 +1,12 @@
 import math
 from pathlib import Path
 import cressim_neo as neo
+from cressim_neo_envs.psm_builder import (
+    PsmAuthoringConfig,
+    PsmBuildResult,
+    author_psm_scene,
+    set_psm_joint_targets,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -270,14 +276,14 @@ def _author_container(runtime: neo.Runtime) -> None:
     world.set_mesh_renderer(soft_entity, renderer)
 
 
-def _author_psm(runtime: neo.Runtime) -> neo.PsmBuildResult:
+def _author_psm(runtime: neo.Runtime) -> PsmBuildResult:
     world = runtime.world()
     resources = runtime.resources()
     urdf_path = REPO_ROOT / "examples" / "models" / "psm" / "psm_suction_irrigator.urdf"
-    build = neo.author_psm_scene(
+    build = author_psm_scene(
         world,
         resources,
-        neo.PsmAuthoringConfig(
+        PsmAuthoringConfig(
             resolve_root=REPO_ROOT,
             urdf_path=urdf_path,
             tool_type="suction_irrigator",
@@ -288,7 +294,7 @@ def _author_psm(runtime: neo.Runtime) -> neo.PsmBuildResult:
             global_scale=PSM_SCALE,
         ),
     )
-    neo.set_psm_joint_targets(
+    set_psm_joint_targets(
         world,
         build,
         [0.0, 0.0, PSM_INSERTION_BASE_TARGET, 0.0, 0.0, 0.0, 0.0],
@@ -331,7 +337,7 @@ def _author_psm(runtime: neo.Runtime) -> neo.PsmBuildResult:
     return build
 
 
-def _author_scene(runtime: neo.Runtime) -> tuple[int, neo.PsmBuildResult]:
+def _author_scene(runtime: neo.Runtime) -> tuple[int, PsmBuildResult]:
     world = runtime.world()
     resources = runtime.resources()
 
@@ -486,7 +492,7 @@ def main() -> int:
                 + PSM_INSERTION_AMPLITUDE
                 * math.sin(2.0 * math.pi * PSM_INSERTION_FREQUENCY_HZ * float(frame.time_seconds))
             )
-            neo.set_psm_joint_targets(
+            set_psm_joint_targets(
                 current_runtime.world(),
                 psm_build,
                 [0.0, 0.0, insertion_target, 0.0, 0.0, 0.0, 0.0],

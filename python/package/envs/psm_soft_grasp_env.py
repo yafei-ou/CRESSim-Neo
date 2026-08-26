@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import struct
 
-from . import _cressim_neo as neo
+import cressim_neo as neo
 from .psm_builder import (
     PsmAuthoringConfig,
     author_psm_scene,
@@ -16,7 +16,7 @@ try:
     import torch
 except ImportError as exc:
     raise RuntimeError(
-        "cressim_neo.psm_soft_grasp_env requires PyTorch to be installed."
+        "cressim_neo_envs.psm_soft_grasp_env requires PyTorch to be installed."
     ) from exc
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import cressim_neo as neo
+from cressim_neo_envs.camera_centering_env import CameraCenteringTorchVectorEnv
 import torch
 from live_capture_utils import (
     InteractiveImageCapture,
@@ -16,7 +17,7 @@ except ImportError as exc:
 
 
 def scripted_action(
-    env: "neo.CameraCenteringTorchVectorEnv", observation: "torch.Tensor"
+    env: "CameraCenteringTorchVectorEnv", observation: "torch.Tensor"
 ) -> "torch.Tensor":
     action = torch.zeros(
         (env.env_count, env.ACTION_DIM),
@@ -65,7 +66,7 @@ def scripted_action(
 
 
 def main() -> int:
-    env = neo.CameraCenteringTorchVectorEnv(
+    env = CameraCenteringTorchVectorEnv(
         env_count=4,
         max_episode_steps=180,
         image_width=256,

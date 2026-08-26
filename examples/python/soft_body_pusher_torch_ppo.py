@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import cressim_neo as neo
+from cressim_neo_envs.soft_body_pusher_env import SoftBodyPusherTorchVectorEnv
 
 from ppo_common import PPOTrainConfig, run_inference_continuous, train_ppo_continuous
 
@@ -30,8 +31,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def make_train_env(env_count: int, max_episode_steps: int) -> neo.SoftBodyPusherTorchVectorEnv:
-    return neo.SoftBodyPusherTorchVectorEnv(
+def make_train_env(env_count: int, max_episode_steps: int) -> SoftBodyPusherTorchVectorEnv:
+    return SoftBodyPusherTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         success_fraction=0.70,
@@ -44,8 +45,8 @@ def make_train_env(env_count: int, max_episode_steps: int) -> neo.SoftBodyPusher
 
 def make_infer_env(
     env_count: int, max_episode_steps: int, image_width: int, image_height: int
-) -> neo.SoftBodyPusherTorchVectorEnv:
-    return neo.SoftBodyPusherTorchVectorEnv(
+) -> SoftBodyPusherTorchVectorEnv:
+    return SoftBodyPusherTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         success_fraction=0.70,
@@ -62,8 +63,8 @@ def make_infer_env(
 def run_training(args: argparse.Namespace) -> int:
     return train_ppo_continuous(
         env_factory=make_train_env,
-        observation_dim=neo.SoftBodyPusherTorchVectorEnv.OBSERVATION_DIM,
-        action_dim=neo.SoftBodyPusherTorchVectorEnv.ACTION_DIM,
+        observation_dim=SoftBodyPusherTorchVectorEnv.OBSERVATION_DIM,
+        action_dim=SoftBodyPusherTorchVectorEnv.ACTION_DIM,
         config=PPOTrainConfig(
             name="soft_body_pusher",
             model_path=args.model_path,
@@ -81,7 +82,7 @@ def run_training(args: argparse.Namespace) -> int:
 def run_inference(args: argparse.Namespace) -> int:
     return run_inference_continuous(
         env_factory=make_infer_env,
-        action_dim=neo.SoftBodyPusherTorchVectorEnv.ACTION_DIM,
+        action_dim=SoftBodyPusherTorchVectorEnv.ACTION_DIM,
         model_path=args.model_path,
         infer_env_count=args.infer_env_count,
         max_episode_steps=args.max_episode_steps,

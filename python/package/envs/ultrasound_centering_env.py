@@ -5,14 +5,14 @@ import os
 import struct
 from pathlib import Path
 
-from . import _cressim_neo as neo
+import cressim_neo as neo
 from .torch_env import TorchStagedVectorEnvBase
 
 try:
     import torch
 except ImportError as exc:
     raise RuntimeError(
-        "cressim_neo.ultrasound_centering_env requires PyTorch to be installed."
+        "cressim_neo_envs.ultrasound_centering_env requires PyTorch to be installed."
     ) from exc
 
 
@@ -366,7 +366,7 @@ def _resolve_asset_root(resolve_root: str | Path | None) -> Path:
     asset_root = os.environ.get("CRESSIM_NEO_ASSET_DIR")
     if asset_root:
         search_roots.append(Path(asset_root).expanduser().resolve())
-    search_roots.append(Path(__file__).resolve().parent / "assets")
+    search_roots.append(Path(neo.__file__).resolve().parent / "assets")
     for candidate in search_roots:
         if (candidate / "models" / "Linear Probe.obj").exists():
             return candidate

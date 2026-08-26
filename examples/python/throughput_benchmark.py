@@ -6,6 +6,13 @@ from pathlib import Path
 from typing import Any, Callable
 
 import cressim_neo as neo
+from cressim_neo_envs.cartpole import CartpoleTorchVectorEnv
+from cressim_neo_envs.camera_centering_env import CameraCenteringTorchVectorEnv
+from cressim_neo_envs.fluid_pouring_env import FluidPouringTorchVectorEnv
+from cressim_neo_envs.soft_body_pusher_env import SoftBodyPusherTorchVectorEnv
+from cressim_neo_envs.ultrasound_centering_env import UltrasoundCenteringTorchVectorEnv
+from cressim_neo_envs.psm_blood_suction_env import PsmBloodSuctionTorchVectorEnv
+from cressim_neo_envs.psm_soft_grasp_env import PsmSoftGraspTorchVectorEnv
 
 from camera_centering_torch_ppo import make_train_env as make_target_center_env
 from cartpole_torch_ppo import make_train_env as make_cartpole_env
@@ -69,7 +76,7 @@ TASK_SPECS: dict[str, TaskBenchmarkSpec] = {
     "cartpole": TaskBenchmarkSpec(
         display_name="CartPole",
         env_factory=make_cartpole_env,
-        observation_dim=neo.CartpoleTorchVectorEnv.OBSERVATION_DIM,
+        observation_dim=CartpoleTorchVectorEnv.OBSERVATION_DIM,
         action_dim=1,
         model_kind="mlp",
         max_episode_steps=500,
@@ -81,8 +88,8 @@ TASK_SPECS: dict[str, TaskBenchmarkSpec] = {
     "soft_body_push": TaskBenchmarkSpec(
         display_name="SoftBodyPush",
         env_factory=make_soft_body_push_env,
-        observation_dim=neo.SoftBodyPusherTorchVectorEnv.OBSERVATION_DIM,
-        action_dim=neo.SoftBodyPusherTorchVectorEnv.ACTION_DIM,
+        observation_dim=SoftBodyPusherTorchVectorEnv.OBSERVATION_DIM,
+        action_dim=SoftBodyPusherTorchVectorEnv.ACTION_DIM,
         model_kind="mlp",
         max_episode_steps=180,
         rollout_steps=128,
@@ -93,8 +100,8 @@ TASK_SPECS: dict[str, TaskBenchmarkSpec] = {
     "fluid_pour": TaskBenchmarkSpec(
         display_name="FluidPour",
         env_factory=make_fluid_pour_env,
-        observation_dim=neo.FluidPouringTorchVectorEnv.OBSERVATION_DIM,
-        action_dim=neo.FluidPouringTorchVectorEnv.ACTION_DIM,
+        observation_dim=FluidPouringTorchVectorEnv.OBSERVATION_DIM,
+        action_dim=FluidPouringTorchVectorEnv.ACTION_DIM,
         model_kind="mlp",
         max_episode_steps=240,
         rollout_steps=128,
@@ -111,7 +118,7 @@ TASK_SPECS: dict[str, TaskBenchmarkSpec] = {
             64,
         ),
         observation_dim=(64, 64, 4),
-        action_dim=neo.CameraCenteringTorchVectorEnv.ACTION_DIM,
+        action_dim=CameraCenteringTorchVectorEnv.ACTION_DIM,
         model_kind="cnn",
         max_episode_steps=120,
         rollout_steps=128,
@@ -129,8 +136,8 @@ TASK_SPECS: dict[str, TaskBenchmarkSpec] = {
             image_height=64,
             enable_target_marker=True,
         ),
-        observation_dim=neo.PsmSoftGraspTorchVectorEnv.OBSERVATION_DIM,
-        action_dim=neo.PsmSoftGraspTorchVectorEnv.ACTION_DIM,
+        observation_dim=PsmSoftGraspTorchVectorEnv.OBSERVATION_DIM,
+        action_dim=PsmSoftGraspTorchVectorEnv.ACTION_DIM,
         model_kind="mlp",
         max_episode_steps=180,
         rollout_steps=128,
@@ -148,10 +155,10 @@ TASK_SPECS: dict[str, TaskBenchmarkSpec] = {
             enable_visualization_camera=False,
         ),
         observation_dim={
-            "vector": neo.PsmBloodSuctionTorchVectorEnv.OBSERVATION_DIM,
+            "vector": PsmBloodSuctionTorchVectorEnv.OBSERVATION_DIM,
             "rgb": (64, 64, 4),
         },
-        action_dim=neo.PsmBloodSuctionTorchVectorEnv.ACTION_DIM,
+        action_dim=PsmBloodSuctionTorchVectorEnv.ACTION_DIM,
         model_kind="hybrid_cnn_mlp",
         max_episode_steps=240,
         rollout_steps=128,
@@ -171,7 +178,7 @@ TASK_SPECS: dict[str, TaskBenchmarkSpec] = {
             render_height=240,
         ),
         observation_dim=_resolve_ultrasound_observation_shape,
-        action_dim=neo.UltrasoundCenteringTorchVectorEnv.ACTION_DIM,
+        action_dim=UltrasoundCenteringTorchVectorEnv.ACTION_DIM,
         model_kind="cnn_channels_first",
         max_episode_steps=160,
         rollout_steps=128,

@@ -291,6 +291,18 @@ NumPy. Install Gymnasium separately when its environment wrappers are needed:
 python -m pip install gymnasium
 ```
 
+The wheel installs two Python packages. ``cressim_neo`` contains the native
+bindings and runtime API; task environments and PSM helpers live in
+``cressim_neo_envs`` and are imported from their defining modules:
+
+```python
+import cressim_neo as neo
+from cressim_neo_envs.cartpole import CartpoleTorchVectorEnv
+from cressim_neo_envs.psm_builder import PsmAuthoringConfig
+```
+
+Import high-level helpers from their ``cressim_neo_envs`` modules.
+
 The local wheel workflow does not require PyTorch. Install PyTorch separately
 in the active environment when using integrations that need it. Local wheels
 do not include CUDA interop or Ultrasound; use the release-wheel workflow for

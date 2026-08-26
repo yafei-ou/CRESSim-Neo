@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import cressim_neo as neo
+from cressim_neo_envs.camera_centering_env import CameraCenteringTorchVectorEnv
 
 from ppo_common import PPOTrainConfig, run_inference_continuous, train_ppo_continuous
 
@@ -34,8 +35,8 @@ def parse_args() -> argparse.Namespace:
 
 def _make_base_env(
     env_count: int, max_episode_steps: int, image_width: int, image_height: int
-) -> neo.CameraCenteringTorchVectorEnv:
-    return neo.CameraCenteringTorchVectorEnv(
+) -> CameraCenteringTorchVectorEnv:
+    return CameraCenteringTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         image_width=image_width,
@@ -51,7 +52,7 @@ def make_train_env(
     max_episode_steps: int,
     image_width: int,
     image_height: int,
-) -> neo.CameraCenteringTorchVectorEnv:
+) -> CameraCenteringTorchVectorEnv:
     return _make_base_env(env_count, max_episode_steps, image_width, image_height)
 
 
@@ -60,7 +61,7 @@ def make_infer_env(
     max_episode_steps: int,
     image_width: int,
     image_height: int,
-) -> neo.CameraCenteringTorchVectorEnv:
+) -> CameraCenteringTorchVectorEnv:
     return _make_base_env(env_count, max_episode_steps, image_width, image_height)
 
 
@@ -74,7 +75,7 @@ def run_training(args: argparse.Namespace) -> int:
             args.image_height,
         ),
         observation_dim=observation_dim,
-        action_dim=neo.CameraCenteringTorchVectorEnv.ACTION_DIM,
+        action_dim=CameraCenteringTorchVectorEnv.ACTION_DIM,
         model_kind="cnn",
         config=PPOTrainConfig(
             name="camera_centering",
@@ -98,7 +99,7 @@ def run_inference(args: argparse.Namespace) -> int:
             image_width,
             image_height,
         ),
-        action_dim=neo.CameraCenteringTorchVectorEnv.ACTION_DIM,
+        action_dim=CameraCenteringTorchVectorEnv.ACTION_DIM,
         model_path=args.model_path,
         infer_env_count=args.infer_env_count,
         max_episode_steps=args.max_episode_steps,

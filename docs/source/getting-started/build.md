@@ -198,6 +198,18 @@ its environment wrappers are needed:
 python -m pip install gymnasium
 ```
 
+The installed wheel contains two Python packages. Use `cressim_neo` for the
+native bindings and runtime API. Task environments and PSM authoring helpers
+are in `cressim_neo_envs` and must be imported from their defining modules:
+
+```python
+import cressim_neo as neo
+from cressim_neo_envs.cartpole import CartpoleTorchVectorEnv
+from cressim_neo_envs.psm_env import PsmEnv
+```
+
+Import high-level helpers from their `cressim_neo_envs` modules.
+
 Local wheels do not include CUDA interop or Ultrasound. Install PyTorch
 separately when needed, and use the release-wheel workflow for CUDA-enabled
 Linux or Windows distributions.

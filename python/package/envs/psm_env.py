@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import os
 
-from . import _cressim_neo as neo
+import cressim_neo as neo
 from .psm_builder import (
     PsmAuthoringConfig,
     PsmBuildResult,

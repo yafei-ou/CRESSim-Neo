@@ -9,7 +9,7 @@ from typing import Iterable
 import xml.etree.ElementTree as ET
 import zlib
 
-from . import _cressim_neo as neo
+import cressim_neo as neo
 
 import numpy as np
 
@@ -210,7 +210,7 @@ def _find_psm_urdf_path(
         search_roots.append(env_root)
         search_roots.append(env_root / "assets")
 
-    search_roots.append(Path(__file__).resolve().parent / "assets")
+    search_roots.append(Path(neo.__file__).resolve().parent / "assets")
 
     for root in search_roots:
         local_candidate = root / "models" / "psm" / candidate_filename
