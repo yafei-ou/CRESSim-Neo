@@ -70,6 +70,10 @@ passDesc.constantData.resize(sizeof(constants));
 std::memcpy(passDesc.constantData.data(), constants.data(), sizeof(constants));
 passDesc.dispatch.mode = CustomComputeDispatchMode::ExplicitGroupCount;
 passDesc.dispatch.groupCountX = 1;
+
+// After authoring the scene, make its GPU resources available to the pass.
+runtime.prepare();
+runtime.uploadWorld();
 const auto pass = runtime.createCustomComputePass(passDesc);
 runtime.executeCustomComputePass(pass);
 ```
@@ -104,6 +108,10 @@ pass_desc.constant_buffer_size_bytes = 16
 pass_desc.constant_data = list(struct.pack("<4f", 1.0, 2.0, 3.0, 4.0))
 pass_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
 pass_desc.dispatch.group_count_x = 1
+
+# After authoring the scene, make its GPU resources available to the pass.
+runtime.prepare()
+runtime.upload_world()
 task_pass = runtime.create_custom_compute_pass(pass_desc)
 runtime.execute_custom_compute_pass(task_pass)
 ```
