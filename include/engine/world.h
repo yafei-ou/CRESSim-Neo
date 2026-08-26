@@ -67,9 +67,10 @@ public:
     /// @return True if configured successfully.
     bool setEnvironmentIbl(std::uint32_t envIndex, const graphics::EnvironmentIblDesc &desc);
 
-    /// @brief Tries to get the Environment IBL descriptor for an environment index.
+    /// @brief Gets the Environment IBL descriptor stored for an initialized environment index.
     /// @param envIndex Environment index.
-    /// @return Pointer to EnvironmentIblDesc if set; nullptr otherwise.
+    /// @return Pointer to EnvironmentIblDesc (including its default value when not explicitly
+    /// configured), or nullptr if host scene storage has not been initialized for envIndex.
     const graphics::EnvironmentIblDesc *tryGetEnvironmentIbl(std::uint32_t envIndex) const noexcept;
 
     /// @brief Configures environment fluid properties for an environment index.
@@ -78,9 +79,10 @@ public:
     /// @return True if configured successfully.
     bool setEnvironmentFluid(std::uint32_t envIndex, const graphics::EnvironmentFluidDesc &desc);
 
-    /// @brief Tries to get the Environment fluid descriptor for an environment index.
+    /// @brief Gets the Environment fluid descriptor stored for an initialized environment index.
     /// @param envIndex Environment index.
-    /// @return Pointer to EnvironmentFluidDesc if set; nullptr otherwise.
+    /// @return Pointer to EnvironmentFluidDesc (including its default value when not explicitly
+    /// configured), or nullptr if host scene storage has not been initialized for envIndex.
     const graphics::EnvironmentFluidDesc *tryGetEnvironmentFluid(
         std::uint32_t envIndex) const noexcept;
 

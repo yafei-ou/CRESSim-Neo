@@ -77,16 +77,18 @@ public:
     virtual void endRenderTarget(const GpuRenderTargetBinding &binding,
                                  const common::FrameContext &frameContext)  = 0;
 
-    /// @brief Queues an asynchronous readback copy of the specified render target's pixels to CPU
-    /// host memory.
+    /// @brief Queues a render-target readback request. The copy is submitted when the target or
+    /// frame is ended, and the completed event is materialized during frame finalization.
     /// @param binding Target binding to read back.
-    /// @return Monotonic tracking readback request handle.
+    /// @return Monotonic tracking request handle, or an invalid handle if the target is unknown
+    /// or the binding does not select exactly one layer.
     virtual GpuRenderTargetReadbackRequest requestRenderTargetReadback(
         const GpuRenderTargetBinding &binding)                                          = 0;
-    /// @brief Attempts to fetch downloaded pixel data for an enqueued readback request.
+    /// @brief Retrieves and consumes the completed event for a readback request.
     /// @param request Tracking handle.
     /// @param outEvent Output readback event payload to populate.
-    /// @return True if data was downloaded and ready, false if still pending.
+    /// @return True if a completed event was available; false if the request is invalid, unknown,
+    /// already consumed, or not yet complete.
     virtual bool tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
                                             GpuRenderTargetReadbackEvent &outEvent)     = 0;
     /// @brief Retrieves the raw Diligent texture pointer for the target's color attachment.

@@ -100,8 +100,10 @@ struct RenderOutputBinding
 /// @brief Configuration descriptor for allocating offscreen 2D or 2D-array render targets.
 struct GpuRenderTargetDesc
 {
-    std::uint32_t width  = 0; ///< Pixel width (0 inherits presentation size, falling back to 1280).
-    std::uint32_t height = 0; ///< Pixel height (0 inherits presentation size, falling back to 720).
+    std::uint32_t width  = 0; ///< Pixel width (0 uses 1280 for direct target allocation; managed
+                              ///< camera outputs resolve it from their destination size).
+    std::uint32_t height = 0; ///< Pixel height (0 uses 720 for direct target allocation; managed
+                              ///< camera outputs resolve it from their destination size).
     std::uint32_t arraySize =
         1; ///< Number of 2D texture array slices (e.g. for multi-camera batched rendering).
     bool color = true; ///< Whether to allocate a color attachment texture.
@@ -110,7 +112,7 @@ struct GpuRenderTargetDesc
         false; ///< Enable single-pass multi-layer rendering via geometry/mesh shaders.
     Diligent::TEXTURE_FORMAT colorFormat =
         Diligent::TEX_FORMAT_UNKNOWN; ///< Color texture format (`TEX_FORMAT_UNKNOWN` uses default
-                                      ///< RGBA8_UNORM).
+                                      ///< RGBA16_FLOAT).
     Diligent::TEXTURE_FORMAT depthFormat =
         Diligent::TEX_FORMAT_D32_FLOAT; ///< Depth texture format.
     bool shaderReadable =

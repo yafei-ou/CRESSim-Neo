@@ -216,7 +216,7 @@ public:
     /// @param context Device context executing the graphics work.
     /// @return True on success.
     bool synchronizeFromDeviceContext(Diligent::IDeviceContext *context);
-    /// @brief Asynchronously copies device memory from the shared buffer to host memory via the
+    /// @brief Asynchronously copies from the specified CUDA device pointer to host memory via the
     /// internal CUDA stream.
     /// @param dst Destination host memory pointer.
     /// @param src Source CUDA device pointer.
