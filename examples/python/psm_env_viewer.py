@@ -3,6 +3,7 @@ import math
 from pathlib import Path
 
 import cressim_neo as neo
+from cressim_neo_envs.psm_env import PsmEnv
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,7 +38,7 @@ def main() -> int:
     viewer_desc.show_stats = True
 
     resolve_root = Path(__file__).resolve().parents[2]
-    env = neo.PsmEnv(
+    env = PsmEnv(
         resolve_root=resolve_root,
         tool_type=args.tool_type,
         viewer_desc=viewer_desc,

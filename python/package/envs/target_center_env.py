@@ -3,14 +3,14 @@ from __future__ import annotations
 import math
 import struct
 
-from . import _cressim_neo as neo
+import cressim_neo as neo
 from .torch_env import TorchStagedVectorEnvBase
 
 try:
     import torch
 except ImportError as exc:
     raise RuntimeError(
-        "cressim_neo.camera_centering_env requires PyTorch to be installed."
+        "cressim_neo_envs.target_center_env requires PyTorch to be installed."
     ) from exc
 
 
@@ -310,7 +310,7 @@ def _quat_from_yaw_pitch(yaw_radians: float, pitch_radians: float) -> neo.Quater
     return quat
 
 
-class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
+class TargetCenterTorchVectorEnv(TorchStagedVectorEnvBase):
     ACTION_DIM = 2
 
     def __init__(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import cressim_neo as neo
+from cressim_neo_envs.blood_suction_env import BloodSuctionTorchVectorEnv
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -17,7 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-path",
         type=Path,
-        default=Path("artifacts/psm_blood_suction_ppo_final.pt"),
+        default=Path("artifacts/blood_suction_ppo_final.pt"),
         help="Path used to save the trained model or load it for inference.",
     )
     parser.add_argument("--train-env-count", type=int, default=64)
@@ -44,8 +45,8 @@ def _make_base_env(
     enable_visualization_camera: bool,
     visualization_image_width: int | None = None,
     visualization_image_height: int | None = None,
-) -> neo.PsmBloodSuctionTorchVectorEnv:
-    return neo.PsmBloodSuctionTorchVectorEnv(
+) -> BloodSuctionTorchVectorEnv:
+    return BloodSuctionTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         enable_rgb_observation=True,
@@ -60,7 +61,7 @@ def _make_base_env(
     )
 
 
-def make_train_env(env_count: int, max_episode_steps: int) -> neo.PsmBloodSuctionTorchVectorEnv:
+def make_train_env(env_count: int, max_episode_steps: int) -> BloodSuctionTorchVectorEnv:
     return _make_base_env(
         env_count,
         max_episode_steps,
@@ -78,7 +79,7 @@ def make_infer_env(
     *,
     visualization_image_width: int,
     visualization_image_height: int,
-) -> neo.PsmBloodSuctionTorchVectorEnv:
+) -> BloodSuctionTorchVectorEnv:
     return _make_base_env(
         env_count,
         max_episode_steps,
@@ -92,11 +93,11 @@ def make_infer_env(
 
 def run_training(args: argparse.Namespace) -> int:
     observation_dim = {
-        "vector": neo.PsmBloodSuctionTorchVectorEnv.OBSERVATION_DIM,
+        "vector": BloodSuctionTorchVectorEnv.OBSERVATION_DIM,
         "rgb": (args.train_image_height, args.train_image_width, 4),
     }
 
-    def train_env_factory(env_count: int, max_episode_steps: int) -> neo.PsmBloodSuctionTorchVectorEnv:
+    def train_env_factory(env_count: int, max_episode_steps: int) -> BloodSuctionTorchVectorEnv:
         return _make_base_env(
             env_count,
             max_episode_steps,
@@ -108,9 +109,9 @@ def run_training(args: argparse.Namespace) -> int:
     return train_ppo_continuous(
         env_factory=train_env_factory,
         observation_dim=observation_dim,
-        action_dim=neo.PsmBloodSuctionTorchVectorEnv.ACTION_DIM,
+        action_dim=BloodSuctionTorchVectorEnv.ACTION_DIM,
         config=PPOTrainConfig(
-            name="psm_blood_suction",
+            name="blood_suction",
             model_path=args.model_path,
             train_env_count=args.train_env_count,
             rollout_steps=args.rollout_steps,
@@ -134,7 +135,7 @@ def run_inference(args: argparse.Namespace) -> int:
             visualization_image_width=args.image_width,
             visualization_image_height=args.image_height,
         ),
-        action_dim=neo.PsmBloodSuctionTorchVectorEnv.ACTION_DIM,
+        action_dim=BloodSuctionTorchVectorEnv.ACTION_DIM,
         model_path=args.model_path,
         infer_env_count=args.infer_env_count,
         max_episode_steps=args.max_episode_steps,

@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import cressim_neo as neo
+from cressim_neo_envs.tissue_retract_env import TissueRetractTorchVectorEnv
 import torch
 from live_capture_utils import (
     InteractiveImageCapture,
@@ -19,7 +20,7 @@ except ImportError as exc:
 
 
 class ScriptedPolicy:
-    def __init__(self, env: "neo.PsmSoftGraspTorchVectorEnv") -> None:
+    def __init__(self, env: "TissueRetractTorchVectorEnv") -> None:
         self.env = env
         self._insertion_action_magnitude = 0.6
         self._phase = torch.zeros(env.env_count, device=env.observation_tensor.device, dtype=torch.int64)
@@ -105,7 +106,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     resolve_root = Path(__file__).resolve().parents[2]
-    env = neo.PsmSoftGraspTorchVectorEnv(
+    env = TissueRetractTorchVectorEnv(
         env_count=args.env_count,
         enable_rgb_observation=True,
         enable_target_marker=not args.disable_target_marker,

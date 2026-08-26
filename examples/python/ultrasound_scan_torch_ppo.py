@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import cressim_neo as neo
+from cressim_neo_envs.ultrasound_scan_env import UltrasoundScanTorchVectorEnv
 
 from ppo_common import PPOTrainConfig, run_inference_continuous, train_ppo_continuous
 
@@ -19,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-path",
         type=Path,
-        default=Path("artifacts/ultrasound_centering_ppo_final.pt"),
+        default=Path("artifacts/ultrasound_scan_ppo_final.pt"),
         help="Path used to save the trained model or load it for inference.",
     )
     parser.add_argument("--train-env-count", type=int, default=8)
@@ -46,8 +47,8 @@ def _make_base_env(
     enable_rgb_observation: bool,
     render_width: int,
     render_height: int,
-) -> neo.UltrasoundCenteringTorchVectorEnv:
-    return neo.UltrasoundCenteringTorchVectorEnv(
+) -> UltrasoundScanTorchVectorEnv:
+    return UltrasoundScanTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
         frame_stack=frame_stack,
@@ -102,10 +103,10 @@ def run_training(args: argparse.Namespace) -> int:
             render_height=args.render_height,
         ),
         observation_dim=observation_dim,
-        action_dim=neo.UltrasoundCenteringTorchVectorEnv.ACTION_DIM,
+        action_dim=UltrasoundScanTorchVectorEnv.ACTION_DIM,
         model_kind="cnn_channels_first",
         config=PPOTrainConfig(
-            name="ultrasound_centering",
+            name="ultrasound_scan",
             model_path=args.model_path,
             train_env_count=args.train_env_count,
             rollout_steps=args.rollout_steps,
@@ -129,7 +130,7 @@ def run_inference(args: argparse.Namespace) -> int:
             render_width=args.render_width,
             render_height=args.render_height,
         ),
-        action_dim=neo.UltrasoundCenteringTorchVectorEnv.ACTION_DIM,
+        action_dim=UltrasoundScanTorchVectorEnv.ACTION_DIM,
         model_path=args.model_path,
         infer_env_count=args.infer_env_count,
         max_episode_steps=args.max_episode_steps,

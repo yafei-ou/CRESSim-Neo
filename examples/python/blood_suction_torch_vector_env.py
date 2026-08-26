@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 
 import cressim_neo as neo
+from cressim_neo_envs.blood_suction_env import BloodSuctionTorchVectorEnv
 
 import torch
 from live_capture_utils import (
@@ -23,7 +24,7 @@ except ImportError as exc:
 
 
 class ScriptedPolicy:
-    def __init__(self, env: "neo.PsmBloodSuctionTorchVectorEnv") -> None:
+    def __init__(self, env: "BloodSuctionTorchVectorEnv") -> None:
         self.env = env
         self._step = torch.zeros(env.env_count, device=env.observation_tensor.device, dtype=torch.int64)
         self._viewer_base_insertion = 0.08 * env.psm_scale
@@ -73,7 +74,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    env = neo.PsmBloodSuctionTorchVectorEnv(
+    env = BloodSuctionTorchVectorEnv(
         env_count=args.env_count,
         enable_rgb_observation=True,
         image_width=args.image_width,

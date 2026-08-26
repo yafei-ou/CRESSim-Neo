@@ -4,12 +4,12 @@ import math
 import struct
 from dataclasses import dataclass
 
-from . import _cressim_neo as neo
+import cressim_neo as neo
 
 try:
     import torch
 except ImportError as exc:
-    raise RuntimeError("cressim_neo.cartpole requires PyTorch to be installed.") from exc
+    raise RuntimeError("cressim_neo_envs.cartpole requires PyTorch to be installed.") from exc
 
 
 try:
@@ -412,7 +412,7 @@ def _create_buffer(
     return handle, _make_tensor(runtime, handle, shape or [count], dtype_code)
 
 
-class CartpoleTorchVectorEnv:
+class CartPoleTorchVectorEnv:
     OBSERVATION_DIM = 4
 
     def __init__(
@@ -1128,13 +1128,13 @@ class CartpoleTorchVectorEnv:
         self.runtime = None
 
 
-class CartpoleGymnasiumAdapter:
-    def __init__(self, env: CartpoleTorchVectorEnv) -> None:
+class CartPoleGymnasiumAdapter:
+    def __init__(self, env: CartPoleTorchVectorEnv) -> None:
         self.env = env
         if spaces is not None:
             self.single_action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
             self.single_observation_space = spaces.Box(
-                low=-np.inf, high=np.inf, shape=(CartpoleTorchVectorEnv.OBSERVATION_DIM,), dtype=np.float32
+                low=-np.inf, high=np.inf, shape=(CartPoleTorchVectorEnv.OBSERVATION_DIM,), dtype=np.float32
             )
 
     def reset(self, env_ids: "torch.Tensor | list[int] | None" = None):

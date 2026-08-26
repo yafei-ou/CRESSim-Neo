@@ -7,7 +7,7 @@ try:
 except ImportError as exc:
     raise RuntimeError("cressim_neo Torch env support requires PyTorch to be installed.") from exc
 
-from . import _cressim_neo as neo
+import cressim_neo as neo
 
 
 def make_tensor(
