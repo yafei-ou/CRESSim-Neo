@@ -212,10 +212,10 @@ The long-term distribution plan addresses target environments across platforms:
 - **Python on mainstream platforms:** Pinned CUDA-specific wheels (`cu126`, `cu130`,
   `cu132`) with pinned NVIDIA pip runtime dependencies, installed in isolated
   virtual or Conda environments alongside matching PyTorch wheels.
-- **Arch Linux / rolling distributions:** Source-based `PKGBUILD` utilizing the
-  system CUDA toolkit and official `python-pytorch-cuda` package. Rolling distributions
-  maintain synchronized system Python, CUDA, and PyTorch packages natively, so no
-  upstream prebuilt CUDA wheel is required.
+- **Rolling distributions:** Build from source in an environment with compatible
+  system CUDA and PyTorch packages. Configure
+  `CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=SYSTEM` and verify compatibility with the
+  installed PyTorch runtime.
 
 :::{note}
 **PyTorch CUDA runtime compatibility:**
@@ -225,5 +225,6 @@ On stable Linux distributions and Windows, system Python packages and system CUD
 installations frequently conflict with PyTorch's bundled CUDA runtime wheels.
 Performing a system-Python install with system CUDA on stable Linux/Windows is
 therefore unsupported for Torch-interoperable workflows; users should rely on
-isolated virtual environments with matching wheels or distribution packages via `PKGBUILD`.
+isolated virtual environments with matching wheels. For system-CUDA source builds,
+use compatible CUDA and PyTorch packages.
 :::
