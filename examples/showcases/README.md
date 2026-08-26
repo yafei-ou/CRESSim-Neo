@@ -6,17 +6,17 @@ composition, and frame export.
 
 ## Paper videos
 
-`showcases/python/record_py_scenes.py` records the seven environments discussed in
+`examples/showcases/python/record_py_scenes.py` records the seven environments discussed in
 the paper: CartPole, SoftBodyPush, FluidPour, TargetCenter, TissueRetract,
 BloodSuction, and UltrasoundScan.  It defaults to standard 1080p H.264 at
 30 fps and can record every scene or a selected subset:
 
 ```bash
 # One scene (repeat --scene to select more than one)
-python showcases/python/record_py_scenes.py --scene blood_suction
+python examples/showcases/python/record_py_scenes.py --scene blood_suction
 
 # All paper scenes, six seconds each, replacing previous outputs
-python showcases/python/record_py_scenes.py --frames 180 --overwrite
+python examples/showcases/python/record_py_scenes.py --frames 180 --overwrite
 ```
 
 Videos are written to `artifacts/paper_videos/` and are generated headlessly.
@@ -43,10 +43,10 @@ an MP4 without desktop capture or temporary image files.
 cmake --build build/linux-release -j2
 
 # Select only the remaining C++ paper scenes; repeat --scene as needed.
-python showcases/record_cpp_scenes.py --scene suturing --scene cdcr --overwrite
+python examples/showcases/record_cpp_scenes.py --scene suturing --scene cdcr --overwrite
 
 # Record all seven remaining C++ scenes.
-python showcases/record_cpp_scenes.py --overwrite
+python examples/showcases/record_cpp_scenes.py --overwrite
 ```
 
 The C++ selector accepts: `rigid_body_scale`, `soft_bodies`, `joints`,
@@ -61,7 +61,7 @@ environments. For example, the following creates four environments and moves
 to the next environment camera every 90 video frames (three seconds at 30 fps):
 
 ```bash
-python showcases/record_cpp_scenes.py --scene soft_bodies \
+python examples/showcases/record_cpp_scenes.py --scene soft_bodies \
   --envs 4 --switch-interval 90 --overwrite
 ```
 

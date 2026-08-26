@@ -7,7 +7,7 @@ import argparse
 from pathlib import Path
 import subprocess
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 CPP_SCENES = {
     "rigid_body_scale": ("example_physics_large_array_multi_env", ()),
     "soft_bodies": ("example_physics_soft_particles_toroid_multi_env", ()),

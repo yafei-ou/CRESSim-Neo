@@ -27,7 +27,7 @@ import torch
 from capture_utils import VideoWriter, prepare_output, rgb_tensor_to_frame
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 SCENES = ("cartpole", "soft_body_push", "fluid_pour", "target_center", "tissue_retract", "blood_suction", "ultrasound_scan")
 
 
