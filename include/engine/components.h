@@ -85,7 +85,7 @@ struct DirectionalLightComponent
     Diligent::float3 direction{0.0f, -1.0f, 0.0f}; ///< Light direction vector.
     Diligent::float3 color{1.0f, 1.0f, 1.0f};      ///< Light color RGB values.
     float intensity          = 1.0f;               ///< Illumination intensity multiplier.
-    float range              = 0.0f;               ///< Maximum light range (0 for infinite).
+    float range              = 0.0f;               ///< Currently unused for directional lights.
     float shadowDistance     = 50.0f;              ///< Maximum shadow rendering distance.
     float shadowFadeDistance = 20.0f;              ///< Distance over which shadows fade out.
     float shadowBias         = 0.0015f;            ///< Shadow depth comparison bias.

@@ -79,8 +79,8 @@ public:
     /// @return True on success.
     bool createVariant();
 
-    /// @brief Preallocates a specified total number of SRB variants.
-    /// @param totalVariantCount Desired number of variants.
+    /// @brief Ensures at least a specified total number of SRB variants are allocated.
+    /// @param totalVariantCount Minimum total number of variants.
     /// @return True on success.
     bool createVariants(std::size_t totalVariantCount);
 

@@ -106,8 +106,12 @@ public:
     bool upsertStrand(const StrandState &state);
 
     /// @brief Inserts or updates an authored fluid body.
+    ///
+    /// All fluid bodies must use the same particle radius because the current fluid solve derives
+    /// shared spacing-dependent parameters from that radius.
     /// @param state Fluid state.
-    /// @return True if successfully inserted or updated.
+    /// @return True if successfully inserted or updated; false if the source is invalid or the
+    /// particle radius is incompatible with an existing fluid body.
     bool upsertFluid(const FluidState &state);
 
     /// @brief Inserts or updates an authored particle sequence.

@@ -53,8 +53,9 @@ strand geometry. A material's `renderMode` determines when it is drawn:
 `Transparent` is drawn after opaque geometry. `renderOrder` orders materials
 only within the same render mode.
 
-The pipeline feature flags select normal mapping, clear coat, and double-sided
-rasterization. `Cutout` automatically enables the alpha-test feature. Set
+The pipeline feature flags select normal mapping and double-sided rasterization.
+`ClearCoat` is currently unused by material shading. `Cutout` automatically enables the alpha-test
+feature. Set
 `castsShadows` and `receivesShadows` independently for every material: a mesh
 must cast shadows for it to appear in shadow maps, and must receive them for
 the forward lighting pass to apply them.
@@ -84,7 +85,7 @@ textureDesc.width = imageWidth;
 textureDesc.height = imageHeight;
 textureDesc.pixelFormat = TexturePixelFormat::RGBA8;
 textureDesc.colorSpace = TextureColorSpace::Srgb;
-textureDesc.mipPolicy = TextureMipPolicy::Generate;
+textureDesc.mipPolicy = TextureMipPolicy::Disabled;
 textureDesc.pixelData = imagePixels;
 const auto texture = resources.registerTexture(textureDesc);
 
@@ -121,7 +122,7 @@ texture_desc.width = image_width
 texture_desc.height = image_height
 texture_desc.pixel_format = neo.TexturePixelFormat.RGBA8
 texture_desc.color_space = neo.TextureColorSpace.Srgb
-texture_desc.mip_policy = neo.TextureMipPolicy.Generate
+texture_desc.mip_policy = neo.TextureMipPolicy.Disabled
 texture_desc.pixel_data = image_pixels
 texture = resources.register_texture(texture_desc)
 

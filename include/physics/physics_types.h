@@ -345,8 +345,9 @@ struct FluidMaterialDesc
 /// Occupies 48 bytes matching its GPU uniform layout.
 struct FluidMaterialGpu
 {
-    float restDensity     = 1000.0f;        ///< Fluid rest density (kg/m^3).
-    float invRestDensity  = 1.0f / 1000.0f; ///< Reciprocal rest density.
+    float restDensity =
+        1000.0f; ///< PBF solver rest-density reference; PhysicsWorld derives it from spacing.
+    float invRestDensity  = 1.0f / 1000.0f; ///< Reciprocal PBF solver rest-density reference.
     float smoothingRadius = 0.4f;           ///< SPH kernel smoothing radius (h).
     float densityConstraintScaleDerived =
         1.0f; ///< Precomputed density constraint normalization scale.

@@ -88,7 +88,7 @@ public:
     /// @param frameContext Temporal frame context state.
     virtual void beginFrame(const common::FrameContext &frameContext) = 0;
 
-    /// @brief Ends the current frame, executing presentation and queuing asynchronous readbacks.
+    /// @brief Ends the current frame, executing presentation and completing queued readbacks.
     /// @note A call without a matching beginFrame() is ignored.
     /// @param frameContext Temporal frame context state.
     virtual void endFrame(const common::FrameContext &frameContext) = 0;
@@ -131,7 +131,7 @@ public:
     /// @return True if presentation swapchain is active.
     virtual bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc) = 0;
 
-    /// @brief Enqueues an asynchronous readback request for the primary presentation frame.
+    /// @brief Enqueues a deferred readback request for the primary presentation frame.
     /// @return Tracking request handle, or an invalid handle when no presentation swapchain is
     /// active.
     virtual GpuPresentationReadbackRequest requestPresentationReadback() = 0;

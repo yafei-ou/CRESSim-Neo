@@ -79,8 +79,9 @@ public:
                                    const common::FrameContext &frameContext,
                                    const GpuRenderPassBeginDesc &beginDesc) = 0;
 
-    /// @brief Unbinds the render target attachments and transitions textures for subsequent
-    /// sampling/compute.
+    /// @brief Unbinds the render target attachments.
+    ///
+    /// Subsequent consumers perform any required resource-state transitions.
     /// @param binding Target binding.
     /// @param frameContext Temporal frame context.
     virtual void endRenderTarget(const GpuRenderTargetBinding &binding,

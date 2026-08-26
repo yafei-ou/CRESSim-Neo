@@ -24,8 +24,7 @@ struct EnvironmentCubemapImage
     std::vector<Diligent::float4> pixels; ///< Array of linear RGBA float HDR pixel values.
 };
 
-/// @brief Parameter tuning descriptor controlling spherical harmonics / Monte Carlo IBL baking
-/// resolutions.
+/// @brief Parameter tuning descriptor for Monte Carlo irradiance and specular cubemap baking.
 struct EnvironmentIblBakeOptions
 {
     std::uint32_t irradianceSize = 16u; ///< Resolution of baked diffuse irradiance cubemap faces.

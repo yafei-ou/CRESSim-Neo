@@ -11,12 +11,12 @@
 namespace cressim::neo::engine
 {
 
-/// @brief Access permission flags for shared engine GPU buffers.
+/// @brief Declared custom-compute access policy for shared engine GPU buffers.
 enum class SharedBufferAccess
 {
-    ReadOnly,  ///< Buffer is read-only by shaders/compute.
-    WriteOnly, ///< Buffer is write-only by shaders/compute.
-    ReadWrite, ///< Buffer supports read and write access.
+    ReadOnly,  ///< Allows read-only custom-compute bindings.
+    WriteOnly, ///< Allows write-only custom-compute bindings.
+    ReadWrite, ///< Allows read/write custom-compute bindings.
 };
 
 /// @brief Binding usage flags for shared GPU buffers.
@@ -65,7 +65,8 @@ struct SharedBufferDesc
     std::uint32_t elementStrideBytes = 0u; ///< Non-zero stride per element in bytes.
     std::uint32_t elementCount       = 0u; ///< Non-zero initial element count.
     std::uint32_t minimumCapacity    = 0u; ///< Optional lower bound on allocated element capacity.
-    SharedBufferAccess access        = SharedBufferAccess::ReadWrite; ///< Access mode.
+    SharedBufferAccess access = SharedBufferAccess::ReadWrite; ///< Custom-compute access policy;
+                                                               ///< bindFlags control GPU views.
     SharedBufferBindFlags bindFlags = SharedBufferBindFlags::ShaderResource |
                                       SharedBufferBindFlags::UnorderedAccess; ///< Must not be None.
 };
@@ -79,8 +80,9 @@ struct SharedBufferInfo
     std::uint32_t elementCount       = 0u; ///< Current element count.
     std::uint32_t capacity           = 0u; ///< Total element capacity.
     std::uint64_t sizeBytes          = 0u; ///< Total allocated size in bytes.
-    SharedBufferAccess access        = SharedBufferAccess::ReadWrite; ///< Access mode.
-    SharedBufferBindFlags bindFlags  = SharedBufferBindFlags::None;   ///< Binding flags.
+    SharedBufferAccess access =
+        SharedBufferAccess::ReadWrite; ///< Declared custom-compute access policy.
+    SharedBufferBindFlags bindFlags = SharedBufferBindFlags::None; ///< Binding flags.
     bool exportable       = false; ///< True if buffer is exportable for CUDA/DLPack interop.
     bool importedIntoCuda = false; ///< True if buffer is currently imported into CUDA.
 };

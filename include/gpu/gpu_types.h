@@ -58,8 +58,10 @@ struct GpuRenderTargetBinding
     std::uint32_t firstLayer = 0u;  ///< Zero-based index of the first texture array layer.
     std::uint32_t layerCount = 1u;  ///< Number of consecutive texture array layers to bind.
 
-    /// @brief Checks if this binding references a valid render target and non-zero layer count.
-    /// @return True if valid, false otherwise.
+    /// @brief Checks whether this binding is structurally valid.
+    ///
+    /// This does not verify that the target exists or that the selected layer range is in bounds.
+    /// @return True when the target ID is non-invalid and the layer count is non-zero.
     bool isValid() const noexcept
     {
         return target.id != common::kInvalidResourceId && layerCount > 0u;
@@ -164,7 +166,7 @@ struct GpuRenderTargetReadbackEvent
     std::vector<std::uint8_t> depthBytes{}; ///< Raw downloaded depth byte buffer.
 };
 
-/// @brief Tracking handle for an asynchronous offscreen render target readback request.
+/// @brief Tracking handle for a deferred offscreen render target readback request.
 struct GpuRenderTargetReadbackRequest
 {
     std::uint64_t id = 0; ///< Monotonically assigned request identifier.
@@ -191,10 +193,10 @@ struct GpuPresentationReadbackEvent
     std::uint32_t width                  = 0; ///< Framebuffer width in pixels.
     std::uint32_t height                 = 0; ///< Framebuffer height in pixels.
     std::uint32_t rowStrideBytes         = 0; ///< Byte stride per scanline row.
-    std::vector<std::uint8_t> colorBytes{};   ///< Raw RGB/RGBA byte buffer.
+    std::vector<std::uint8_t> colorBytes{};   ///< Raw color bytes encoded according to colorFormat.
 };
 
-/// @brief Tracking handle for an asynchronous presentation swapchain readback request.
+/// @brief Tracking handle for a deferred presentation-swapchain readback request.
 struct GpuPresentationReadbackRequest
 {
     std::uint64_t id = 0; ///< Monotonically assigned request identifier.

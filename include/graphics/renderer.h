@@ -156,7 +156,7 @@ struct RenderFrameOptions
 /// @brief Frame rendering performance and draw call instrumentation metrics.
 struct RenderStats
 {
-    std::uint32_t drawCalls            = 0; ///< Total graphics draw calls executed.
+    std::uint32_t drawCalls = 0; ///< Sum of the opaque, transparent, and shadow draw-call counters.
     std::uint32_t opaqueDrawCalls      = 0; ///< Opaque forward pass draw calls.
     std::uint32_t transparentDrawCalls = 0; ///< Transparent pass draw calls.
     std::uint32_t shadowDrawCalls      = 0; ///< Shadow map cascade and local light draw calls.

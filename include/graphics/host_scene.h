@@ -84,8 +84,9 @@ struct LightData
     Diligent::float3 position{0.0f, 0.0f, 0.0f};   ///< World position (for spot and point lights).
     Diligent::float3 direction{0.0f, -1.0f, 0.0f}; ///< World emission direction.
     Diligent::float3 color{1.0f, 1.0f, 1.0f};      ///< Linear RGB radiant flux color.
-    float intensity          = 1.0f;    ///< Radiant intensity multiplier (Lux or Lumens).
-    float range              = 0.0f;    ///< Maximum attenuation distance (0 = infinite).
+    float intensity = 1.0f; ///< Radiant intensity multiplier (Lux or Lumens).
+    float range     = 0.0f; ///< Attenuation distance for point and spot lights; directional lights
+                            ///< do not use it, and zero produces a near-zero local-light range.
     float innerConeAngle     = 0.0f;    ///< Spotlight inner cone angle in radians.
     float outerConeAngle     = 0.0f;    ///< Spotlight outer cone falloff angle in radians.
     float shadowDistance     = 80.0f;   ///< Maximum shadow projection distance.

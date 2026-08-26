@@ -64,15 +64,16 @@ struct GpuLightInput
     std::uint32_t reserved2    = 0u;       ///< Reserved padding.
 };
 
-/// @brief Pre-culled selection of active local (point/spot) lights affecting a camera's view.
+/// @brief Per-environment selection of local lights considered by forward shading.
 struct GpuLocalLightSelection
 {
-    std::uint32_t localLightCount         = 0u; ///< Total active local lights.
-    std::uint32_t shadowedLocalLightCount = 0u; ///< Shadowed local spotlights.
-    std::uint32_t shadowedPointLightCount = 0u; ///< Shadowed point lights.
+    std::uint32_t localLightCount =
+        0u; ///< Number of selected local lights, capped at kForwardLocalLightCap.
+    std::uint32_t shadowedLocalLightCount = 0u; ///< Selected shadowed 2D local lights.
+    std::uint32_t shadowedPointLightCount = 0u; ///< Selected shadowed point lights.
     std::uint32_t reserved0               = 0u; ///< Reserved padding.
     std::array<std::uint32_t, kForwardLocalLightCap>
-        lightIndices{}; ///< Array of active light indices in the global light buffer.
+        lightIndices{}; ///< Selected light indices in the global light buffer.
 };
 
 /// @brief Bitmask flags describing renderable object visibility and pipeline behavior.

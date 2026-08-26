@@ -67,11 +67,11 @@ enum class TexturePixelFormat
     RGBA16F, ///< 16-bit floating-point half-precision RGBA (8 bytes per pixel, HDR).
 };
 
-/// @brief Mipmap generation policy upon texture upload.
+/// @brief Declared mipmap generation policy for a texture asset.
 enum class TextureMipPolicy
 {
-    Disabled, ///< Only base mip level (0) is loaded; no mipmaps are generated.
-    Generate, ///< Full mipmap chain is generated on the GPU upon upload.
+    Disabled, ///< Declares that no additional mipmaps should be generated.
+    Generate, ///< Currently unused; supplied subresource payloads are uploaded unchanged.
 };
 
 /// @brief Spatial dimension category of a texture asset.
@@ -85,17 +85,17 @@ enum class TextureDimension
 enum class IblQualityTier : std::uint32_t
 {
     Off         = 0u, ///< Environment IBL lighting disabled.
-    DiffuseOnly = 1u, ///< Diffuse irradiance spherical harmonics / irradiance cubemap only.
+    DiffuseOnly = 1u, ///< Diffuse irradiance cubemap only.
     Full        = 2u, ///< Full diffuse irradiance and split-sum prefiltered specular reflections.
 };
 
-/// @brief Bitmask flags enabling material shader features and extended microfacet lobes.
+/// @brief Bitmask flags describing material shader features and rasterization behavior.
 enum class MaterialFeatureFlags : std::uint32_t
 {
     None        = 0u,       ///< No optional shader features enabled.
     AlphaTest   = 1u << 0u, ///< Alpha testing / cutout mask discarding enabled.
     NormalMap   = 1u << 1u, ///< Tangent-space normal mapping enabled.
-    ClearCoat   = 1u << 2u, ///< Secondary clear coat specular layer enabled.
+    ClearCoat   = 1u << 2u, ///< Currently unused by the material shading implementation.
     DoubleSided = 1u << 3u, ///< Disables backface culling and flips normals on backfaces.
 };
 CRESSIM_NEO_DEFINE_ENUM_FLAGS(MaterialFeatureFlags)
@@ -197,7 +197,7 @@ struct TextureResourceDesc
     TexturePixelFormat pixelFormat = TexturePixelFormat::RGBA8;   ///< Pixel data format.
     TextureColorSpace colorSpace   = TextureColorSpace::Linear;   ///< Color space interpretation.
     TextureMipPolicy mipPolicy =
-        TextureMipPolicy::Disabled;            ///< Automatic mipmap generation behavior.
+        TextureMipPolicy::Disabled; ///< Declared mipmap generation policy; currently unused.
     std::vector<SubresourceDesc> subresources; ///< Array of explicit subresource payloads.
     std::vector<std::uint8_t> pixelData;       ///< Contiguous raw pixel payload for level 0.
 };

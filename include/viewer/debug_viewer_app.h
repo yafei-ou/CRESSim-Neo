@@ -12,7 +12,7 @@
 #include <string>
 
 /// @file debug_viewer_app.h
-/// @brief Interactive GLFW/ImGui desktop debug viewer application, fly camera controller, and video
+/// @brief Interactive GLFW desktop debug viewer application, fly camera controller, and video
 /// capture runner.
 
 namespace cressim::neo::viewer
@@ -37,9 +37,10 @@ struct DebugViewerKeymap
         1; ///< Mouse button held to rotate the camera view (default: Right Mouse Button = 1).
 
     int resetCamera = 70; ///< Reset camera pose to initial authored transform (default: F).
-    int toggleStats = 72; ///< Toggle on-screen statistics and telemetry overlay (default: H).
+    int toggleStats =
+        72; ///< Toggle window-title statistics and periodic telemetry logging (default: H).
     int togglePresentedOutputMode =
-        85; ///< Toggle between Color, Depth, and Segmentation display modes (default: U).
+        85; ///< Toggle between camera presentation and an available explicit output (default: U).
     int cyclePresentedCameraPrevious =
         91; ///< Switch active presentation view to previous camera (default: [).
     int cyclePresentedCameraNext =
@@ -76,14 +77,16 @@ struct DebugViewerAppDesc
     bool stepSimulation = true; ///< Step the physics simulation on each tick.
     std::uint64_t maxFrames =
         0; ///< Maximum frames to execute before auto-quitting (0 runs indefinitely).
-    bool showStats            = true;  ///< Display performance metrics overlay.
+    bool showStats            = true; ///< Show performance statistics in the window title and logs.
     bool enableDebugParticles = false; ///< Enable particle physics debug visual overlays.
     std::uint32_t statsIntervalFrames =
         120; ///< Interval in frames for logging performance statistics.
 
-    std::string captureVideoPath{}; ///< Output MP4 path to encode and save video stream via FFmpeg.
-    std::uint32_t captureFps    = 30; ///< Video recording output frame rate.
-    std::uint32_t simulationFps = 60; ///< Simulation stepping rate during offline video capture.
+    std::string captureVideoPath{}; ///< Output video path encoded through FFmpeg; its extension
+                                    ///< selects the container.
+    std::uint32_t captureFps = 30;  ///< Video recording output frame rate.
+    std::uint32_t simulationFps =
+        60; ///< Capture scheduler reference rate; it does not set the simulation timestep.
     std::uint32_t captureSwitchIntervalFrames =
         0; ///< Interval in captured frames to rotate cameras (0 disables auto-rotation).
 

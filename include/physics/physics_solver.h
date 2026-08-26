@@ -178,7 +178,10 @@ public:
     /// success after initialization.
     bool syncWorldState(PhysicsWorld &world);
 
-    /// @brief Blocks until GPU compute work finishes and validates metadata buffers.
+    /// @brief Blocks until GPU compute work finishes and checks applicable metadata for overflow.
+    ///
+    /// Metadata is read back only for broad-phase and particle-neighbor work performed by the
+    /// most recent step.
     /// @return False before initialization or when no physics GPU backend is available.
     bool validateGpuMetaBlocking();
 

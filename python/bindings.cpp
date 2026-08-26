@@ -479,12 +479,13 @@ PYBIND11_MODULE(_cressim_neo, m)
                "Compute thread group count dynamically from resource element count.");
 
     py::enum_<SharedBufferAccess>(m, "SharedBufferAccess",
-                                  "Access permission flags for shared engine GPU buffers.")
-        .value("ReadOnly", SharedBufferAccess::ReadOnly, "Buffer is read-only by shaders/compute.")
+                                  "Declared custom-compute access policy for shared GPU buffers.")
+        .value("ReadOnly", SharedBufferAccess::ReadOnly,
+               "Allows read-only custom-compute bindings.")
         .value("WriteOnly", SharedBufferAccess::WriteOnly,
-               "Buffer is write-only by shaders/compute.")
+               "Allows write-only custom-compute bindings.")
         .value("ReadWrite", SharedBufferAccess::ReadWrite,
-               "Buffer supports read and write access.");
+               "Allows read/write custom-compute bindings.");
 
     py::enum_<SharedBufferBindFlags>(
         m, "SharedBufferBindFlags", "Binding usage flags for shared GPU buffers.", py::arithmetic())
@@ -535,7 +536,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("element_count", &SharedBufferDesc::elementCount, "Initial element count.")
         .def_readwrite("minimum_capacity", &SharedBufferDesc::minimumCapacity,
                        "Minimum allocation capacity.")
-        .def_readwrite("access", &SharedBufferDesc::access, "Access mode.")
+        .def_readwrite("access", &SharedBufferDesc::access,
+                       "Custom-compute access policy; bind_flags control GPU views.")
         .def_readwrite("bind_flags", &SharedBufferDesc::bindFlags, "GPU binding usage flags.");
 
     py::class_<SharedBufferInfo>(m, "SharedBufferInfo",
@@ -548,7 +550,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("element_count", &SharedBufferInfo::elementCount, "Current element count.")
         .def_readwrite("capacity", &SharedBufferInfo::capacity, "Total element capacity.")
         .def_readwrite("size_bytes", &SharedBufferInfo::sizeBytes, "Total allocated size in bytes.")
-        .def_readwrite("access", &SharedBufferInfo::access, "Access mode.")
+        .def_readwrite("access", &SharedBufferInfo::access,
+                       "Declared custom-compute access policy.")
         .def_readwrite("bind_flags", &SharedBufferInfo::bindFlags, "Binding flags.")
         .def_readwrite("exportable", &SharedBufferInfo::exportable,
                        "True if buffer is exportable for CUDA/DLPack interop.")
@@ -600,7 +603,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("layer_count", &GpuRenderTargetBinding::layerCount,
                        "Number of consecutive target array layers included in the binding.")
         .def("is_valid", &GpuRenderTargetBinding::isValid,
-             "Returns whether the binding has a valid target identifier and a nonzero layer count.")
+             "Returns whether the binding has a non-invalid target identifier and nonzero layer "
+             "count; it does not verify target existence or layer bounds.")
         .def(py::self == py::self, "Returns whether two bindings select the same target layers.");
 
     py::class_<RigidLayoutMapping>(m, "RigidLayoutMapping",
@@ -1132,7 +1136,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                "Material program for curve render geometry.");
 
     py::enum_<cressim::neo::graphics::MaterialFeatureFlags>(
-        m, "MaterialFeatureFlags", py::arithmetic(), "Bit flags enabling material shader features.")
+        m, "MaterialFeatureFlags", py::arithmetic(),
+        "Bit flags selecting material shader options and rasterization behavior.")
         .value("None", cressim::neo::graphics::MaterialFeatureFlags::None,
                "Enable no optional features.")
         .value("AlphaTest", cressim::neo::graphics::MaterialFeatureFlags::AlphaTest,
@@ -1140,7 +1145,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("NormalMap", cressim::neo::graphics::MaterialFeatureFlags::NormalMap,
                "Enable normal-map shading.")
         .value("ClearCoat", cressim::neo::graphics::MaterialFeatureFlags::ClearCoat,
-               "Enable clear-coat shading.")
+               "Currently unused by material shading.")
         .value("DoubleSided", cressim::neo::graphics::MaterialFeatureFlags::DoubleSided,
                "Disable back-face culling.");
 
@@ -1158,11 +1163,12 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("RGBA8", TexturePixelFormat::RGBA8, "Four 8-bit RGBA channels.")
         .value("RGBA16F", TexturePixelFormat::RGBA16F, "Four 16-bit floating-point RGBA channels.");
 
-    py::enum_<TextureMipPolicy>(m, "TextureMipPolicy", "Specifies a stored texture mipmap policy.")
-        .value("Disabled", TextureMipPolicy::Disabled, "Mipmap generation is disabled.")
+    py::enum_<TextureMipPolicy>(m, "TextureMipPolicy",
+                                "Declares a texture asset's mipmap generation policy.")
+        .value("Disabled", TextureMipPolicy::Disabled,
+               "Declares that no additional mipmaps should be generated.")
         .value("Generate", TextureMipPolicy::Generate,
-               "Mipmap generation is requested; current resource registration does not generate "
-               "mipmaps.");
+               "Currently unused; supplied subresource payloads are uploaded unchanged.");
 
     py::enum_<TextureDimension>(m, "TextureDimension", "Specifies a texture dimension.")
         .value("Texture2D", TextureDimension::Texture2D,
@@ -1473,11 +1479,11 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("max_frames", &DebugViewerAppDesc::maxFrames,
                        "Maximum number of viewer frames; zero leaves the frame count unbounded.")
         .def_readwrite("show_stats", &DebugViewerAppDesc::showStats,
-                       "Whether to display viewer statistics.")
+                       "Whether to show statistics in the window title and periodic logs.")
         .def_readwrite("enable_debug_particles", &DebugViewerAppDesc::enableDebugParticles,
                        "Whether to enable debug-particle rendering.")
         .def_readwrite("stats_interval_frames", &DebugViewerAppDesc::statsIntervalFrames,
-                       "Frame interval used to update displayed statistics.");
+                       "Frame interval used for telemetry logging.");
 
     py::class_<DebugViewerCameraBinding>(m, "DebugViewerCameraBinding",
                                          "Viewer camera selection and optional input overrides.")
@@ -1647,7 +1653,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("program_family", &MaterialPipelineDesc::programFamily,
                        "Material shader program family.")
         .def_readwrite("feature_flags", &MaterialPipelineDesc::featureFlags,
-                       "Optional material shader features.")
+                       "Material shader options and rasterization behavior.")
         .def_readwrite("alpha_cutoff", &MaterialPipelineDesc::alphaCutoff,
                        "Alpha threshold used by alpha-test shading.");
 
@@ -1708,7 +1714,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("pixel_format", &TextureResourceDesc::pixelFormat, "Texture pixel format.")
         .def_readwrite("color_space", &TextureResourceDesc::colorSpace, "Texture color space.")
         .def_readwrite("mip_policy", &TextureResourceDesc::mipPolicy,
-                       "Requested mipmap policy retained with the resource description.")
+                       "Declared mipmap policy; currently unused during texture registration.")
         .def_readwrite(
             "subresources", &TextureResourceDesc::subresources,
             "Mip-major pixel data: one entry per mip and layer; cube textures have six layers.")
@@ -1770,7 +1776,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("intensity", &DirectionalLightComponent::intensity,
                        "Illumination intensity multiplier.")
         .def_readwrite("range", &DirectionalLightComponent::range,
-                       "Maximum light range (0 for infinite).")
+                       "Currently unused for directional lights.")
         .def_readwrite("shadow_distance", &DirectionalLightComponent::shadowDistance,
                        "Maximum shadow rendering distance.")
         .def_readwrite("shadow_fade_distance", &DirectionalLightComponent::shadowFadeDistance,
@@ -3331,7 +3337,7 @@ PYBIND11_MODULE(_cressim_neo, m)
                 }
                 return device->renderTargetSystem().requestRenderTargetReadback(binding);
             },
-            "Requests asynchronous readback of a render-target binding. Returns an invalid "
+            "Queues deferred readback of a render-target binding. Returns an invalid "
             "request when the target is unknown or the binding does not select exactly one "
             "layer. Raises RuntimeError when the GPU device is unavailable.")
         .def("try_get_render_target_readback", &tryGetRenderTargetReadback,

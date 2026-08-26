@@ -43,6 +43,9 @@ public:
 
     /// @brief Ensures a structured buffer of at least the specified element capacity exists,
     /// allocating or reallocating if needed.
+    ///
+    /// When the existing buffer already has sufficient capacity and the same element stride,
+    /// all other creation parameters are retained and the buffer is not recreated.
     /// @param renderDevice Graphics device interface.
     /// @param name Debug identifier for the buffer.
     /// @param elementStride Stride of an individual element in bytes.
