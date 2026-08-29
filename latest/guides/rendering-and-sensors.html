@@ -1,0 +1,1099 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Rendering and Sensors &#8212; CRESSim-Neo Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
+
+    <script src="../_static/documentation_options.js?v=a8da1a53"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'guides/rendering-and-sensors';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.21.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://yafei-ou.github.io/CRESSim-Neo/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Custom GPU Compute and Interoperability" href="gpu-integration-and-custom-compute.html" />
+    <link rel="prev" title="Physics and Constraints" href="physics-and-constraints.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="main" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">CRESSim-Neo Documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/index.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../developers/index.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/index.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../developers/index.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="system-overview.html">System Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime-lifecycle.html">Runtime Lifecycle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="batched-environments.html">Scene Model and Batching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="physics-and-constraints.html">Physics and Constraints</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Rendering and Sensors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gpu-integration-and-custom-compute.html">Custom GPU Compute and Interoperability</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgical-robotics.html">Surgical Robotics</a></li>
+</ul>
+</div>
+</nav>
+</div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Rendering and Sensors</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="rendering-and-sensors">
+<h1>Rendering and Sensors<a class="headerlink" href="#rendering-and-sensors" title="Link to this heading">#</a></h1>
+<p>After authored state is uploaded and physics is stepped, device-side copies are
+dispatched to update entity poses based on the physical state. Visual sensors
+can then be produced from the current GPU scene state with
+<code class="docutils literal notranslate"><span class="pre">stepVisualSensors()</span></code>, and computational sensors such as ultrasound are
+executed in a separate sensor stage with <code class="docutils literal notranslate"><span class="pre">stepSimulationSensors()</span></code>. See
+<a class="reference internal" href="runtime-lifecycle.html"><span class="doc">Runtime Lifecycle</span></a> for the staged execution model.</p>
+<figure class="align-default" id="id1">
+<a class="reference internal image-reference" href="../_images/graphics-demo.png"><img alt="Camera RGB, segmentation, depth, ultrasound probe scene, and synthesized ultrasound output." src="../_images/graphics-demo.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Example sensor outputs. Left: camera RGB rendering with corresponding
+segmentation and depth products below. Middle: RGB rendering of the ultrasound
+probe scene. Right: synthesized ultrasound image.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<section id="rendering-pipeline">
+<h2>Rendering Pipeline<a class="headerlink" href="#rendering-pipeline" title="Link to this heading">#</a></h2>
+<p>The renderer uses a forward pipeline. Opaque and cutout meshes are rendered in
+the forward opaque pass, followed by transparent meshes in their own forward
+pass. Shadow maps, depth products, and segmentation products are generated as
+separate passes from the same scene data. A <code class="docutils literal notranslate"><span class="pre">MeshRendererComponent</span></code> on an
+entity binds shared mesh and material resources. Its authored transform supplies
+the initial pose; when the entity is simulated, rendering instead uses the
+physics-updated GPU pose. Lights and cameras are also components on entities.</p>
+<p>After a physics step, the renderer uses the physics-updated GPU pose state for
+rigid bodies, soft bodies, and strands. Fluids are composited through dedicated
+depth, filtering, and color passes. The corresponding simulation models are
+described in <a class="reference internal" href="physics-and-constraints.html"><span class="doc">Physics and Constraints</span></a>.</p>
+<p>For visual sensing, cameras support three output products: RGB-D, depth-only,
+and segmentation-with-depth. Cameras can render either to renderer-managed
+targets for presentation to screen or to explicitly defined render targets.
+Matched cameras can be rendered in batches into layered array textures spanning
+multiple environments. GPU-side camera preparation and indirect drawing further
+reduce the cost.</p>
+</section>
+<section id="meshes-materials-and-textures">
+<h2>Meshes, Materials, and Textures<a class="headerlink" href="#meshes-materials-and-textures" title="Link to this heading">#</a></h2>
+<p>Obtain the <a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics21RenderResourceManagerE" title="cressim::neo::graphics::RenderResourceManager"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">RenderResourceManager</span></code></a>
+from <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine7Runtime12getResourcesEv" title="cressim::neo::engine::Runtime::getResources"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">Runtime::getResources</span></code></a>
+(or <a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.resources" title="cressim_neo.Runtime.resources"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.resources</span></code></a> in Python) to
+register reusable meshes, materials, and textures. Configure their descriptor
+objects before registering them:</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">StandardLit</span></code> for regular mesh renderers. <code class="docutils literal notranslate"><span class="pre">SoftBodyLit</span></code> and <code class="docutils literal notranslate"><span class="pre">CurveLit</span></code> are
+the specialized program families selected for deformable bodies and procedural
+strand geometry. A material’s <code class="docutils literal notranslate"><span class="pre">renderMode</span></code> determines when it is drawn:
+<code class="docutils literal notranslate"><span class="pre">Opaque</span></code> is the default, <code class="docutils literal notranslate"><span class="pre">Cutout</span></code> enables alpha testing with <code class="docutils literal notranslate"><span class="pre">alphaCutoff</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">Transparent</span></code> is drawn after opaque geometry. <code class="docutils literal notranslate"><span class="pre">renderOrder</span></code> orders materials
+only within the same render mode.</p>
+<p>The pipeline feature flags select normal mapping and double-sided rasterization.
+<code class="docutils literal notranslate"><span class="pre">ClearCoat</span></code> is currently unused by material shading. <code class="docutils literal notranslate"><span class="pre">Cutout</span></code> automatically enables the alpha-test
+feature. Set
+<code class="docutils literal notranslate"><span class="pre">castsShadows</span></code> and <code class="docutils literal notranslate"><span class="pre">receivesShadows</span></code> independently for every material: a mesh
+must cast shadows for it to appear in shadow maps, and must receive them for
+the forward lighting pass to apply them.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine7Runtime12getResourcesEv" title="cressim::neo::engine::Runtime::getResources"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">Runtime::getResources</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.resources" title="cressim_neo.Runtime.resources"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.resources</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics16MeshResourceDescE" title="cressim::neo::graphics::MeshResourceDesc"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">MeshResourceDesc</span></code></a> · <a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics21RenderResourceManager12registerMeshERK16MeshResourceDesc" title="cressim::neo::graphics::RenderResourceManager::registerMesh"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">RenderResourceManager::registerMesh</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.MeshResourceDesc" title="cressim_neo.MeshResourceDesc"><code class="xref py py-class docutils literal notranslate"><span class="pre">MeshResourceDesc</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.RenderResourceManager.register_mesh" title="cressim_neo.RenderResourceManager.register_mesh"><code class="xref py py-meth docutils literal notranslate"><span class="pre">RenderResourceManager.register_mesh</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics20MaterialResourceDescE" title="cressim::neo::graphics::MaterialResourceDesc"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">MaterialResourceDesc</span></code></a> · <a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics21RenderResourceManager16registerMaterialERK20MaterialResourceDesc" title="cressim::neo::graphics::RenderResourceManager::registerMaterial"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">RenderResourceManager::registerMaterial</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.MaterialResourceDesc" title="cressim_neo.MaterialResourceDesc"><code class="xref py py-class docutils literal notranslate"><span class="pre">MaterialResourceDesc</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.RenderResourceManager.register_material" title="cressim_neo.RenderResourceManager.register_material"><code class="xref py py-meth docutils literal notranslate"><span class="pre">RenderResourceManager.register_material</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics19TextureResourceDescE" title="cressim::neo::graphics::TextureResourceDesc"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">TextureResourceDesc</span></code></a> · <a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics21RenderResourceManager15registerTextureERK19TextureResourceDesc" title="cressim::neo::graphics::RenderResourceManager::registerTexture"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">RenderResourceManager::registerTexture</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.TextureResourceDesc" title="cressim_neo.TextureResourceDesc"><code class="xref py py-class docutils literal notranslate"><span class="pre">TextureResourceDesc</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.RenderResourceManager.register_texture" title="cressim_neo.RenderResourceManager.register_texture"><code class="xref py py-meth docutils literal notranslate"><span class="pre">RenderResourceManager.register_texture</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine21MeshRendererComponentE" title="cressim::neo::engine::MeshRendererComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">MeshRendererComponent</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World15setMeshRendererEN6common8EntityIdERK21MeshRendererComponent" title="cressim::neo::engine::World::setMeshRenderer"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setMeshRenderer</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.MeshRendererComponent" title="cressim_neo.MeshRendererComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">MeshRendererComponent</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_mesh_renderer" title="cressim_neo.World.set_mesh_renderer"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_mesh_renderer</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">resources</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">runtime</span><span class="p">.</span><span class="n">getResources</span><span class="p">();</span>
+
+<span class="n">MeshResourceDesc</span><span class="w"> </span><span class="n">meshDesc</span><span class="p">{};</span>
+<span class="n">meshDesc</span><span class="p">.</span><span class="n">vertices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vertices</span><span class="p">;</span>
+<span class="n">meshDesc</span><span class="p">.</span><span class="n">indices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">indices</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">mesh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">resources</span><span class="p">.</span><span class="n">registerMesh</span><span class="p">(</span><span class="n">meshDesc</span><span class="p">);</span>
+
+<span class="n">TextureResourceDesc</span><span class="w"> </span><span class="n">textureDesc</span><span class="p">{};</span>
+<span class="n">textureDesc</span><span class="p">.</span><span class="n">width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">imageWidth</span><span class="p">;</span>
+<span class="n">textureDesc</span><span class="p">.</span><span class="n">height</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">imageHeight</span><span class="p">;</span>
+<span class="n">textureDesc</span><span class="p">.</span><span class="n">pixelFormat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TexturePixelFormat</span><span class="o">::</span><span class="n">RGBA8</span><span class="p">;</span>
+<span class="n">textureDesc</span><span class="p">.</span><span class="n">colorSpace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TextureColorSpace</span><span class="o">::</span><span class="n">Srgb</span><span class="p">;</span>
+<span class="n">textureDesc</span><span class="p">.</span><span class="n">mipPolicy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TextureMipPolicy</span><span class="o">::</span><span class="n">Disabled</span><span class="p">;</span>
+<span class="n">textureDesc</span><span class="p">.</span><span class="n">pixelData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">imagePixels</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">texture</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">resources</span><span class="p">.</span><span class="n">registerTexture</span><span class="p">(</span><span class="n">textureDesc</span><span class="p">);</span>
+
+<span class="n">MaterialResourceDesc</span><span class="w"> </span><span class="n">materialDesc</span><span class="p">{};</span>
+<span class="n">materialDesc</span><span class="p">.</span><span class="n">baseColor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mf">0.86f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.43f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.36f</span><span class="p">};</span>
+<span class="n">materialDesc</span><span class="p">.</span><span class="n">roughness</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.5f</span><span class="p">;</span>
+<span class="n">materialDesc</span><span class="p">.</span><span class="n">baseColorTexture</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">texture</span><span class="p">;</span>
+<span class="n">materialDesc</span><span class="p">.</span><span class="n">pipeline</span><span class="p">.</span><span class="n">featureFlags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MaterialFeatureFlags</span><span class="o">::</span><span class="n">NormalMap</span><span class="p">;</span>
+<span class="n">materialDesc</span><span class="p">.</span><span class="n">castsShadows</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="n">materialDesc</span><span class="p">.</span><span class="n">receivesShadows</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">material</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">resources</span><span class="p">.</span><span class="n">registerMaterial</span><span class="p">(</span><span class="n">materialDesc</span><span class="p">);</span>
+
+<span class="n">MeshRendererComponent</span><span class="w"> </span><span class="n">renderer</span><span class="p">{};</span>
+<span class="n">renderer</span><span class="p">.</span><span class="n">mesh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mesh</span><span class="p">;</span>
+<span class="n">renderer</span><span class="p">.</span><span class="n">material</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">material</span><span class="p">;</span>
+<span class="n">renderer</span><span class="p">.</span><span class="n">segmentationId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="n">world</span><span class="p">.</span><span class="n">setMeshRenderer</span><span class="p">(</span><span class="n">entity</span><span class="p">,</span><span class="w"> </span><span class="n">renderer</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">resources</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">resources</span><span class="p">()</span>
+
+<span class="n">mesh_desc</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">MeshResourceDesc</span><span class="p">()</span>
+<span class="n">mesh_desc</span><span class="o">.</span><span class="n">vertices</span> <span class="o">=</span> <span class="n">vertices</span>
+<span class="n">mesh_desc</span><span class="o">.</span><span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">register_mesh</span><span class="p">(</span><span class="n">mesh_desc</span><span class="p">)</span>
+
+<span class="n">texture_desc</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">TextureResourceDesc</span><span class="p">()</span>
+<span class="n">texture_desc</span><span class="o">.</span><span class="n">width</span> <span class="o">=</span> <span class="n">image_width</span>
+<span class="n">texture_desc</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">image_height</span>
+<span class="n">texture_desc</span><span class="o">.</span><span class="n">pixel_format</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">TexturePixelFormat</span><span class="o">.</span><span class="n">RGBA8</span>
+<span class="n">texture_desc</span><span class="o">.</span><span class="n">color_space</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">TextureColorSpace</span><span class="o">.</span><span class="n">Srgb</span>
+<span class="n">texture_desc</span><span class="o">.</span><span class="n">mip_policy</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">TextureMipPolicy</span><span class="o">.</span><span class="n">Disabled</span>
+<span class="n">texture_desc</span><span class="o">.</span><span class="n">pixel_data</span> <span class="o">=</span> <span class="n">image_pixels</span>
+<span class="n">texture</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">register_texture</span><span class="p">(</span><span class="n">texture_desc</span><span class="p">)</span>
+
+<span class="n">material_desc</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">MaterialResourceDesc</span><span class="p">()</span>
+<span class="n">material_desc</span><span class="o">.</span><span class="n">base_color</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">0.86</span><span class="p">,</span> <span class="mf">0.43</span><span class="p">,</span> <span class="mf">0.36</span><span class="p">)</span>
+<span class="n">material_desc</span><span class="o">.</span><span class="n">roughness</span> <span class="o">=</span> <span class="mf">0.5</span>
+<span class="n">material_desc</span><span class="o">.</span><span class="n">base_color_texture</span> <span class="o">=</span> <span class="n">texture</span>
+<span class="n">material_desc</span><span class="o">.</span><span class="n">pipeline</span><span class="o">.</span><span class="n">feature_flags</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">MaterialFeatureFlags</span><span class="o">.</span><span class="n">NormalMap</span>
+<span class="n">material_desc</span><span class="o">.</span><span class="n">casts_shadows</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">material_desc</span><span class="o">.</span><span class="n">receives_shadows</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">material</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">register_material</span><span class="p">(</span><span class="n">material_desc</span><span class="p">)</span>
+
+<span class="n">renderer</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">MeshRendererComponent</span><span class="p">()</span>
+<span class="n">renderer</span><span class="o">.</span><span class="n">mesh</span> <span class="o">=</span> <span class="n">mesh</span>
+<span class="n">renderer</span><span class="o">.</span><span class="n">material</span> <span class="o">=</span> <span class="n">material</span>
+<span class="n">renderer</span><span class="o">.</span><span class="n">segmentation_id</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">world</span><span class="o">.</span><span class="n">set_mesh_renderer</span><span class="p">(</span><span class="n">entity</span><span class="p">,</span> <span class="n">renderer</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="lights-and-shadows">
+<h2>Lights and Shadows<a class="headerlink" href="#lights-and-shadows" title="Link to this heading">#</a></h2>
+<p>Directional, point, and spot lights are entity components. Point and spot light
+positions come from their entity transform. Directional lights use a direction,
+color, and intensity; their <code class="docutils literal notranslate"><span class="pre">range</span></code> field is currently unused. Point lights use
+color, intensity, and attenuation range; spot lights additionally use a direction
+and inner and outer cone angles.</p>
+<p>Shadows require both a shadow-casting light and shadow-casting materials.
+<code class="docutils literal notranslate"><span class="pre">castsShadows</span></code> enables shadow-map generation on every light type. Directional
+lights also expose <code class="docutils literal notranslate"><span class="pre">shadowDistance</span></code> and <code class="docutils literal notranslate"><span class="pre">shadowFadeDistance</span></code>, which bound the
+shadowed region and fade shadows out before its edge. <code class="docutils literal notranslate"><span class="pre">shadowBias</span></code> offsets depth
+comparisons on directional, point, and spot lights; tune it when shadow acne or
+detachment is visible. Point and spot lights default to shadows disabled.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine25DirectionalLightComponentE" title="cressim::neo::engine::DirectionalLightComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">DirectionalLightComponent</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World19setDirectionalLightEN6common8EntityIdERK25DirectionalLightComponent" title="cressim::neo::engine::World::setDirectionalLight"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setDirectionalLight</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.DirectionalLightComponent" title="cressim_neo.DirectionalLightComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">DirectionalLightComponent</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_directional_light" title="cressim_neo.World.set_directional_light"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_directional_light</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine19PointLightComponentE" title="cressim::neo::engine::PointLightComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">PointLightComponent</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World13setPointLightEN6common8EntityIdERK19PointLightComponent" title="cressim::neo::engine::World::setPointLight"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setPointLight</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.PointLightComponent" title="cressim_neo.PointLightComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">PointLightComponent</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_point_light" title="cressim_neo.World.set_point_light"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_point_light</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine18SpotLightComponentE" title="cressim::neo::engine::SpotLightComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">SpotLightComponent</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World12setSpotLightEN6common8EntityIdERK18SpotLightComponent" title="cressim::neo::engine::World::setSpotLight"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setSpotLight</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.SpotLightComponent" title="cressim_neo.SpotLightComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpotLightComponent</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_spot_light" title="cressim_neo.World.set_spot_light"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_spot_light</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">DirectionalLightComponent</span><span class="w"> </span><span class="n">light</span><span class="p">{};</span>
+<span class="n">light</span><span class="p">.</span><span class="n">direction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mf">0.4f</span><span class="p">,</span><span class="w"> </span><span class="mf">-1.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.3f</span><span class="p">};</span>
+<span class="n">light</span><span class="p">.</span><span class="n">intensity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">3.0f</span><span class="p">;</span>
+<span class="n">light</span><span class="p">.</span><span class="n">castsShadows</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="n">light</span><span class="p">.</span><span class="n">shadowDistance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">40.0f</span><span class="p">;</span>
+<span class="n">light</span><span class="p">.</span><span class="n">shadowFadeDistance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">10.0f</span><span class="p">;</span>
+<span class="n">light</span><span class="p">.</span><span class="n">shadowBias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0015f</span><span class="p">;</span>
+<span class="n">world</span><span class="p">.</span><span class="n">setDirectionalLight</span><span class="p">(</span><span class="n">lightEntity</span><span class="p">,</span><span class="w"> </span><span class="n">light</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">light</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">DirectionalLightComponent</span><span class="p">()</span>
+<span class="n">light</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.3</span><span class="p">)</span>
+<span class="n">light</span><span class="o">.</span><span class="n">intensity</span> <span class="o">=</span> <span class="mf">3.0</span>
+<span class="n">light</span><span class="o">.</span><span class="n">casts_shadows</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">light</span><span class="o">.</span><span class="n">shadow_distance</span> <span class="o">=</span> <span class="mf">40.0</span>
+<span class="n">light</span><span class="o">.</span><span class="n">shadow_fade_distance</span> <span class="o">=</span> <span class="mf">10.0</span>
+<span class="n">light</span><span class="o">.</span><span class="n">shadow_bias</span> <span class="o">=</span> <span class="mf">0.0015</span>
+<span class="n">world</span><span class="o">.</span><span class="n">set_directional_light</span><span class="p">(</span><span class="n">light_entity</span><span class="p">,</span> <span class="n">light</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="environment-lighting-and-fluids">
+<h2>Environment Lighting and Fluids<a class="headerlink" href="#environment-lighting-and-fluids" title="Link to this heading">#</a></h2>
+<p>Per-environment image-based lighting (IBL) can supply a background cubemap,
+diffuse irradiance cubemap, and prefiltered specular cubemap. Configure the
+renderer <code class="docutils literal notranslate"><span class="pre">iblQualityTier</span></code> in <code class="docutils literal notranslate"><span class="pre">RuntimeConfig</span></code> as <code class="docutils literal notranslate"><span class="pre">Off</span></code>, <code class="docutils literal notranslate"><span class="pre">DiffuseOnly</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">Full</span></code>; the latter requires both irradiance and prefiltered-specular maps.
+<code class="docutils literal notranslate"><span class="pre">intensity</span></code> controls lighting from the IBL, while <code class="docutils literal notranslate"><span class="pre">backgroundIntensity</span></code>
+controls its visible background separately.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-4">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">config</span><span class="p">.</span><span class="n">rendererDesc</span><span class="p">.</span><span class="n">iblQualityTier</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IblQualityTier</span><span class="o">::</span><span class="n">Full</span><span class="p">;</span><span class="w"> </span><span class="c1">// before initialize()</span>
+
+<span class="n">EnvironmentIblDesc</span><span class="w"> </span><span class="n">ibl</span><span class="p">{};</span>
+<span class="n">ibl</span><span class="p">.</span><span class="n">backgroundCubemap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">backgroundCubemap</span><span class="p">;</span>
+<span class="n">ibl</span><span class="p">.</span><span class="n">irradianceCubemap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">irradianceCubemap</span><span class="p">;</span>
+<span class="n">ibl</span><span class="p">.</span><span class="n">prefilteredSpecularCubemap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prefilteredSpecularCubemap</span><span class="p">;</span>
+<span class="n">ibl</span><span class="p">.</span><span class="n">intensity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0f</span><span class="p">;</span>
+<span class="n">ibl</span><span class="p">.</span><span class="n">backgroundIntensity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.5f</span><span class="p">;</span>
+<span class="n">world</span><span class="p">.</span><span class="n">setEnvironmentIbl</span><span class="p">(</span><span class="n">envIndex</span><span class="p">,</span><span class="w"> </span><span class="n">ibl</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-5" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-5">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">config</span><span class="o">.</span><span class="n">renderer_desc</span><span class="o">.</span><span class="n">ibl_quality_tier</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">IblQualityTier</span><span class="o">.</span><span class="n">Full</span>  <span class="c1"># before initialize()</span>
+
+<span class="n">ibl</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">EnvironmentIblDesc</span><span class="p">()</span>
+<span class="n">ibl</span><span class="o">.</span><span class="n">background_cubemap</span> <span class="o">=</span> <span class="n">background_cubemap</span>
+<span class="n">ibl</span><span class="o">.</span><span class="n">irradiance_cubemap</span> <span class="o">=</span> <span class="n">irradiance_cubemap</span>
+<span class="n">ibl</span><span class="o">.</span><span class="n">prefiltered_specular_cubemap</span> <span class="o">=</span> <span class="n">prefiltered_specular_cubemap</span>
+<span class="n">ibl</span><span class="o">.</span><span class="n">intensity</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">ibl</span><span class="o">.</span><span class="n">background_intensity</span> <span class="o">=</span> <span class="mf">0.5</span>
+<span class="n">world</span><span class="o">.</span><span class="n">set_environment_ibl</span><span class="p">(</span><span class="n">env_index</span><span class="p">,</span> <span class="n">ibl</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Fluid appearance is configured per environment with smoothness, specular and
+Fresnel response, depth-edge and smoothing filters, and optional background
+refraction. Its refraction index and view-thickness settings determine the
+refraction approximation.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-6" name="sd-tab-set-3" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-6">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">EnvironmentFluidDesc</span><span class="w"> </span><span class="n">fluidAppearance</span><span class="p">{};</span>
+<span class="n">fluidAppearance</span><span class="p">.</span><span class="n">smoothness</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.92f</span><span class="p">;</span>
+<span class="n">fluidAppearance</span><span class="p">.</span><span class="n">specular</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mf">0.35f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.40f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.45f</span><span class="p">};</span>
+<span class="n">fluidAppearance</span><span class="p">.</span><span class="n">fresnel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.8f</span><span class="p">;</span>
+<span class="n">fluidAppearance</span><span class="p">.</span><span class="n">filterRadiusPixels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">6.0f</span><span class="p">;</span>
+<span class="n">fluidAppearance</span><span class="p">.</span><span class="n">enableBackgroundRefraction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="n">fluidAppearance</span><span class="p">.</span><span class="n">refractionIor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.33f</span><span class="p">;</span>
+<span class="n">world</span><span class="p">.</span><span class="n">setEnvironmentFluid</span><span class="p">(</span><span class="n">envIndex</span><span class="p">,</span><span class="w"> </span><span class="n">fluidAppearance</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-7" name="sd-tab-set-3" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-7">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">fluid_appearance</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">EnvironmentFluidDesc</span><span class="p">()</span>
+<span class="n">fluid_appearance</span><span class="o">.</span><span class="n">smoothness</span> <span class="o">=</span> <span class="mf">0.92</span>
+<span class="n">fluid_appearance</span><span class="o">.</span><span class="n">specular</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">0.35</span><span class="p">,</span> <span class="mf">0.40</span><span class="p">,</span> <span class="mf">0.45</span><span class="p">)</span>
+<span class="n">fluid_appearance</span><span class="o">.</span><span class="n">fresnel</span> <span class="o">=</span> <span class="mf">0.8</span>
+<span class="n">fluid_appearance</span><span class="o">.</span><span class="n">filter_radius_pixels</span> <span class="o">=</span> <span class="mf">6.0</span>
+<span class="n">fluid_appearance</span><span class="o">.</span><span class="n">enable_background_refraction</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">fluid_appearance</span><span class="o">.</span><span class="n">refraction_ior</span> <span class="o">=</span> <span class="mf">1.33</span>
+<span class="n">world</span><span class="o">.</span><span class="n">set_environment_fluid</span><span class="p">(</span><span class="n">env_index</span><span class="p">,</span> <span class="n">fluid_appearance</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics12RendererDescE" title="cressim::neo::graphics::RendererDesc"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">RendererDesc</span></code></a> · <a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics14IblQualityTierE" title="cressim::neo::graphics::IblQualityTier"><code class="xref cpp cpp-enum docutils literal notranslate"><span class="pre">IblQualityTier</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.RendererDesc" title="cressim_neo.RendererDesc"><code class="xref py py-class docutils literal notranslate"><span class="pre">RendererDesc</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.IblQualityTier" title="cressim_neo.IblQualityTier"><code class="xref py py-class docutils literal notranslate"><span class="pre">IblQualityTier</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics18EnvironmentIblDescE" title="cressim::neo::graphics::EnvironmentIblDesc"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">EnvironmentIblDesc</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World17setEnvironmentIblENSt8uint32_tERKN8graphics18EnvironmentIblDescE" title="cressim::neo::engine::World::setEnvironmentIbl"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setEnvironmentIbl</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.EnvironmentIblDesc" title="cressim_neo.EnvironmentIblDesc"><code class="xref py py-class docutils literal notranslate"><span class="pre">EnvironmentIblDesc</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_environment_ibl" title="cressim_neo.World.set_environment_ibl"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_environment_ibl</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/graphics.html#_CPPv4N7cressim3neo8graphics20EnvironmentFluidDescE" title="cressim::neo::graphics::EnvironmentFluidDesc"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">EnvironmentFluidDesc</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World19setEnvironmentFluidENSt8uint32_tERKN8graphics20EnvironmentFluidDescE" title="cressim::neo::engine::World::setEnvironmentFluid"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setEnvironmentFluid</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.EnvironmentFluidDesc" title="cressim_neo.EnvironmentFluidDesc"><code class="xref py py-class docutils literal notranslate"><span class="pre">EnvironmentFluidDesc</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_environment_fluid" title="cressim_neo.World.set_environment_fluid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_environment_fluid</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="cameras-and-render-targets">
+<h2>Cameras and Render Targets<a class="headerlink" href="#cameras-and-render-targets" title="Link to this heading">#</a></h2>
+<p>A camera entity uses its transform as the view pose and a <code class="docutils literal notranslate"><span class="pre">CameraComponent</span></code> for
+projection, output product, clear settings, and output binding. The component
+defines <code class="docutils literal notranslate"><span class="pre">verticalFovDegrees</span></code>, <code class="docutils literal notranslate"><span class="pre">nearClip</span></code>, <code class="docutils literal notranslate"><span class="pre">farClip</span></code>, a normalized <code class="docutils literal notranslate"><span class="pre">viewport</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">renderOrder</span></code>. Cameras sharing an output render in ascending <code class="docutils literal notranslate"><span class="pre">renderOrder</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">CameraComponent::Product</span></code> (<code class="docutils literal notranslate"><span class="pre">CameraProduct</span></code> in Python) selects the sensor
+product: <code class="docutils literal notranslate"><span class="pre">ColorDepth</span></code> produces standard RGBA color and depth, <code class="docutils literal notranslate"><span class="pre">Depth</span></code> produces
+a depth map, and <code class="docutils literal notranslate"><span class="pre">SegmentationDepth</span></code> produces a semantic segmentation mask and
+depth. <code class="docutils literal notranslate"><span class="pre">backgroundMode</span></code> selects <code class="docutils literal notranslate"><span class="pre">ClearColor</span></code> or <code class="docutils literal notranslate"><span class="pre">EnvironmentCubemap</span></code>; color and
+depth clearing can be controlled independently.</p>
+<p>An explicit render target is useful for off-screen sensing and learning. Its
+array size can match the environment count; with layered rendering enabled,
+each camera writes to its own target layer. Targets may have color and/or depth
+attachments, with chosen color and depth formats. Set <code class="docutils literal notranslate"><span class="pre">shaderReadable</span></code> when a
+later graphics or compute pass will sample the target, and <code class="docutils literal notranslate"><span class="pre">unorderedAccess</span></code>
+when a compute pass needs unordered writes.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine15CameraComponentE" title="cressim::neo::engine::CameraComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">CameraComponent</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World9setCameraEN6common8EntityIdERK15CameraComponent" title="cressim::neo::engine::World::setCamera"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setCamera</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.CameraComponent" title="cressim_neo.CameraComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">CameraComponent</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_camera" title="cressim_neo.World.set_camera"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_camera</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/gpu.html#_CPPv4N7cressim3neo3gpu19GpuRenderTargetDescE" title="cressim::neo::gpu::GpuRenderTargetDesc"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">GpuRenderTargetDesc</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.GpuRenderTargetDesc" title="cressim_neo.GpuRenderTargetDesc"><code class="xref py py-class docutils literal notranslate"><span class="pre">GpuRenderTargetDesc</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/gpu.html#_CPPv4N7cressim3neo3gpu21GpuRenderTargetSystem18createRenderTargetERK19GpuRenderTargetDesc" title="cressim::neo::gpu::GpuRenderTargetSystem::createRenderTarget"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">GpuRenderTargetSystem::createRenderTarget</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.create_render_target" title="cressim_neo.Runtime.create_render_target"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.create_render_target</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-8" name="sd-tab-set-4" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-8">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">GpuRenderTargetDesc</span><span class="w"> </span><span class="n">targetDesc</span><span class="p">{};</span>
+<span class="n">targetDesc</span><span class="p">.</span><span class="n">width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">640</span><span class="p">;</span>
+<span class="n">targetDesc</span><span class="p">.</span><span class="n">height</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">480</span><span class="p">;</span>
+<span class="n">targetDesc</span><span class="p">.</span><span class="n">arraySize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">environmentCount</span><span class="p">;</span>
+<span class="n">targetDesc</span><span class="p">.</span><span class="n">layeredRendering</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="n">targetDesc</span><span class="p">.</span><span class="n">shaderReadable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">runtime</span><span class="p">.</span><span class="n">getGpuDevice</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">renderTargetSystem</span><span class="p">().</span><span class="n">createRenderTarget</span><span class="p">(</span><span class="n">targetDesc</span><span class="p">);</span>
+
+<span class="n">CameraComponent</span><span class="w"> </span><span class="n">camera</span><span class="p">{};</span>
+<span class="n">camera</span><span class="p">.</span><span class="n">product</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CameraComponent</span><span class="o">::</span><span class="n">Product</span><span class="o">::</span><span class="n">ColorDepth</span><span class="p">;</span>
+<span class="n">camera</span><span class="p">.</span><span class="n">output</span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RenderOutputMode</span><span class="o">::</span><span class="n">ExplicitSurface</span><span class="p">;</span>
+<span class="n">camera</span><span class="p">.</span><span class="n">output</span><span class="p">.</span><span class="n">binding</span><span class="p">.</span><span class="n">target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">target</span><span class="p">;</span>
+<span class="n">camera</span><span class="p">.</span><span class="n">output</span><span class="p">.</span><span class="n">binding</span><span class="p">.</span><span class="n">firstLayer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">envIndex</span><span class="p">;</span>
+<span class="n">camera</span><span class="p">.</span><span class="n">output</span><span class="p">.</span><span class="n">binding</span><span class="p">.</span><span class="n">layerCount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="n">camera</span><span class="p">.</span><span class="n">outputWidth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">targetDesc</span><span class="p">.</span><span class="n">width</span><span class="p">;</span>
+<span class="n">camera</span><span class="p">.</span><span class="n">outputHeight</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">targetDesc</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+<span class="n">camera</span><span class="p">.</span><span class="n">backgroundMode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CameraComponent</span><span class="o">::</span><span class="n">BackgroundMode</span><span class="o">::</span><span class="n">EnvironmentCubemap</span><span class="p">;</span>
+<span class="n">world</span><span class="p">.</span><span class="n">setCamera</span><span class="p">(</span><span class="n">cameraEntity</span><span class="p">,</span><span class="w"> </span><span class="n">camera</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-9" name="sd-tab-set-4" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-9">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">target_desc</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">GpuRenderTargetDesc</span><span class="p">()</span>
+<span class="n">target_desc</span><span class="o">.</span><span class="n">width</span> <span class="o">=</span> <span class="mi">640</span>
+<span class="n">target_desc</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="mi">480</span>
+<span class="n">target_desc</span><span class="o">.</span><span class="n">array_size</span> <span class="o">=</span> <span class="n">environment_count</span>
+<span class="n">target_desc</span><span class="o">.</span><span class="n">layered_rendering</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">target_desc</span><span class="o">.</span><span class="n">shader_readable</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">target</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">create_render_target</span><span class="p">(</span><span class="n">target_desc</span><span class="p">)</span>
+
+<span class="n">camera</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CameraComponent</span><span class="p">()</span>
+<span class="n">camera</span><span class="o">.</span><span class="n">product</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CameraProduct</span><span class="o">.</span><span class="n">ColorDepth</span>
+<span class="n">camera</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">RenderOutputMode</span><span class="o">.</span><span class="n">ExplicitSurface</span>
+<span class="n">camera</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">binding</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">GpuRenderTargetBinding</span><span class="p">()</span>
+<span class="n">camera</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">binding</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">target</span>
+<span class="n">camera</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">binding</span><span class="o">.</span><span class="n">first_layer</span> <span class="o">=</span> <span class="n">env_index</span>
+<span class="n">camera</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">binding</span><span class="o">.</span><span class="n">layer_count</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">camera</span><span class="o">.</span><span class="n">output_width</span> <span class="o">=</span> <span class="n">target_desc</span><span class="o">.</span><span class="n">width</span>
+<span class="n">camera</span><span class="o">.</span><span class="n">output_height</span> <span class="o">=</span> <span class="n">target_desc</span><span class="o">.</span><span class="n">height</span>
+<span class="n">camera</span><span class="o">.</span><span class="n">background_mode</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CameraBackgroundMode</span><span class="o">.</span><span class="n">EnvironmentCubemap</span>
+<span class="n">world</span><span class="o">.</span><span class="n">set_camera</span><span class="p">(</span><span class="n">camera_entity</span><span class="p">,</span> <span class="n">camera</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="ultrasound-sensors">
+<h2>Ultrasound Sensors<a class="headerlink" href="#ultrasound-sensors" title="Link to this heading">#</a></h2>
+<p>Ultrasound image synthesis using the COLE algorithm is provided through the
+optional CUDA extension, CRESSim-Ultrasound. A
+<code class="docutils literal notranslate"><span class="pre">UltrasoundScattererSourceComponent</span></code> on a <code class="docutils literal notranslate"><span class="pre">SoftBodyComponent</span></code> tissue entity
+defines the scatterer density or spacing. The source also requires one
+amplitude range for each authored soft-body particle. Those scatterers follow
+the tissue’s simulated particles. An <code class="docutils literal notranslate"><span class="pre">UltrasoundProbeComponent</span></code> defines the
+transducer and acoustic model; an <code class="docutils literal notranslate"><span class="pre">UltrasoundRendererComponent</span></code> on the same
+probe entity defines the B-mode output and normalization.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Ultrasound may not be available in certain builds. At build time, enable
+<code class="docutils literal notranslate"><span class="pre">CRESSIM_NEO_ENABLE_ULTRASOUND=ON</span></code>; it requires CUDA interoperability and a
+working CUDA compiler. Check <code class="docutils literal notranslate"><span class="pre">Runtime::getInfo().ultrasoundSupported</span></code> or
+<code class="docutils literal notranslate"><span class="pre">Runtime.get_info().ultrasound_supported</span></code> before using the feature.
+See <a class="reference internal" href="../getting-started/build.html"><span class="doc">Build CRESSim-Neo</span></a> for the build configuration.</p>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">UltrasoundProbeComponent::Geometry</span></code> (<code class="docutils literal notranslate"><span class="pre">UltrasoundProbeGeometry</span></code> in Python)
+selects a linear or curvilinear probe. Its scanline count, line length, and
+spacing define the sampling layout; curvilinear probes additionally use a
+sector angle and probe radius. The acoustic parameters include sound speed,
+world-unit scale, frequencies, bandwidth, beam widths, noise, radial
+decimation, arc projection, and phase-delay beamforming.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-10" name="sd-tab-set-5" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-10">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">UltrasoundScattererSourceComponent</span><span class="w"> </span><span class="n">scatterers</span><span class="p">{};</span>
+<span class="n">scatterers</span><span class="p">.</span><span class="n">density</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1'000'000.0f</span><span class="p">;</span>
+<span class="n">world</span><span class="p">.</span><span class="n">setUltrasoundScattererSource</span><span class="p">(</span><span class="n">tissueEntity</span><span class="p">,</span><span class="w"> </span><span class="n">scatterers</span><span class="p">);</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">particles</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">world</span><span class="p">.</span><span class="n">tryGetSoftBodyAuthoringParticles</span><span class="p">(</span><span class="n">tissueEntity</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">particles</span><span class="p">.</span><span class="n">has_value</span><span class="p">())</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">"Tissue must have a SoftBodyComponent."</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">UltrasoundAmplitudeRange</span><span class="o">&gt;</span><span class="w"> </span><span class="n">amplitudes</span><span class="p">(</span>
+<span class="w">    </span><span class="n">particles</span><span class="o">-&gt;</span><span class="n">particleCount</span><span class="p">,</span><span class="w"> </span><span class="n">UltrasoundAmplitudeRange</span><span class="p">{</span><span class="mf">0.2f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.8f</span><span class="p">});</span>
+<span class="n">world</span><span class="p">.</span><span class="n">setUltrasoundScattererAmplitudeRanges</span><span class="p">(</span><span class="n">tissueEntity</span><span class="p">,</span><span class="w"> </span><span class="n">amplitudes</span><span class="p">);</span>
+
+<span class="n">UltrasoundProbeComponent</span><span class="w"> </span><span class="n">probe</span><span class="p">{};</span>
+<span class="n">probe</span><span class="p">.</span><span class="n">geometry</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UltrasoundProbeComponent</span><span class="o">::</span><span class="n">Geometry</span><span class="o">::</span><span class="n">Linear</span><span class="p">;</span>
+<span class="n">probe</span><span class="p">.</span><span class="n">numScanlines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">50</span><span class="p">;</span>
+<span class="n">probe</span><span class="p">.</span><span class="n">lineLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.8f</span><span class="p">;</span>
+<span class="n">probe</span><span class="p">.</span><span class="n">scanlineSpacing</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.01f</span><span class="p">;</span>
+<span class="n">probe</span><span class="p">.</span><span class="n">worldUnitsPerMeter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">10.0f</span><span class="p">;</span>
+
+<span class="n">UltrasoundRendererComponent</span><span class="w"> </span><span class="n">ultrasoundOutput</span><span class="p">{};</span>
+<span class="n">ultrasoundOutput</span><span class="p">.</span><span class="n">outputWidth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">512</span><span class="p">;</span>
+<span class="n">ultrasoundOutput</span><span class="p">.</span><span class="n">outputHeight</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">512</span><span class="p">;</span>
+<span class="n">ultrasoundOutput</span><span class="p">.</span><span class="n">useFixedMaxNormalization</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="n">world</span><span class="p">.</span><span class="n">setUltrasoundProbe</span><span class="p">(</span><span class="n">probeEntity</span><span class="p">,</span><span class="w"> </span><span class="n">probe</span><span class="p">);</span>
+<span class="n">world</span><span class="p">.</span><span class="n">setUltrasoundRenderer</span><span class="p">(</span><span class="n">probeEntity</span><span class="p">,</span><span class="w"> </span><span class="n">ultrasoundOutput</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-11" name="sd-tab-set-5" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-11">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">scatterers</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">UltrasoundScattererSourceComponent</span><span class="p">()</span>
+<span class="n">scatterers</span><span class="o">.</span><span class="n">density</span> <span class="o">=</span> <span class="mf">1_000_000.0</span>
+<span class="n">world</span><span class="o">.</span><span class="n">set_ultrasound_scatterer_source</span><span class="p">(</span><span class="n">tissue_entity</span><span class="p">,</span> <span class="n">scatterers</span><span class="p">)</span>
+<span class="n">particles</span> <span class="o">=</span> <span class="n">world</span><span class="o">.</span><span class="n">try_get_soft_body_authoring_particles</span><span class="p">(</span><span class="n">tissue_entity</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">particles</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Tissue must have a SoftBodyComponent"</span><span class="p">)</span>
+<span class="n">amplitudes</span> <span class="o">=</span> <span class="p">[</span><span class="n">neo</span><span class="o">.</span><span class="n">UltrasoundAmplitudeRange</span><span class="p">(</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">)</span>
+              <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">particles</span><span class="o">.</span><span class="n">rest_positions</span><span class="p">]</span>
+<span class="n">world</span><span class="o">.</span><span class="n">set_ultrasound_scatterer_amplitude_ranges</span><span class="p">(</span><span class="n">tissue_entity</span><span class="p">,</span> <span class="n">amplitudes</span><span class="p">)</span>
+
+<span class="n">probe</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">UltrasoundProbeComponent</span><span class="p">()</span>
+<span class="n">probe</span><span class="o">.</span><span class="n">geometry</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">UltrasoundProbeGeometry</span><span class="o">.</span><span class="n">Linear</span>
+<span class="n">probe</span><span class="o">.</span><span class="n">num_scanlines</span> <span class="o">=</span> <span class="mi">50</span>
+<span class="n">probe</span><span class="o">.</span><span class="n">line_length</span> <span class="o">=</span> <span class="mf">0.8</span>
+<span class="n">probe</span><span class="o">.</span><span class="n">scanline_spacing</span> <span class="o">=</span> <span class="mf">0.01</span>
+<span class="n">probe</span><span class="o">.</span><span class="n">world_units_per_meter</span> <span class="o">=</span> <span class="mf">10.0</span>
+
+<span class="n">ultrasound_output</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">UltrasoundRendererComponent</span><span class="p">()</span>
+<span class="n">ultrasound_output</span><span class="o">.</span><span class="n">output_width</span> <span class="o">=</span> <span class="mi">512</span>
+<span class="n">ultrasound_output</span><span class="o">.</span><span class="n">output_height</span> <span class="o">=</span> <span class="mi">512</span>
+<span class="n">ultrasound_output</span><span class="o">.</span><span class="n">use_fixed_max_normalization</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">world</span><span class="o">.</span><span class="n">set_ultrasound_probe</span><span class="p">(</span><span class="n">probe_entity</span><span class="p">,</span> <span class="n">probe</span><span class="p">)</span>
+<span class="n">world</span><span class="o">.</span><span class="n">set_ultrasound_renderer</span><span class="p">(</span><span class="n">probe_entity</span><span class="p">,</span> <span class="n">ultrasound_output</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine34UltrasoundScattererSourceComponentE" title="cressim::neo::engine::UltrasoundScattererSourceComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">UltrasoundScattererSourceComponent</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World28setUltrasoundScattererSourceEN6common8EntityIdERK34UltrasoundScattererSourceComponent" title="cressim::neo::engine::World::setUltrasoundScattererSource"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setUltrasoundScattererSource</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.UltrasoundScattererSourceComponent" title="cressim_neo.UltrasoundScattererSourceComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">UltrasoundScattererSourceComponent</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_ultrasound_scatterer_source" title="cressim_neo.World.set_ultrasound_scatterer_source"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_ultrasound_scatterer_source</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine24UltrasoundProbeComponentE" title="cressim::neo::engine::UltrasoundProbeComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">UltrasoundProbeComponent</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World18setUltrasoundProbeEN6common8EntityIdERK24UltrasoundProbeComponent" title="cressim::neo::engine::World::setUltrasoundProbe"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setUltrasoundProbe</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.UltrasoundProbeComponent" title="cressim_neo.UltrasoundProbeComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">UltrasoundProbeComponent</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_ultrasound_probe" title="cressim_neo.World.set_ultrasound_probe"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_ultrasound_probe</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine27UltrasoundRendererComponentE" title="cressim::neo::engine::UltrasoundRendererComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">UltrasoundRendererComponent</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World21setUltrasoundRendererEN6common8EntityIdERK27UltrasoundRendererComponent" title="cressim::neo::engine::World::setUltrasoundRenderer"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setUltrasoundRenderer</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.UltrasoundRendererComponent" title="cressim_neo.UltrasoundRendererComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">UltrasoundRendererComponent</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_ultrasound_renderer" title="cressim_neo.World.set_ultrasound_renderer"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_ultrasound_renderer</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine21UltrasoundProbeResultE" title="cressim::neo::engine::UltrasoundProbeResult"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">UltrasoundProbeResult</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4NK7cressim3neo6engine5World27tryGetUltrasoundProbeResultEN6common8EntityIdE" title="cressim::neo::engine::World::tryGetUltrasoundProbeResult"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::tryGetUltrasoundProbeResult</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.UltrasoundProbeResult" title="cressim_neo.UltrasoundProbeResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">UltrasoundProbeResult</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.try_get_ultrasound_probe_result" title="cressim_neo.World.try_get_ultrasound_probe_result"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.try_get_ultrasound_probe_result</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="output-consumption">
+<h2>Output Consumption<a class="headerlink" href="#output-consumption" title="Link to this heading">#</a></h2>
+<p>Camera and ultrasound outputs remain on GPU render targets. A camera exposes
+its binding through <code class="docutils literal notranslate"><span class="pre">CameraComponent::output</span></code>. <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> creates or refreshes
+an ultrasound output and publishes <code class="docutils literal notranslate"><span class="pre">UltrasoundProbeResult::imageBinding</span></code>,
+<code class="docutils literal notranslate"><span class="pre">imageWidth</span></code>, and <code class="docutils literal notranslate"><span class="pre">imageHeight</span></code> with <code class="docutils literal notranslate"><span class="pre">prepared</span> <span class="pre">==</span> <span class="pre">true</span></code>. Queue a host readback
+from that binding before the capture frame. Complete the frame with
+<code class="docutils literal notranslate"><span class="pre">endFrame()</span></code> before retrieving the readback. After <code class="docutils literal notranslate"><span class="pre">uploadWorld()</span></code>, physics,
+and <code class="docutils literal notranslate"><span class="pre">stepSimulationSensors()</span></code>, check <code class="docutils literal notranslate"><span class="pre">completed</span></code>; <code class="docutils literal notranslate"><span class="pre">completedFrameIndex</span></code>
+identifies the frame that produced the image.</p>
+<p>Shader-readable targets can be sampled by subsequent graphics or custom compute
+passes. Request render-target readback only when host data are required; for
+GPU-resident task computation and learning, retain the target on GPU. Shared
+buffers and CUDA/DLPack exchange are described in
+<a class="reference internal" href="gpu-integration-and-custom-compute.html"><span class="doc">Custom GPU Compute and Interoperability</span></a>.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-12" name="sd-tab-set-6" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-12">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">runtime</span><span class="p">.</span><span class="n">prepare</span><span class="p">();</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="o">*</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">world</span><span class="p">.</span><span class="n">tryGetUltrasoundProbeResult</span><span class="p">(</span><span class="n">probeEntity</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">result</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">nullptr</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="n">result</span><span class="o">-&gt;</span><span class="n">prepared</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">"Ultrasound output is unavailable after prepare()."</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">imageWidth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result</span><span class="o">-&gt;</span><span class="n">imageWidth</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">imageHeight</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result</span><span class="o">-&gt;</span><span class="n">imageHeight</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">runtime</span><span class="p">.</span><span class="n">getGpuDevice</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">renderTargetSystem</span><span class="p">()</span>
+<span class="w">                         </span><span class="p">.</span><span class="n">requestRenderTargetReadback</span><span class="p">(</span><span class="n">result</span><span class="o">-&gt;</span><span class="n">imageBinding</span><span class="p">);</span>
+
+<span class="n">runtime</span><span class="p">.</span><span class="n">uploadWorld</span><span class="p">();</span>
+<span class="n">runtime</span><span class="p">.</span><span class="n">stepPhysics</span><span class="p">(</span><span class="n">frame</span><span class="p">);</span>
+<span class="n">runtime</span><span class="p">.</span><span class="n">stepSimulationSensors</span><span class="p">(</span><span class="n">frame</span><span class="p">);</span>
+<span class="n">runtime</span><span class="p">.</span><span class="n">stepVisualSensors</span><span class="p">(</span><span class="n">frame</span><span class="p">);</span>
+<span class="n">runtime</span><span class="p">.</span><span class="n">endFrame</span><span class="p">(</span><span class="n">frame</span><span class="p">);</span>
+
+<span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">world</span><span class="p">.</span><span class="n">tryGetUltrasoundProbeResult</span><span class="p">(</span><span class="n">probeEntity</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">result</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nb">nullptr</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">result</span><span class="o">-&gt;</span><span class="n">completed</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">GpuRenderTargetReadbackEvent</span><span class="w"> </span><span class="n">event</span><span class="p">{};</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">ready</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">runtime</span><span class="p">.</span><span class="n">getGpuDevice</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">renderTargetSystem</span><span class="p">()</span>
+<span class="w">                           </span><span class="p">.</span><span class="n">tryGetRenderTargetReadback</span><span class="p">(</span><span class="n">request</span><span class="p">,</span><span class="w"> </span><span class="n">event</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-13" name="sd-tab-set-6" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-13">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runtime</span><span class="o">.</span><span class="n">prepare</span><span class="p">()</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">world</span><span class="o">.</span><span class="n">try_get_ultrasound_probe_result</span><span class="p">(</span><span class="n">probe_entity</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">prepared</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Ultrasound output is unavailable after prepare()"</span><span class="p">)</span>
+<span class="n">image_width</span><span class="p">,</span> <span class="n">image_height</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">image_width</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">image_height</span>
+<span class="n">request</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">request_render_target_readback</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">image_binding</span><span class="p">)</span>
+
+<span class="n">runtime</span><span class="o">.</span><span class="n">upload_world</span><span class="p">()</span>
+<span class="n">runtime</span><span class="o">.</span><span class="n">step_physics</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+<span class="n">runtime</span><span class="o">.</span><span class="n">step_simulation_sensors</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+<span class="n">runtime</span><span class="o">.</span><span class="n">step_visual_sensors</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+<span class="n">runtime</span><span class="o">.</span><span class="n">end_frame</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">world</span><span class="o">.</span><span class="n">try_get_ultrasound_probe_result</span><span class="p">(</span><span class="n">probe_entity</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">completed</span><span class="p">:</span>
+    <span class="n">event</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">try_get_render_target_readback</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/gpu.html#_CPPv4N7cressim3neo3gpu21GpuRenderTargetSystem27requestRenderTargetReadbackERK22GpuRenderTargetBinding" title="cressim::neo::gpu::GpuRenderTargetSystem::requestRenderTargetReadback"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">GpuRenderTargetSystem::requestRenderTargetReadback</span></code></a> · <a class="reference internal" href="../reference/cpp/gpu.html#_CPPv4N7cressim3neo3gpu21GpuRenderTargetSystem26tryGetRenderTargetReadbackE30GpuRenderTargetReadbackRequestR28GpuRenderTargetReadbackEvent" title="cressim::neo::gpu::GpuRenderTargetSystem::tryGetRenderTargetReadback"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">GpuRenderTargetSystem::tryGetRenderTargetReadback</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.request_render_target_readback" title="cressim_neo.Runtime.request_render_target_readback"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.request_render_target_readback</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.try_get_render_target_readback" title="cressim_neo.Runtime.try_get_render_target_readback"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.try_get_render_target_readback</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="physics-and-constraints.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Physics and Constraints</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="gpu-integration-and-custom-compute.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Custom GPU Compute and Interoperability</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rendering-pipeline">Rendering Pipeline</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#meshes-materials-and-textures">Meshes, Materials, and Textures</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lights-and-shadows">Lights and Shadows</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-lighting-and-fluids">Environment Lighting and Fluids</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cameras-and-render-targets">Cameras and Render Targets</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ultrasound-sensors">Ultrasound Sensors</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output-consumption">Output Consumption</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/guides/rendering-and-sensors.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

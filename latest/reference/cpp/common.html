@@ -1,0 +1,1053 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Common &#8212; CRESSim-Neo Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
+
+    <script src="../../_static/documentation_options.js?v=a8da1a53"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/cpp/common';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.21.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://yafei-ou.github.io/CRESSim-Neo/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Engine" href="engine.html" />
+    <link rel="prev" title="C++ API reference" href="index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="main" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">CRESSim-Neo Documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/index.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../guides/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../developers/index.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/index.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../guides/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../developers/index.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">C++ API reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Common</a></li>
+<li class="toctree-l2"><a class="reference internal" href="engine.html">Engine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="physics.html">Physics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpu.html">GPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graphics.html">Graphics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="viewer.html">Viewer</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/index.html">Python bindings API reference</a></li>
+</ul>
+</div>
+</nav>
+</div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">API Reference</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">C++ API reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Common</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="common">
+<h1>Common<a class="headerlink" href="#common" title="Link to this heading">#</a></h1>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6commonE">
+<span id="_CPPv3N7cressim3neo6commonE"></span><span id="_CPPv2N7cressim3neo6commonE"></span><span id="cressim::neo::common"></span><span class="target" id="namespacecressim_1_1neo_1_1common"></span><span class="k"><span class="pre">namespace</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">common</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6commonE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-typedefs">Typedefs</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common8EntityIdE">
+<span id="_CPPv3N7cressim3neo6common8EntityIdE"></span><span id="_CPPv2N7cressim3neo6common8EntityIdE"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1a06e2da7ed462acbb922158cd40d39ef8"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">EntityId</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common8EntityIdE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Unique numeric identifier for entities within an ECS scene graph or World. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common10ResourceIdE">
+<span id="_CPPv3N7cressim3neo6common10ResourceIdE"></span><span id="_CPPv2N7cressim3neo6common10ResourceIdE"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1affc75b38cd9b4662b6a45b3309afa1d8"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ResourceId</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common10ResourceIdE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Unique numeric identifier for managed engine resources (meshes, textures, materials). </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common11LogCallbackE">
+<span id="_CPPv3N7cressim3neo6common11LogCallbackE"></span><span id="_CPPv2N7cressim3neo6common11LogCallbackE"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1a62fdf586e7a8441bd5bcda615298c074"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">LogCallback</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N7cressim3neo6common14LogMessageViewE" title="cressim::neo::common::LogMessageView"><span class="n"><span class="pre">LogMessageView</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n"><span class="pre">message</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">userData</span></span><span class="p"><span class="pre">)</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common11LogCallbackE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Function pointer signature for custom log sink callbacks. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Param message<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Non-owning view of the formatted log message and metadata. </p>
+</dd>
+<dt class="field-even">Param userData<span class="colon">:</span></dt>
+<dd class="field-even"><p>User-supplied context pointer passed during callback registration. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-enums">Enums</p>
+<dl class="cpp enum-class">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common11LogSeverityE">
+<span id="_CPPv3N7cressim3neo6common11LogSeverityE"></span><span id="_CPPv2N7cressim3neo6common11LogSeverityE"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1add9da131876e8118147894e43bb81250"></span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">LogSeverity</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common11LogSeverityE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Logging severity levels in ascending priority. </p>
+<p><em>Values:</em></p>
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common11LogSeverity5TraceE">
+<span id="_CPPv3N7cressim3neo6common11LogSeverity5TraceE"></span><span id="_CPPv2N7cressim3neo6common11LogSeverity5TraceE"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1add9da131876e8118147894e43bb81250add4ec0ac4e58f7c32a01244ae91150b1"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Trace</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common11LogSeverity5TraceE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Verbose low-level diagnostic tracing. </p>
+</dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common11LogSeverity5DebugE">
+<span id="_CPPv3N7cressim3neo6common11LogSeverity5DebugE"></span><span id="_CPPv2N7cressim3neo6common11LogSeverity5DebugE"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1add9da131876e8118147894e43bb81250aa603905470e2a5b8c13e96b579ef0dba"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Debug</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common11LogSeverity5DebugE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Diagnostic information useful for debugging. </p>
+</dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common11LogSeverity4InfoE">
+<span id="_CPPv3N7cressim3neo6common11LogSeverity4InfoE"></span><span id="_CPPv2N7cressim3neo6common11LogSeverity4InfoE"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1add9da131876e8118147894e43bb81250a4059b0251f66a18cb56f544728796875"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Info</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common11LogSeverity4InfoE" title="Link to this definition">#</a><br /></dt>
+<dd><p>General informational operational events. </p>
+</dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common11LogSeverity7WarningE">
+<span id="_CPPv3N7cressim3neo6common11LogSeverity7WarningE"></span><span id="_CPPv2N7cressim3neo6common11LogSeverity7WarningE"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1add9da131876e8118147894e43bb81250a0eaadb4fcb48a0a0ed7bc9868be9fbaa"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Warning</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common11LogSeverity7WarningE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Non-fatal warnings indicating unexpected conditions. </p>
+</dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common11LogSeverity5ErrorE">
+<span id="_CPPv3N7cressim3neo6common11LogSeverity5ErrorE"></span><span id="_CPPv2N7cressim3neo6common11LogSeverity5ErrorE"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1add9da131876e8118147894e43bb81250a902b0d55fddef6f8d651fe1035b7d4bd"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Error</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common11LogSeverity5ErrorE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Recoverable errors or operation failures. </p>
+</dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common11LogSeverity5FatalE">
+<span id="_CPPv3N7cressim3neo6common11LogSeverity5FatalE"></span><span id="_CPPv2N7cressim3neo6common11LogSeverity5FatalE"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1add9da131876e8118147894e43bb81250a882384ec38ce8d9582b57e70861730e4"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Fatal</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common11LogSeverity5FatalE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Unrecoverable fatal errors. </p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common17setMinLogSeverityE11LogSeverity">
+<span id="_CPPv3N7cressim3neo6common17setMinLogSeverityE11LogSeverity"></span><span id="_CPPv2N7cressim3neo6common17setMinLogSeverityE11LogSeverity"></span><span id="cressim::neo::common::setMinLogSeverity__LogSeverity"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1acb96464100e88bd86329368b79fa8cf1"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setMinLogSeverity</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N7cressim3neo6common11LogSeverityE" title="cressim::neo::common::LogSeverity"><span class="n"><span class="pre">LogSeverity</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">severity</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common17setMinLogSeverityE11LogSeverity" title="Link to this definition">#</a><br /></dt>
+<dd><p>Sets the minimum severity threshold for log messages to be emitted. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>severity</strong> – Minimum severity level to log. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14minLogSeverityEv">
+<span id="_CPPv3N7cressim3neo6common14minLogSeverityEv"></span><span id="_CPPv2N7cressim3neo6common14minLogSeverityEv"></span><span id="cressim::neo::common::minLogSeverity"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1ae763462e4c2b6728e0e77018b510641b"></span><a class="reference internal" href="#_CPPv4N7cressim3neo6common11LogSeverityE" title="cressim::neo::common::LogSeverity"><span class="n"><span class="pre">LogSeverity</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">minLogSeverity</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14minLogSeverityEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Gets the current minimum logging severity threshold. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Currently active minimum LogSeverity. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common9shouldLogE11LogSeverity">
+<span id="_CPPv3N7cressim3neo6common9shouldLogE11LogSeverity"></span><span id="_CPPv2N7cressim3neo6common9shouldLogE11LogSeverity"></span><span id="cressim::neo::common::shouldLog__LogSeverity"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1a8ee232fe227a13c688d00c650483c8d0"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">shouldLog</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N7cressim3neo6common11LogSeverityE" title="cressim::neo::common::LogSeverity"><span class="n"><span class="pre">LogSeverity</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">severity</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common9shouldLogE11LogSeverity" title="Link to this definition">#</a><br /></dt>
+<dd><p>Checks whether the logging helpers will emit a message of the given severity. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>severity</strong> – Severity level to test. </p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if <code class="docutils literal notranslate"><span class="pre">severity</span></code> meets the current minimum threshold, false otherwise. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14setLogCallbackE11LogCallbackPv">
+<span id="_CPPv3N7cressim3neo6common14setLogCallbackE11LogCallbackPv"></span><span id="_CPPv2N7cressim3neo6common14setLogCallbackE11LogCallbackPv"></span><span id="cressim::neo::common::setLogCallback__LogCallback.voidP"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1a206e6aa339cd33ac78cbebf52ab3e107"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setLogCallback</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N7cressim3neo6common11LogCallbackE" title="cressim::neo::common::LogCallback"><span class="n"><span class="pre">LogCallback</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">callback</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">userData</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14setLogCallbackE11LogCallbackPv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Registers a callback that observes each message written through <a class="reference internal" href="#namespacecressim_1_1neo_1_1common_1a10695700c03e72b52c9596cadab53898"><span class="std std-ref">writeLogMessage()</span></a>. </p>
+<p>Messages continue to be written to the default console sink while a callback is registered. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>callback</strong> – Function pointer to invoke after default-sink output. </p></li>
+<li><p><strong>userData</strong> – User context pointer passed to the callback. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common16clearLogCallbackEv">
+<span id="_CPPv3N7cressim3neo6common16clearLogCallbackEv"></span><span id="_CPPv2N7cressim3neo6common16clearLogCallbackEv"></span><span id="cressim::neo::common::clearLogCallback"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1ae59d7bdba7cb735d7d0a3744879d8aeb"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">clearLogCallback</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common16clearLogCallbackEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Clears any previously registered log callback, resetting to default console output. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common15writeLogMessageE11LogSeverityRK14SourceLocationRKNSt6stringE">
+<span id="_CPPv3N7cressim3neo6common15writeLogMessageE11LogSeverityRK14SourceLocationRKNSt6stringE"></span><span id="_CPPv2N7cressim3neo6common15writeLogMessageE11LogSeverityRK14SourceLocationRKNSt6stringE"></span><span id="cressim::neo::common::writeLogMessage__LogSeverity.SourceLocationCR.ssCR"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1a10695700c03e72b52c9596cadab53898"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">writeLogMessage</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N7cressim3neo6common11LogSeverityE" title="cressim::neo::common::LogSeverity"><span class="n"><span class="pre">LogSeverity</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">severity</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N7cressim3neo6common14SourceLocationE" title="cressim::neo::common::SourceLocation"><span class="n"><span class="pre">SourceLocation</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">location</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">message</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N7cressim3neo6common15writeLogMessageE11LogSeverityRK14SourceLocationRKNSt6stringE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Writes a message to the default sink and, if registered, the callback. </p>
+<p>This low-level function does not apply the minimum severity threshold; use logMessage() or a CRESSIM_LOG_* macro when threshold filtering is required. The callback receives the original <code class="docutils literal notranslate"><span class="pre">message</span></code> text, while console output includes formatted severity and source information. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>severity</strong> – Log severity level. </p></li>
+<li><p><strong>location</strong> – Source code origin location. </p></li>
+<li><p><strong>message</strong> – Log message string content. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-variables">Variables</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common16kInvalidEntityIdE">
+<span id="_CPPv3N7cressim3neo6common16kInvalidEntityIdE"></span><span id="_CPPv2N7cressim3neo6common16kInvalidEntityIdE"></span><span id="cressim::neo::common::kInvalidEntityId__EntityId"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1a0ee2717885780aebab17272893763884"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N7cressim3neo6common8EntityIdE" title="cressim::neo::common::EntityId"><span class="n"><span class="pre">EntityId</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kInvalidEntityId</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common16kInvalidEntityIdE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Sentinel constant representing an invalid or unallocated EntityId. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common18kInvalidResourceIdE">
+<span id="_CPPv3N7cressim3neo6common18kInvalidResourceIdE"></span><span id="_CPPv2N7cressim3neo6common18kInvalidResourceIdE"></span><span id="cressim::neo::common::kInvalidResourceId__ResourceId"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1a973bc60539ed7db583c2f793f337afc5"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N7cressim3neo6common10ResourceIdE" title="cressim::neo::common::ResourceId"><span class="n"><span class="pre">ResourceId</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kInvalidResourceId</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common18kInvalidResourceIdE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Sentinel constant representing an invalid or unallocated ResourceId. </p>
+</dd></dl>
+
+</div>
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common12FrameContextE">
+<span id="_CPPv3N7cressim3neo6common12FrameContextE"></span><span id="_CPPv2N7cressim3neo6common12FrameContextE"></span><span id="cressim::neo::common::FrameContext"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1FrameContext"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">FrameContext</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common12FrameContextE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;frame_context.h&gt;</em></div>
+<p>Temporal execution state and timing parameters for a single simulation or rendering frame. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common12FrameContext10frameIndexE">
+<span id="_CPPv3N7cressim3neo6common12FrameContext10frameIndexE"></span><span id="_CPPv2N7cressim3neo6common12FrameContext10frameIndexE"></span><span id="cressim::neo::common::FrameContext::frameIndex__std::uint64_t"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1FrameContext_1a6554fa9f1a32d6573c4dec3482a918f2"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">frameIndex</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common12FrameContext10frameIndexE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Index of this frame, typically monotonically increasing. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common12FrameContext11timeSecondsE">
+<span id="_CPPv3N7cressim3neo6common12FrameContext11timeSecondsE"></span><span id="_CPPv2N7cressim3neo6common12FrameContext11timeSecondsE"></span><span id="cressim::neo::common::FrameContext::timeSeconds__double"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1FrameContext_1a090422ba2611aedebbf7d4124f4c0764"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">timeSeconds</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0.0</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common12FrameContext11timeSecondsE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Accumulated simulation time at this frame, in seconds. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common12FrameContext12deltaSecondsE">
+<span id="_CPPv3N7cressim3neo6common12FrameContext12deltaSecondsE"></span><span id="_CPPv2N7cressim3neo6common12FrameContext12deltaSecondsE"></span><span id="cressim::neo::common::FrameContext::deltaSeconds__float"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1FrameContext_1afe7c98b19e799588744251eb506febf7"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">deltaSeconds</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0.0f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common12FrameContext12deltaSecondsE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Elapsed time step for this frame, in seconds. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14LogMessageViewE">
+<span id="_CPPv3N7cressim3neo6common14LogMessageViewE"></span><span id="_CPPv2N7cressim3neo6common14LogMessageViewE"></span><span id="cressim::neo::common::LogMessageView"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1LogMessageView"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">LogMessageView</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14LogMessageViewE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;logger.h&gt;</em></div>
+<p>Non-owning view of a log message event passed to log sink callbacks. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14LogMessageView8severityE">
+<span id="_CPPv3N7cressim3neo6common14LogMessageView8severityE"></span><span id="_CPPv2N7cressim3neo6common14LogMessageView8severityE"></span><span id="cressim::neo::common::LogMessageView::severity__LogSeverity"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1LogMessageView_1afebf203c3a412a23be9407d437e57fd6"></span><a class="reference internal" href="#_CPPv4N7cressim3neo6common11LogSeverityE" title="cressim::neo::common::LogSeverity"><span class="n"><span class="pre">LogSeverity</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">severity</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14LogMessageView8severityE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Severity level of the log message. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14LogMessageView8locationE">
+<span id="_CPPv3N7cressim3neo6common14LogMessageView8locationE"></span><span id="_CPPv2N7cressim3neo6common14LogMessageView8locationE"></span><span id="cressim::neo::common::LogMessageView::location__SourceLocation"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1LogMessageView_1a89fb19895f2b0b25c407778114aef0ba"></span><a class="reference internal" href="#_CPPv4N7cressim3neo6common14SourceLocationE" title="cressim::neo::common::SourceLocation"><span class="n"><span class="pre">SourceLocation</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">location</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14LogMessageView8locationE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Source location where the message was logged. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14LogMessageView7messageE">
+<span id="_CPPv3N7cressim3neo6common14LogMessageView7messageE"></span><span id="_CPPv2N7cressim3neo6common14LogMessageView7messageE"></span><span id="cressim::neo::common::LogMessageView::message__cCP"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1LogMessageView_1a511fdf6986d50e38c514120476c34e0c"></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">message</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="s"><span class="pre">&quot;&quot;</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14LogMessageView7messageE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Null-terminated log message text. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14PoseBufferViewE">
+<span id="_CPPv3N7cressim3neo6common14PoseBufferViewE"></span><span id="_CPPv2N7cressim3neo6common14PoseBufferViewE"></span><span id="cressim::neo::common::PoseBufferView"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1PoseBufferView"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">PoseBufferView</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14PoseBufferViewE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;scene_primitives.h&gt;</em></div>
+<p>Non-owning view of GPU buffers holding structured instance transformation data. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14PoseBufferView15positionsBufferE">
+<span id="_CPPv3N7cressim3neo6common14PoseBufferView15positionsBufferE"></span><span id="_CPPv2N7cressim3neo6common14PoseBufferView15positionsBufferE"></span><span id="cressim::neo::common::PoseBufferView::positionsBuffer__Diligent::IBufferP"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1PoseBufferView_1a91e3e41924e467a55f2147bc9f6636e1"></span><span class="n"><span class="pre">Diligent</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">IBuffer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">positionsBuffer</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14PoseBufferView15positionsBufferE" title="Link to this definition">#</a><br /></dt>
+<dd><p>GPU buffer containing instance 3D position vectors. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14PoseBufferView18orientationsBufferE">
+<span id="_CPPv3N7cressim3neo6common14PoseBufferView18orientationsBufferE"></span><span id="_CPPv2N7cressim3neo6common14PoseBufferView18orientationsBufferE"></span><span id="cressim::neo::common::PoseBufferView::orientationsBuffer__Diligent::IBufferP"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1PoseBufferView_1aaa77f000109c7e23ae1db1e72c5b4ea3"></span><span class="n"><span class="pre">Diligent</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">IBuffer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">orientationsBuffer</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14PoseBufferView18orientationsBufferE" title="Link to this definition">#</a><br /></dt>
+<dd><p>GPU buffer containing instance orientation quaternions. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14PoseBufferView12scalesBufferE">
+<span id="_CPPv3N7cressim3neo6common14PoseBufferView12scalesBufferE"></span><span id="_CPPv2N7cressim3neo6common14PoseBufferView12scalesBufferE"></span><span id="cressim::neo::common::PoseBufferView::scalesBuffer__Diligent::IBufferP"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1PoseBufferView_1adfa78e6139c8ce14d0627f04b530e1da"></span><span class="n"><span class="pre">Diligent</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">IBuffer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">scalesBuffer</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">nullptr</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14PoseBufferView12scalesBufferE" title="Link to this definition">#</a><br /></dt>
+<dd><p>GPU buffer containing instance 3D scale vectors. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14PoseBufferView5countE">
+<span id="_CPPv3N7cressim3neo6common14PoseBufferView5countE"></span><span id="_CPPv2N7cressim3neo6common14PoseBufferView5countE"></span><span id="cressim::neo::common::PoseBufferView::count__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1PoseBufferView_1abe7e8c074b2e6d9923e19f86ffe72eb5"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">count</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14PoseBufferView5countE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Number of valid transform instances in the buffers. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14PoseBufferView17bindingGenerationE">
+<span id="_CPPv3N7cressim3neo6common14PoseBufferView17bindingGenerationE"></span><span id="_CPPv2N7cressim3neo6common14PoseBufferView17bindingGenerationE"></span><span id="cressim::neo::common::PoseBufferView::bindingGeneration__std::uint64_t"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1PoseBufferView_1a509d7b36d4718109f6ff98228526f714"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bindingGeneration</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14PoseBufferView17bindingGenerationE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Revision counter tracking buffer reallocation/rebind events. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common15SceneLayoutDescE">
+<span id="_CPPv3N7cressim3neo6common15SceneLayoutDescE"></span><span id="_CPPv2N7cressim3neo6common15SceneLayoutDescE"></span><span id="cressim::neo::common::SceneLayoutDesc"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SceneLayoutDesc"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SceneLayoutDesc</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common15SceneLayoutDescE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;scene_primitives.h&gt;</em></div>
+<p>Capacity descriptor specifying limits and environment counts for multi-environment scenes. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK7cressim3neo6common15SceneLayoutDesc29totalRenderableObjectCapacityEv">
+<span id="_CPPv3NK7cressim3neo6common15SceneLayoutDesc29totalRenderableObjectCapacityEv"></span><span id="_CPPv2NK7cressim3neo6common15SceneLayoutDesc29totalRenderableObjectCapacityEv"></span><span id="cressim::neo::common::SceneLayoutDesc::totalRenderableObjectCapacityC"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SceneLayoutDesc_1a58b07ab3b4cbcc3b863fe6ebc854996e"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">totalRenderableObjectCapacity</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4NK7cressim3neo6common15SceneLayoutDesc29totalRenderableObjectCapacityEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Computes the total renderable object capacity across all environments. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Total renderable object slots (<code class="docutils literal notranslate"><span class="pre">envCount</span> <span class="pre">*</span> <span class="pre">maxRenderableObjectsPerEnv</span></code>). </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK7cressim3neo6common15SceneLayoutDesc18totalLightCapacityEv">
+<span id="_CPPv3NK7cressim3neo6common15SceneLayoutDesc18totalLightCapacityEv"></span><span id="_CPPv2NK7cressim3neo6common15SceneLayoutDesc18totalLightCapacityEv"></span><span id="cressim::neo::common::SceneLayoutDesc::totalLightCapacityC"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SceneLayoutDesc_1aa2e40f2422072bf19b98d911cd49d3f8"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">totalLightCapacity</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4NK7cressim3neo6common15SceneLayoutDesc18totalLightCapacityEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Computes the total light capacity across all environments. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Total light slots (<code class="docutils literal notranslate"><span class="pre">envCount</span> <span class="pre">*</span> <span class="pre">maxLightsPerEnv</span></code>). </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK7cressim3neo6common15SceneLayoutDesc19totalCameraCapacityEv">
+<span id="_CPPv3NK7cressim3neo6common15SceneLayoutDesc19totalCameraCapacityEv"></span><span id="_CPPv2NK7cressim3neo6common15SceneLayoutDesc19totalCameraCapacityEv"></span><span id="cressim::neo::common::SceneLayoutDesc::totalCameraCapacityC"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SceneLayoutDesc_1a94617c9179ef563c629dbd7f865402d2"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">totalCameraCapacity</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4NK7cressim3neo6common15SceneLayoutDesc19totalCameraCapacityEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Computes the total camera capacity across all environments. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Total camera slots (<code class="docutils literal notranslate"><span class="pre">envCount</span> <span class="pre">*</span> <span class="pre">maxCamerasPerEnv</span></code>). </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common15SceneLayoutDesc8envCountE">
+<span id="_CPPv3N7cressim3neo6common15SceneLayoutDesc8envCountE"></span><span id="_CPPv2N7cressim3neo6common15SceneLayoutDesc8envCountE"></span><span id="cressim::neo::common::SceneLayoutDesc::envCount__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SceneLayoutDesc_1a76ce65af408dee39b07c4f2e075ebba1"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">envCount</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">1u</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common15SceneLayoutDesc8envCountE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Number of parallel simulation and rendering environments. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common15SceneLayoutDesc26maxRenderableObjectsPerEnvE">
+<span id="_CPPv3N7cressim3neo6common15SceneLayoutDesc26maxRenderableObjectsPerEnvE"></span><span id="_CPPv2N7cressim3neo6common15SceneLayoutDesc26maxRenderableObjectsPerEnvE"></span><span id="cressim::neo::common::SceneLayoutDesc::maxRenderableObjectsPerEnv__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SceneLayoutDesc_1a312b4cfe4e513845761eeaed2bde0367"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">maxRenderableObjectsPerEnv</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common15SceneLayoutDesc26maxRenderableObjectsPerEnvE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Maximum number of renderable mesh objects in each environment. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common15SceneLayoutDesc15maxLightsPerEnvE">
+<span id="_CPPv3N7cressim3neo6common15SceneLayoutDesc15maxLightsPerEnvE"></span><span id="_CPPv2N7cressim3neo6common15SceneLayoutDesc15maxLightsPerEnvE"></span><span id="cressim::neo::common::SceneLayoutDesc::maxLightsPerEnv__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SceneLayoutDesc_1ae03d191206a5ced25f6477fbcc107be3"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">maxLightsPerEnv</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">4u</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common15SceneLayoutDesc15maxLightsPerEnvE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Maximum number of light sources per environment. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common15SceneLayoutDesc16maxCamerasPerEnvE">
+<span id="_CPPv3N7cressim3neo6common15SceneLayoutDesc16maxCamerasPerEnvE"></span><span id="_CPPv2N7cressim3neo6common15SceneLayoutDesc16maxCamerasPerEnvE"></span><span id="cressim::neo::common::SceneLayoutDesc::maxCamerasPerEnv__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SceneLayoutDesc_1aa5903c114d55e1bdc40521b943bf93fa"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">maxCamerasPerEnv</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">4u</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common15SceneLayoutDesc16maxCamerasPerEnvE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Maximum number of cameras per environment. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14SourceLocationE">
+<span id="_CPPv3N7cressim3neo6common14SourceLocationE"></span><span id="_CPPv2N7cressim3neo6common14SourceLocationE"></span><span id="cressim::neo::common::SourceLocation"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SourceLocation"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SourceLocation</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14SourceLocationE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;logger.h&gt;</em></div>
+<p>Source code origin information for a log entry. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14SourceLocation4fileE">
+<span id="_CPPv3N7cressim3neo6common14SourceLocation4fileE"></span><span id="_CPPv2N7cressim3neo6common14SourceLocation4fileE"></span><span id="cressim::neo::common::SourceLocation::file__cCP"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SourceLocation_1a0cec9b9b1915f063dca107edadade5ed"></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">file</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="s"><span class="pre">&quot;&quot;</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14SourceLocation4fileE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Source file path. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14SourceLocation8functionE">
+<span id="_CPPv3N7cressim3neo6common14SourceLocation8functionE"></span><span id="_CPPv2N7cressim3neo6common14SourceLocation8functionE"></span><span id="cressim::neo::common::SourceLocation::function__cCP"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SourceLocation_1a53fd610c1c54bdab921b9094e18c09b0"></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">function</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="s"><span class="pre">&quot;&quot;</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14SourceLocation8functionE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Function or method name. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common14SourceLocation4lineE">
+<span id="_CPPv3N7cressim3neo6common14SourceLocation4lineE"></span><span id="_CPPv2N7cressim3neo6common14SourceLocation4lineE"></span><span id="cressim::neo::common::SourceLocation::line__i"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1SourceLocation_1a3497d957d74f170bd131fdf8a25bcac8"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">line</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common14SourceLocation4lineE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Source line number. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common9TransformE">
+<span id="_CPPv3N7cressim3neo6common9TransformE"></span><span id="_CPPv2N7cressim3neo6common9TransformE"></span><span id="cressim::neo::common::Transform"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1Transform"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Transform</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common9TransformE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;math_types.h&gt;</em></div>
+<p>Represents a 3D affine transformation composed of translation, orientation, and scale. </p>
+<p>It is used across physics, graphics, and ECS transform components (<code class="docutils literal notranslate"><a class="reference internal" href="engine.html#structcressim_1_1neo_1_1engine_1_1TransformComponent"><span class="std std-ref"><span class="pre">engine::TransformComponent</span></span></a></code>). </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK7cressim3neo6common9TransformeqERK9Transform">
+<span id="_CPPv3NK7cressim3neo6common9TransformeqERK9Transform"></span><span id="_CPPv2NK7cressim3neo6common9TransformeqERK9Transform"></span><span id="cressim::neo::common::Transform::eq-operator__TransformCRC"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1Transform_1ad67c879fc6192f8159e3ed8e61309878"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="k"><span class="pre">operator</span></span><span class="o"><span class="pre">==</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N7cressim3neo6common9TransformE" title="cressim::neo::common::Transform"><span class="n"><span class="pre">Transform</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">rhs</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4NK7cressim3neo6common9TransformeqERK9Transform" title="Link to this definition">#</a><br /></dt>
+<dd><p>Checks equality with another <a class="reference internal" href="#structcressim_1_1neo_1_1common_1_1Transform"><span class="std std-ref">Transform</span></a>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>rhs</strong> – Right-hand side <a class="reference internal" href="#structcressim_1_1neo_1_1common_1_1Transform"><span class="std std-ref">Transform</span></a> to compare against. </p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if position, rotation, and scale match exactly. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK7cressim3neo6common9TransformneERK9Transform">
+<span id="_CPPv3NK7cressim3neo6common9TransformneERK9Transform"></span><span id="_CPPv2NK7cressim3neo6common9TransformneERK9Transform"></span><span id="cressim::neo::common::Transform::neq-operator__TransformCRC"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1Transform_1ac4d32220fb75bf5f8539b797b967b316"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="k"><span class="pre">operator</span></span><span class="o"><span class="pre">!=</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N7cressim3neo6common9TransformE" title="cressim::neo::common::Transform"><span class="n"><span class="pre">Transform</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">rhs</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4NK7cressim3neo6common9TransformneERK9Transform" title="Link to this definition">#</a><br /></dt>
+<dd><p>Checks inequality with another <a class="reference internal" href="#structcressim_1_1neo_1_1common_1_1Transform"><span class="std std-ref">Transform</span></a>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>rhs</strong> – Right-hand side <a class="reference internal" href="#structcressim_1_1neo_1_1common_1_1Transform"><span class="std std-ref">Transform</span></a> to compare against. </p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if any component differs. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common9Transform8positionE">
+<span id="_CPPv3N7cressim3neo6common9Transform8positionE"></span><span id="_CPPv2N7cressim3neo6common9Transform8positionE"></span><span id="cressim::neo::common::Transform::position__Diligent::float3"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1Transform_1a72ddd391d70487f4bf4def13dcef554b"></span><span class="n"><span class="pre">Diligent</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">float3</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">position</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">0.0f</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">0.0f</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">0.0f</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common9Transform8positionE" title="Link to this definition">#</a><br /></dt>
+<dd><p>World-space 3D translation (x, y, z). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common9Transform8rotationE">
+<span id="_CPPv3N7cressim3neo6common9Transform8rotationE"></span><span id="_CPPv2N7cressim3neo6common9Transform8rotationE"></span><span id="cressim::neo::common::Transform::rotation__Diligent::QuaternionF"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1Transform_1a7a14251915250f58b5bbc73ec44e3094"></span><span class="n"><span class="pre">Diligent</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">QuaternionF</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rotation</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common9Transform8rotationE" title="Link to this definition">#</a><br /></dt>
+<dd><p>World-space orientation quaternion (x, y, z, w). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common9Transform5scaleE">
+<span id="_CPPv3N7cressim3neo6common9Transform5scaleE"></span><span id="_CPPv2N7cressim3neo6common9Transform5scaleE"></span><span id="cressim::neo::common::Transform::scale__Diligent::float3"></span><span class="target" id="structcressim_1_1neo_1_1common_1_1Transform_1a9505167bada4d57f1f5f07863f52f021"></span><span class="n"><span class="pre">Diligent</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">float3</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">scale</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">1.0f</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">1.0f</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">1.0f</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common9Transform5scaleE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Per-axis 3D scale factors (sx, sy, sz). </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6common6detailE">
+<span id="_CPPv3N7cressim3neo6common6detailE"></span><span id="_CPPv2N7cressim3neo6common6detailE"></span><span id="cressim::neo::common::detail"></span><span class="target" id="namespacecressim_1_1neo_1_1common_1_1detail"></span><span class="k"><span class="pre">namespace</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">detail</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6common6detailE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4IDpEN7cressim3neo6common6detail15buildLogMessageENSt6stringEDpRR4Args">
+<span id="_CPPv3IDpEN7cressim3neo6common6detail15buildLogMessageEDpRR4Args"></span><span id="_CPPv2IDpEN7cressim3neo6common6detail15buildLogMessageEDpRR4Args"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Args</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacecressim_1_1neo_1_1common_1_1detail_1af1c0aca678eacbf1e79a678244df7b53"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">buildLogMessage</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4IDpEN7cressim3neo6common6detail15buildLogMessageENSt6stringEDpRR4Args" title="cressim::neo::common::detail::buildLogMessage::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4IDpEN7cressim3neo6common6detail15buildLogMessageENSt6stringEDpRR4Args" title="Link to this definition">#</a><br /></dt>
+<dd><p>Concatenates variadic arguments into a single string using <code class="docutils literal notranslate"><span class="pre">std::ostringstream</span></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>Args</strong> – Argument types supported by stream insertion (<code class="docutils literal notranslate"><span class="pre">operator&lt;&lt;</span></code>). </p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>args</strong> – Arguments to format into the message. </p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Resulting concatenated message string. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4IDpEN7cressim3neo6common6detail10logMessageEv11LogSeverityRK14SourceLocationDpRR4Args">
+<span id="_CPPv3IDpEN7cressim3neo6common6detail10logMessageE11LogSeverityRK14SourceLocationDpRR4Args"></span><span id="_CPPv2IDpEN7cressim3neo6common6detail10logMessageE11LogSeverityRK14SourceLocationDpRR4Args"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Args</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacecressim_1_1neo_1_1common_1_1detail_1a5beb51cbe16f15b0597dfd12408b2675"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">logMessage</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N7cressim3neo6common11LogSeverityE" title="cressim::neo::common::LogSeverity"><span class="n"><span class="pre">LogSeverity</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">severity</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N7cressim3neo6common14SourceLocationE" title="cressim::neo::common::SourceLocation"><span class="n"><span class="pre">SourceLocation</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">location</span></span>, <a class="reference internal" href="#_CPPv4IDpEN7cressim3neo6common6detail10logMessageEv11LogSeverityRK14SourceLocationDpRR4Args" title="cressim::neo::common::detail::logMessage::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4IDpEN7cressim3neo6common6detail10logMessageEv11LogSeverityRK14SourceLocationDpRR4Args" title="Link to this definition">#</a><br /></dt>
+<dd><p>Checks severity and formats/writes a log message if active. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>Args</strong> – Argument types supported by stream insertion. </p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>severity</strong> – Log severity level. </p></li>
+<li><p><strong>location</strong> – Source code location. </p></li>
+<li><p><strong>args</strong> – Arguments to format into the message. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">C++ API reference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="engine.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Engine</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6commonE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::common</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common8EntityIdE"><code class="docutils literal notranslate"><span class="pre">EntityId</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common10ResourceIdE"><code class="docutils literal notranslate"><span class="pre">ResourceId</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common11LogCallbackE"><code class="docutils literal notranslate"><span class="pre">LogCallback</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common11LogSeverityE"><code class="docutils literal notranslate"><span class="pre">LogSeverity</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common11LogSeverity5TraceE"><code class="docutils literal notranslate"><span class="pre">Trace</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common11LogSeverity5DebugE"><code class="docutils literal notranslate"><span class="pre">Debug</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common11LogSeverity4InfoE"><code class="docutils literal notranslate"><span class="pre">Info</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common11LogSeverity7WarningE"><code class="docutils literal notranslate"><span class="pre">Warning</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common11LogSeverity5ErrorE"><code class="docutils literal notranslate"><span class="pre">Error</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common11LogSeverity5FatalE"><code class="docutils literal notranslate"><span class="pre">Fatal</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common17setMinLogSeverityE11LogSeverity"><code class="docutils literal notranslate"><span class="pre">setMinLogSeverity()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14minLogSeverityEv"><code class="docutils literal notranslate"><span class="pre">minLogSeverity()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common9shouldLogE11LogSeverity"><code class="docutils literal notranslate"><span class="pre">shouldLog()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14setLogCallbackE11LogCallbackPv"><code class="docutils literal notranslate"><span class="pre">setLogCallback()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common16clearLogCallbackEv"><code class="docutils literal notranslate"><span class="pre">clearLogCallback()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common15writeLogMessageE11LogSeverityRK14SourceLocationRKNSt6stringE"><code class="docutils literal notranslate"><span class="pre">writeLogMessage()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common16kInvalidEntityIdE"><code class="docutils literal notranslate"><span class="pre">kInvalidEntityId</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common18kInvalidResourceIdE"><code class="docutils literal notranslate"><span class="pre">kInvalidResourceId</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common12FrameContextE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::common::FrameContext</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common12FrameContext10frameIndexE"><code class="docutils literal notranslate"><span class="pre">frameIndex</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common12FrameContext11timeSecondsE"><code class="docutils literal notranslate"><span class="pre">timeSeconds</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common12FrameContext12deltaSecondsE"><code class="docutils literal notranslate"><span class="pre">deltaSeconds</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14LogMessageViewE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::common::LogMessageView</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14LogMessageView8severityE"><code class="docutils literal notranslate"><span class="pre">severity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14LogMessageView8locationE"><code class="docutils literal notranslate"><span class="pre">location</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14LogMessageView7messageE"><code class="docutils literal notranslate"><span class="pre">message</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14PoseBufferViewE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::common::PoseBufferView</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14PoseBufferView15positionsBufferE"><code class="docutils literal notranslate"><span class="pre">positionsBuffer</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14PoseBufferView18orientationsBufferE"><code class="docutils literal notranslate"><span class="pre">orientationsBuffer</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14PoseBufferView12scalesBufferE"><code class="docutils literal notranslate"><span class="pre">scalesBuffer</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14PoseBufferView5countE"><code class="docutils literal notranslate"><span class="pre">count</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14PoseBufferView17bindingGenerationE"><code class="docutils literal notranslate"><span class="pre">bindingGeneration</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common15SceneLayoutDescE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::common::SceneLayoutDesc</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4NK7cressim3neo6common15SceneLayoutDesc29totalRenderableObjectCapacityEv"><code class="docutils literal notranslate"><span class="pre">totalRenderableObjectCapacity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4NK7cressim3neo6common15SceneLayoutDesc18totalLightCapacityEv"><code class="docutils literal notranslate"><span class="pre">totalLightCapacity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4NK7cressim3neo6common15SceneLayoutDesc19totalCameraCapacityEv"><code class="docutils literal notranslate"><span class="pre">totalCameraCapacity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common15SceneLayoutDesc8envCountE"><code class="docutils literal notranslate"><span class="pre">envCount</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common15SceneLayoutDesc26maxRenderableObjectsPerEnvE"><code class="docutils literal notranslate"><span class="pre">maxRenderableObjectsPerEnv</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common15SceneLayoutDesc15maxLightsPerEnvE"><code class="docutils literal notranslate"><span class="pre">maxLightsPerEnv</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common15SceneLayoutDesc16maxCamerasPerEnvE"><code class="docutils literal notranslate"><span class="pre">maxCamerasPerEnv</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14SourceLocationE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::common::SourceLocation</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14SourceLocation4fileE"><code class="docutils literal notranslate"><span class="pre">file</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14SourceLocation8functionE"><code class="docutils literal notranslate"><span class="pre">function</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common14SourceLocation4lineE"><code class="docutils literal notranslate"><span class="pre">line</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common9TransformE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::common::Transform</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4NK7cressim3neo6common9TransformeqERK9Transform"><code class="docutils literal notranslate"><span class="pre">operator==()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4NK7cressim3neo6common9TransformneERK9Transform"><code class="docutils literal notranslate"><span class="pre">operator!=()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common9Transform8positionE"><code class="docutils literal notranslate"><span class="pre">position</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common9Transform8rotationE"><code class="docutils literal notranslate"><span class="pre">rotation</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common9Transform5scaleE"><code class="docutils literal notranslate"><span class="pre">scale</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6common6detailE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::common::detail</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4IDpEN7cressim3neo6common6detail15buildLogMessageENSt6stringEDpRR4Args"><code class="docutils literal notranslate"><span class="pre">buildLogMessage()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4IDpEN7cressim3neo6common6detail10logMessageEv11LogSeverityRK14SourceLocationDpRR4Args"><code class="docutils literal notranslate"><span class="pre">logMessage()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../../_sources/reference/cpp/common.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
