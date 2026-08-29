@@ -19,6 +19,20 @@ learning workflows. Direct access to physics and rendering buffers supports
 custom GPU computation and, when CUDA interop is enabled, zero-copy PyTorch
 integration using DLPack.
 
+.. note::
+
+   CRESSim-Neo was developed at the `Telerobotic and Biorobotic Systems (TBS)
+   Group <https://www.ece.ualberta.ca/~tbs/pmwiki/>`_ at the University of
+   Alberta.
+
+.. warning::
+
+   Coding agents assisted with the development of this project. Exercise care
+   when using, reviewing, or modifying it. It is provided **"AS IS," without
+   warranty of any kind**; see the :doc:`Apache 2.0 License
+   <getting-started/license>`, including its disclaimer of warranty and
+   limitation of liability.
+
 The runtime has two phases: scene authoring and frame stepping. You configure a
 scene through the C++ or Python API, prepare and upload its GPU layout, then
 step physics, simulation sensors, visual sensors, and optional custom compute

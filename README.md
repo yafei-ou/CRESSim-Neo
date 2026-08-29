@@ -9,6 +9,18 @@ the `cressim_neo` extension module.
 This document describes the current developer workflow.  Documentation-site
 instructions are in [`docs/README.md`](docs/README.md).
 
+## Project notes
+
+> [!NOTE]
+> CRESSim-Neo was developed at the [Telerobotic and Biorobotic Systems (TBS)
+> Group](https://www.ece.ualberta.ca/~tbs/pmwiki/) at the University of Alberta.
+
+> [!WARNING]
+> Coding agents assisted with the development of this project. Exercise care
+> when using, reviewing, or modifying it. It is provided **"AS IS," without
+> warranty of any kind**; see the [Apache 2.0 License](LICENSE), including its
+> disclaimer of warranty and limitation of liability.
+
 ## Prerequisites
 
 - CMake 3.23 or newer for the supported CMake presets. The project itself can
@@ -398,3 +410,11 @@ The generated notice excludes internal review notes by default; use
 `--include-notes` only for a review draft. CUDA is supplied by the user and is
 not included in the distributed notice unless a future package bundles CUDA
 components.
+
+## Algorithmic references
+
+These projects were consulted as algorithmic references.
+
+- [InteractiveComputerGraphics/PositionBasedDynamics](https://github.com/InteractiveComputerGraphics/PositionBasedDynamics)
+- [MircoWerner/VkLBVH](https://github.com/MircoWerner/VkLBVH).
+- [NVIDIA PhysX](https://github.com/NVIDIA-Omniverse/PhysX).
