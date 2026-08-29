@@ -66,7 +66,16 @@ add_custom_target(docs-html
         --doctree-dir "${CRESSIM_NEO_DOCS_DOCTREE_DIR}"
         "${CMAKE_CURRENT_SOURCE_DIR}/source"
         "${CRESSIM_NEO_DOCS_HTML_DIR}"
-    DEPENDS docs-doxygen
+    COMMAND
+        "${CMAKE_COMMAND}" -E make_directory
+        "${CRESSIM_NEO_DOCS_HTML_DIR}/_static"
+    COMMAND
+        "${CMAKE_COMMAND}" -E copy_if_different
+        "${CRESSIM_NEO_REPOSITORY_DIR}/artifacts/videos/CRESSim-Neo-Public.webm"
+        "${CRESSIM_NEO_DOCS_HTML_DIR}/_static/CRESSim-Neo-Public.webm"
+    DEPENDS
+        docs-doxygen
+        "${CRESSIM_NEO_REPOSITORY_DIR}/artifacts/videos/CRESSim-Neo-Public.webm"
     COMMENT "Building Sphinx HTML documentation"
     VERBATIM
 )
