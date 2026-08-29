@@ -10,6 +10,17 @@ project = "CRESSim-Neo"
 author = "CRESSim-Neo contributors"
 html_title = "CRESSim-Neo Documentation"
 
+# CI sets this to ``main`` for the development site or to the release tag for
+# an immutable release build.  Keeping it independent from the compiled
+# package version makes it possible to build docs from a tag before a package
+# release is published.
+docs_version = os.environ.get("CRESSIM_NEO_DOCS_VERSION", "main")
+docs_base_url = os.environ.get(
+    "CRESSIM_NEO_DOCS_BASE_URL", "https://yafei-ou.github.io/CRESSim-Neo"
+).rstrip("/")
+release = docs_version
+version = docs_version
+
 extensions = [
     "breathe",
     "myst_parser",
@@ -56,6 +67,18 @@ html_theme_options = {
     "logo": {
         "text": "CRESSim-Neo Documentation",
     },
+    "switcher": {
+        # This file is published at the Pages-site root, rather than copied
+        # into each version directory.  Consequently, old static releases
+        # automatically learn about newer releases.
+        "json_url": f"{docs_base_url}/versions.json",
+        "version_match": docs_version,
+    },
+    # A developer's local build has no Pages manifest to fetch.  The browser
+    # still loads it in deployed docs, while disabling the build-time probe
+    # keeps ``sphinx-build --fail-on-warning`` usable locally and in release CI.
+    "check_switcher": False,
+    "navbar_end": ["version-switcher", "navbar-icon-links"],
     "secondary_sidebar_items": {
         "**": ["page-toc", "edit-this-page", "sourcelink"],
         "index": [],

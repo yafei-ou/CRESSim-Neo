@@ -85,3 +85,21 @@ environment implementations, are intentionally excluded.
 
 All generated documentation remains under the ignored `build/` directory and
 must not be committed.
+
+## Published versions
+
+GitHub Pages publishes the generated site from the `gh-pages` branch. The
+documentation workflow publishes the current `main` branch to `latest/`, and
+each pushed `v*` tag to its own `vX.Y.Z/` directory. Release pages are built
+from the tag itself, including its C++ and Python API reference.
+
+The version selector is backed by the site-root `versions.json` manifest, so
+all published versions can link to one another. The site root redirects to
+`latest/`. To backfill a release, run **Publish documentation** manually and
+provide the release tag as `ref`, `site_directory`, and `docs_version`.
+
+Before the first deployment, configure the repository's **Settings → Pages**
+source as the `gh-pages` branch at `/ (root)`. The workflow currently publishes
+to `https://yafei-ou.github.io/CRESSim-Neo`; update both `DOCS_BASE_URL` in
+`.github/workflows/publish-docs.yml` and the default in `source/conf.py` if a
+custom domain is configured.

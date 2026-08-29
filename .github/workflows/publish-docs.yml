@@ -1,0 +1,142 @@
+name: Publish documentation
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - ".github/workflows/publish-docs.yml"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "cmake/**"
+      - "docs/**"
+      - "include/**"
+      - "python/**"
+      - "src/**"
+      - "scripts/build_docs.sh"
+      - "pyproject.toml"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build (a release tag when backfilling)"
+        required: false
+        default: "main"
+      site_directory:
+        description: "Target directory: latest or a v-prefixed release"
+        required: true
+        default: "latest"
+      docs_version:
+        description: "Version shown in the selector"
+        required: true
+        default: "main"
+
+# The Pages site is stored in gh-pages, so each run can replace one directory
+# without deleting older release documentation.
+concurrency:
+  group: cressim-neo-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    env:
+      DOCS_BASE_URL: https://yafei-ou.github.io/CRESSim-Neo
+    steps:
+      - name: Determine documentation target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "push" && "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            site_directory="${GITHUB_REF_NAME}"
+            docs_version="${GITHUB_REF_NAME}"
+            ref="${GITHUB_REF}"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            site_directory="${{ inputs.site_directory }}"
+            docs_version="${{ inputs.docs_version }}"
+            ref="${{ inputs.ref }}"
+          else
+            site_directory="latest"
+            docs_version="main"
+            ref="${GITHUB_SHA}"
+          fi
+
+          if [[ "${site_directory}" != "latest" && ! "${site_directory}" =~ ^v[0-9][0-9A-Za-z.+-]*$ ]]; then
+            echo "site_directory must be 'latest' or a v-prefixed release tag" >&2
+            exit 2
+          fi
+          printf 'directory=%s\nversion=%s\nref=%s\n' \
+            "${site_directory}" "${docs_version}" "${ref}" >> "${GITHUB_OUTPUT}"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.target.outputs.ref }}
+          submodules: recursive
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install documentation prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes doxygen ninja-build clang
+          python -m pip install --upgrade pip
+          python -m pip install breathe myst-parser pydata-sphinx-theme sphinx sphinx-design
+
+      - name: Build documentation
+        env:
+          CRESSIM_NEO_DOCS_VERSION: ${{ steps.target.outputs.version }}
+          CRESSIM_NEO_DOCS_BASE_URL: ${{ env.DOCS_BASE_URL }}
+        run: scripts/build_docs.sh
+
+      - name: Publish target and version manifest
+        env:
+          DIRECTORY: ${{ steps.target.outputs.directory }}
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          pages_dir="${RUNNER_TEMP}/cressim-neo-pages"
+
+          if git ls-remote --exit-code --heads "${remote_url}" gh-pages >/dev/null 2>&1; then
+            git clone --depth 1 --branch gh-pages "${remote_url}" "${pages_dir}"
+          else
+            mkdir "${pages_dir}"
+            git -C "${pages_dir}" init
+            git -C "${pages_dir}" checkout --orphan gh-pages
+            git -C "${pages_dir}" remote add origin "${remote_url}"
+          fi
+
+          rsync -a --delete "${GITHUB_WORKSPACE}/build/docs-site/html/" \
+            "${pages_dir}/${DIRECTORY}/"
+          cp "${GITHUB_WORKSPACE}/docs/pages-index.html" "${pages_dir}/index.html"
+          touch "${pages_dir}/.nojekyll"
+
+          {
+            printf '[\n'
+            printf '  {"name":"Latest (main)","version":"main","url":"%s/latest/"}' "${DOCS_BASE_URL}"
+            while IFS= read -r tag; do
+              printf ',\n  {"name":"%s","version":"%s","url":"%s/%s/"}' \
+                "${tag}" "${tag}" "${DOCS_BASE_URL}" "${tag}"
+            done < <(find "${pages_dir}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+              | grep -E '^v[0-9][0-9A-Za-z.+-]*$' | sort -Vr || true)
+            printf '\n]\n'
+          } > "${pages_dir}/versions.json"
+
+          git -C "${pages_dir}" add --all
+          if git -C "${pages_dir}" diff --cached --quiet; then
+            echo "Documentation site is already current."
+            exit 0
+          fi
+          git -C "${pages_dir}" config user.name "github-actions[bot]"
+          git -C "${pages_dir}" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "${pages_dir}" commit -m "docs: publish ${DIRECTORY} (${GITHUB_SHA})"
+          git -C "${pages_dir}" push origin gh-pages
