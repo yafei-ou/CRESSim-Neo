@@ -1,20 +1,6 @@
 name: Publish documentation
 
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
-    paths:
-      - ".github/workflows/publish-docs.yml"
-      - "CMakeLists.txt"
-      - "CMakePresets.json"
-      - "cmake/**"
-      - "docs/**"
-      - "include/**"
-      - "python/**"
-      - "src/**"
-      - "scripts/build_docs.sh"
-      - "pyproject.toml"
   workflow_dispatch:
     inputs:
       ref:

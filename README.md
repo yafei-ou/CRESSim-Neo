@@ -9,8 +9,6 @@ the `cressim_neo` extension module.
 This document describes the current developer workflow.  Documentation-site
 instructions are in [`docs/README.md`](docs/README.md).
 
-## Project notes
-
 > [!NOTE]
 > CRESSim-Neo was developed at the [Telerobotic and Biorobotic Systems (TBS)
 > Group](https://www.ece.ualberta.ca/~tbs/pmwiki/) at the University of Alberta.
