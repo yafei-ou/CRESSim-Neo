@@ -86,7 +86,13 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install --yes doxygen ninja-build clang
+          # The docs API profile builds the viewer Python bindings. GLFW's
+          # Linux backend therefore needs the X11/OpenGL development headers,
+          # even though the documentation job never opens a window.
+          sudo apt-get install --yes \
+            doxygen ninja-build clang \
+            libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev \
+            libxinerama-dev libxrandr-dev
           python -m pip install --upgrade pip
           python -m pip install breathe myst-parser pydata-sphinx-theme sphinx sphinx-design
 
