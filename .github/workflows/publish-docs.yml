@@ -29,7 +29,7 @@ jobs:
   publish:
     runs-on: ubuntu-24.04
     env:
-      DOCS_BASE_URL: https://yafei-ou.github.io/CRESSim-Neo
+      DOCS_BASE_URL: https://cressim-neo.yafei.dev
     steps:
       - name: Determine documentation target
         id: target
