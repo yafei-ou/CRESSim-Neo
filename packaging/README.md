@@ -5,31 +5,33 @@ release wheels. Do not use a local wheel as a release artifact.
 
 ## Distribution and packaging strategy
 
-The long-term packaging architecture is structured around target platforms and their runtime ecosystems:
+The distribution method depends on both the platform and how CRESSim-Neo is used:
 
-- **Stable Linux / Windows releases:** Prebuilt native binaries (C++ SDK, viewer, and executables)
-  with a pinned CUDA-runtime prerequisite matching the toolchain release.
-- **Python on mainstream platforms:** CUDA-specific wheels (e.g. `cu126`, `cu130`, `cu132`)
-  with pinned NVIDIA pip runtime dependencies, installed in isolated virtual or Conda
-  environments alongside matching PyTorch wheels.
-- **Rolling distributions:** Build from source in an environment with compatible
-  system CUDA and PyTorch packages. Configure
-  `CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=SYSTEM` and verify compatibility with the
-  installed PyTorch runtime.
+- **Rolling Linux distributions:** Build from source against the system CUDA and
+  PyTorch packages. Configure `CRESSIM_NEO_CUDA_RUNTIME_PROVIDER=SYSTEM` and verify
+  that the resulting runtime is compatible with the installed PyTorch package.
+- **Stable Linux and Windows --- Python and PyTorch workflows:** Use CUDA-specific
+  wheels (for example, `cu126`, `cu130`, or `cu132`) in an isolated virtual or Conda
+  environment. Install the CRESSim-Neo and PyTorch wheels from the same named CUDA
+  lane. On Linux, the CRESSim-Neo wheel declares the corresponding NVIDIA runtime
+  packages; on Windows, install the matching PyTorch wheel first, because the
+  CRESSim-Neo loader uses its `torch\lib` directory (or Conda's `Library\bin`).
+- **Stable Linux and Windows --- native applications and C++ SDK:** Use prebuilt
+  native binaries for the C++ SDK, viewer, and standalone executables. These releases
+  require the CUDA runtime version specified for the toolchain release.
 
 ### Torch interop and CUDA runtime compatibility
 
-Zero-copy Torch interoperability (via DLPack and CUDA external memory) strictly requires that
-CRESSim-Neo brings in and links the exact same CUDA runtime version as PyTorch does.
+Torch interoperability uses DLPack and CUDA external-memory exchange, so CRESSim-Neo
+and PyTorch must run with a compatible CUDA runtime and driver stack in the same
+process. On stable Linux distributions and Windows, system Python installations can
+load CUDA libraries from the system toolchain that differ from the NVIDIA CUDA runtime
+libraries used by PyTorch wheels. This can cause runtime-library conflicts or
+missing-symbol errors.
 
-On stable Linux distributions and Windows, system Python environments and system CUDA
-installations frequently conflict with PyTorch's bundled/pinned CUDA runtime wheels (such as
-`nvidia-cuda-runtime-cu12` or `torch/lib`). Attempting a system-Python install linked against
-system CUDA on stable Linux/Windows creates runtime mismatches and symbol collisions.
-
-Therefore, system-Python installs on stable Linux/Windows are not supported for Torch workflows.
-Mainstream platforms should always use isolated virtual environments with matching CUDA wheels.
-For system-CUDA source builds, use compatible CUDA and PyTorch packages.
+For Python/Torch workflows on stable platforms, install CRESSim-Neo and PyTorch in the
+same isolated virtual or Conda environment, using the same supported CUDA lane. For
+source builds using system CUDA, use compatible system CUDA and PyTorch packages.
 
 ## Local developer wheel
 
