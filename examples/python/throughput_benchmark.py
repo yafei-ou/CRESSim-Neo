@@ -318,7 +318,7 @@ def main() -> int:
                     model_kind=spec.model_kind,
                     config=PPOTrainConfig(
                         name=f"{task_name}_benchmark",
-                        model_path=Path("artifacts") / f"{task_name}_benchmark_unused.pt",
+                        model_path=Path("artifacts/benchmarks") / f"{task_name}_benchmark_unused.pt",
                         train_env_count=env_count,
                         rollout_steps=args.ppo_rollout_steps,
                         update_count=max(args.ppo_update_count, args.ppo_warmup_updates + 1),

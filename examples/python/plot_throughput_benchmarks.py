@@ -53,13 +53,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input",
         type=Path,
-        default=Path("artifacts/benchmark_log.txt"),
+        default=Path("artifacts/benchmarks/benchmark_log.txt"),
         help="Path to the benchmark log produced by throughput_benchmark.py.",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("artifacts/throughput_plot.png"),
+        default=Path("artifacts/benchmarks/throughput_plot.png"),
         help="Output figure path.",
     )
     parser.add_argument(

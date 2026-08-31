@@ -4,7 +4,8 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-mkdir -p artifacts
+BENCHMARK_DIR="artifacts/benchmarks"
+mkdir -p "${BENCHMARK_DIR}"
 
 BENCHMARK_MODE="${BENCHMARK_MODE:-both}"
 ENV_COUNTS="${ENV_COUNTS:-1,8,32,64}"
@@ -56,7 +57,7 @@ case "${BENCHMARK_MODE}" in
 esac
 
 for task in "${TASKS[@]}"; do
-  log_path="artifacts/${LOG_PREFIX}_${task}.log"
+  log_path="${BENCHMARK_DIR}/${LOG_PREFIX}_${task}.log"
   task_env_counts="${TASK_ENV_COUNTS[$task]}"
   if [[ -n "${ENV_COUNTS_OVERRIDE:-}" ]]; then
     task_env_counts="${ENV_COUNTS_OVERRIDE}"
