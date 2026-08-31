@@ -7,7 +7,8 @@ automatically. CMake produces the native libraries, and the Python build adds
 the `cressim_neo` extension module.
 
 This document describes the current developer workflow.  Documentation-site
-instructions are in [`docs/README.md`](docs/README.md).
+instructions are in [`docs/README.md`](docs/README.md). Browse the published
+[documentation](https://cressim-neo.yafei.dev/latest/) for the latest reference.
 
 > [!NOTE]
 > CRESSim-Neo was developed at the [Telerobotic and Biorobotic Systems (TBS)
