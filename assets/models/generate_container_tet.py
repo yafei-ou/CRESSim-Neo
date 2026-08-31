@@ -2,7 +2,7 @@
 Generate a tetrahedral mesh for ``container.obj``.
 
 This mirrors the TetGen export flow used by
-``examples/physics/fixtures/generate_super_toroid.py`` while operating on the
+``assets/models/physics/generate_super_toroid.py`` while operating on the
 container model in this directory.
 """
 

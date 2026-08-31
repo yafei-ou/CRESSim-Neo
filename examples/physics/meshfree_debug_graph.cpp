@@ -53,9 +53,9 @@ struct MeshfreeDebugOptions
     bool pinToGround = true;
     bool vSync = false;
     std::filesystem::path cloudPath =
-        cressim::neo::examples::helpers::assetPath("physics/fixtures/cube_particles.bin");
+        cressim::neo::examples::helpers::assetPath("models/physics/data/cube_particles.bin");
     std::filesystem::path surfacePath =
-        cressim::neo::examples::helpers::assetPath("physics/fixtures/Cube.obj");
+        cressim::neo::examples::helpers::assetPath("models/physics/data/Cube.obj");
     std::uint32_t neighbourCount = 12u;
     std::uint32_t substeps = 0u;
     std::uint32_t softInternalIterations = 0u;

@@ -13,7 +13,7 @@ import pyvista as pv
 import tetgen
 
 
-output_dir = Path(__file__).resolve().parents[3] / "assets" / "physics" / "fixtures"
+output_dir = Path(__file__).resolve().parent / "data"
 output_dir.mkdir(parents=True, exist_ok=True)
 
 ###############################################################################

@@ -292,7 +292,7 @@ MeshResourceDesc loadObjMesh(const std::filesystem::path &path)
 
 std::filesystem::path fixturePath(const char *name)
 {
-    return cressim::neo::examples::helpers::assetPath(std::filesystem::path{"physics/fixtures"} / name);
+    return cressim::neo::examples::helpers::assetPath(std::filesystem::path{"models/physics/data"} / name);
 }
 
 Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
@@ -572,7 +572,7 @@ int main(int argc, char **argv)
     if (!std::filesystem::exists(nodeFile) || !std::filesystem::exists(eleFile) ||
         !std::filesystem::exists(surfaceObjFile))
     {
-        CRESSIM_LOG_ERROR("Toroid soft-body fixtures are missing.");
+        CRESSIM_LOG_ERROR("Toroid soft-body model data is missing.");
         return 1;
     }
 
