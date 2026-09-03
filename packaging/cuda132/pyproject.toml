@@ -44,4 +44,4 @@ before-all = "python3 -m pip install --upgrade pip"
 repair-wheel-command = "auditwheel repair --exclude libcudart.so.13 --exclude libcufft.so.12 --exclude libcurand.so.10 -w {dest_dir} {wheel}"
 
 [tool.cibuildwheel.windows]
-repair-wheel-command = "delvewheel repair --ignore-existing --exclude cudart64_13.dll;cufft64_12.dll;curand64_10.dll;nvjitlink64_13.dll -w {dest_dir} {wheel}"
+repair-wheel-command = "delvewheel repair --ignore-existing --exclude cudart64_13.dll;cufft64_12.dll;curand64_10.dll;nvJitLink_130_0.dll -w {dest_dir} {wheel}"

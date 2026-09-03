@@ -228,6 +228,10 @@ if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
     find_package(CUDAToolkit QUIET)
     if(CUDAToolkit_FOUND)
         set(CRESSIM_NEO_HAS_CUDA_INTEROP ON)
+        set(CRESSIM_NEO_CUDA_RUNTIME_BIN_DIR "${CUDAToolkit_BIN_DIR}")
+        if(WIN32 AND EXISTS "${CUDAToolkit_BIN_DIR}/x64")
+            set(CRESSIM_NEO_CUDA_RUNTIME_BIN_DIR "${CUDAToolkit_BIN_DIR}/x64")
+        endif()
         string(REPLACE "." ";" CRESSIM_NEO_CUDA_TOOLKIT_VERSION_PARTS "${CUDAToolkit_VERSION}")
         list(GET CRESSIM_NEO_CUDA_TOOLKIT_VERSION_PARTS 0 CRESSIM_NEO_CUDA_RUNTIME_MAJOR)
         list(LENGTH CRESSIM_NEO_CUDA_TOOLKIT_VERSION_PARTS CRESSIM_NEO_CUDA_TOOLKIT_VERSION_PART_COUNT)
@@ -243,7 +247,7 @@ if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
                 # FindCUDAToolkit's imported location is an import library on
                 # Windows (for example, cufft.lib), not the DLL Python must load.
                 file(GLOB CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_PATHS
-                    "${CUDAToolkit_BIN_DIR}/${CRESSIM_NEO_CUDA_LIBRARY_NAME}64_*.dll")
+                    "${CRESSIM_NEO_CUDA_RUNTIME_BIN_DIR}/${CRESSIM_NEO_CUDA_LIBRARY_NAME}64_*.dll")
                 list(LENGTH CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_PATHS
                     CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_COUNT)
                 if(CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_COUNT EQUAL 1)
@@ -254,7 +258,7 @@ if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
                 elseif(CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_COUNT GREATER 1)
                     message(FATAL_ERROR
                         "Multiple ${CRESSIM_NEO_CUDA_LIBRARY_NAME} runtime DLLs were found in "
-                        "${CUDAToolkit_BIN_DIR}: ${CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_PATHS}")
+                        "${CRESSIM_NEO_CUDA_RUNTIME_BIN_DIR}: ${CRESSIM_NEO_CUDA_RUNTIME_LIBRARY_PATHS}")
                 endif()
             elseif(TARGET CUDA::${CRESSIM_NEO_CUDA_LIBRARY_NAME})
                 get_target_property(CRESSIM_NEO_CUDA_LIBRARY_PATH
