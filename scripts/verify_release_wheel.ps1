@@ -21,10 +21,10 @@ if (-not (Get-Command dumpbin -ErrorAction SilentlyContinue)) {
     throw 'dumpbin is required. Run this script from a Visual Studio developer PowerShell.'
 }
 
-$expectedCudart = switch ($Lane) {
-    'cu126' { 'cudart64_12.dll' }
-    'cu130' { 'cudart64_13.dll' }
-    'cu132' { 'cudart64_13.dll' }
+$expectedCudaMajor = switch ($Lane) {
+    'cu126' { 12 }
+    'cu130' { 13 }
+    'cu132' { 13 }
     default { $null }
 }
 $temporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("cressim-neo-wheel-" + [guid]::NewGuid())
@@ -37,8 +37,20 @@ try {
     })) {
         throw "Release wheel is missing cressim_neo/__init__.pyi: $wheelPath"
     }
+    $runtimeConfig = $payloadFiles | Where-Object {
+        $_.FullName -match '[\\/]cressim_neo[\\/]_cuda_runtime_config\.py$'
+    }
+    if ($Lane -ne 'base') {
+        if (-not $runtimeConfig) {
+            throw "CUDA wheel is missing cressim_neo/_cuda_runtime_config.py: $wheelPath"
+        }
+        $runtimeConfigText = Get-Content -LiteralPath $runtimeConfig.FullName -Raw
+        if ($runtimeConfigText -notmatch "(?m)^CUDA_RUNTIME_MAJOR\s*=\s*$expectedCudaMajor\s*$") {
+            throw "$Lane wheel does not declare CUDA runtime major $expectedCudaMajor."
+        }
+    }
     $bundledCudaLibraries = $payloadFiles | Where-Object {
-        $_.Name -match '^(cudart64|cufft64|curand64|nvjitlink64).*\.dll$'
+        $_.Name -match '^(cudart64|cufft64|curand64|nvjitlink(?:64|_)).*\.dll$'
     }
     if ($bundledCudaLibraries) {
         throw "CUDA runtime DLLs must not be bundled: $($bundledCudaLibraries.FullName -join ', ')"
@@ -66,7 +78,7 @@ try {
         throw "Wheel is missing CRESSim runtime DLLs: $($missingCressimDependencies -join ', ')"
     }
     $cudaDependencies = $dependencies | Where-Object {
-        $_ -match '^(cudart64|cufft64|curand64|nvjitlink64).*\.dll$'
+        $_ -match '^(cudart64|cufft64|curand64|nvjitlink(?:64|_)).*\.dll$'
     }
 
     if ($Lane -eq 'base') {
@@ -74,10 +86,6 @@ try {
             throw "Base wheel must not depend on CUDA DLLs: $($cudaDependencies -join ', ')"
         }
     }
-    elseif ($dependencies -notcontains $expectedCudart) {
-        throw "$Lane wheel does not depend on $expectedCudart. Found CUDA dependencies: $($cudaDependencies -join ', ')"
-    }
-
     Write-Host "Verified Windows $Lane wheel: $wheelPath"
 }
 finally {
