@@ -1,0 +1,841 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Custom GPU Compute and Interoperability &#8212; CRESSim-Neo Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
+
+    <script src="../_static/documentation_options.js?v=fa47ad08"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'guides/gpu-integration-and-custom-compute';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.21.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://cressim-neo.yafei.dev/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.1.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Surgical Robotics" href="surgical-robotics.html" />
+    <link rel="prev" title="Rendering and Sensors" href="rendering-and-sensors.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="v0.1.0" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">CRESSim-Neo Documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/index.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../developers/index.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/index.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../developers/index.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="system-overview.html">System Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime-lifecycle.html">Runtime Lifecycle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="batched-environments.html">Scene Model and Batching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="physics-and-constraints.html">Physics and Constraints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rendering-and-sensors.html">Rendering and Sensors</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Custom GPU Compute and Interoperability</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgical-robotics.html">Surgical Robotics</a></li>
+</ul>
+</div>
+</nav>
+</div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Custom GPU Compute and Interoperability</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="custom-gpu-compute-and-interoperability">
+<h1>Custom GPU Compute and Interoperability<a class="headerlink" href="#custom-gpu-compute-and-interoperability" title="Link to this heading">#</a></h1>
+<p>CRESSim-Neo exposes GPU-resident simulation and sensor data to custom compute
+passes. Custom compute uses HLSL and is available with the standard runtime;
+CUDA interoperability is needed only when data must also be shared with CUDA or
+PyTorch. See <a class="reference internal" href="../getting-started/build.html"><span class="doc">Build CRESSim-Neo</span></a> for enabling CUDA interoperability.</p>
+<section id="custom-gpu-compute">
+<h2>Custom GPU Compute<a class="headerlink" href="#custom-gpu-compute" title="Link to this heading">#</a></h2>
+<p>A custom pass is an HLSL compute shader compiled by the runtime for the active
+GPU backend. A <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine21CustomComputePassDescE" title="cressim::neo::engine::CustomComputePassDesc"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">CustomComputePassDesc</span></code></a>
+(<code class="docutils literal notranslate"><span class="pre">CustomComputePassDesc</span></code> in Python) supplies its source either as the
+<code class="docutils literal notranslate"><span class="pre">shaderSource</span></code> string or as a <code class="docutils literal notranslate"><span class="pre">shaderPath</span></code> relative to <code class="docutils literal notranslate"><span class="pre">shaderDirectory</span></code>. The
+same descriptor specifies the entry point, HLSL thread-group size, resource
+bindings, optional constant buffer, and dispatch dimensions. The
+<code class="docutils literal notranslate"><span class="pre">structured_buffer_compat.hlsli</span></code> include provides the portable structured-buffer
+declarations used by the built-in shaders and the examples.</p>
+<p>This minimal shader writes four constant-buffer values to a user-owned output
+buffer. The HLSL variable name must match the binding’s <code class="docutils literal notranslate"><span class="pre">shaderVariableName</span></code>.</p>
+<div class="highlight-hlsl notranslate"><div class="highlight"><pre><span></span><span class="cp">#include "structured_buffer_compat.hlsli"</span>
+
+<span class="k">cbuffer</span><span class="w"> </span><span class="n">TaskConstants</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">float4</span><span class="w"> </span><span class="n">values</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="n">CRESSIM_RW_STRUCTURED_BUFFER</span><span class="p">(</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="n">g_Output</span><span class="p">);</span>
+
+<span class="p">[</span><span class="nd">numthreads</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)]</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">main</span><span class="p">(</span><span class="kt">uint3</span><span class="w"> </span><span class="n">dispatchThreadID</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="nd">SV_DispatchThreadID</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dispatchThreadID</span><span class="p">.</span><span class="n">x</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mo">0</span><span class="n">u</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="n">CRESSIM_SB_STORE</span><span class="p">(</span><span class="n">g_Output</span><span class="p">,</span><span class="w"> </span><span class="mo">0</span><span class="n">u</span><span class="p">,</span><span class="w"> </span><span class="n">values</span><span class="p">.</span><span class="n">x</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CRESSIM_SB_STORE</span><span class="p">(</span><span class="n">g_Output</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="n">u</span><span class="p">,</span><span class="w"> </span><span class="n">values</span><span class="p">.</span><span class="n">y</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CRESSIM_SB_STORE</span><span class="p">(</span><span class="n">g_Output</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="n">u</span><span class="p">,</span><span class="w"> </span><span class="n">values</span><span class="p">.</span><span class="n">z</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CRESSIM_SB_STORE</span><span class="p">(</span><span class="n">g_Output</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="n">u</span><span class="p">,</span><span class="w"> </span><span class="n">values</span><span class="p">.</span><span class="n">w</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">SharedBufferDesc</span><span class="w"> </span><span class="n">outputDesc</span><span class="p">{};</span>
+<span class="n">outputDesc</span><span class="p">.</span><span class="n">debugName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"Task.Output"</span><span class="p">;</span>
+<span class="n">outputDesc</span><span class="p">.</span><span class="n">elementStrideBytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="kt">float</span><span class="p">);</span>
+<span class="n">outputDesc</span><span class="p">.</span><span class="n">elementCount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="n">outputDesc</span><span class="p">.</span><span class="n">access</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SharedBufferAccess</span><span class="o">::</span><span class="n">ReadWrite</span><span class="p">;</span>
+<span class="n">outputDesc</span><span class="p">.</span><span class="n">bindFlags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SharedBufferBindFlags</span><span class="o">::</span><span class="n">ShaderResource</span><span class="w"> </span><span class="o">|</span>
+<span class="w">                      </span><span class="n">SharedBufferBindFlags</span><span class="o">::</span><span class="n">UnorderedAccess</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">runtime</span><span class="p">.</span><span class="n">createSharedBuffer</span><span class="p">(</span><span class="n">outputDesc</span><span class="p">);</span>
+
+<span class="n">CustomComputePassDesc</span><span class="w"> </span><span class="n">passDesc</span><span class="p">{};</span>
+<span class="n">passDesc</span><span class="p">.</span><span class="n">debugName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"Task.Constants"</span><span class="p">;</span>
+<span class="n">passDesc</span><span class="p">.</span><span class="n">shaderSource</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kTaskShader</span><span class="p">;</span><span class="w"> </span><span class="c1">// the HLSL source shown above</span>
+<span class="n">passDesc</span><span class="p">.</span><span class="n">threadGroupSizeX</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="n">CustomComputeResourceBindingDesc</span><span class="w"> </span><span class="n">binding</span><span class="p">{};</span>
+<span class="n">binding</span><span class="p">.</span><span class="n">shaderVariableName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"g_Output"</span><span class="p">;</span>
+<span class="n">binding</span><span class="p">.</span><span class="n">sharedBufferHandle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">output</span><span class="p">;</span>
+<span class="n">binding</span><span class="p">.</span><span class="n">access</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CustomComputeResourceAccess</span><span class="o">::</span><span class="n">ReadWrite</span><span class="p">;</span>
+<span class="n">passDesc</span><span class="p">.</span><span class="n">resourceBindings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="n">binding</span><span class="p">};</span>
+<span class="n">passDesc</span><span class="p">.</span><span class="n">constantBufferVariableName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"TaskConstants"</span><span class="p">;</span>
+<span class="n">passDesc</span><span class="p">.</span><span class="n">constantBufferSizeBytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="kt">float</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;</span><span class="w"> </span><span class="n">constants</span><span class="p">{</span><span class="mf">1.f</span><span class="p">,</span><span class="w"> </span><span class="mf">2.f</span><span class="p">,</span><span class="w"> </span><span class="mf">3.f</span><span class="p">,</span><span class="w"> </span><span class="mf">4.f</span><span class="p">};</span>
+<span class="n">passDesc</span><span class="p">.</span><span class="n">constantData</span><span class="p">.</span><span class="n">resize</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">constants</span><span class="p">));</span>
+<span class="n">std</span><span class="o">::</span><span class="n">memcpy</span><span class="p">(</span><span class="n">passDesc</span><span class="p">.</span><span class="n">constantData</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span><span class="w"> </span><span class="n">constants</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">constants</span><span class="p">));</span>
+<span class="n">passDesc</span><span class="p">.</span><span class="n">dispatch</span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CustomComputeDispatchMode</span><span class="o">::</span><span class="n">ExplicitGroupCount</span><span class="p">;</span>
+<span class="n">passDesc</span><span class="p">.</span><span class="n">dispatch</span><span class="p">.</span><span class="n">groupCountX</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+
+<span class="c1">// After authoring the scene, make its GPU resources available to the pass.</span>
+<span class="n">runtime</span><span class="p">.</span><span class="n">prepare</span><span class="p">();</span>
+<span class="n">runtime</span><span class="p">.</span><span class="n">uploadWorld</span><span class="p">();</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">pass</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">runtime</span><span class="p">.</span><span class="n">createCustomComputePass</span><span class="p">(</span><span class="n">passDesc</span><span class="p">);</span>
+<span class="n">runtime</span><span class="p">.</span><span class="n">executeCustomComputePass</span><span class="p">(</span><span class="n">pass</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">struct</span>
+
+<span class="n">output_desc</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">SharedBufferDesc</span><span class="p">()</span>
+<span class="n">output_desc</span><span class="o">.</span><span class="n">debug_name</span> <span class="o">=</span> <span class="s2">"Task.Output"</span>
+<span class="n">output_desc</span><span class="o">.</span><span class="n">element_stride_bytes</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">output_desc</span><span class="o">.</span><span class="n">element_count</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">output_desc</span><span class="o">.</span><span class="n">access</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">SharedBufferAccess</span><span class="o">.</span><span class="n">ReadWrite</span>
+<span class="n">output_desc</span><span class="o">.</span><span class="n">bind_flags</span> <span class="o">=</span> <span class="p">(</span><span class="n">neo</span><span class="o">.</span><span class="n">SharedBufferBindFlags</span><span class="o">.</span><span class="n">ShaderResource</span> <span class="o">|</span>
+                          <span class="n">neo</span><span class="o">.</span><span class="n">SharedBufferBindFlags</span><span class="o">.</span><span class="n">UnorderedAccess</span><span class="p">)</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">create_shared_buffer</span><span class="p">(</span><span class="n">output_desc</span><span class="p">)</span>
+
+<span class="n">pass_desc</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CustomComputePassDesc</span><span class="p">()</span>
+<span class="n">pass_desc</span><span class="o">.</span><span class="n">debug_name</span> <span class="o">=</span> <span class="s2">"Task.Constants"</span>
+<span class="n">pass_desc</span><span class="o">.</span><span class="n">shader_source</span> <span class="o">=</span> <span class="n">task_shader</span>  <span class="c1"># the HLSL source shown above</span>
+<span class="n">pass_desc</span><span class="o">.</span><span class="n">thread_group_size_x</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">binding</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CustomComputeResourceBindingDesc</span><span class="p">()</span>
+<span class="n">binding</span><span class="o">.</span><span class="n">shader_variable_name</span> <span class="o">=</span> <span class="s2">"g_Output"</span>
+<span class="n">binding</span><span class="o">.</span><span class="n">shared_buffer_handle</span> <span class="o">=</span> <span class="n">output</span>
+<span class="n">binding</span><span class="o">.</span><span class="n">access</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CustomComputeResourceAccess</span><span class="o">.</span><span class="n">ReadWrite</span>
+<span class="n">pass_desc</span><span class="o">.</span><span class="n">resource_bindings</span> <span class="o">=</span> <span class="p">[</span><span class="n">binding</span><span class="p">]</span>
+<span class="n">pass_desc</span><span class="o">.</span><span class="n">constant_buffer_variable_name</span> <span class="o">=</span> <span class="s2">"TaskConstants"</span>
+<span class="n">pass_desc</span><span class="o">.</span><span class="n">constant_buffer_size_bytes</span> <span class="o">=</span> <span class="mi">16</span>
+<span class="n">pass_desc</span><span class="o">.</span><span class="n">constant_data</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">"&lt;4f"</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">))</span>
+<span class="n">pass_desc</span><span class="o">.</span><span class="n">dispatch</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CustomComputeDispatchMode</span><span class="o">.</span><span class="n">ExplicitGroupCount</span>
+<span class="n">pass_desc</span><span class="o">.</span><span class="n">dispatch</span><span class="o">.</span><span class="n">group_count_x</span> <span class="o">=</span> <span class="mi">1</span>
+
+<span class="c1"># After authoring the scene, make its GPU resources available to the pass.</span>
+<span class="n">runtime</span><span class="o">.</span><span class="n">prepare</span><span class="p">()</span>
+<span class="n">runtime</span><span class="o">.</span><span class="n">upload_world</span><span class="p">()</span>
+<span class="n">task_pass</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">create_custom_compute_pass</span><span class="p">(</span><span class="n">pass_desc</span><span class="p">)</span>
+<span class="n">runtime</span><span class="o">.</span><span class="n">execute_custom_compute_pass</span><span class="p">(</span><span class="n">task_pass</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Use <code class="docutils literal notranslate"><span class="pre">ExplicitGroupCount</span></code> when the work extent is known. With
+<code class="docutils literal notranslate"><span class="pre">ResourceElementCount</span></code>, the runtime derives the X group count from
+<code class="docutils literal notranslate"><span class="pre">countResourceKey</span></code>; the HLSL thread-group size still determines how many
+elements each group covers. <a class="reference download internal" download="" href="../_downloads/cccfb3dfe74b6f7e7f124426cd4dc9d9/custom_compute_constant_buffer_torch.py"><code class="xref download docutils literal notranslate"><span class="pre">custom_compute_constant_buffer_torch.py</span></code></a> and
+<a class="reference download internal" download="" href="../_downloads/edd089da3f697f683837f933acfdda1a/custom_compute_rigid_lateral_shift.py"><code class="xref download docutils literal notranslate"><span class="pre">custom_compute_rigid_lateral_shift.py</span></code></a> provide
+complete runnable examples.</p>
+</section>
+<section id="runtime-resources">
+<h2>Runtime Resources<a class="headerlink" href="#runtime-resources" title="Link to this heading">#</a></h2>
+<p>Call <code class="docutils literal notranslate"><span class="pre">Runtime::listCustomComputeResources</span></code> (<code class="docutils literal notranslate"><span class="pre">Runtime.list_custom_compute_resources</span></code>
+in Python) after the world has been prepared and uploaded. Each returned
+<code class="docutils literal notranslate"><span class="pre">CustomComputeResourceDesc</span></code> gives the exact key, resource kind, permitted
+access, element count and stride, and a <code class="docutils literal notranslate"><span class="pre">bindingGeneration</span></code>. The list is the
+authoritative inventory for the current scene: resources that are not allocated
+for its authored features do not appear.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Resource group</p></th>
+<th class="head"><p>Read/write keys</p></th>
+<th class="head"><p>Read-only keys</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Rigid bodies</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">rigid.positions</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.orientations</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.linear_velocities</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.angular_velocities</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.kinematic_target_positions</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.kinematic_target_orientations</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.kinematic_target_flags</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">rigid.inverse_inertia_local</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.body_types</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.proxy_particle_contact_materials</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.body_collider_offsets</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.body_collider_counts</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.body_collider_ranges</span></code>, <code class="docutils literal notranslate"><span class="pre">rigid.body_collider_indices</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Colliders</p></td>
+<td><p>—</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">collider.owner_body_indices</span></code>, <code class="docutils literal notranslate"><span class="pre">collider.broad_phase</span></code>, <code class="docutils literal notranslate"><span class="pre">collider.geometry</span></code>, <code class="docutils literal notranslate"><span class="pre">collider.materials</span></code>, <code class="docutils literal notranslate"><span class="pre">collider.shape_types</span></code>, <code class="docutils literal notranslate"><span class="pre">collider.enabled_flags</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Rigid constraints</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">constraint.rigid_particle_attachments</span></code>, <code class="docutils literal notranslate"><span class="pre">constraint.strand_rigid_attachments</span></code>, <code class="docutils literal notranslate"><span class="pre">constraint.rigid_distance_constraints</span></code>, <code class="docutils literal notranslate"><span class="pre">constraint.routed_cable_descriptors</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">constraint.routed_cable_route_points</span></code>, <code class="docutils literal notranslate"><span class="pre">constraint.routed_cable_debug_segments</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Joints</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">joint.ball</span></code>, <code class="docutils literal notranslate"><span class="pre">joint.spherical</span></code>, <code class="docutils literal notranslate"><span class="pre">joint.hinge</span></code>, <code class="docutils literal notranslate"><span class="pre">joint.slider</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">joint.hinge_runtime</span></code>, <code class="docutils literal notranslate"><span class="pre">joint.slider_runtime</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Entity poses</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">entity.positions</span></code>, <code class="docutils literal notranslate"><span class="pre">entity.orientations</span></code>, <code class="docutils literal notranslate"><span class="pre">entity.scales</span></code></p></td>
+<td><p>—</p></td>
+</tr>
+<tr class="row-odd"><td><p>Particle state</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">particle.positions_inv_mass</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.previous_positions</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.velocities</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">particle.radii</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.environment_indices</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.kinds</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.owner_types</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.owner_indices</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.strand_ids</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.strand_roles</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.owning_soft_body_indices</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.material_indices</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.fluid_material_indices</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.phases</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.collision_layers</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.collision_masks</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Particle materials and adjacency</p></td>
+<td><p>—</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">particle.fluid_visuals</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.contact_materials</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.fluid_materials</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.adjacency_offsets</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.adjacency_counts</span></code>, <code class="docutils literal notranslate"><span class="pre">particle.adjacency_indices</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Soft-body topology and render data</p></td>
+<td><p>—</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">soft.edges</span></code>, <code class="docutils literal notranslate"><span class="pre">soft.bends</span></code>, <code class="docutils literal notranslate"><span class="pre">soft.tets</span></code>, <code class="docutils literal notranslate"><span class="pre">soft.render_positions</span></code>, <code class="docutils literal notranslate"><span class="pre">soft.render_normals</span></code>, <code class="docutils literal notranslate"><span class="pre">soft.world_aabbs</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Strand data</p></td>
+<td><p>—</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">strand.segments</span></code>, <code class="docutils literal notranslate"><span class="pre">strand.joints</span></code>, <code class="docutils literal notranslate"><span class="pre">strand.distance_constraints</span></code>, <code class="docutils literal notranslate"><span class="pre">strand.segment_states</span></code>, <code class="docutils literal notranslate"><span class="pre">strand.segment_joint_ranges</span></code>, <code class="docutils literal notranslate"><span class="pre">strand.segment_incident_joints</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Suturing data</p></td>
+<td><p>—</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">suturing.pairs</span></code>, <code class="docutils literal notranslate"><span class="pre">suturing.particle_refs</span></code>, <code class="docutils literal notranslate"><span class="pre">suturing.insertion_states</span></code>, <code class="docutils literal notranslate"><span class="pre">suturing.path_headers</span></code>, <code class="docutils literal notranslate"><span class="pre">suturing.path_nodes</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The access mode in the returned descriptor is enforced when a pass is created.
+For example, <code class="docutils literal notranslate"><span class="pre">rigid.positions</span></code> can be read or written, while many ownership,
+material, and topology buffers are read-only. Use the prepared rigid, joint,
+particle, and constraint mappings from <a class="reference internal" href="batched-environments.html"><span class="doc">Scene Model and Batching</span></a> to interpret
+IDs, environment indices, and packed ranges.</p>
+<p>An engine-resource binding names both the HLSL variable and registry key. The
+rigid lateral-shift example reads current rigid poses and writes kinematic
+targets this way:</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">CustomComputeResourceBindingDesc</span><span class="w"> </span><span class="n">positionBinding</span><span class="p">{};</span>
+<span class="n">positionBinding</span><span class="p">.</span><span class="n">shaderVariableName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"g_RigidBodyPositionsInvMass"</span><span class="p">;</span>
+<span class="n">positionBinding</span><span class="p">.</span><span class="n">resourceKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"rigid.positions"</span><span class="p">;</span>
+<span class="n">positionBinding</span><span class="p">.</span><span class="n">access</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CustomComputeResourceAccess</span><span class="o">::</span><span class="n">ReadOnly</span><span class="p">;</span>
+
+<span class="n">CustomComputeResourceBindingDesc</span><span class="w"> </span><span class="n">targetBinding</span><span class="p">{};</span>
+<span class="n">targetBinding</span><span class="p">.</span><span class="n">shaderVariableName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"g_RigidBodyKinematicTargetPositions"</span><span class="p">;</span>
+<span class="n">targetBinding</span><span class="p">.</span><span class="n">resourceKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"rigid.kinematic_target_positions"</span><span class="p">;</span>
+<span class="n">targetBinding</span><span class="p">.</span><span class="n">access</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CustomComputeResourceAccess</span><span class="o">::</span><span class="n">ReadWrite</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">position_binding</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CustomComputeResourceBindingDesc</span><span class="p">()</span>
+<span class="n">position_binding</span><span class="o">.</span><span class="n">shader_variable_name</span> <span class="o">=</span> <span class="s2">"g_RigidBodyPositionsInvMass"</span>
+<span class="n">position_binding</span><span class="o">.</span><span class="n">resource_key</span> <span class="o">=</span> <span class="s2">"rigid.positions"</span>
+<span class="n">position_binding</span><span class="o">.</span><span class="n">access</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CustomComputeResourceAccess</span><span class="o">.</span><span class="n">ReadOnly</span>
+
+<span class="n">target_binding</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CustomComputeResourceBindingDesc</span><span class="p">()</span>
+<span class="n">target_binding</span><span class="o">.</span><span class="n">shader_variable_name</span> <span class="o">=</span> <span class="s2">"g_RigidBodyKinematicTargetPositions"</span>
+<span class="n">target_binding</span><span class="o">.</span><span class="n">resource_key</span> <span class="o">=</span> <span class="s2">"rigid.kinematic_target_positions"</span>
+<span class="n">target_binding</span><span class="o">.</span><span class="n">access</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CustomComputeResourceAccess</span><span class="o">.</span><span class="n">ReadWrite</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Every binding supplies exactly one source: <code class="docutils literal notranslate"><span class="pre">resourceKey</span></code>, <code class="docutils literal notranslate"><span class="pre">sharedBufferHandle</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">renderTargetBinding</span></code>. Engine resources are buffers; camera and ultrasound
+images are bound as render-target textures.</p>
+</section>
+<section id="render-targets-in-compute">
+<h2>Render Targets in Compute<a class="headerlink" href="#render-targets-in-compute" title="Link to this heading">#</a></h2>
+<p>Use shader-readable explicit render targets to consume camera products in HLSL.
+Bind a color or depth plane with <code class="docutils literal notranslate"><span class="pre">renderTargetBinding</span></code> and
+<code class="docutils literal notranslate"><span class="pre">renderTargetTexturePlane</span></code>; a layered target is presented to HLSL as an array
+texture. <code class="docutils literal notranslate"><span class="pre">render_target_torch_custom_compute.py</span></code> reads RGB and segmentation
+layers into shared observation buffers after visual sensors have run. See
+<a class="reference download internal" download="" href="../_downloads/dbed6957880dac6ce0977e60ed2981c4/render_target_torch_custom_compute.py"><code class="xref download docutils literal notranslate"><span class="pre">render_target_torch_custom_compute.py</span></code></a>.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-4">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">CustomComputeResourceBindingDesc</span><span class="w"> </span><span class="n">colorBinding</span><span class="p">{};</span>
+<span class="n">colorBinding</span><span class="p">.</span><span class="n">shaderVariableName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"g_ColorTarget"</span><span class="p">;</span>
+<span class="n">colorBinding</span><span class="p">.</span><span class="n">renderTargetBinding</span><span class="p">.</span><span class="n">target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">colorTarget</span><span class="p">;</span>
+<span class="n">colorBinding</span><span class="p">.</span><span class="n">renderTargetBinding</span><span class="p">.</span><span class="n">firstLayer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="n">colorBinding</span><span class="p">.</span><span class="n">renderTargetBinding</span><span class="p">.</span><span class="n">layerCount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">environmentCount</span><span class="p">;</span>
+<span class="n">colorBinding</span><span class="p">.</span><span class="n">renderTargetTexturePlane</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gpu</span><span class="o">::</span><span class="n">GpuRenderTargetTexturePlane</span><span class="o">::</span><span class="n">Color</span><span class="p">;</span>
+<span class="n">colorBinding</span><span class="p">.</span><span class="n">access</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CustomComputeResourceAccess</span><span class="o">::</span><span class="n">ReadOnly</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-5" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-5">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">color_binding</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CustomComputeResourceBindingDesc</span><span class="p">()</span>
+<span class="n">color_binding</span><span class="o">.</span><span class="n">shader_variable_name</span> <span class="o">=</span> <span class="s2">"g_ColorTarget"</span>
+<span class="n">color_binding</span><span class="o">.</span><span class="n">render_target_binding</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">GpuRenderTargetBinding</span><span class="p">()</span>
+<span class="n">color_binding</span><span class="o">.</span><span class="n">render_target_binding</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">color_target</span>
+<span class="n">color_binding</span><span class="o">.</span><span class="n">render_target_binding</span><span class="o">.</span><span class="n">first_layer</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">color_binding</span><span class="o">.</span><span class="n">render_target_binding</span><span class="o">.</span><span class="n">layer_count</span> <span class="o">=</span> <span class="n">env_count</span>
+<span class="n">color_binding</span><span class="o">.</span><span class="n">render_target_texture_plane</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">GpuRenderTargetTexturePlane</span><span class="o">.</span><span class="n">Color</span>
+<span class="n">color_binding</span><span class="o">.</span><span class="n">access</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">CustomComputeResourceAccess</span><span class="o">.</span><span class="n">ReadOnly</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>The HLSL declaration must match the target’s texture shape and element type,
+for example <code class="docutils literal notranslate"><span class="pre">Texture2DArray&lt;float4&gt;</span> <span class="pre">g_ColorTarget</span></code> for a layered color target.
+The camera-output setup is described in <a class="reference internal" href="rendering-and-sensors.html"><span class="doc">Rendering and Sensors</span></a>.</p>
+</section>
+<section id="shared-buffers-and-pytorch">
+<h2>Shared Buffers and PyTorch<a class="headerlink" href="#shared-buffers-and-pytorch" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SharedBufferDesc</span></code> creates an engine-owned structured buffer for custom pass
+inputs and outputs. Shader-resource and unordered-access flags determine
+whether HLSL can read, write, or both. CUDA-enabled builds can export an
+eligible shared buffer through DLPack, which Python can turn into a zero-copy
+PyTorch tensor.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tensor_desc</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">SharedBufferTensorDesc</span><span class="p">()</span>
+<span class="n">tensor_desc</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">env_count</span><span class="p">,</span> <span class="n">observation_size</span><span class="p">]</span>
+<span class="n">tensor_desc</span><span class="o">.</span><span class="n">dtype_code</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">SharedBufferTensorDTypeCode</span><span class="o">.</span><span class="n">Float</span>
+<span class="n">tensor_desc</span><span class="o">.</span><span class="n">dtype_bits</span> <span class="o">=</span> <span class="mi">32</span>
+<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">from_dlpack</span><span class="p">(</span>
+    <span class="n">runtime</span><span class="o">.</span><span class="n">shared_buffer_to_dlpack</span><span class="p">(</span><span class="n">observation_buffer</span><span class="p">,</span> <span class="n">tensor_desc</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>C++ integrations can obtain the lower-level raw CUDA view with
+<a class="reference internal" href="../reference/cpp/engine.html#_CPPv4NK7cressim3neo6engine7Runtime26tryGetSharedBufferCudaViewE18SharedBufferHandleR20SharedBufferCudaView" title="cressim::neo::engine::Runtime::tryGetSharedBufferCudaView"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">Runtime::tryGetSharedBufferCudaView</span></code></a>.
+The public runtime API does not provide a C++ DLPack convenience wrapper.</p>
+</div>
+<p>Before an engine pass reads values written by CUDA or PyTorch, call
+<code class="docutils literal notranslate"><span class="pre">syncSharedBufferFromCuda</span></code>. After an engine pass writes a buffer for CUDA or
+PyTorch, call <code class="docutils literal notranslate"><span class="pre">syncSharedBufferToCuda</span></code>. These operations require a buffer
+successfully exported to and imported by CUDA; custom HLSL compute itself does
+not require CUDA interoperability. The Python examples
+<a class="reference download internal" download="" href="../_downloads/cccfb3dfe74b6f7e7f124426cd4dc9d9/custom_compute_constant_buffer_torch.py"><code class="xref download docutils literal notranslate"><span class="pre">custom_compute_constant_buffer_torch.py</span></code></a> and
+<a class="reference download internal" download="" href="../_downloads/dbed6957880dac6ce0977e60ed2981c4/render_target_torch_custom_compute.py"><code class="xref download docutils literal notranslate"><span class="pre">render_target_torch_custom_compute.py</span></code></a> show the
+complete flow.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine7Runtime18createSharedBufferERK16SharedBufferDesc" title="cressim::neo::engine::Runtime::createSharedBuffer"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">Runtime::createSharedBuffer</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine7Runtime22syncSharedBufferToCudaE18SharedBufferHandle" title="cressim::neo::engine::Runtime::syncSharedBufferToCuda"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">Runtime::syncSharedBufferToCuda</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine7Runtime24syncSharedBufferFromCudaE18SharedBufferHandle" title="cressim::neo::engine::Runtime::syncSharedBufferFromCuda"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">Runtime::syncSharedBufferFromCuda</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.create_shared_buffer" title="cressim_neo.Runtime.create_shared_buffer"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.create_shared_buffer</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.sync_shared_buffer_to_cuda" title="cressim_neo.Runtime.sync_shared_buffer_to_cuda"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.sync_shared_buffer_to_cuda</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.sync_shared_buffer_from_cuda" title="cressim_neo.Runtime.sync_shared_buffer_from_cuda"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.sync_shared_buffer_from_cuda</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="lifecycle-and-rebinding">
+<h2>Lifecycle and Rebinding<a class="headerlink" href="#lifecycle-and-rebinding" title="Link to this heading">#</a></h2>
+<p>After scene authoring, call <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> and then <code class="docutils literal notranslate"><span class="pre">uploadWorld()</span></code> before calling
+<code class="docutils literal notranslate"><span class="pre">listCustomComputeResources()</span></code> or <code class="docutils literal notranslate"><span class="pre">createCustomComputePass()</span></code>. The uploaded
+world provides the internal GPU resources that a pass can bind. Place
+<code class="docutils literal notranslate"><span class="pre">executeCustomComputePass()</span></code> in the stage where its inputs are current: before
+physics for actions or resets, after physics for state-derived observations and
+rewards, and after visual sensors for camera products. See
+<a class="reference internal" href="runtime-lifecycle.html"><span class="doc">Runtime Lifecycle</span></a> for the full staged sequence.</p>
+<p>Resource layouts can change when authoring changes require another
+<code class="docutils literal notranslate"><span class="pre">prepare()</span></code>/<code class="docutils literal notranslate"><span class="pre">uploadWorld()</span></code> cycle. Compare <code class="docutils literal notranslate"><span class="pre">bindingGeneration</span></code> from
+<code class="docutils literal notranslate"><span class="pre">listCustomComputeResources()</span></code> and recreate affected passes after a generation
+changes; this prevents a pass from using stale GPU bindings. Destroy custom
+passes and shared-buffer handles when their owning task or runtime is shut down.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine7Runtime26listCustomComputeResourcesEv" title="cressim::neo::engine::Runtime::listCustomComputeResources"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">Runtime::listCustomComputeResources</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine7Runtime23createCustomComputePassERK21CustomComputePassDesc" title="cressim::neo::engine::Runtime::createCustomComputePass"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">Runtime::createCustomComputePass</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine7Runtime24executeCustomComputePassE23CustomComputePassHandle" title="cressim::neo::engine::Runtime::executeCustomComputePass"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">Runtime::executeCustomComputePass</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.list_custom_compute_resources" title="cressim_neo.Runtime.list_custom_compute_resources"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.list_custom_compute_resources</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.create_custom_compute_pass" title="cressim_neo.Runtime.create_custom_compute_pass"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.create_custom_compute_pass</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.execute_custom_compute_pass" title="cressim_neo.Runtime.execute_custom_compute_pass"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.execute_custom_compute_pass</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="rendering-and-sensors.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Rendering and Sensors</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="surgical-robotics.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Surgical Robotics</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-gpu-compute">Custom GPU Compute</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#runtime-resources">Runtime Resources</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#render-targets-in-compute">Render Targets in Compute</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#shared-buffers-and-pytorch">Shared Buffers and PyTorch</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lifecycle-and-rebinding">Lifecycle and Rebinding</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/guides/gpu-integration-and-custom-compute.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

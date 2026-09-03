@@ -1,0 +1,899 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Physics and Constraints &#8212; CRESSim-Neo Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
+
+    <script src="../_static/documentation_options.js?v=fa47ad08"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'guides/physics-and-constraints';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.21.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://cressim-neo.yafei.dev/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.1.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Rendering and Sensors" href="rendering-and-sensors.html" />
+    <link rel="prev" title="Scene Model and Batching" href="batched-environments.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="v0.1.0" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">CRESSim-Neo Documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/index.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../developers/index.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/index.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../developers/index.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="system-overview.html">System Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime-lifecycle.html">Runtime Lifecycle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="batched-environments.html">Scene Model and Batching</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Physics and Constraints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rendering-and-sensors.html">Rendering and Sensors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gpu-integration-and-custom-compute.html">Custom GPU Compute and Interoperability</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgical-robotics.html">Surgical Robotics</a></li>
+</ul>
+</div>
+</nav>
+</div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Physics and Constraints</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="physics-and-constraints">
+<h1>Physics and Constraints<a class="headerlink" href="#physics-and-constraints" title="Link to this heading">#</a></h1>
+<p>The physics solver is based on position-based dynamics (PBD), with compliant
+XPBD-style constraints where needed. It supports both rigid collider and
+particle-based dynamics. Rigid-body simulation supports sphere, box, capsule,
+and proxy particle colliders, as well as ball, spherical, hinge, and slider
+joints. Soft bodies can be represented either by tetrahedral particle models
+with distance and volumetric constraints, or by meshfree particle models with
+k-nearest-neighbor distance constraints. Fluids are handled within the same
+particle framework using density constraints and viscosity, cohesion, surface
+tension, and vorticity terms. The implementations are based largely on the
+existing CPU-based <a class="reference external" href="https://animation.rwth-aachen.de/software/position-based-dynamics/">PositionBasedDynamics</a>
+codebase. Strands are modeled using segment, distance, bend, and twist
+constraints, enabling cable- and thread-like behavior.</p>
+<figure class="align-default" id="id1">
+<a class="reference internal image-reference" href="../_images/physics-demo.png"><img alt="Representative rigid-body, soft-body, joint, fluid, and suturing scenes." src="../_images/physics-demo.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Representative physics scenes: (a) large-scale rigid-body simulation; (b) soft
+bodies; (c) joints, from left to right: drivable spherical joints, ball joints,
+hinge joints, and slider joints; (d) fluids; and (e) suturing with a needle,
+thread, and soft body.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>Physics is authored on the entity world described in <a class="reference internal" href="batched-environments.html"><span class="doc">Scene Model and Batching</span></a>.
+After adding or changing physics components and constraints, prepare and upload
+the world as described in <a class="reference internal" href="runtime-lifecycle.html"><span class="doc">Runtime Lifecycle</span></a> before stepping physics.</p>
+<section id="rigid-bodies-and-colliders">
+<h2>Rigid Bodies and Colliders<a class="headerlink" href="#rigid-bodies-and-colliders" title="Link to this heading">#</a></h2>
+<p>A <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine18RigidBodyComponentE" title="cressim::neo::engine::RigidBodyComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">RigidBodyComponent</span></code></a>
+or <a class="reference internal" href="../reference/python/index.html#cressim_neo.RigidBodyComponent" title="cressim_neo.RigidBodyComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">RigidBodyComponent</span></code></a> defines a
+static, dynamic, or kinematic body, including its mass, inertia, velocities,
+and optional kinematic target. Collision geometry is authored separately with
+<a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine17ColliderComponentE" title="cressim::neo::engine::ColliderComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">ColliderComponent</span></code></a> or
+<a class="reference internal" href="../reference/python/index.html#cressim_neo.ColliderComponent" title="cressim_neo.ColliderComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">ColliderComponent</span></code></a>. An entity may
+have more than one collider. Sphere, box, and capsule primitives are supported,
+along with rigid-body proxy particles. Colliders define material properties and
+collision layers and masks independently of the rigid body.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine18RigidBodyComponentE" title="cressim::neo::engine::RigidBodyComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">RigidBodyComponent</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.RigidBodyComponent" title="cressim_neo.RigidBodyComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">RigidBodyComponent</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine17ColliderComponentE" title="cressim::neo::engine::ColliderComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">ColliderComponent</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.ColliderComponent" title="cressim_neo.ColliderComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">ColliderComponent</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World12setRigidBodyEN6common8EntityIdERK18RigidBodyComponent" title="cressim::neo::engine::World::setRigidBody"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setRigidBody</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_rigid_body" title="cressim_neo.World.set_rigid_body"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_rigid_body</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World11addColliderEN6common8EntityIdERK17ColliderComponent" title="cressim::neo::engine::World::addCollider"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::addCollider</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.World.add_collider" title="cressim_neo.World.add_collider"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.add_collider</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">RigidBodyComponent</span><span class="w"> </span><span class="n">body</span><span class="p">{};</span>
+<span class="n">body</span><span class="p">.</span><span class="n">bodyType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RigidBodyType</span><span class="o">::</span><span class="n">Dynamic</span><span class="p">;</span>
+<span class="n">body</span><span class="p">.</span><span class="n">inverseMass</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0f</span><span class="p">;</span>
+<span class="n">body</span><span class="p">.</span><span class="n">inverseInertiaLocal</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mf">1.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0f</span><span class="p">};</span>
+<span class="n">world</span><span class="p">.</span><span class="n">setRigidBody</span><span class="p">(</span><span class="n">entity</span><span class="p">,</span><span class="w"> </span><span class="n">body</span><span class="p">);</span>
+
+<span class="n">ColliderComponent</span><span class="w"> </span><span class="n">collider</span><span class="p">{};</span>
+<span class="n">collider</span><span class="p">.</span><span class="n">shapeType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ColliderShapeType</span><span class="o">::</span><span class="n">Box</span><span class="p">;</span>
+<span class="n">collider</span><span class="p">.</span><span class="n">shapeParams</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mf">0.5f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">};</span>
+<span class="n">collider</span><span class="p">.</span><span class="n">friction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.6f</span><span class="p">;</span>
+<span class="n">world</span><span class="p">.</span><span class="n">addCollider</span><span class="p">(</span><span class="n">entity</span><span class="p">,</span><span class="w"> </span><span class="n">collider</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">body</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">RigidBodyComponent</span><span class="p">()</span>
+<span class="n">body</span><span class="o">.</span><span class="n">body_type</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">RigidBodyType</span><span class="o">.</span><span class="n">Dynamic</span>
+<span class="n">body</span><span class="o">.</span><span class="n">inverse_mass</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">body</span><span class="o">.</span><span class="n">inverse_inertia_local</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+<span class="n">world</span><span class="o">.</span><span class="n">set_rigid_body</span><span class="p">(</span><span class="n">entity</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span>
+
+<span class="n">collider</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">ColliderComponent</span><span class="p">()</span>
+<span class="n">collider</span><span class="o">.</span><span class="n">shape_type</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">ColliderShapeType</span><span class="o">.</span><span class="n">Box</span>
+<span class="n">collider</span><span class="o">.</span><span class="n">shape_params</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">Float4</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<span class="n">collider</span><span class="o">.</span><span class="n">friction</span> <span class="o">=</span> <span class="mf">0.6</span>
+<span class="n">world</span><span class="o">.</span><span class="n">add_collider</span><span class="p">(</span><span class="n">entity</span><span class="p">,</span> <span class="n">collider</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="soft-bodies">
+<h2>Soft Bodies<a class="headerlink" href="#soft-bodies" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine17SoftBodyComponentE" title="cressim::neo::engine::SoftBodyComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">SoftBodyComponent</span></code></a> and
+<a class="reference internal" href="../reference/python/index.html#cressim_neo.SoftBodyComponent" title="cressim_neo.SoftBodyComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">SoftBodyComponent</span></code></a> represent
+tetrahedral soft bodies with distance and volumetric constraints. The
+<a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine25MeshfreeSoftBodyComponentE" title="cressim::neo::engine::MeshfreeSoftBodyComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">MeshfreeSoftBodyComponent</span></code></a>
+and <a class="reference internal" href="../reference/python/index.html#cressim_neo.MeshfreeSoftBodyComponent" title="cressim_neo.MeshfreeSoftBodyComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">MeshfreeSoftBodyComponent</span></code></a>
+represent particle-based soft bodies using k-nearest-neighbor distance
+constraints. Both expose particle mass and radius, material parameters,
+compliance, self-collision, and collision filtering.</p>
+<p>For tetrahedral soft bodies, the source can be a regular grid, a tetrahedral
+mesh, or TetGen files. The regular-grid source is useful for procedural tissue
+patches, while imported sources preserve an externally prepared volume. Edge
+and volume compliance control the distance and volume constraints respectively.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World11setSoftBodyEN6common8EntityIdERK17SoftBodyComponent" title="cressim::neo::engine::World::setSoftBody"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setSoftBody</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_soft_body" title="cressim_neo.World.set_soft_body"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_soft_body</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World19setMeshfreeSoftBodyEN6common8EntityIdERK25MeshfreeSoftBodyComponent" title="cressim::neo::engine::World::setMeshfreeSoftBody"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setMeshfreeSoftBody</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_meshfree_soft_body" title="cressim_neo.World.set_meshfree_soft_body"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_meshfree_soft_body</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">SoftBodyComponent</span><span class="w"> </span><span class="n">softBody</span><span class="p">{};</span>
+<span class="n">softBody</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="n">kind</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SoftBodySourceKind</span><span class="o">::</span><span class="n">RegularGrid</span><span class="p">;</span>
+<span class="n">softBody</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="n">regularGrid</span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mf">2.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.3f</span><span class="p">,</span><span class="w"> </span><span class="mf">2.0f</span><span class="p">};</span>
+<span class="n">softBody</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="n">regularGrid</span><span class="p">.</span><span class="n">targetParticleSpacing</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.1f</span><span class="p">;</span>
+<span class="n">softBody</span><span class="p">.</span><span class="n">particleMass</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.01f</span><span class="p">;</span>
+<span class="n">softBody</span><span class="p">.</span><span class="n">particleRadius</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.05f</span><span class="p">;</span>
+<span class="n">softBody</span><span class="p">.</span><span class="n">edgeCompliance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">4.5e-3f</span><span class="p">;</span>
+<span class="n">softBody</span><span class="p">.</span><span class="n">volumeCompliance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2.6e-3f</span><span class="p">;</span>
+<span class="n">softBody</span><span class="p">.</span><span class="n">material</span><span class="p">.</span><span class="n">contact</span><span class="p">.</span><span class="n">friction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.8f</span><span class="p">;</span>
+<span class="n">softBody</span><span class="p">.</span><span class="n">selfCollisionEnabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+
+<span class="n">world</span><span class="p">.</span><span class="n">setSoftBody</span><span class="p">(</span><span class="n">tissueEntity</span><span class="p">,</span><span class="w"> </span><span class="n">softBody</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">soft_body</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">SoftBodyComponent</span><span class="p">()</span>
+<span class="n">soft_body</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">kind</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">SoftBodySourceKind</span><span class="o">.</span><span class="n">RegularGrid</span>
+<span class="n">soft_body</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">regular_grid</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>
+<span class="n">soft_body</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">regular_grid</span><span class="o">.</span><span class="n">target_particle_spacing</span> <span class="o">=</span> <span class="mf">0.1</span>
+<span class="n">soft_body</span><span class="o">.</span><span class="n">particle_mass</span> <span class="o">=</span> <span class="mf">0.01</span>
+<span class="n">soft_body</span><span class="o">.</span><span class="n">particle_radius</span> <span class="o">=</span> <span class="mf">0.05</span>
+<span class="n">soft_body</span><span class="o">.</span><span class="n">edge_compliance</span> <span class="o">=</span> <span class="mf">4.5e-3</span>
+<span class="n">soft_body</span><span class="o">.</span><span class="n">volume_compliance</span> <span class="o">=</span> <span class="mf">2.6e-3</span>
+<span class="n">soft_body</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">contact</span><span class="o">.</span><span class="n">friction</span> <span class="o">=</span> <span class="mf">0.8</span>
+<span class="n">soft_body</span><span class="o">.</span><span class="n">self_collision_enabled</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="n">world</span><span class="o">.</span><span class="n">set_soft_body</span><span class="p">(</span><span class="n">tissue_entity</span><span class="p">,</span> <span class="n">soft_body</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="fluids">
+<h2>Fluids<a class="headerlink" href="#fluids" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine14FluidComponentE" title="cressim::neo::engine::FluidComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">FluidComponent</span></code></a> and
+<a class="reference internal" href="../reference/python/index.html#cressim_neo.FluidComponent" title="cressim_neo.FluidComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">FluidComponent</span></code></a> initialize fluids in
+the same particle framework. Their material parameters include density,
+viscosity, cohesion, surface tension, and vorticity terms.</p>
+<p>Fluid particles are initialized from a regular grid whose size and target
+spacing determine the initial particle distribution. Particle radius and mass
+must be chosen consistently with the intended scale; fluid material parameters
+then control contact, viscosity, cohesion, surface tension, vorticity, and the
+gravity scale.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World8setFluidEN6common8EntityIdERK14FluidComponent" title="cressim::neo::engine::World::setFluid"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setFluid</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_fluid" title="cressim_neo.World.set_fluid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_fluid</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-4">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">FluidComponent</span><span class="w"> </span><span class="n">fluid</span><span class="p">{};</span>
+<span class="n">fluid</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="n">kind</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FluidSourceKind</span><span class="o">::</span><span class="n">RegularGrid</span><span class="p">;</span>
+<span class="n">fluid</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="n">regularGrid</span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mf">1.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0f</span><span class="p">};</span>
+<span class="n">fluid</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="n">regularGrid</span><span class="p">.</span><span class="n">targetParticleSpacing</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.08f</span><span class="p">;</span>
+<span class="n">fluid</span><span class="p">.</span><span class="n">particleRadius</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.04f</span><span class="p">;</span>
+<span class="n">fluid</span><span class="p">.</span><span class="n">particleMass</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.01f</span><span class="p">;</span>
+<span class="n">fluid</span><span class="p">.</span><span class="n">material</span><span class="p">.</span><span class="n">viscosity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.5f</span><span class="p">;</span>
+<span class="n">fluid</span><span class="p">.</span><span class="n">material</span><span class="p">.</span><span class="n">cohesion</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.8f</span><span class="p">;</span>
+<span class="n">fluid</span><span class="p">.</span><span class="n">material</span><span class="p">.</span><span class="n">surfaceTension</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.5f</span><span class="p">;</span>
+<span class="n">fluid</span><span class="p">.</span><span class="n">material</span><span class="p">.</span><span class="n">vorticityConfinement</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.25f</span><span class="p">;</span>
+<span class="n">fluid</span><span class="p">.</span><span class="n">visualColor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mf">0.16f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.56f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.96f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.4f</span><span class="p">};</span>
+
+<span class="n">world</span><span class="p">.</span><span class="n">setFluid</span><span class="p">(</span><span class="n">fluidEntity</span><span class="p">,</span><span class="w"> </span><span class="n">fluid</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-5" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-5">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">fluid</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">FluidComponent</span><span class="p">()</span>
+<span class="n">fluid</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">kind</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">FluidSourceKind</span><span class="o">.</span><span class="n">RegularGrid</span>
+<span class="n">fluid</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">regular_grid</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+<span class="n">fluid</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">regular_grid</span><span class="o">.</span><span class="n">target_particle_spacing</span> <span class="o">=</span> <span class="mf">0.08</span>
+<span class="n">fluid</span><span class="o">.</span><span class="n">particle_radius</span> <span class="o">=</span> <span class="mf">0.04</span>
+<span class="n">fluid</span><span class="o">.</span><span class="n">particle_mass</span> <span class="o">=</span> <span class="mf">0.01</span>
+<span class="n">fluid</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">viscosity</span> <span class="o">=</span> <span class="mf">1.5</span>
+<span class="n">fluid</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">cohesion</span> <span class="o">=</span> <span class="mf">0.8</span>
+<span class="n">fluid</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">surface_tension</span> <span class="o">=</span> <span class="mf">1.5</span>
+<span class="n">fluid</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">vorticity_confinement</span> <span class="o">=</span> <span class="mf">0.25</span>
+<span class="n">fluid</span><span class="o">.</span><span class="n">visual_color</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">Float4</span><span class="p">(</span><span class="mf">0.16</span><span class="p">,</span> <span class="mf">0.56</span><span class="p">,</span> <span class="mf">0.96</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">)</span>
+
+<span class="n">world</span><span class="o">.</span><span class="n">set_fluid</span><span class="p">(</span><span class="n">fluid_entity</span><span class="p">,</span> <span class="n">fluid</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="strands">
+<h2>Strands<a class="headerlink" href="#strands" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine15StrandComponentE" title="cressim::neo::engine::StrandComponent"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">StrandComponent</span></code></a> and
+<a class="reference internal" href="../reference/python/index.html#cressim_neo.StrandComponent" title="cressim_neo.StrandComponent"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrandComponent</span></code></a> define rest positions
+and stretch, bend, twist, and distance compliance for cable- and thread-like
+behavior. Strands support self-collision, collision filtering, and suturing
+path tracking.</p>
+<p>The rest-position sequence defines the strand topology. Static particle indices
+anchor selected strand particles; the compliance parameters independently tune
+stretch/shear, bend, twist, and distance behavior.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World9setStrandEN6common8EntityIdERK15StrandComponent" title="cressim::neo::engine::World::setStrand"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::setStrand</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.World.set_strand" title="cressim_neo.World.set_strand"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.set_strand</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-6" name="sd-tab-set-3" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-6">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">StrandComponent</span><span class="w"> </span><span class="n">strand</span><span class="p">{};</span>
+<span class="n">strand</span><span class="p">.</span><span class="n">restPositions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">{</span><span class="mf">0.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="mf">0.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.1f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="mf">0.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.2f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">},</span>
+<span class="p">};</span>
+<span class="n">strand</span><span class="p">.</span><span class="n">staticParticleIndices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mi">0u</span><span class="p">};</span>
+<span class="n">strand</span><span class="p">.</span><span class="n">particleMass</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.01f</span><span class="p">;</span>
+<span class="n">strand</span><span class="p">.</span><span class="n">particleRadius</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.02f</span><span class="p">;</span>
+<span class="n">strand</span><span class="p">.</span><span class="n">stretchShearCompliance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0e-4f</span><span class="p">;</span>
+<span class="n">strand</span><span class="p">.</span><span class="n">bendCompliance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0e-3f</span><span class="p">;</span>
+<span class="n">strand</span><span class="p">.</span><span class="n">twistCompliance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0e-3f</span><span class="p">;</span>
+
+<span class="n">world</span><span class="p">.</span><span class="n">setStrand</span><span class="p">(</span><span class="n">strandEntity</span><span class="p">,</span><span class="w"> </span><span class="n">strand</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-7" name="sd-tab-set-3" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-7">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">strand</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">StrandComponent</span><span class="p">()</span>
+<span class="n">strand</span><span class="o">.</span><span class="n">rest_positions</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+    <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+    <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+<span class="p">]</span>
+<span class="n">strand</span><span class="o">.</span><span class="n">static_particle_indices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">strand</span><span class="o">.</span><span class="n">particle_mass</span> <span class="o">=</span> <span class="mf">0.01</span>
+<span class="n">strand</span><span class="o">.</span><span class="n">particle_radius</span> <span class="o">=</span> <span class="mf">0.02</span>
+<span class="n">strand</span><span class="o">.</span><span class="n">stretch_shear_compliance</span> <span class="o">=</span> <span class="mf">1.0e-4</span>
+<span class="n">strand</span><span class="o">.</span><span class="n">bend_compliance</span> <span class="o">=</span> <span class="mf">1.0e-3</span>
+<span class="n">strand</span><span class="o">.</span><span class="n">twist_compliance</span> <span class="o">=</span> <span class="mf">1.0e-3</span>
+
+<span class="n">world</span><span class="o">.</span><span class="n">set_strand</span><span class="p">(</span><span class="n">strand_entity</span><span class="p">,</span> <span class="n">strand</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="joints">
+<h2>Joints<a class="headerlink" href="#joints" title="Link to this heading">#</a></h2>
+<p>Ball, hinge, spherical, and slider joints connect two rigid-body entities.
+Their state objects define local anchors and frames, optional limits, and—where
+supported—drive targets and compliance. The <code class="docutils literal notranslate"><span class="pre">World</span></code> joint-authoring methods
+take entity IDs, resolve the corresponding rigid bodies, and require both
+entities to be in the same environment.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Author joints through <code class="docutils literal notranslate"><span class="pre">World</span></code>, rather than directly through the underlying
+physics world, so entity ownership and environment membership are validated.</p>
+</div>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/physics.html#_CPPv4N7cressim3neo7physics14BallJointStateE" title="cressim::neo::physics::BallJointState"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">BallJointState</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World15upsertBallJointERKN7physics14BallJointStateE" title="cressim::neo::engine::World::upsertBallJoint"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::upsertBallJoint</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.BallJointState" title="cressim_neo.BallJointState"><code class="xref py py-class docutils literal notranslate"><span class="pre">BallJointState</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.upsert_ball_joint" title="cressim_neo.World.upsert_ball_joint"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.upsert_ball_joint</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/physics.html#_CPPv4N7cressim3neo7physics15HingeJointStateE" title="cressim::neo::physics::HingeJointState"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">HingeJointState</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World16upsertHingeJointERKN7physics15HingeJointStateE" title="cressim::neo::engine::World::upsertHingeJoint"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::upsertHingeJoint</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.HingeJointState" title="cressim_neo.HingeJointState"><code class="xref py py-class docutils literal notranslate"><span class="pre">HingeJointState</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.upsert_hinge_joint" title="cressim_neo.World.upsert_hinge_joint"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.upsert_hinge_joint</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/physics.html#_CPPv4N7cressim3neo7physics19SphericalJointStateE" title="cressim::neo::physics::SphericalJointState"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">SphericalJointState</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World20upsertSphericalJointERKN7physics19SphericalJointStateE" title="cressim::neo::engine::World::upsertSphericalJoint"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::upsertSphericalJoint</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.SphericalJointState" title="cressim_neo.SphericalJointState"><code class="xref py py-class docutils literal notranslate"><span class="pre">SphericalJointState</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.upsert_spherical_joint" title="cressim_neo.World.upsert_spherical_joint"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.upsert_spherical_joint</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/physics.html#_CPPv4N7cressim3neo7physics16SliderJointStateE" title="cressim::neo::physics::SliderJointState"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">SliderJointState</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World17upsertSliderJointERKN7physics16SliderJointStateE" title="cressim::neo::engine::World::upsertSliderJoint"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::upsertSliderJoint</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.SliderJointState" title="cressim_neo.SliderJointState"><code class="xref py py-class docutils literal notranslate"><span class="pre">SliderJointState</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.upsert_slider_joint" title="cressim_neo.World.upsert_slider_joint"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.upsert_slider_joint</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-8" name="sd-tab-set-4" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-8">
+C++</label><div class="sd-tab-content docutils">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">HingeJointState</span><span class="w"> </span><span class="n">joint</span><span class="p">{};</span>
+<span class="n">joint</span><span class="p">.</span><span class="n">bodyA</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">baseEntity</span><span class="p">;</span>
+<span class="n">joint</span><span class="p">.</span><span class="n">bodyB</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">linkEntity</span><span class="p">;</span>
+<span class="n">joint</span><span class="p">.</span><span class="n">localAnchorA</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mf">0.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">};</span>
+<span class="n">joint</span><span class="p">.</span><span class="n">localAnchorB</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mf">0.0f</span><span class="p">,</span><span class="w"> </span><span class="mf">-0.5f</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">};</span>
+<span class="n">joint</span><span class="p">.</span><span class="n">limitEnabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="n">joint</span><span class="p">.</span><span class="n">limitMin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">-0.5f</span><span class="p">;</span>
+<span class="n">joint</span><span class="p">.</span><span class="n">limitMax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.5f</span><span class="p">;</span>
+
+<span class="n">world</span><span class="p">.</span><span class="n">upsertHingeJoint</span><span class="p">(</span><span class="n">joint</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-9" name="sd-tab-set-4" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-9">
+Python</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">joint</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">HingeJointState</span><span class="p">()</span>
+<span class="n">joint</span><span class="o">.</span><span class="n">body_a</span> <span class="o">=</span> <span class="n">base_entity</span>
+<span class="n">joint</span><span class="o">.</span><span class="n">body_b</span> <span class="o">=</span> <span class="n">link_entity</span>
+<span class="n">joint</span><span class="o">.</span><span class="n">local_anchor_a</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<span class="n">joint</span><span class="o">.</span><span class="n">local_anchor_b</span> <span class="o">=</span> <span class="n">neo</span><span class="o">.</span><span class="n">Float3</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<span class="n">joint</span><span class="o">.</span><span class="n">limit_enabled</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">joint</span><span class="o">.</span><span class="n">limit_min</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span>
+<span class="n">joint</span><span class="o">.</span><span class="n">limit_max</span> <span class="o">=</span> <span class="mf">0.5</span>
+
+<span class="n">world</span><span class="o">.</span><span class="n">upsert_hinge_joint</span><span class="p">(</span><span class="n">joint</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="custom-constraints">
+<h2>Custom Constraints<a class="headerlink" href="#custom-constraints" title="Link to this heading">#</a></h2>
+<p>The engine also supports user-authored constraints for surgical task-specific
+simulations. Routed cable constraints enforce a path length across guide points
+attached to rigid bodies, which can be used to simulate cable-driven robots.
+Rigid-particle and rigid-strand attachment constraints can connect surgical
+tools, needles, and threads. Suturing simulation couples strand and rigid proxy
+particles with soft tissue through path-following constraints.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>C++</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/physics.html#_CPPv4N7cressim3neo7physics34AuthoredRoutedCableConstraintStateE" title="cressim::neo::physics::AuthoredRoutedCableConstraintState"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">AuthoredRoutedCableConstraintState</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World27upsertRoutedCableConstraintERKN7physics34AuthoredRoutedCableConstraintStateEPN7physics34AuthoredRoutedCableConstraintStateE" title="cressim::neo::engine::World::upsertRoutedCableConstraint"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::upsertRoutedCableConstraint</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.AuthoredRoutedCableConstraintState" title="cressim_neo.AuthoredRoutedCableConstraintState"><code class="xref py py-class docutils literal notranslate"><span class="pre">AuthoredRoutedCableConstraintState</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.upsert_routed_cable_constraint" title="cressim_neo.World.upsert_routed_cable_constraint"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.upsert_routed_cable_constraint</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../reference/cpp/physics.html#_CPPv4N7cressim3neo7physics46AuthoredRigidParticleAttachmentConstraintStateE" title="cressim::neo::physics::AuthoredRigidParticleAttachmentConstraintState"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">AuthoredRigidParticleAttachmentConstraintState</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World39upsertRigidParticleAttachmentConstraintERKN7physics46AuthoredRigidParticleAttachmentConstraintStateEPN7physics46AuthoredRigidParticleAttachmentConstraintStateE" title="cressim::neo::engine::World::upsertRigidParticleAttachmentConstraint"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::upsertRigidParticleAttachmentConstraint</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.AuthoredRigidParticleAttachmentConstraintState" title="cressim_neo.AuthoredRigidParticleAttachmentConstraintState"><code class="xref py py-class docutils literal notranslate"><span class="pre">AuthoredRigidParticleAttachmentConstraintState</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.upsert_rigid_particle_attachment_constraint" title="cressim_neo.World.upsert_rigid_particle_attachment_constraint"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.upsert_rigid_particle_attachment_constraint</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../reference/cpp/physics.html#_CPPv4N7cressim3neo7physics44AuthoredStrandRigidAttachmentConstraintStateE" title="cressim::neo::physics::AuthoredStrandRigidAttachmentConstraintState"><code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">AuthoredStrandRigidAttachmentConstraintState</span></code></a> · <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cressim3neo6engine5World37upsertStrandRigidAttachmentConstraintERKN7physics44AuthoredStrandRigidAttachmentConstraintStateEPN7physics44AuthoredStrandRigidAttachmentConstraintStateE" title="cressim::neo::engine::World::upsertStrandRigidAttachmentConstraint"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">World::upsertStrandRigidAttachmentConstraint</span></code></a></p></td>
+<td><p><a class="reference internal" href="../reference/python/index.html#cressim_neo.AuthoredStrandRigidAttachmentConstraintState" title="cressim_neo.AuthoredStrandRigidAttachmentConstraintState"><code class="xref py py-class docutils literal notranslate"><span class="pre">AuthoredStrandRigidAttachmentConstraintState</span></code></a> · <a class="reference internal" href="../reference/python/index.html#cressim_neo.World.upsert_strand_rigid_attachment_constraint" title="cressim_neo.World.upsert_strand_rigid_attachment_constraint"><code class="xref py py-meth docutils literal notranslate"><span class="pre">World.upsert_strand_rigid_attachment_constraint</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="batched-environments.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Scene Model and Batching</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="rendering-and-sensors.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Rendering and Sensors</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rigid-bodies-and-colliders">Rigid Bodies and Colliders</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#soft-bodies">Soft Bodies</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fluids">Fluids</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#strands">Strands</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#joints">Joints</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-constraints">Custom Constraints</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/guides/physics-and-constraints.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

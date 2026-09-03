@@ -1,0 +1,1063 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Viewer &#8212; CRESSim-Neo Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
+
+    <script src="../../_static/documentation_options.js?v=fa47ad08"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/cpp/viewer';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.21.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://cressim-neo.yafei.dev/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.1.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Python bindings API reference" href="../python/index.html" />
+    <link rel="prev" title="Graphics" href="graphics.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="v0.1.0" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">CRESSim-Neo Documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/index.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../guides/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../developers/index.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/index.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../guides/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../developers/index.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">C++ API reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="common.html">Common</a></li>
+<li class="toctree-l2"><a class="reference internal" href="engine.html">Engine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="physics.html">Physics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpu.html">GPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graphics.html">Graphics</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Viewer</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/index.html">Python bindings API reference</a></li>
+</ul>
+</div>
+</nav>
+</div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">API Reference</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">C++ API reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Viewer</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="viewer">
+<h1>Viewer<a class="headerlink" href="#viewer" title="Link to this heading">#</a></h1>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewerE">
+<span id="_CPPv3N7cressim3neo6viewerE"></span><span id="_CPPv2N7cressim3neo6viewerE"></span><span id="cressim::neo::viewer"></span><span class="target" id="namespacecressim_1_1neo_1_1viewer"></span><span class="k"><span class="pre">namespace</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">viewer</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewerE" title="Link to this definition">#</a><br /></dt>
+<dd><dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerAppE">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerAppE"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerAppE"></span><span id="cressim::neo::viewer::DebugViewerApp"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DebugViewerApp</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;debug_viewer_app.h&gt;</em></div>
+<p>Standalone desktop application hosting GLFW windowing, user input, camera controllers, and main rendering loop. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppEv">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppEv"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppEv"></span><span id="cressim::neo::viewer::DebugViewerApp::DebugViewerApp"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp_1a5130747afc4b8b20b248efbae187e8e0"></span><span class="sig-name descname"><span class="n"><span class="pre">DebugViewerApp</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Default constructor. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerAppD0Ev">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerAppD0Ev"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerAppD0Ev"></span><span id="cressim::neo::viewer::DebugViewerApp::~DebugViewerApp"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp_1acba0f88bbe58ea829ad41361bc3066d7"></span><span class="sig-name descname"><span class="n"><span class="pre">~DebugViewerApp</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppD0Ev" title="Link to this definition">#</a><br /></dt>
+<dd><p>Destructor releasing window and viewer resources. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERK14DebugViewerApp">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERK14DebugViewerApp"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERK14DebugViewerApp"></span><span id="cressim::neo::viewer::DebugViewerApp::DebugViewerApp__DebugViewerAppCR"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp_1aac510c3591a4938611897d4445f7aa49"></span><span class="sig-name descname"><span class="n"><span class="pre">DebugViewerApp</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERK14DebugViewerApp" title="cressim::neo::viewer::DebugViewerApp::DebugViewerApp"><span class="n"><span class="pre">DebugViewerApp</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">delete</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERK14DebugViewerApp" title="Link to this definition">#</a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerAppaSERK14DebugViewerApp">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerAppaSERK14DebugViewerApp"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerAppaSERK14DebugViewerApp"></span><span id="cressim::neo::viewer::DebugViewerApp::assign-operator__DebugViewerAppCR"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp_1a1c5e1477b3a919e33b32fedbd96f4192"></span><a class="reference internal" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppE" title="cressim::neo::viewer::DebugViewerApp"><span class="n"><span class="pre">DebugViewerApp</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="k"><span class="pre">operator</span></span><span class="o"><span class="pre">=</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppE" title="cressim::neo::viewer::DebugViewerApp"><span class="n"><span class="pre">DebugViewerApp</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">delete</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppaSERK14DebugViewerApp" title="Link to this definition">#</a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERR14DebugViewerApp">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERR14DebugViewerApp"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERR14DebugViewerApp"></span><span id="cressim::neo::viewer::DebugViewerApp::DebugViewerApp__DebugViewerAppRR"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp_1a9aee1e3b08132df1622879bbaa3af41b"></span><span class="sig-name descname"><span class="n"><span class="pre">DebugViewerApp</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERR14DebugViewerApp" title="cressim::neo::viewer::DebugViewerApp::DebugViewerApp"><span class="n"><span class="pre">DebugViewerApp</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">other</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERR14DebugViewerApp" title="Link to this definition">#</a><br /></dt>
+<dd><p>Move constructor. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>other</strong> – Instance to move from. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerAppaSERR14DebugViewerApp">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerAppaSERR14DebugViewerApp"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerAppaSERR14DebugViewerApp"></span><span id="cressim::neo::viewer::DebugViewerApp::assign-operator__DebugViewerAppRR"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp_1a4fb2efdd94d65867483cddcc5405cd37"></span><a class="reference internal" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppE" title="cressim::neo::viewer::DebugViewerApp"><span class="n"><span class="pre">DebugViewerApp</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="k"><span class="pre">operator</span></span><span class="o"><span class="pre">=</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppE" title="cressim::neo::viewer::DebugViewerApp"><span class="n"><span class="pre">DebugViewerApp</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">other</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppaSERR14DebugViewerApp" title="Link to this definition">#</a><br /></dt>
+<dd><p>Move assignment operator. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>other</strong> – Instance to move from. </p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Reference to this. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerApp10initializeE18DebugViewerAppDescRN6engine13RuntimeConfigE">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerApp10initializeE18DebugViewerAppDescRN6engine13RuntimeConfigE"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerApp10initializeE18DebugViewerAppDescRN6engine13RuntimeConfigE"></span><span id="cressim::neo::viewer::DebugViewerApp::initialize__DebugViewerAppDesc.engine::RuntimeConfigR"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp_1a3fdd0aedbe3c99d44806b52129a1f979"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">initialize</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDescE" title="cressim::neo::viewer::DebugViewerAppDesc"><span class="n"><span class="pre">DebugViewerAppDesc</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">desc</span></span>, <a class="reference internal" href="engine.html#_CPPv4N7cressim3neo6engineE" title="cressim::neo::engine"><span class="n"><span class="pre">engine</span></span></a><span class="p"><span class="pre">::</span></span><a class="reference internal" href="engine.html#_CPPv4N7cressim3neo6engine13RuntimeConfigE" title="cressim::neo::engine::RuntimeConfig"><span class="n"><span class="pre">RuntimeConfig</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">inOutRuntimeConfig</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp10initializeE18DebugViewerAppDescRN6engine13RuntimeConfigE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Initializes desktop window, input handlers, and configures runtime presentation targets. </p>
+<p>Zero dimensions and rates are raised to one, and non-positive movement/timing values fall back to their defaults. This updates <code class="docutils literal notranslate"><span class="pre">inOutRuntimeConfig's</span></code> presentation settings and native window handles. Video capture requires <code class="docutils literal notranslate"><span class="pre">captureFps</span> <span class="pre">&lt;=</span> <span class="pre">simulationFps</span></code>; exclusive and borderless fullscreen cannot both be requested. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>desc</strong> – Viewer application configuration settings. </p></li>
+<li><p><strong>inOutRuntimeConfig</strong> – Engine runtime configuration updated for this viewer. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>False when validation, GLFW setup, window creation, or platform-view setup fails. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerApp3runERN6engine7RuntimeE24DebugViewerCameraBinding20DebugViewerCallbacks">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerApp3runERN6engine7RuntimeE24DebugViewerCameraBinding20DebugViewerCallbacks"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerApp3runERN6engine7RuntimeE24DebugViewerCameraBinding20DebugViewerCallbacks"></span><span id="cressim::neo::viewer::DebugViewerApp::run__engine::RuntimeR.DebugViewerCameraBinding.DebugViewerCallbacks"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp_1a8fac9cf6da210f1dad4893b598b3ae3b"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">run</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="engine.html#_CPPv4N7cressim3neo6engineE" title="cressim::neo::engine"><span class="n"><span class="pre">engine</span></span></a><span class="p"><span class="pre">::</span></span><a class="reference internal" href="engine.html#_CPPv4N7cressim3neo6engine7RuntimeE" title="cressim::neo::engine::Runtime"><span class="n"><span class="pre">Runtime</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">runtime</span></span>, <a class="reference internal" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBindingE" title="cressim::neo::viewer::DebugViewerCameraBinding"><span class="n"><span class="pre">DebugViewerCameraBinding</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">camera</span></span>, <a class="reference internal" href="#_CPPv4N7cressim3neo6viewer20DebugViewerCallbacksE" title="cressim::neo::viewer::DebugViewerCallbacks"><span class="n"><span class="pre">DebugViewerCallbacks</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">callbacks</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp3runERN6engine7RuntimeE24DebugViewerCameraBinding20DebugViewerCallbacks" title="Link to this definition">#</a><br /></dt>
+<dd><p>Enters the application main loop, processing events, ticking simulation, and rendering frames until exit. </p>
+<p><code class="docutils literal notranslate"><span class="pre">beforeTick</span></code> runs after camera/input updates but before prepare/upload/physics work; <code class="docutils literal notranslate"><span class="pre">afterTick</span></code> runs after the frame is ended. The supplied camera must name a live entity with a camera component. Headless runs additionally require a nonzero <code class="docutils literal notranslate"><span class="pre">maxFrames</span></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>runtime</strong> – Active engine runtime instance. </p></li>
+<li><p><strong>camera</strong> – Driven camera entity and movement speed settings. </p></li>
+<li><p><strong>callbacks</strong> – Optional pre-tick and post-tick hook callbacks. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>False for invalid setup, missing runtime/camera resources, or video-capture failures. Physics/upload failures skip the corresponding simulation work for that frame and do not by themselves change this result. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerApp11requestExitEv">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerApp11requestExitEv"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerApp11requestExitEv"></span><span id="cressim::neo::viewer::DebugViewerApp::requestExit"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp_1a6145318d3f26ddfd5df533d9f06f32f6"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">requestExit</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp11requestExitEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Requests the application main loop to terminate after the current frame. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer14DebugViewerApp8shutdownEv">
+<span id="_CPPv3N7cressim3neo6viewer14DebugViewerApp8shutdownEv"></span><span id="_CPPv2N7cressim3neo6viewer14DebugViewerApp8shutdownEv"></span><span id="cressim::neo::viewer::DebugViewerApp::shutdown"></span><span class="target" id="classcressim_1_1neo_1_1viewer_1_1DebugViewerApp_1a90c3d68c9b51c54be8548ae73dfa814b"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">shutdown</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp8shutdownEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Destroys the desktop window and releases viewer subsystems. </p>
+<p>Safe to call before initialization or multiple times. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDescE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDescE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDescE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DebugViewerAppDesc</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDescE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;debug_viewer_app.h&gt;</em></div>
+<p>Launch configuration parameters for the interactive debug viewer application. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc11windowTitleE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc11windowTitleE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc11windowTitleE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::windowTitle__ss"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1aca83c9f9162d7dff4cd8192736e15be2"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">windowTitle</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="s"><span class="pre">&quot;CRESSim</span> <span class="pre">Neo</span> <span class="pre">Debug</span> <span class="pre">Viewer&quot;</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc11windowTitleE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Window caption text. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc5widthE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc5widthE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc5widthE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::width__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1aaef06354d4b48c2a2621c4889ebad8b4"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">width</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">1280</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc5widthE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Window client area width in pixels. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc6heightE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc6heightE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc6heightE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::height__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a52326813c6f76eed0be120d0fe5d5084"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">height</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">720</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc6heightE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Window client area height in pixels. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc13windowEnabledE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc13windowEnabledE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc13windowEnabledE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::windowEnabled__b"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a2ff08b8bb8ced0c7bd18b0809c679b80"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">windowEnabled</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc13windowEnabledE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Whether a desktop window is opened (false runs headless). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc13windowVisibleE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc13windowVisibleE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc13windowVisibleE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::windowVisible__b"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a6f489b2432fc39b7df069290725a2e10"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">windowVisible</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc13windowVisibleE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Initial window visibility. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc15startFullscreenE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc15startFullscreenE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc15startFullscreenE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::startFullscreen__b"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1aad8b409c909662738ac59455dfca1c67"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">startFullscreen</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">false</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc15startFullscreenE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Start in exclusive fullscreen mode. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc23startFullscreenWindowedE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc23startFullscreenWindowedE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc23startFullscreenWindowedE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::startFullscreenWindowed__b"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a045beda2e6b7e7eaae846f7b4ba217c9"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">startFullscreenWindowed</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">false</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc23startFullscreenWindowedE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Start in borderless windowed fullscreen mode. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc5vSyncE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc5vSyncE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc5vSyncE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::vSync__b"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a97deb7a9bb4f0424e9101a741c7c276e"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">vSync</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc5vSyncE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Enable vertical synchronization. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc16inputSensitivityE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc16inputSensitivityE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc16inputSensitivityE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::inputSensitivity__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a32a3d2c0c0d9bcece6ac2e51a9397f05"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">inputSensitivity</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0.08f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc16inputSensitivityE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Mouse look sensitivity multiplier. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc9moveSpeedE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc9moveSpeedE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc9moveSpeedE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::moveSpeed__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1aa8b766898517cee99335de2272ed901d"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">moveSpeed</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">3.0f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc9moveSpeedE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Base fly camera movement speed in units per second. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc15speedBoostScaleE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc15speedBoostScaleE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc15speedBoostScaleE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::speedBoostScale__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a9242b13b889bbfc69b1e4f52c3cf90bc"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">speedBoostScale</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">3.0f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc15speedBoostScaleE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Movement speed multiplier when holding sprint key. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc14speedSlowScaleE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc14speedSlowScaleE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc14speedSlowScaleE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::speedSlowScale__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a0c613dcb033b034b7f2c64eebad31a9c"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">speedSlowScale</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0.35f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc14speedSlowScaleE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Movement speed multiplier when holding precision slow key. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc15wheelSpeedScaleE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc15wheelSpeedScaleE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc15wheelSpeedScaleE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::wheelSpeedScale__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1ab51ec60aed9847bbeb6f6fbec326f1bc"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">wheelSpeedScale</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0.12f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc15wheelSpeedScaleE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Speed adjustment increment from mouse scroll wheel. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc12minMoveSpeedE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc12minMoveSpeedE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc12minMoveSpeedE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::minMoveSpeed__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a8ae586abb669ff4f86681271e20edf79"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">minMoveSpeed</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0.25f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc12minMoveSpeedE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Minimum clamp on adjustable camera movement speed. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc12maxMoveSpeedE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc12maxMoveSpeedE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc12maxMoveSpeedE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::maxMoveSpeed__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a5869dbd99cbfc435a7d2e7422dc59cf5"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">maxMoveSpeed</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">80.0f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc12maxMoveSpeedE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Maximum clamp on adjustable camera movement speed. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc17fixedDeltaSecondsE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc17fixedDeltaSecondsE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc17fixedDeltaSecondsE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::fixedDeltaSeconds__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a968017f6becacbbae0cc46b7296a75c7"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fixedDeltaSeconds</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">1.0f</span></span><span class="w"> </span><span class="o"><span class="pre">/</span></span><span class="w"> </span><span class="m"><span class="pre">60.0f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc17fixedDeltaSecondsE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Target fixed delta time step in seconds. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc16useFixedTimestepE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc16useFixedTimestepE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc16useFixedTimestepE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::useFixedTimestep__b"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a909a2ed9d7be2f537238c6b12e3d0fa4"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">useFixedTimestep</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc16useFixedTimestepE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Enforce fixed time step rather than elapsed wall-clock delta. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc14stepSimulationE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc14stepSimulationE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc14stepSimulationE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::stepSimulation__b"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a14208db56aeee1c9993edd6126172d93"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">stepSimulation</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc14stepSimulationE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Step the physics simulation on each tick. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc9maxFramesE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc9maxFramesE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc9maxFramesE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::maxFrames__std::uint64_t"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a84518ff4d826c4877708b28c234a1e79"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">maxFrames</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc9maxFramesE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Maximum frames to execute before auto-quitting (0 runs indefinitely). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc9showStatsE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc9showStatsE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc9showStatsE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::showStats__b"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a298b444ff1a0f22f992284fc6ad38cd1"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">showStats</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc9showStatsE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Show performance statistics in the window title and logs. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc20enableDebugParticlesE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc20enableDebugParticlesE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc20enableDebugParticlesE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::enableDebugParticles__b"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1ad2b816fcd8179b630fb4cdf305a74fd7"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">enableDebugParticles</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">false</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc20enableDebugParticlesE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Enable particle physics debug visual overlays. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc19statsIntervalFramesE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc19statsIntervalFramesE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc19statsIntervalFramesE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::statsIntervalFrames__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a766c11b8aada6319e4d3124c184ad3be"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">statsIntervalFrames</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc19statsIntervalFramesE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Interval in frames for logging performance statistics. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc16captureVideoPathE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc16captureVideoPathE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc16captureVideoPathE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::captureVideoPath__ss"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1abbdab4fd7c2512b53d55bab1382aae35"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">captureVideoPath</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc16captureVideoPathE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Output video path encoded through FFmpeg; its extension selects the container. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc10captureFpsE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc10captureFpsE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc10captureFpsE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::captureFps__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a0b6c699c324b382577f7c70a19c13519"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">captureFps</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">30</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc10captureFpsE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Video recording output frame rate. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc13simulationFpsE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc13simulationFpsE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc13simulationFpsE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::simulationFps__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1acf0a7fb90cd34bdd64370926b9ef6306"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">simulationFps</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc13simulationFpsE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Capture scheduler reference rate; it does not set the simulation timestep. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc27captureSwitchIntervalFramesE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc27captureSwitchIntervalFramesE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc27captureSwitchIntervalFramesE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::captureSwitchIntervalFrames__std::uint32_t"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1a89e86a2afdc0da3f7156b73e10aab64a"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">captureSwitchIntervalFrames</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc27captureSwitchIntervalFramesE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Interval in captured frames to rotate cameras (0 disables auto-rotation). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc6keymapE">
+<span id="_CPPv3N7cressim3neo6viewer18DebugViewerAppDesc6keymapE"></span><span id="_CPPv2N7cressim3neo6viewer18DebugViewerAppDesc6keymapE"></span><span id="cressim::neo::viewer::DebugViewerAppDesc::keymap__DebugViewerKeymap"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerAppDesc_1aec806be87889a573671ab1fc3c0d910b"></span><a class="reference internal" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymapE" title="cressim::neo::viewer::DebugViewerKeymap"><span class="n"><span class="pre">DebugViewerKeymap</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">keymap</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc6keymapE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Keyboard and mouse button configuration. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer20DebugViewerCallbacksE">
+<span id="_CPPv3N7cressim3neo6viewer20DebugViewerCallbacksE"></span><span id="_CPPv2N7cressim3neo6viewer20DebugViewerCallbacksE"></span><span id="cressim::neo::viewer::DebugViewerCallbacks"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerCallbacks"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DebugViewerCallbacks</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer20DebugViewerCallbacksE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;debug_viewer_app.h&gt;</em></div>
+<p>Frame event callbacks invoked before and after each simulation tick. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer20DebugViewerCallbacks10beforeTickE">
+<span id="_CPPv3N7cressim3neo6viewer20DebugViewerCallbacks10beforeTickE"></span><span id="_CPPv2N7cressim3neo6viewer20DebugViewerCallbacks10beforeTickE"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerCallbacks_1ac761f6bf66903a27fd329b7b88d54c33"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">function</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="common.html#_CPPv4N7cressim3neo6commonE" title="cressim::neo::common"><span class="n"><span class="pre">common</span></span></a><span class="p"><span class="pre">::</span></span><a class="reference internal" href="common.html#_CPPv4N7cressim3neo6common12FrameContextE" title="cressim::neo::common::FrameContext"><span class="n"><span class="pre">FrameContext</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="engine.html#_CPPv4N7cressim3neo6engineE" title="cressim::neo::engine"><span class="n"><span class="pre">engine</span></span></a><span class="p"><span class="pre">::</span></span><a class="reference internal" href="engine.html#_CPPv4N7cressim3neo6engine7RuntimeE" title="cressim::neo::engine::Runtime"><span class="n"><span class="pre">Runtime</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">beforeTick</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer20DebugViewerCallbacks10beforeTickE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Invoked before physics stepping and systems tick. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer20DebugViewerCallbacks9afterTickE">
+<span id="_CPPv3N7cressim3neo6viewer20DebugViewerCallbacks9afterTickE"></span><span id="_CPPv2N7cressim3neo6viewer20DebugViewerCallbacks9afterTickE"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerCallbacks_1a0ad82deda772b2e33cfb75d7b57d1785"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">function</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="common.html#_CPPv4N7cressim3neo6commonE" title="cressim::neo::common"><span class="n"><span class="pre">common</span></span></a><span class="p"><span class="pre">::</span></span><a class="reference internal" href="common.html#_CPPv4N7cressim3neo6common12FrameContextE" title="cressim::neo::common::FrameContext"><span class="n"><span class="pre">FrameContext</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="engine.html#_CPPv4N7cressim3neo6engineE" title="cressim::neo::engine"><span class="n"><span class="pre">engine</span></span></a><span class="p"><span class="pre">::</span></span><a class="reference internal" href="engine.html#_CPPv4N7cressim3neo6engine7RuntimeE" title="cressim::neo::engine::Runtime"><span class="n"><span class="pre">Runtime</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">afterTick</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer20DebugViewerCallbacks9afterTickE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Invoked after physics stepping and render pass dispatch. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer24DebugViewerCameraBindingE">
+<span id="_CPPv3N7cressim3neo6viewer24DebugViewerCameraBindingE"></span><span id="_CPPv2N7cressim3neo6viewer24DebugViewerCameraBindingE"></span><span id="cressim::neo::viewer::DebugViewerCameraBinding"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerCameraBinding"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DebugViewerCameraBinding</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBindingE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;debug_viewer_app.h&gt;</em></div>
+<p>Camera entity binding and movement tuning parameters for the viewer controller. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding12cameraEntityE">
+<span id="_CPPv3N7cressim3neo6viewer24DebugViewerCameraBinding12cameraEntityE"></span><span id="_CPPv2N7cressim3neo6viewer24DebugViewerCameraBinding12cameraEntityE"></span><span id="cressim::neo::viewer::DebugViewerCameraBinding::cameraEntity__common::EntityId"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerCameraBinding_1a19de8287126507c4eaa47b9b43fd44f1"></span><a class="reference internal" href="common.html#_CPPv4N7cressim3neo6commonE" title="cressim::neo::common"><span class="n"><span class="pre">common</span></span></a><span class="p"><span class="pre">::</span></span><a class="reference internal" href="common.html#_CPPv4N7cressim3neo6common8EntityIdE" title="cressim::neo::common::EntityId"><span class="n"><span class="pre">EntityId</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cameraEntity</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding12cameraEntityE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Entity ID of camera driven by fly controls. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding9moveSpeedE">
+<span id="_CPPv3N7cressim3neo6viewer24DebugViewerCameraBinding9moveSpeedE"></span><span id="_CPPv2N7cressim3neo6viewer24DebugViewerCameraBinding9moveSpeedE"></span><span id="cressim::neo::viewer::DebugViewerCameraBinding::moveSpeed__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerCameraBinding_1a1b2e382e0e3abdc058430edc33667b21"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">moveSpeed</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0.0f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding9moveSpeedE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Initial movement speed override (0 uses app default). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding16inputSensitivityE">
+<span id="_CPPv3N7cressim3neo6viewer24DebugViewerCameraBinding16inputSensitivityE"></span><span id="_CPPv2N7cressim3neo6viewer24DebugViewerCameraBinding16inputSensitivityE"></span><span id="cressim::neo::viewer::DebugViewerCameraBinding::inputSensitivity__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerCameraBinding_1a2a21b9316a9e00c223c1867e5aa83ac6"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">inputSensitivity</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0.0f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding16inputSensitivityE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Mouse look sensitivity override (0 uses app default). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding15speedBoostScaleE">
+<span id="_CPPv3N7cressim3neo6viewer24DebugViewerCameraBinding15speedBoostScaleE"></span><span id="_CPPv2N7cressim3neo6viewer24DebugViewerCameraBinding15speedBoostScaleE"></span><span id="cressim::neo::viewer::DebugViewerCameraBinding::speedBoostScale__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerCameraBinding_1a7a97a5993cefc6b57493122618147bf1"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">speedBoostScale</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0.0f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding15speedBoostScaleE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Sprint boost scale override (0 uses app default). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding14speedSlowScaleE">
+<span id="_CPPv3N7cressim3neo6viewer24DebugViewerCameraBinding14speedSlowScaleE"></span><span id="_CPPv2N7cressim3neo6viewer24DebugViewerCameraBinding14speedSlowScaleE"></span><span id="cressim::neo::viewer::DebugViewerCameraBinding::speedSlowScale__float"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerCameraBinding_1a8fcba8b7ab82445b86eae991ab984c1c"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">speedSlowScale</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0.0f</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding14speedSlowScaleE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Precision slow scale override (0 uses app default). </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymapE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymapE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymapE"></span><span id="cressim::neo::viewer::DebugViewerKeymap"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DebugViewerKeymap</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymapE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;debug_viewer_app.h&gt;</em></div>
+<p>GLFW keycode mappings for first-person fly camera navigation and application hotkeys. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap11moveForwardE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap11moveForwardE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap11moveForwardE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::moveForward__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1a70ca5c4e4ca508e47e094b1681a96fa7"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">moveForward</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">87</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap11moveForwardE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Forward movement key (default: W). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap12moveBackwardE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap12moveBackwardE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap12moveBackwardE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::moveBackward__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1a808196f19be3489e89b44eabb2e64a0d"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">moveBackward</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">83</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap12moveBackwardE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Backward movement key (default: S). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap8moveLeftE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap8moveLeftE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap8moveLeftE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::moveLeft__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1add3cd131868550f82dcad866dc4dacac"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">moveLeft</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">65</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap8moveLeftE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Strafe left key (default: A). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap9moveRightE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap9moveRightE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap9moveRightE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::moveRight__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1aa401fe944efc7f224d9053c04334c853"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">moveRight</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">68</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap9moveRightE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Strafe right key (default: D). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap6moveUpE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap6moveUpE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap6moveUpE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::moveUp__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1a278e982b83258dddf480f8635c10279c"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">moveUp</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">69</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap6moveUpE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Ascend elevation key (default: E). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap8moveDownE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap8moveDownE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap8moveDownE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::moveDown__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1aa2123add8c0292ae5cc8146d9f396fd1"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">moveDown</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">81</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap8moveDownE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Descend elevation key (default: Q). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap17speedBoostPrimaryE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap17speedBoostPrimaryE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap17speedBoostPrimaryE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::speedBoostPrimary__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1ab283a4e8eacb7b2e415cafbe91468006"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">speedBoostPrimary</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">340</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap17speedBoostPrimaryE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Primary movement speed boost key (default: Left Shift). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap19speedBoostSecondaryE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap19speedBoostSecondaryE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap19speedBoostSecondaryE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::speedBoostSecondary__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1ab0b9e6d50feb64f6df653e711bd14259"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">speedBoostSecondary</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">344</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap19speedBoostSecondaryE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Secondary movement speed boost key (default: Right Shift). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap16speedSlowPrimaryE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap16speedSlowPrimaryE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap16speedSlowPrimaryE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::speedSlowPrimary__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1a22da3105b66f6dc4b2b0ac016f6ea20e"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">speedSlowPrimary</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">341</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap16speedSlowPrimaryE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Primary movement precision slow key (default: Left Ctrl). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap18speedSlowSecondaryE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap18speedSlowSecondaryE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap18speedSlowSecondaryE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::speedSlowSecondary__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1afc95e90de8b38244f99be02c5a5f8e7c"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">speedSlowSecondary</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">345</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap18speedSlowSecondaryE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Secondary movement precision slow key (default: Right Ctrl). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap10lookButtonE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap10lookButtonE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap10lookButtonE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::lookButton__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1a7b0aaf5ce263c67a7e8c0e19c8fcaaf9"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">lookButton</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap10lookButtonE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Mouse button held to rotate the camera view (default: Right Mouse Button = 1). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap11resetCameraE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap11resetCameraE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap11resetCameraE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::resetCamera__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1abb97a46dc4c82e221e5db8fb75fce447"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">resetCamera</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">70</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap11resetCameraE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Reset camera pose to initial authored transform (default: F). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap11toggleStatsE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap11toggleStatsE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap11toggleStatsE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::toggleStats__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1a0a2a9d66013a0716df0a50dba3890456"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">toggleStats</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap11toggleStatsE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Toggle window-title statistics and periodic telemetry logging (default: H). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap25togglePresentedOutputModeE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap25togglePresentedOutputModeE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap25togglePresentedOutputModeE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::togglePresentedOutputMode__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1a9ef92791532883a0e7339f1f405cc6cc"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">togglePresentedOutputMode</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap25togglePresentedOutputModeE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Toggle between camera presentation and an available explicit output (default: U). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap28cyclePresentedCameraPreviousE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap28cyclePresentedCameraPreviousE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap28cyclePresentedCameraPreviousE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::cyclePresentedCameraPrevious__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1a90687d98a0ca5b708dd0d1c18cb81e4d"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cyclePresentedCameraPrevious</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap28cyclePresentedCameraPreviousE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Switch active presentation view to previous camera (default: [). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap24cyclePresentedCameraNextE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap24cyclePresentedCameraNextE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap24cyclePresentedCameraNextE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::cyclePresentedCameraNext__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1aa6ecbe52044e5c840efe04fccaf3d4ba"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cyclePresentedCameraNext</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap24cyclePresentedCameraNextE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Switch active presentation view to next camera (default: ]). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap27cyclePresentedProbePreviousE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap27cyclePresentedProbePreviousE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap27cyclePresentedProbePreviousE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::cyclePresentedProbePrevious__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1acb8482feffce2e22ee22a9104f78eb50"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cyclePresentedProbePrevious</span></span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap27cyclePresentedProbePreviousE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Cycle previous probe or sensor attachment (default: ,). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap23cyclePresentedProbeNextE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap23cyclePresentedProbeNextE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap23cyclePresentedProbeNextE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::cyclePresentedProbeNext__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1ade49c762b0745704dcecc305f06b6b7b"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cyclePresentedProbeNext</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">46</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap23cyclePresentedProbeNextE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Cycle next probe or sensor attachment (default: .). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7cressim3neo6viewer17DebugViewerKeymap4quitE">
+<span id="_CPPv3N7cressim3neo6viewer17DebugViewerKeymap4quitE"></span><span id="_CPPv2N7cressim3neo6viewer17DebugViewerKeymap4quitE"></span><span id="cressim::neo::viewer::DebugViewerKeymap::quit__i"></span><span class="target" id="structcressim_1_1neo_1_1viewer_1_1DebugViewerKeymap_1a537140cf4c238791af9729c48004ae93"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">quit</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">256</span></span><a class="headerlink" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap4quitE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Exit application key (default: Escape). </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="graphics.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Graphics</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../python/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Python bindings API reference</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewerE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::viewer</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::viewer::DebugViewerApp</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppEv"><code class="docutils literal notranslate"><span class="pre">DebugViewerApp()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppD0Ev"><code class="docutils literal notranslate"><span class="pre">~DebugViewerApp()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERK14DebugViewerApp"><code class="docutils literal notranslate"><span class="pre">DebugViewerApp()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppaSERK14DebugViewerApp"><code class="docutils literal notranslate"><span class="pre">operator=()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp14DebugViewerAppERR14DebugViewerApp"><code class="docutils literal notranslate"><span class="pre">DebugViewerApp()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerAppaSERR14DebugViewerApp"><code class="docutils literal notranslate"><span class="pre">operator=()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp10initializeE18DebugViewerAppDescRN6engine13RuntimeConfigE"><code class="docutils literal notranslate"><span class="pre">initialize()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp3runERN6engine7RuntimeE24DebugViewerCameraBinding20DebugViewerCallbacks"><code class="docutils literal notranslate"><span class="pre">run()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp11requestExitEv"><code class="docutils literal notranslate"><span class="pre">requestExit()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer14DebugViewerApp8shutdownEv"><code class="docutils literal notranslate"><span class="pre">shutdown()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDescE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::viewer::DebugViewerAppDesc</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc11windowTitleE"><code class="docutils literal notranslate"><span class="pre">windowTitle</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc5widthE"><code class="docutils literal notranslate"><span class="pre">width</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc6heightE"><code class="docutils literal notranslate"><span class="pre">height</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc13windowEnabledE"><code class="docutils literal notranslate"><span class="pre">windowEnabled</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc13windowVisibleE"><code class="docutils literal notranslate"><span class="pre">windowVisible</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc15startFullscreenE"><code class="docutils literal notranslate"><span class="pre">startFullscreen</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc23startFullscreenWindowedE"><code class="docutils literal notranslate"><span class="pre">startFullscreenWindowed</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc5vSyncE"><code class="docutils literal notranslate"><span class="pre">vSync</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc16inputSensitivityE"><code class="docutils literal notranslate"><span class="pre">inputSensitivity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc9moveSpeedE"><code class="docutils literal notranslate"><span class="pre">moveSpeed</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc15speedBoostScaleE"><code class="docutils literal notranslate"><span class="pre">speedBoostScale</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc14speedSlowScaleE"><code class="docutils literal notranslate"><span class="pre">speedSlowScale</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc15wheelSpeedScaleE"><code class="docutils literal notranslate"><span class="pre">wheelSpeedScale</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc12minMoveSpeedE"><code class="docutils literal notranslate"><span class="pre">minMoveSpeed</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc12maxMoveSpeedE"><code class="docutils literal notranslate"><span class="pre">maxMoveSpeed</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc17fixedDeltaSecondsE"><code class="docutils literal notranslate"><span class="pre">fixedDeltaSeconds</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc16useFixedTimestepE"><code class="docutils literal notranslate"><span class="pre">useFixedTimestep</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc14stepSimulationE"><code class="docutils literal notranslate"><span class="pre">stepSimulation</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc9maxFramesE"><code class="docutils literal notranslate"><span class="pre">maxFrames</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc9showStatsE"><code class="docutils literal notranslate"><span class="pre">showStats</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc20enableDebugParticlesE"><code class="docutils literal notranslate"><span class="pre">enableDebugParticles</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc19statsIntervalFramesE"><code class="docutils literal notranslate"><span class="pre">statsIntervalFrames</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc16captureVideoPathE"><code class="docutils literal notranslate"><span class="pre">captureVideoPath</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc10captureFpsE"><code class="docutils literal notranslate"><span class="pre">captureFps</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc13simulationFpsE"><code class="docutils literal notranslate"><span class="pre">simulationFps</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc27captureSwitchIntervalFramesE"><code class="docutils literal notranslate"><span class="pre">captureSwitchIntervalFrames</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer18DebugViewerAppDesc6keymapE"><code class="docutils literal notranslate"><span class="pre">keymap</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer20DebugViewerCallbacksE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::viewer::DebugViewerCallbacks</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer20DebugViewerCallbacks10beforeTickE"><code class="docutils literal notranslate"><span class="pre">beforeTick</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer20DebugViewerCallbacks9afterTickE"><code class="docutils literal notranslate"><span class="pre">afterTick</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBindingE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::viewer::DebugViewerCameraBinding</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding12cameraEntityE"><code class="docutils literal notranslate"><span class="pre">cameraEntity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding9moveSpeedE"><code class="docutils literal notranslate"><span class="pre">moveSpeed</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding16inputSensitivityE"><code class="docutils literal notranslate"><span class="pre">inputSensitivity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding15speedBoostScaleE"><code class="docutils literal notranslate"><span class="pre">speedBoostScale</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer24DebugViewerCameraBinding14speedSlowScaleE"><code class="docutils literal notranslate"><span class="pre">speedSlowScale</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymapE"><code class="docutils literal notranslate"><span class="pre">cressim::neo::viewer::DebugViewerKeymap</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap11moveForwardE"><code class="docutils literal notranslate"><span class="pre">moveForward</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap12moveBackwardE"><code class="docutils literal notranslate"><span class="pre">moveBackward</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap8moveLeftE"><code class="docutils literal notranslate"><span class="pre">moveLeft</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap9moveRightE"><code class="docutils literal notranslate"><span class="pre">moveRight</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap6moveUpE"><code class="docutils literal notranslate"><span class="pre">moveUp</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap8moveDownE"><code class="docutils literal notranslate"><span class="pre">moveDown</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap17speedBoostPrimaryE"><code class="docutils literal notranslate"><span class="pre">speedBoostPrimary</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap19speedBoostSecondaryE"><code class="docutils literal notranslate"><span class="pre">speedBoostSecondary</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap16speedSlowPrimaryE"><code class="docutils literal notranslate"><span class="pre">speedSlowPrimary</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap18speedSlowSecondaryE"><code class="docutils literal notranslate"><span class="pre">speedSlowSecondary</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap10lookButtonE"><code class="docutils literal notranslate"><span class="pre">lookButton</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap11resetCameraE"><code class="docutils literal notranslate"><span class="pre">resetCamera</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap11toggleStatsE"><code class="docutils literal notranslate"><span class="pre">toggleStats</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap25togglePresentedOutputModeE"><code class="docutils literal notranslate"><span class="pre">togglePresentedOutputMode</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap28cyclePresentedCameraPreviousE"><code class="docutils literal notranslate"><span class="pre">cyclePresentedCameraPrevious</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap24cyclePresentedCameraNextE"><code class="docutils literal notranslate"><span class="pre">cyclePresentedCameraNext</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap27cyclePresentedProbePreviousE"><code class="docutils literal notranslate"><span class="pre">cyclePresentedProbePrevious</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap23cyclePresentedProbeNextE"><code class="docutils literal notranslate"><span class="pre">cyclePresentedProbeNext</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N7cressim3neo6viewer17DebugViewerKeymap4quitE"><code class="docutils literal notranslate"><span class="pre">quit</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../../_sources/reference/cpp/viewer.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
