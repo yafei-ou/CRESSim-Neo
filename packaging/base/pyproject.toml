@@ -34,3 +34,6 @@ test-skip = "*"
 
 [tool.cibuildwheel.linux]
 before-all = "python3 -m pip install --upgrade pip"
+
+[tool.cibuildwheel.windows]
+repair-wheel-command = "delvewheel repair --ignore-existing -w {dest_dir} {wheel}"
