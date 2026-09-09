@@ -302,8 +302,7 @@ struct SoftBodyShapeMatchingDesc
     std::uint32_t maximumClusterSize            = 16u;
     std::uint32_t solverIterations              = 2u;
 
-    float stiffness        = 0.0f;
-    float compliance       = 0.0f;
+    float stiffnessPerPass = 0.15f;
     float maximumCorrection = 0.0f;
 };
 
