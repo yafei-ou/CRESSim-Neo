@@ -527,6 +527,7 @@ struct World::Impl
     std::vector<std::uint32_t> mCurveRenderVertexCountByObject{};
     std::uint64_t mCachedPhysicsRenderableMappingsBodyTopologyRevision = ~0ull;
     std::uint64_t mCachedSoftBodyRenderTopologyRevision                = ~0ull;
+    std::uint64_t mCachedClothRenderTopologyRevision                   = ~0ull;
     std::uint64_t mCachedSoftBodyPhysicsRevision                       = ~0ull;
     std::uint64_t mCachedCurveRenderPhysicsRevision                    = ~0ull;
     std::uint64_t mEntityPoseRevision                                  = 1u;
@@ -3134,12 +3135,12 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
 {
     const std::uint64_t softBodyTopologyRevision = mImpl->mPhysicsWorld.softBodyTopologyRevision();
     const std::uint64_t clothTopologyRevision    = mImpl->mPhysicsWorld.clothTopologyRevision();
-    const std::uint64_t surfaceTopologyRevision =
-        softBodyTopologyRevision ^ (clothTopologyRevision + 0x9e3779b97f4a7c15ull);
-    if (mImpl->mCachedSoftBodyRenderTopologyRevision != surfaceTopologyRevision)
+    if (mImpl->mCachedSoftBodyRenderTopologyRevision != softBodyTopologyRevision ||
+        mImpl->mCachedClothRenderTopologyRevision != clothTopologyRevision)
     {
-        mImpl->mSoftBodyRenderBindingsDirty          = true;
-        mImpl->mCachedSoftBodyRenderTopologyRevision = surfaceTopologyRevision;
+        mImpl->mSoftBodyRenderBindingsDirty           = true;
+        mImpl->mCachedSoftBodyRenderTopologyRevision  = softBodyTopologyRevision;
+        mImpl->mCachedClothRenderTopologyRevision     = clothTopologyRevision;
     }
 
     const std::uint64_t physicsRevision = mImpl->mPhysicsWorld.authoredRevision();

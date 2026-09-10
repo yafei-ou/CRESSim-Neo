@@ -399,6 +399,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
     const std::uint32_t curveRenderCount =
         static_cast<std::uint32_t>(curveRenderData.descriptors.size());
+    const std::uint32_t surfaceDeformableCount =
+        static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size());
     const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
     const std::uint32_t suturingParticleCount    = world.suturingParticleCount();
     const float particleGridCellSize             = world.particleGridCellSize();
@@ -1324,7 +1326,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
         if (!mImpl->passDispatcher.updateSoftBodyBounds(computeBackend.computeContext,
-                                                        mImpl->sceneState, world.softBodyCount(),
+                                                        mImpl->sceneState, surfaceDeformableCount,
                                                         softBodyBoundsChunkCount))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftBodyBounds dispatch.");
