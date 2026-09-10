@@ -151,6 +151,10 @@ public:
                                   const PhysicsSceneGpuState &sceneState,
                                   std::uint32_t softBendCount,
                                   const GpuParticleDispatchConstants &constants);
+    bool solveClothDihedralConstraints(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t clothDihedralCount,
+                                       const GpuParticleDispatchConstants &constants);
     bool solveSoftTetConstraints(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState, std::uint32_t softTetCount,
                                  const GpuParticleDispatchConstants &constants);
@@ -507,6 +511,7 @@ private:
     gpu::GpuComputePass mSolveSuturingNodePathConstraintsPass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
     gpu::GpuComputePass mSolveSoftBendConstraintsPass;
+    gpu::GpuComputePass mSolveClothDihedralConstraintsPass;
     gpu::GpuComputePass mSolveSoftTetConstraintsPass;
     gpu::GpuComputePass mApplySoftEdgeCorrectionsPass;
     gpu::GpuComputePass mApplySoftBendCorrectionsPass;

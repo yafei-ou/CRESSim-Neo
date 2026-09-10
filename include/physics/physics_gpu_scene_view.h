@@ -176,6 +176,8 @@ struct PhysicsGpuSoftSceneView
         nullptr; ///< GPU buffer of DeformableDistanceConstraint edge constraints.
     Diligent::IBuffer *bendsBuffer =
         nullptr; ///< GPU buffer of DeformableBendConstraint bending constraints.
+    Diligent::IBuffer *clothDihedralsBuffer =
+        nullptr; ///< GPU buffer of ClothDihedralConstraint constraints.
     Diligent::IBuffer *tetsBuffer =
         nullptr; ///< GPU buffer of DeformableVolumeConstraint tetrahedral volume constraints.
     Diligent::IBuffer *strandSegmentsBuffer =
@@ -209,6 +211,7 @@ struct PhysicsGpuSoftSceneView
     std::uint32_t softBodyCount           = 0; ///< Total soft bodies in the scene.
     std::uint32_t edgeCount               = 0; ///< Number of deformable edge constraints.
     std::uint32_t bendCount               = 0; ///< Number of deformable bending constraints.
+    std::uint32_t clothDihedralCount      = 0; ///< Number of cloth dihedral constraints.
     std::uint32_t tetCount                = 0; ///< Number of tetrahedral volume constraints.
     std::uint32_t strandSegmentCount      = 0; ///< Number of strand segments.
     std::uint32_t strandJointCount        = 0; ///< Number of strand joints.

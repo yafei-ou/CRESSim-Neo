@@ -147,6 +147,7 @@ enum class ParticleOwnerType : std::uint32_t
     FluidBody = 2u, ///< Particle owned by a FluidBody.
     Strand    = 3u, ///< Particle owned by a 1D elastic Strand.
     RigidBody = 4u, ///< Proxy particle attached to a RigidBody.
+    Cloth     = 5u, ///< Particle owned by a surface cloth instance.
 };
 
 /// @brief Target owner classification when referencing particles in authored constraints.
@@ -155,6 +156,7 @@ enum class AuthoredParticleReferenceType : std::uint32_t
     SoftBodyParticle   = 0u, ///< Reference indexes into a soft body's particle array.
     StrandParticle     = 1u, ///< Reference indexes into a strand's particle array.
     RigidProxyParticle = 2u, ///< Reference indexes into a rigid body's proxy particle array.
+    ClothParticle      = 3u, ///< Reference indexes into a cloth's particle array.
 };
 
 /// @brief Role of a particle in surgical needle and suturing thread sequences.
@@ -465,6 +467,46 @@ struct SoftBodyState
         boundaryFaces; ///< Triangle indices for surface boundary rendering.
 };
 
+/// @brief Explicit indexed simulation triangle mesh used to author cloth particles and topology.
+struct ClothMeshSource
+{
+    std::vector<Diligent::float3> objectSpaceRestPositions;
+    std::vector<std::uint32_t> triangleVertexIndices;
+    std::vector<std::uint32_t> staticParticleIndices;
+};
+
+/// @brief Cloth contact material description.
+struct ClothMaterialDesc
+{
+    ParticleContactMaterialDesc contact{};
+};
+
+/// @brief Authored and derived state for a surface cloth instance.
+struct ClothState
+{
+    common::EntityId entityId      = common::kInvalidEntityId;
+    std::uint32_t environmentIndex = 0u;
+    std::uint32_t collisionLayer   = 1u;
+    std::uint32_t collisionMask    = 0xffffffffu;
+    ClothMeshSource source{};
+    ClothMaterialDesc material{};
+    std::vector<std::uint32_t> renderVertexToParticle{};
+    common::Transform restTransform{};
+    float particleMass                       = 1.0f;
+    float particleRadius                     = 0.125f;
+    float structuralCompliance               = 0.0f;
+    float bendCompliance                     = 0.0f;
+    bool selfCollisionEnabled                = false;
+    std::uint32_t contactMaterialIndex       = 0u;
+    std::uint32_t particleOffset             = 0u;
+    std::uint32_t particleCount              = 0u;
+    std::uint32_t structuralConstraintOffset = 0u;
+    std::uint32_t structuralConstraintCount  = 0u;
+    std::uint32_t dihedralConstraintOffset   = 0u;
+    std::uint32_t dihedralConstraintCount    = 0u;
+    std::vector<Diligent::float3> restPositions{};
+};
+
 /// @brief State descriptor for an authored 1D elastic Cosserat-like strand or surgical suture
 /// thread.
 struct StrandState
@@ -690,6 +732,19 @@ struct DeformableBendConstraint
 
 /// @brief Alias for deformable bending constraint.
 using SoftBend = DeformableBendConstraint;
+
+/// @brief Signed four-particle dihedral-angle constraint for a cloth interior edge.
+struct ClothDihedralConstraint
+{
+    std::uint32_t edgeParticle0     = 0u;
+    std::uint32_t edgeParticle1     = 0u;
+    std::uint32_t oppositeParticle0 = 0u;
+    std::uint32_t oppositeParticle1 = 0u;
+    float restAngle                 = 0.0f;
+    float compliance                = 0.0f;
+};
+
+static_assert(sizeof(ClothDihedralConstraint) == 24u);
 
 /// @brief Segment constraint connecting adjacent particles along an elastic strand.
 struct StrandSegmentConstraint

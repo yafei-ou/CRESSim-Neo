@@ -162,6 +162,7 @@ public:
     /// @param component Soft body component data.
     /// @return True if set successfully.
     bool setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
+    bool setCloth(common::EntityId entityId, const ClothComponent &component);
 
     /// @brief Assigns a MeshfreeSoftBodyComponent to an entity.
     /// @param entityId Target entity ID.
@@ -173,6 +174,7 @@ public:
     /// @param entityId Target entity ID.
     /// @return True if either the soft body or its amplitude ranges existed and was removed.
     bool removeSoftBody(common::EntityId entityId);
+    bool removeCloth(common::EntityId entityId);
 
     /// @brief Assigns a StrandComponent to an entity.
     /// @param entityId Target entity ID.
@@ -410,6 +412,7 @@ public:
 
     /// @brief Returns the soft-body component for an entity, or std::nullopt.
     std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
+    std::optional<ClothComponent> tryGetCloth(common::EntityId entityId) const;
 
     /// @brief Returns the strand component for an entity, or std::nullopt.
     std::optional<StrandComponent> tryGetStrand(common::EntityId entityId) const;
@@ -482,6 +485,8 @@ public:
 
     /// @brief Returns authored rest positions for a soft body, or std::nullopt.
     std::optional<SoftBodyAuthoringParticles> tryGetSoftBodyAuthoringParticles(
+        common::EntityId entityId) const;
+    std::optional<ClothAuthoringParticles> tryGetClothAuthoringParticles(
         common::EntityId entityId) const;
 
     /// @brief Returns ultrasound scatterer amplitude ranges for an entity, or nullptr.
@@ -557,6 +562,8 @@ public:
 
     /// @brief Returns soft-body vertex bindings prepared for GPU upload.
     const std::vector<graphics::GpuSoftBodyVertexBinding> &softBodyVertexBindings() const noexcept;
+    const std::vector<graphics::GpuSoftBodyVertexBinding> &surfaceDeformableVertexBindings()
+        const noexcept;
 
     /// @brief Returns the opaque indirect-draw registry.
     const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;

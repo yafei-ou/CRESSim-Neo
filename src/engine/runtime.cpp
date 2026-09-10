@@ -874,10 +874,12 @@ bool Runtime::tryGetPreparedParticleLayoutMapping(ParticleLayoutMapping &outMapp
 
     const physics::ParticleSoAHost &particles = physicsWorld.particles();
     const auto &softBodies                    = physicsWorld.softBodySnapshot();
+    const auto &cloths                        = physicsWorld.clothSnapshot();
     const auto &fluids                        = physicsWorld.fluidSnapshot();
     const auto &strands                       = physicsWorld.strandSnapshot();
     outMapping.particleCount                  = static_cast<std::uint32_t>(particles.size());
     outMapping.softBodyCount                  = static_cast<std::uint32_t>(softBodies.size());
+    outMapping.clothCount                     = static_cast<std::uint32_t>(cloths.size());
     outMapping.fluidCount                     = static_cast<std::uint32_t>(fluids.size());
     outMapping.strandCount                    = static_cast<std::uint32_t>(strands.size());
     outMapping.layoutRevision                 = physicsWorld.softParticleRevision();
@@ -907,6 +909,18 @@ bool Runtime::tryGetPreparedParticleLayoutMapping(ParticleLayoutMapping &outMapp
         outMapping.softBodyEnvironmentIndices.push_back(softBody.environmentIndex);
         outMapping.softBodyParticleOffsets.push_back(softBody.particleOffset);
         outMapping.softBodyParticleCounts.push_back(softBody.particleCount);
+    }
+
+    outMapping.clothEntityIds.reserve(cloths.size());
+    outMapping.clothEnvironmentIndices.reserve(cloths.size());
+    outMapping.clothParticleOffsets.reserve(cloths.size());
+    outMapping.clothParticleCounts.reserve(cloths.size());
+    for (const auto &cloth : cloths)
+    {
+        outMapping.clothEntityIds.push_back(cloth.entityId);
+        outMapping.clothEnvironmentIndices.push_back(cloth.environmentIndex);
+        outMapping.clothParticleOffsets.push_back(cloth.particleOffset);
+        outMapping.clothParticleCounts.push_back(cloth.particleCount);
     }
 
     outMapping.fluidEntityIds.reserve(fluids.size());

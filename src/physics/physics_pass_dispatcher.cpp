@@ -272,6 +272,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mSolveSuturingNodePathConstraintsPass, kSolveSuturingNodePathConstraints) ||
         !initSolverConfigPass(mSolveSoftEdgeConstraintsPass, kSolveSoftEdgeConstraints) ||
         !initSolverConfigPass(mSolveSoftBendConstraintsPass, kSolveSoftBendConstraints) ||
+        !initSolverConfigPass(mSolveClothDihedralConstraintsPass, kSolveClothDihedralConstraints) ||
         !initSolverConfigPass(mSolveSoftTetConstraintsPass, kSolveSoftTetConstraints) ||
         !initPass(mApplySoftEdgeCorrectionsPass, kApplySoftEdgeCorrections) ||
         !initPass(mApplySoftBendCorrectionsPass, kApplySoftBendCorrections) ||
@@ -1659,7 +1660,7 @@ bool PhysicsPassDispatcher::clearSoftConstraintState(Diligent::IDeviceContext *c
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_SoftEdgeLambdas", transient.softEdgeLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        gpu::GpuBufferBinding{"g_SoftBendLambdas", transient.softBendLambdasBuffer,
+        gpu::GpuBufferBinding{"g_BendLambdas", transient.bendLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_SoftTetLambdas", transient.softTetLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -2125,15 +2126,41 @@ bool PhysicsPassDispatcher::solveSoftBendConstraints(Diligent::IDeviceContext *c
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftBends", softTopology.bendsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_SoftBendLambdas", transient.softBendLambdasBuffer,
+        gpu::GpuBufferBinding{"g_BendLambdas", transient.bendLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        gpu::GpuBufferBinding{"g_SoftBendCorrections", transient.softBendCorrectionsBuffer,
+        gpu::GpuBufferBinding{"g_BendCorrections", transient.bendCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     return writeParticleDispatchConstants(computeContext, constants) &&
            mSolveSoftBendConstraintsPass.dispatch(computeContext, kDefaultVariant, solveBindings,
                                                   dispatchGroupCount(softBendCount));
+}
+
+bool PhysicsPassDispatcher::solveClothDihedralConstraints(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t clothDihedralCount, const GpuParticleDispatchConstants &constants)
+{
+    if (clothDihedralCount == 0u || constants.particleCount == 0u) return true;
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const auto &transient     = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ClothDihedrals", softTopology.clothDihedralsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_BendLambdas", transient.bendLambdasBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_BendCorrections", transient.bendCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mSolveClothDihedralConstraintsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                       dispatchGroupCount(clothDihedralCount));
 }
 
 bool PhysicsPassDispatcher::solveSoftTetConstraints(Diligent::IDeviceContext *computeContext,
@@ -2221,7 +2248,7 @@ bool PhysicsPassDispatcher::applySoftBendCorrections(Diligent::IDeviceContext *c
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleIncidentBends", softTopology.particleIncidentBendsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_SoftBendCorrections", transient.softBendCorrectionsBuffer,
+        gpu::GpuBufferBinding{"g_BendCorrections", transient.bendCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
     };
 
@@ -5673,6 +5700,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
         mSolveSuturingNodePathConstraintsPass.forceRecreateAllVariants() &&
         mSolveSoftEdgeConstraintsPass.forceRecreateAllVariants() &&
         mSolveSoftBendConstraintsPass.forceRecreateAllVariants() &&
+        mSolveClothDihedralConstraintsPass.forceRecreateAllVariants() &&
         mSolveSoftTetConstraintsPass.forceRecreateAllVariants() &&
         mApplySoftEdgeCorrectionsPass.forceRecreateAllVariants() &&
         mApplySoftBendCorrectionsPass.forceRecreateAllVariants() &&
@@ -5762,6 +5790,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
 
     return bindSolverConfig(mSolveSoftEdgeConstraintsPass) &&
            bindSolverConfig(mSolveSoftBendConstraintsPass) &&
+           bindSolverConfig(mSolveClothDihedralConstraintsPass) &&
            bindSolverConfig(mSolveSoftTetConstraintsPass) &&
            bindSolverConfig(mSolveStrandSegmentConstraintsPass) &&
            bindSolverConfig(mSolveStrandJointConstraintsPass) &&

@@ -126,6 +126,7 @@ public:
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> edgesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bendsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> clothDihedralsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> tetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandJointsBuffer;
@@ -219,10 +220,10 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidAnisotropy3Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidVorticitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeLambdasBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBendLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> bendLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeCorrectionsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBendCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> bendCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandJointLambdasBuffer;
@@ -374,21 +375,22 @@ public:
         Diligent::IRenderDevice *renderDevice, std::uint32_t bodyCount, std::uint32_t colliderCount,
         std::uint32_t particleCount, std::uint32_t fluidCount,
         std::uint32_t particleContactMaterialCount, std::uint32_t fluidMaterialCount,
-        std::uint32_t softEdgeCount, std::uint32_t softBendCount, std::uint32_t softTetCount,
-        std::uint32_t strandSegmentCount, std::uint32_t strandJointCount,
-        std::uint32_t strandDistanceCount, std::uint32_t ballJointCount,
-        std::uint32_t sphericalJointCount, std::uint32_t hingeJointCount,
-        std::uint32_t sliderJointCount, std::uint32_t rigidParticleAttachmentCount,
-        std::uint32_t strandRigidAttachmentCount, std::uint32_t rigidDistanceConstraintCount,
-        std::uint32_t softRenderVertexCount, std::uint32_t softRenderTriangleIndexCount,
-        std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
-        std::uint32_t softBodyBoundsChunkCount, std::uint32_t suturingPairCount,
-        std::uint32_t suturingPathHeaderCount, std::uint32_t suturingPathNodeCount,
-        std::uint32_t routedCableCount, std::uint32_t routedCableRoutePointCount,
-        std::uint32_t routedCableDebugSegmentCount, std::uint32_t curveRenderCount,
-        std::uint32_t curveRenderParticleIndexCount, std::uint32_t curveRenderVertexCount,
-        Diligent::Uint64 sharedContextMask, const std::uint32_t *sharedQueueFamilyIndices,
-        std::uint32_t sharedQueueFamilyIndexCount, bool useNativeFloatAtomics);
+        std::uint32_t softEdgeCount, std::uint32_t softBendCount, std::uint32_t clothDihedralCount,
+        std::uint32_t softTetCount, std::uint32_t strandSegmentCount,
+        std::uint32_t strandJointCount, std::uint32_t strandDistanceCount,
+        std::uint32_t ballJointCount, std::uint32_t sphericalJointCount,
+        std::uint32_t hingeJointCount, std::uint32_t sliderJointCount,
+        std::uint32_t rigidParticleAttachmentCount, std::uint32_t strandRigidAttachmentCount,
+        std::uint32_t rigidDistanceConstraintCount, std::uint32_t softRenderVertexCount,
+        std::uint32_t softRenderTriangleIndexCount, std::uint32_t softRenderTriangleCount,
+        std::uint32_t softBodyRangeCount, std::uint32_t softBodyBoundsChunkCount,
+        std::uint32_t suturingPairCount, std::uint32_t suturingPathHeaderCount,
+        std::uint32_t suturingPathNodeCount, std::uint32_t routedCableCount,
+        std::uint32_t routedCableRoutePointCount, std::uint32_t routedCableDebugSegmentCount,
+        std::uint32_t curveRenderCount, std::uint32_t curveRenderParticleIndexCount,
+        std::uint32_t curveRenderVertexCount, Diligent::Uint64 sharedContextMask,
+        const std::uint32_t *sharedQueueFamilyIndices, std::uint32_t sharedQueueFamilyIndexCount,
+        bool useNativeFloatAtomics);
     bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
                           std::uint32_t bodyCount, std::uint32_t colliderCount);
     void clearPublishedSceneCounts() noexcept;
@@ -399,6 +401,7 @@ public:
         const std::vector<FluidMaterialGpu> &fluidMaterials,
         const std::vector<DeformableDistanceConstraint> &distanceConstraints,
         const std::vector<DeformableBendConstraint> &bendConstraints,
+        const std::vector<ClothDihedralConstraint> &clothDihedralConstraints,
         const std::vector<DeformableVolumeConstraint> &volumeConstraints,
         const std::vector<StrandSegmentConstraint> &strandSegments,
         const std::vector<StrandJointConstraint> &strandJoints,
@@ -501,6 +504,7 @@ private:
         const SoftRenderDataHost &softRenderData,
         const std::vector<DeformableDistanceConstraint> &distanceConstraints,
         const std::vector<DeformableBendConstraint> &bendConstraints,
+        const std::vector<ClothDihedralConstraint> &clothDihedralConstraints,
         const std::vector<DeformableVolumeConstraint> &volumeConstraints,
         const std::vector<StrandSegmentConstraint> &strandSegments,
         const std::vector<StrandJointConstraint> &strandJoints,
@@ -549,6 +553,8 @@ private:
     std::uint32_t mFluidMaterialCapacity                               = 0;
     std::uint32_t mSoftEdgeCapacity                                    = 0;
     std::uint32_t mSoftBendCapacity                                    = 0;
+    std::uint32_t mClothDihedralCapacity                               = 0;
+    std::uint32_t mBendStateCapacity                                   = 0;
     std::uint32_t mSoftTetCapacity                                     = 0;
     std::uint32_t mStrandSegmentCapacity                               = 0;
     std::uint32_t mStrandJointCapacity                                 = 0;
@@ -568,6 +574,7 @@ private:
     std::uint32_t mFluidMaterialCount                                  = 0;
     std::uint32_t mSoftEdgeCount                                       = 0;
     std::uint32_t mSoftBendCount                                       = 0;
+    std::uint32_t mClothDihedralCount                                  = 0;
     std::uint32_t mSoftTetCount                                        = 0;
     std::uint32_t mStrandSegmentCount                                  = 0;
     std::uint32_t mStrandJointCount                                    = 0;

@@ -455,7 +455,7 @@ constexpr Diligent::ShaderResourceVariableDesc kClearSoftConstraintStateVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdgeLambdas",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBendLambdas",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_BendLambdas",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftTetLambdas",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -657,9 +657,22 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSoftBendConstraintsVars[] =
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBends", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBendLambdas",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_BendLambdas",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBendCorrections",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_BendCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kSolveClothDihedralConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ClothDihedrals",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_BendLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_BendCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -697,7 +710,7 @@ constexpr Diligent::ShaderResourceVariableDesc kApplySoftBendCorrectionsVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleIncidentBends",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBendCorrections",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_BendCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -2402,6 +2415,14 @@ const gpu::GpuComputePassDefinition kSolveSoftBendConstraints{
     "CRESSimNeo.Physics.SolveSoftBendConstraints.PSO",
     kSolveSoftBendConstraintsVars,
     std::size(kSolveSoftBendConstraintsVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveClothDihedralConstraints{
+    "physics/soft/solver/physics_cloth_solve_dihedral_constraints.cs.hlsl",
+    "CRESSimNeo.Physics.SolveClothDihedralConstraints.CS",
+    "CRESSimNeo.Physics.SolveClothDihedralConstraints.PSO",
+    kSolveClothDihedralConstraintsVars,
+    std::size(kSolveClothDihedralConstraintsVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftTetConstraints{

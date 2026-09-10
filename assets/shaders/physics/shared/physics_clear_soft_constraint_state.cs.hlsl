@@ -5,7 +5,7 @@
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticlePositionCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticleVelocityCorrections);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftEdgeLambdas);
-CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftBendLambdas);
+CRESSIM_RW_STRUCTURED_BUFFER(float, g_BendLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftTetLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_StrandSegmentLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_StrandJointLambdas);
@@ -27,9 +27,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         CRESSIM_SB_STORE(g_SoftEdgeLambdas, idx, 0.0);
     }
 
-    if (idx < softBendCount)
+    if (idx < softBendCount + clothDihedralCount)
     {
-        CRESSIM_SB_STORE(g_SoftBendLambdas, idx, 0.0);
+        CRESSIM_SB_STORE(g_BendLambdas, idx, 0.0);
     }
 
     if (idx < softTetCount)

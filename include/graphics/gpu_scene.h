@@ -92,6 +92,7 @@ enum class GpuRenderableDeformableType : std::uint32_t
     None     = 0u, ///< Rigid transform only; no GPU deformation.
     SoftBody = 1u, ///< Volumetric 3D soft-body particle skinning.
     Curve    = 2u, ///< 1D elastic strand / curve deformation.
+    Cloth    = 3u, ///< Surface cloth using the shared deformable-surface pipeline.
 };
 
 /// @brief GPU per-renderable object descriptor consumed by compute culling and vertex shaders.

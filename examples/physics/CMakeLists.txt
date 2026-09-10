@@ -66,6 +66,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_cloth_hanging_patch
+    SOURCE cloth_hanging_patch.cpp
+)
+
+add_cressim_example(
     NAME physics_soft_body_arc_needle_thread_kinematic
     SOURCE soft_body_arc_needle_thread_kinematic.cpp
 )

@@ -46,6 +46,7 @@ extern const gpu::GpuComputePassDefinition kAssignSuturingInsideParticles;
 extern const gpu::GpuComputePassDefinition kSolveSuturingNodePathConstraints;
 extern const gpu::GpuComputePassDefinition kSolveSoftEdgeConstraints;
 extern const gpu::GpuComputePassDefinition kSolveSoftBendConstraints;
+extern const gpu::GpuComputePassDefinition kSolveClothDihedralConstraints;
 extern const gpu::GpuComputePassDefinition kSolveSoftTetConstraints;
 extern const gpu::GpuComputePassDefinition kApplySoftEdgeCorrections;
 extern const gpu::GpuComputePassDefinition kApplySoftBendCorrections;

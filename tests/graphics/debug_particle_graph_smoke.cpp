@@ -89,6 +89,7 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
     const auto &particles          = physicsWorld.particles();
     const auto &softEdges             = physicsWorld.softEdges();
     const auto &softBends             = physicsWorld.bendConstraints();
+    const auto &clothDihedrals        = physicsWorld.clothDihedralConstraints();
     const auto &softTets              = physicsWorld.softTets();
     const auto &softRenderData        = physicsWorld.softRenderData();
     const auto &curveRenderData       = physicsWorld.curveRenderData();
@@ -136,6 +137,7 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
             static_cast<std::uint32_t>(physicsWorld.fluidMaterials().size()),
             static_cast<std::uint32_t>(softEdges.size()),
             static_cast<std::uint32_t>(softBends.size()),
+            static_cast<std::uint32_t>(clothDihedrals.size()),
             static_cast<std::uint32_t>(softTets.size()),
             static_cast<std::uint32_t>(strandSegments.size()),
             static_cast<std::uint32_t>(strandJoints.size()),

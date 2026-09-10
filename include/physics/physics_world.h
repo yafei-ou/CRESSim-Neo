@@ -100,6 +100,9 @@ public:
     /// @return True if successfully inserted or updated.
     bool upsertSoftBody(const SoftBodyState &state);
 
+    /// @brief Inserts or transactionally updates an authored cloth.
+    bool upsertCloth(const ClothState &state);
+
     /// @brief Inserts or updates an authored 1D elastic strand.
     /// @param state Strand state.
     /// @return True if successfully inserted or updated.
@@ -201,6 +204,8 @@ public:
     /// @param entityId Entity ID of the soft body to remove.
     /// @return True if removed, false otherwise.
     bool removeSoftBody(common::EntityId entityId);
+
+    bool removeCloth(common::EntityId entityId);
 
     /// @brief Removes a strand by its entity ID.
     /// @param entityId Entity ID of the strand to remove.
@@ -335,6 +340,9 @@ public:
     /// @return Const pointer to SoftBodyState or nullptr if not found.
     const SoftBodyState *tryGetSoftBody(common::EntityId entityId) const;
 
+    ClothState *tryGetCloth(common::EntityId entityId);
+    const ClothState *tryGetCloth(common::EntityId entityId) const;
+
     /// @brief Attempts to retrieve mutable pointer to a strand by entity ID.
     /// @param entityId Entity ID of the strand.
     /// @return Pointer to StrandState or nullptr if not found.
@@ -351,6 +359,9 @@ public:
     /// @return True if found and rest positions populated.
     bool tryGetSoftBodyAuthoringRestPositions(
         common::EntityId entityId, std::vector<Diligent::float3> &outRestPositions) const;
+
+    bool tryGetClothAuthoringRestPositions(common::EntityId entityId,
+                                           std::vector<Diligent::float3> &outRestPositions) const;
 
     /// @brief Attempts to retrieve mutable pointer to a fluid body by entity ID.
     /// @param entityId Entity ID of the fluid.
@@ -488,6 +499,8 @@ public:
     /// @return Const reference to soft body state vector.
     const std::vector<SoftBodyState> &softBodySnapshot() const noexcept;
 
+    const std::vector<ClothState> &clothSnapshot() const noexcept;
+
     /// @brief Gets snapshot vector of all authored strands.
     /// @return Const reference to strand state vector.
     const std::vector<StrandState> &strandSnapshot() const noexcept;
@@ -585,6 +598,8 @@ public:
     /// @brief Gets resolved deformable bending constraints.
     /// @return Const reference to DeformableBendConstraint vector.
     const std::vector<DeformableBendConstraint> &bendConstraints() const noexcept;
+
+    const std::vector<ClothDihedralConstraint> &clothDihedralConstraints() const noexcept;
 
     /// @brief Gets resolved deformable volume constraints.
     /// @return Const reference to DeformableVolumeConstraint vector.
@@ -692,6 +707,8 @@ public:
     /// @brief Gets total number of active soft bodies.
     /// @return Number of soft bodies.
     std::uint32_t softBodyCount() const noexcept;
+
+    std::uint32_t clothCount() const noexcept;
 
     /// @brief Gets total number of active strands.
     /// @return Number of strands.
@@ -827,6 +844,8 @@ public:
     /// @brief Revision counter tracking soft body entity topology changes.
     /// @return Revision number.
     std::uint64_t softBodyTopologyRevision() const noexcept;
+
+    std::uint64_t clothTopologyRevision() const noexcept;
 
     /// @brief Revision counter tracking particle count and memory layout changes.
     /// @return Revision number.

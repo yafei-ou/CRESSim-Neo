@@ -435,6 +435,7 @@ struct World::Impl
     {
         bool hasRigidBody = false;
         bool hasSoftBody  = false;
+        bool hasCloth     = false;
         bool hasStrand    = false;
         bool hasFluid     = false;
         std::vector<ColliderHandle> colliders;
@@ -611,6 +612,7 @@ bool World::destroyEntity(common::EntityId entityId)
     removeSpotLight(entityId);
     removeRigidBody(entityId);
     removeSoftBody(entityId);
+    removeCloth(entityId);
     removeStrand(entityId);
     removeProceduralDeformableCurveRender(entityId);
     removeFluid(entityId);
@@ -695,6 +697,15 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
                 }
             }
         }
+        if (physIt->second.hasCloth)
+        {
+            if (physics::ClothState *cloth = mImpl->mPhysicsWorld.tryGetCloth(entityId))
+            {
+                physics::ClothState updated = *cloth;
+                updated.environmentIndex    = envIndex;
+                if (!mImpl->mPhysicsWorld.upsertCloth(updated)) return false;
+            }
+        }
         if (physIt->second.hasStrand)
         {
             if (physics::StrandState *strand = mImpl->mPhysicsWorld.tryGetStrand(entityId))
@@ -751,6 +762,17 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
                                           "soft-body environment for entity ",
                                           entityId, ".");
                     }
+                }
+            }
+            if (physIt->second.hasCloth)
+            {
+                if (physics::ClothState *cloth = mImpl->mPhysicsWorld.tryGetCloth(entityId))
+                {
+                    physics::ClothState reverted = *cloth;
+                    reverted.environmentIndex    = previousEnv;
+                    if (!mImpl->mPhysicsWorld.upsertCloth(reverted))
+                        CRESSIM_LOG_ERROR(
+                            "setEntityEnvironment failed to restore cloth environment.");
                 }
             }
             if (physIt->second.hasStrand)
@@ -1169,6 +1191,13 @@ void World::setTransform(common::EntityId entityId, const TransformComponent &co
                               ".");
         }
     }
+    if (auto *cloth = mImpl->mPhysicsWorld.tryGetCloth(entityId))
+    {
+        physics::ClothState updated = *cloth;
+        updated.restTransform       = component.worldTransform;
+        if (!mImpl->mPhysicsWorld.upsertCloth(updated))
+            CRESSIM_LOG_ERROR("setTransform failed to rebuild cloth for entity ", entityId, ".");
+    }
     if (auto *fluid = mImpl->mPhysicsWorld.tryGetFluid(entityId))
     {
         physics::FluidState updated = *fluid;
@@ -1553,6 +1582,12 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     {
         return false;
     }
+    if (const auto link = mImpl->mPhysicsLinks.find(entityId);
+        link != mImpl->mPhysicsLinks.end() && link->second.hasCloth)
+    {
+        CRESSIM_LOG_ERROR("setSoftBody cannot coexist with Cloth on the same entity.");
+        return false;
+    }
 
     if (!tryGetMeshRenderer(entityId).has_value())
     {
@@ -1591,6 +1626,44 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     return true;
 }
 
+bool World::setCloth(common::EntityId entityId, const ClothComponent &component)
+{
+    if (entityId == common::kInvalidEntityId || !mImpl->requireAliveEntity(entityId, "setCloth"))
+        return false;
+    if (const auto link = mImpl->mPhysicsLinks.find(entityId);
+        link != mImpl->mPhysicsLinks.end() && link->second.hasSoftBody)
+    {
+        CRESSIM_LOG_ERROR("setCloth cannot coexist with SoftBody on the same entity.");
+        return false;
+    }
+    if (!tryGetMeshRenderer(entityId).has_value())
+        CRESSIM_LOG_WARNING("setCloth without a mesh renderer on the same entity.");
+    TransformComponent transform{};
+    if (const auto t = tryGetTransform(entityId)) transform = *t;
+    physics::ClothState state{};
+    state.entityId               = entityId;
+    state.environmentIndex       = entityEnvironment(entityId);
+    state.source                 = component.source;
+    state.material               = component.material;
+    state.renderVertexToParticle = component.renderVertexToParticle;
+    state.restTransform          = transform.worldTransform;
+    state.particleMass           = component.particleMass;
+    state.particleRadius         = component.particleRadius;
+    state.structuralCompliance   = component.structuralCompliance;
+    state.bendCompliance         = component.bendCompliance;
+    state.selfCollisionEnabled   = component.selfCollisionEnabled;
+    state.collisionLayer         = component.collisionLayer;
+    state.collisionMask          = component.collisionMask;
+    const bool hadCloth          = mImpl->mPhysicsWorld.tryGetCloth(entityId) != nullptr;
+    const std::uint64_t previousTopologyRevision = mImpl->mPhysicsWorld.clothTopologyRevision();
+    if (!mImpl->mPhysicsWorld.upsertCloth(state)) return false;
+    mImpl->mPhysicsLinks[entityId].hasCloth = true;
+    if (!hadCloth) mImpl->mDrawRegistryDirty = true;
+    if (mImpl->mPhysicsWorld.clothTopologyRevision() != previousTopologyRevision)
+        mImpl->mSoftBodyRenderBindingsDirty = true;
+    return true;
+}
+
 bool World::setMeshfreeSoftBody(common::EntityId entityId,
                                 const MeshfreeSoftBodyComponent &component)
 {
@@ -1602,6 +1675,12 @@ bool World::setMeshfreeSoftBody(common::EntityId entityId,
 
     if (!mImpl->requireAliveEntity(entityId, "setMeshfreeSoftBody"))
     {
+        return false;
+    }
+    if (const auto link = mImpl->mPhysicsLinks.find(entityId);
+        link != mImpl->mPhysicsLinks.end() && link->second.hasCloth)
+    {
+        CRESSIM_LOG_ERROR("setMeshfreeSoftBody cannot coexist with Cloth on the same entity.");
         return false;
     }
 
@@ -1658,6 +1737,25 @@ bool World::removeSoftBody(common::EntityId entityId)
     mImpl->mDrawRegistryDirty           = true;
     mImpl->mSoftBodyRenderBindingsDirty = true;
     return mImpl->mPhysicsWorld.removeSoftBody(entityId) || clearedAmplitudeRanges;
+}
+
+bool World::removeCloth(common::EntityId entityId)
+{
+    if (auto it = mImpl->mPhysicsLinks.find(entityId); it != mImpl->mPhysicsLinks.end())
+        it->second.hasCloth = false;
+    const bool removed = mImpl->mPhysicsWorld.removeCloth(entityId);
+    if (removed)
+    {
+        if (const auto renderIt = mImpl->mRenderableIndices.find(entityId);
+            renderIt != mImpl->mRenderableIndices.end())
+        {
+            mImpl->markRenderablePoseDirty(static_cast<std::uint32_t>(renderIt->second));
+            mImpl->markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
+        }
+        mImpl->mDrawRegistryDirty           = true;
+        mImpl->mSoftBodyRenderBindingsDirty = true;
+    }
+    return removed;
 }
 
 bool World::setStrand(common::EntityId entityId, const StrandComponent &component)
@@ -2557,6 +2655,24 @@ std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId
     return component;
 }
 
+std::optional<ClothComponent> World::tryGetCloth(common::EntityId entityId) const
+{
+    const physics::ClothState *cloth = mImpl->mPhysicsWorld.tryGetCloth(entityId);
+    if (cloth == nullptr) return std::nullopt;
+    ClothComponent component{};
+    component.source                 = cloth->source;
+    component.material               = cloth->material;
+    component.renderVertexToParticle = cloth->renderVertexToParticle;
+    component.particleMass           = cloth->particleMass;
+    component.particleRadius         = cloth->particleRadius;
+    component.structuralCompliance   = cloth->structuralCompliance;
+    component.bendCompliance         = cloth->bendCompliance;
+    component.selfCollisionEnabled   = cloth->selfCollisionEnabled;
+    component.collisionLayer         = cloth->collisionLayer;
+    component.collisionMask          = cloth->collisionMask;
+    return component;
+}
+
 std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) const
 {
     const physics::StrandState *strand = mImpl->mPhysicsWorld.tryGetStrand(entityId);
@@ -2732,6 +2848,18 @@ std::optional<SoftBodyAuthoringParticles> World::tryGetSoftBodyAuthoringParticle
     return particles;
 }
 
+std::optional<ClothAuthoringParticles> World::tryGetClothAuthoringParticles(
+    common::EntityId entityId) const
+{
+    const physics::ClothState *cloth = mImpl->mPhysicsWorld.tryGetCloth(entityId);
+    if (cloth == nullptr) return std::nullopt;
+    ClothAuthoringParticles result{};
+    if (!mImpl->mPhysicsWorld.tryGetClothAuthoringRestPositions(entityId, result.restPositions))
+        return std::nullopt;
+    result.particleCount = static_cast<std::uint32_t>(result.restPositions.size());
+    return result;
+}
+
 const std::vector<UltrasoundAmplitudeRange> *World::tryGetUltrasoundScattererAmplitudeRanges(
     common::EntityId entityId) const noexcept
 {
@@ -2880,6 +3008,12 @@ const std::vector<graphics::GpuSoftBodyVertexBinding> &World::softBodyVertexBind
     return mImpl->mSoftBodyVertexBindingsHost;
 }
 
+const std::vector<graphics::GpuSoftBodyVertexBinding> &World::surfaceDeformableVertexBindings()
+    const noexcept
+{
+    return mImpl->mSoftBodyVertexBindingsHost;
+}
+
 const std::vector<graphics::IndirectCommandRegistryEntry> &World::opaqueDrawRegistry()
     const noexcept
 {
@@ -2999,10 +3133,13 @@ graphics::HostSceneView World::hostSceneView() const noexcept
 void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources)
 {
     const std::uint64_t softBodyTopologyRevision = mImpl->mPhysicsWorld.softBodyTopologyRevision();
-    if (mImpl->mCachedSoftBodyRenderTopologyRevision != softBodyTopologyRevision)
+    const std::uint64_t clothTopologyRevision    = mImpl->mPhysicsWorld.clothTopologyRevision();
+    const std::uint64_t surfaceTopologyRevision =
+        softBodyTopologyRevision ^ (clothTopologyRevision + 0x9e3779b97f4a7c15ull);
+    if (mImpl->mCachedSoftBodyRenderTopologyRevision != surfaceTopologyRevision)
     {
         mImpl->mSoftBodyRenderBindingsDirty          = true;
-        mImpl->mCachedSoftBodyRenderTopologyRevision = softBodyTopologyRevision;
+        mImpl->mCachedSoftBodyRenderTopologyRevision = surfaceTopologyRevision;
     }
 
     const std::uint64_t physicsRevision = mImpl->mPhysicsWorld.authoredRevision();
@@ -3018,7 +3155,8 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
                 continue;
             }
             const auto physIt = mImpl->mPhysicsLinks.find(renderable.entityId);
-            if (physIt != mImpl->mPhysicsLinks.end() && physIt->second.hasSoftBody)
+            if (physIt != mImpl->mPhysicsLinks.end() &&
+                (physIt->second.hasSoftBody || physIt->second.hasCloth))
             {
                 mImpl->markRenderablePoseDirty(objectIndex);
                 mImpl->markRenderableMetadataDirty(objectIndex);
@@ -3126,7 +3264,9 @@ void World::Impl::rebuildSoftBodyRenderBindings(const graphics::RenderResourceMa
     mSoftBodyVertexBindingsHost.clear();
     physics::SoftRenderDataHost softRenderData;
     const std::vector<physics::SoftBodyState> &softBodies = mPhysicsWorld.softBodySnapshot();
-    softRenderData.softBodyParticleRanges.resize(softBodies.size(), Diligent::uint2{0u, 0u});
+    const std::vector<physics::ClothState> &cloths        = mPhysicsWorld.clothSnapshot();
+    softRenderData.softBodyParticleRanges.resize(softBodies.size() + cloths.size(),
+                                                 Diligent::uint2{0u, 0u});
     for (std::uint32_t softBodyIndex = 0u;
          softBodyIndex < static_cast<std::uint32_t>(softBodies.size()); ++softBodyIndex)
     {
@@ -3134,6 +3274,9 @@ void World::Impl::rebuildSoftBodyRenderBindings(const graphics::RenderResourceMa
         softRenderData.softBodyParticleRanges[softBodyIndex] =
             Diligent::uint2{softBody.particleOffset, softBody.particleCount};
     }
+    for (std::uint32_t clothIndex = 0u; clothIndex < cloths.size(); ++clothIndex)
+        softRenderData.softBodyParticleRanges[softBodies.size() + clothIndex] =
+            Diligent::uint2{cloths[clothIndex].particleOffset, cloths[clothIndex].particleCount};
 
     for (std::uint32_t objectIndex = 0u;
          objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
@@ -3146,8 +3289,132 @@ void World::Impl::rebuildSoftBodyRenderBindings(const graphics::RenderResourceMa
         }
 
         const auto physIt = mPhysicsLinks.find(renderable.entityId);
-        if (physIt == mPhysicsLinks.end() || !physIt->second.hasSoftBody)
+        if (physIt == mPhysicsLinks.end() ||
+            (!physIt->second.hasSoftBody && !physIt->second.hasCloth))
         {
+            continue;
+        }
+
+        if (physIt->second.hasCloth)
+        {
+            const physics::ClothState *cloth       = mPhysicsWorld.tryGetCloth(renderable.entityId);
+            const graphics::MeshResourceDesc *mesh = resources.tryGetMesh(renderable.mesh);
+            if (cloth == nullptr || mesh == nullptr || mesh->vertices.empty() ||
+                cloth->restPositions.empty())
+            {
+                CRESSIM_LOG_ERROR("Cloth render binding build failed for entity ",
+                                  renderable.entityId,
+                                  ": missing visual mesh or cloth rest positions.");
+                continue;
+            }
+            std::vector<Diligent::float3> localRest;
+            localRest.reserve(cloth->restPositions.size());
+            for (const auto &p : cloth->restPositions)
+                localRest.push_back(inverseTransformPoint(cloth->restTransform, p));
+            std::vector<std::uint32_t> mapping(mesh->vertices.size(), 0u);
+            bool valid            = true;
+            const float epsilonSq = kSoftBodyVertexMatchEpsilon * kSoftBodyVertexMatchEpsilon;
+            if (!cloth->renderVertexToParticle.empty())
+            {
+                valid = cloth->renderVertexToParticle.size() == mesh->vertices.size();
+                if (valid) mapping = cloth->renderVertexToParticle;
+                for (std::uint32_t i = 0u; valid && i < mapping.size(); ++i)
+                {
+                    valid = mapping[i] < localRest.size();
+                    if (valid)
+                    {
+                        const auto delta = mesh->vertices[i].position - localRest[mapping[i]];
+                        valid            = Diligent::dot(delta, delta) <= epsilonSq;
+                    }
+                }
+            }
+            else
+            {
+                bool identity = localRest.size() == mesh->vertices.size();
+                for (std::uint32_t i = 0u; identity && i < mesh->vertices.size(); ++i)
+                {
+                    const auto delta = mesh->vertices[i].position - localRest[i];
+                    identity         = Diligent::dot(delta, delta) <= epsilonSq;
+                    mapping[i]       = i;
+                }
+                if (!identity)
+                {
+                    for (std::uint32_t i = 0u; valid && i < mesh->vertices.size(); ++i)
+                    {
+                        std::uint32_t match   = 0u;
+                        std::uint32_t matches = 0u;
+                        for (std::uint32_t p = 0u; p < localRest.size(); ++p)
+                        {
+                            const auto delta = mesh->vertices[i].position - localRest[p];
+                            if (Diligent::dot(delta, delta) <= epsilonSq)
+                            {
+                                match = p;
+                                ++matches;
+                            }
+                        }
+                        valid      = matches == 1u;
+                        mapping[i] = match;
+                    }
+                }
+            }
+            for (std::size_t i = 0u; valid && i + 2u < mesh->indices.size(); i += 3u)
+            {
+                const auto a = mesh->indices[i], b = mesh->indices[i + 1u],
+                           c = mesh->indices[i + 2u];
+                valid        = a < mapping.size() && b < mapping.size() && c < mapping.size() &&
+                               mapping[a] != mapping[b] && mapping[b] != mapping[c] &&
+                               mapping[c] != mapping[a];
+            }
+            if (!valid)
+            {
+                CRESSIM_LOG_ERROR(
+                    "Cloth render binding build failed for entity ", renderable.entityId,
+                    ": mapping is missing, ambiguous, mismatched, or collapses a triangle.");
+                continue;
+            }
+            const std::uint32_t bindingBase =
+                static_cast<std::uint32_t>(mSoftBodyVertexBindingsHost.size());
+            const std::uint32_t rangeBase =
+                static_cast<std::uint32_t>(softRenderData.vertexTriangleRanges.size());
+            std::vector<std::vector<std::uint32_t>> incident(mesh->vertices.size());
+            for (std::uint32_t i = 0u; i < mesh->vertices.size(); ++i)
+            {
+                const auto binding =
+                    makeExactSoftBodyVertexBinding(cloth->particleOffset + mapping[i]);
+                mSoftBodyVertexBindingsHost.push_back(binding);
+                softRenderData.vertexBindings.push_back({binding.particleIndices, binding.weights});
+                const auto normal = transformNormal(cloth->restTransform, mesh->vertices[i].normal);
+                softRenderData.fallbackNormals.emplace_back(normal.x, normal.y, normal.z, 0.0f);
+                softRenderData.vertexTriangleRanges.push_back({});
+            }
+            for (std::size_t i = 0u; i + 2u < mesh->indices.size(); i += 3u)
+            {
+                const auto a = mesh->indices[i], b = mesh->indices[i + 1u],
+                           c = mesh->indices[i + 2u];
+                const std::uint32_t tri =
+                    static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+                softRenderData.triangleParticleIndices.emplace_back(
+                    cloth->particleOffset + mapping[a], cloth->particleOffset + mapping[b],
+                    cloth->particleOffset + mapping[c], 0u);
+                incident[a].push_back(tri);
+                incident[b].push_back(tri);
+                incident[c].push_back(tri);
+            }
+            for (std::uint32_t i = 0u; i < incident.size(); ++i)
+            {
+                auto &range = softRenderData.vertexTriangleRanges[rangeBase + i];
+                range.start =
+                    static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size());
+                range.count = static_cast<std::uint32_t>(incident[i].size());
+                softRenderData.vertexTriangleIndices.insert(
+                    softRenderData.vertexTriangleIndices.end(), incident[i].begin(),
+                    incident[i].end());
+            }
+            mSoftBodyVertexBindingBaseByObject[objectIndex] = bindingBase;
+            mSoftBodyVertexNormalBaseByObject[objectIndex]  = bindingBase;
+            mSoftBodyVertexCountByObject[objectIndex] =
+                static_cast<std::uint32_t>(mesh->vertices.size());
+            markRenderableMetadataDirty(objectIndex);
             continue;
         }
 
@@ -3331,6 +3598,13 @@ void World::Impl::rebuildCurveRenderBindings(const graphics::RenderResourceManag
             }
             return softBody->particleOffset + reference.localParticleIndex;
         }
+        case physics::AuthoredParticleReferenceType::ClothParticle:
+        {
+            const physics::ClothState *cloth = mPhysicsWorld.tryGetCloth(reference.entityId);
+            if (cloth == nullptr || reference.localParticleIndex >= cloth->particleCount)
+                return std::nullopt;
+            return cloth->particleOffset + reference.localParticleIndex;
+        }
         case physics::AuthoredParticleReferenceType::RigidProxyParticle:
             return std::nullopt;
         }
@@ -3361,7 +3635,8 @@ void World::Impl::rebuildCurveRenderBindings(const graphics::RenderResourceManag
 
         const auto physicsLinkIt = mPhysicsLinks.find(renderable.entityId);
         const bool entityHasSoftBody =
-            physicsLinkIt != mPhysicsLinks.end() && physicsLinkIt->second.hasSoftBody;
+            physicsLinkIt != mPhysicsLinks.end() &&
+            (physicsLinkIt->second.hasSoftBody || physicsLinkIt->second.hasCloth);
         if (entityHasSoftBody)
         {
             // A renderable currently selects exactly one deformable draw path/metadata family.
@@ -3539,6 +3814,30 @@ void World::Impl::refreshDirtyRenderableMetadata(const graphics::RenderResourceM
                 entry.deformableType =
                     static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::SoftBody);
             }
+            else if (physIt != mPhysicsLinks.end() && physIt->second.hasCloth)
+            {
+                const auto *cloth = mPhysicsWorld.tryGetCloth(renderable.entityId);
+                if (cloth != nullptr)
+                {
+                    const auto &cloths = mPhysicsWorld.clothSnapshot();
+                    for (std::uint32_t clothIndex = 0u; clothIndex < cloths.size(); ++clothIndex)
+                        if (cloths[clothIndex].entityId == renderable.entityId)
+                        {
+                            entry.deformableIndex = static_cast<std::uint32_t>(
+                                                        mPhysicsWorld.softBodySnapshot().size()) +
+                                                    clothIndex;
+                            break;
+                        }
+                    localBoundsMin = {};
+                    localBoundsMax = {};
+                    hasBounds      = true;
+                }
+                entry.deformVertexBase  = mSoftBodyVertexBindingBaseByObject[objectIndex];
+                entry.deformNormalBase  = mSoftBodyVertexNormalBaseByObject[objectIndex];
+                entry.deformVertexCount = mSoftBodyVertexCountByObject[objectIndex];
+                entry.deformableType =
+                    static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::Cloth);
+            }
 
             if (const auto curveIt = mProceduralDeformableCurveRenders.find(renderable.entityId);
                 curveIt != mProceduralDeformableCurveRenders.end() && curveIt->second.enabled &&
@@ -3624,7 +3923,8 @@ void World::Impl::rebuildDrawRegistries(const graphics::RenderResourceManager &r
 
         const auto physIt = mPhysicsLinks.find(renderable.entityId);
         const graphics::MaterialProgramFamily programFamily =
-            (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+            (physIt != mPhysicsLinks.end() &&
+             (physIt->second.hasSoftBody || physIt->second.hasCloth))
                 ? graphics::MaterialProgramFamily::SoftBodyLit
                 : (mProceduralDeformableCurveRenders.find(renderable.entityId) !=
                                mProceduralDeformableCurveRenders.end() &&
@@ -3770,7 +4070,7 @@ void World::Impl::refreshRenderablePose(std::uint32_t objectIndex)
     }
 
     const auto physIt = mPhysicsLinks.find(renderable.entityId);
-    if (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+    if (physIt != mPhysicsLinks.end() && (physIt->second.hasSoftBody || physIt->second.hasCloth))
     {
         renderable.worldTransform           = mOwner->tryGetTransform(renderable.entityId)
                                                   .value_or(TransformComponent{})

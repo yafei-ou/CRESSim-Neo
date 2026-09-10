@@ -200,7 +200,9 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
     const std::vector<FluidMaterialGpu> &fluidMaterials = world.fluidMaterials();
     const std::vector<DeformableDistanceConstraint> &distanceConstraints =
         world.distanceConstraints();
-    const std::vector<DeformableBendConstraint> &bendConstraints     = world.bendConstraints();
+    const std::vector<DeformableBendConstraint> &bendConstraints = world.bendConstraints();
+    const std::vector<ClothDihedralConstraint> &clothDihedralConstraints =
+        world.clothDihedralConstraints();
     const std::vector<DeformableVolumeConstraint> &volumeConstraints = world.volumeConstraints();
     const std::vector<StrandSegmentConstraint> &strandSegments       = world.strandSegments();
     const std::vector<StrandJointConstraint> &strandJoints           = world.strandJoints();
@@ -221,8 +223,10 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
     const RigidJointSceneHost &rigidJoints     = world.rigidJointScene();
     const std::uint32_t fluidCount             = world.fluidCount();
     const std::uint32_t particleCount          = static_cast<std::uint32_t>(particles.size());
-    const std::uint32_t softEdgeCount      = static_cast<std::uint32_t>(distanceConstraints.size());
-    const std::uint32_t softBendCount      = static_cast<std::uint32_t>(bendConstraints.size());
+    const std::uint32_t softEdgeCount = static_cast<std::uint32_t>(distanceConstraints.size());
+    const std::uint32_t softBendCount = static_cast<std::uint32_t>(bendConstraints.size());
+    const std::uint32_t clothDihedralCount =
+        static_cast<std::uint32_t>(clothDihedralConstraints.size());
     const std::uint32_t softTetCount       = static_cast<std::uint32_t>(volumeConstraints.size());
     const std::uint32_t strandSegmentCount = static_cast<std::uint32_t>(strandSegments.size());
     const std::uint32_t strandJointCount   = static_cast<std::uint32_t>(strandJoints.size());
@@ -260,8 +264,9 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
     const std::uint32_t sharedQueueFamilyIndexCount = buildUniqueQueueFamilyIndices(
         computeBackend.computeContext, graphicsBackend.graphicsContext, sharedQueueFamilyIndices);
     const bool hasSoftData = particleCount > 0u || softEdgeCount > 0u || softBendCount > 0u ||
-                             softTetCount > 0u || strandSegmentCount > 0u ||
-                             strandJointCount > 0u || strandDistanceCount > 0u;
+                             clothDihedralCount > 0u || softTetCount > 0u ||
+                             strandSegmentCount > 0u || strandJointCount > 0u ||
+                             strandDistanceCount > 0u;
     if (rigidBodyCount == 0u && !hasSoftData)
     {
         return true;
@@ -271,9 +276,10 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
             computeBackend.renderDevice, rigidBodyCount, colliderCount, particleCount, fluidCount,
             static_cast<std::uint32_t>(world.particleContactMaterials().size()),
             static_cast<std::uint32_t>(fluidMaterials.size()), softEdgeCount, softBendCount,
-            softTetCount, strandSegmentCount, strandJointCount, strandDistanceCount, ballJointCount,
-            sphericalJointCount, hingeJointCount, sliderJointCount, rigidParticleAttachmentCount,
-            strandRigidAttachmentCount, rigidDistanceConstraintCount,
+            clothDihedralCount, softTetCount, strandSegmentCount, strandJointCount,
+            strandDistanceCount, ballJointCount, sphericalJointCount, hingeJointCount,
+            sliderJointCount, rigidParticleAttachmentCount, strandRigidAttachmentCount,
+            rigidDistanceConstraintCount,
             static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),
             static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
             softRenderTriangleCount,
@@ -346,7 +352,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const ParticleSoAHost &particles   = world.particles();
     const std::vector<DeformableDistanceConstraint> &distanceConstraints =
         world.distanceConstraints();
-    const std::vector<DeformableBendConstraint> &bendConstraints     = world.bendConstraints();
+    const std::vector<DeformableBendConstraint> &bendConstraints = world.bendConstraints();
+    const std::vector<ClothDihedralConstraint> &clothDihedralConstraints =
+        world.clothDihedralConstraints();
     const std::vector<DeformableVolumeConstraint> &volumeConstraints = world.volumeConstraints();
     const std::vector<StrandSegmentConstraint> &strandSegments       = world.strandSegments();
     const std::vector<StrandJointConstraint> &strandJoints           = world.strandJoints();
@@ -365,8 +373,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const CurveRenderDataHost &curveRenderData = world.curveRenderData();
     const std::uint32_t fluidCount             = world.fluidCount();
     const std::uint32_t particleCount          = static_cast<std::uint32_t>(particles.size());
-    const std::uint32_t softEdgeCount      = static_cast<std::uint32_t>(distanceConstraints.size());
-    const std::uint32_t softBendCount      = static_cast<std::uint32_t>(bendConstraints.size());
+    const std::uint32_t softEdgeCount = static_cast<std::uint32_t>(distanceConstraints.size());
+    const std::uint32_t softBendCount = static_cast<std::uint32_t>(bendConstraints.size());
+    const std::uint32_t clothDihedralCount =
+        static_cast<std::uint32_t>(clothDihedralConstraints.size());
     const std::uint32_t softTetCount       = static_cast<std::uint32_t>(volumeConstraints.size());
     const std::uint32_t strandSegmentCount = static_cast<std::uint32_t>(strandSegments.size());
     const std::uint32_t strandJointCount   = static_cast<std::uint32_t>(strandJoints.size());
@@ -445,6 +455,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             nextPowerOfTwo(std::max<std::uint32_t>(particleCount * 2u, 1u));
         particleConstants.softEdgeCount       = softEdgeCount;
         particleConstants.softBendCount       = softBendCount;
+        particleConstants.clothDihedralCount  = clothDihedralCount;
         particleConstants.softTetCount        = softTetCount;
         particleConstants.strandSegmentCount  = strandSegmentCount;
         particleConstants.strandJointCount    = strandJointCount;
@@ -463,8 +474,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         const bool hasFluidBoundaryWork    = hasFluidWork && colliderCount > 0u;
         const bool hasSoftInternalWork =
             particleCount > 0u &&
-            (softEdgeCount > 0u || softBendCount > 0u || softTetCount > 0u ||
-             strandSegmentCount > 0u || strandJointCount > 0u || strandDistanceCount > 0u);
+            (softEdgeCount > 0u || softBendCount > 0u || clothDihedralCount > 0u ||
+             softTetCount > 0u || strandSegmentCount > 0u || strandJointCount > 0u ||
+             strandDistanceCount > 0u);
         const bool hasSoftContactSolveWork       = softContactIterations > 0u;
         const bool hasSoftSoftContactWork        = hasSoftContactSolveWork && particleCount > 1u;
         const bool hasParticleRigidCandidateWork = particleCount > 0u && colliderCount > 0u;
@@ -728,7 +740,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
         const std::uint32_t softConstraintThreadCount = std::max(
             std::max(std::max(particleCount,
-                              std::max(std::max(softEdgeCount, softBendCount), softTetCount)),
+                              std::max(std::max(softEdgeCount, softBendCount + clothDihedralCount),
+                                       softTetCount)),
                      std::max(std::max(strandSegmentCount, strandJointCount), strandDistanceCount)),
             rigidParticleAttachmentCount);
         if ((hasSoftInternalWork || hasSoftSoftContactWork || hasSoftRigidContactWork) &&
@@ -934,6 +947,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveSoftBendConstraints dispatch.");
+                    return false;
+                }
+                if (runSoftInternal && !mImpl->passDispatcher.solveClothDihedralConstraints(
+                                           computeBackend.computeContext, mImpl->sceneState,
+                                           clothDihedralCount, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SolveClothDihedralConstraints dispatch.");
                     return false;
                 }
                 if (runSoftInternal &&

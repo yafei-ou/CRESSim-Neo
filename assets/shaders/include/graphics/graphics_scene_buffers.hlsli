@@ -196,6 +196,7 @@ static const uint CRESSIM_INVALID_DEFORM_VERTEX_BASE = 0xffffffffu;
 static const uint CRESSIM_INVALID_DEFORMABLE_INDEX = 0xffffffffu;
 static const uint CRESSIM_DEFORMABLE_TYPE_NONE = 0u;
 static const uint CRESSIM_DEFORMABLE_TYPE_SOFT_BODY = 1u;
+static const uint CRESSIM_DEFORMABLE_TYPE_CLOTH = 3u;
 static const uint CRESSIM_DEFORMABLE_TYPE_CURVE = 2u;
 static const uint CRESSIM_FORWARD_LOCAL_LIGHT_CAP = 8u;
 static const uint CRESSIM_SHADOWED_LOCAL_LIGHT_CAP = 4u;

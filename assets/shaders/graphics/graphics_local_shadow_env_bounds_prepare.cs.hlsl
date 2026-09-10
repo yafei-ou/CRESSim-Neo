@@ -30,7 +30,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     const uint baseIndex = envIndex * CRESSIM_LOCAL_SHADOW_ENV_BOUNDS_WORDS;
     float3 boundsMin = 0.0;
     float3 boundsMax = 0.0;
-    if (metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_SOFT_BODY &&
+    if ((metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_SOFT_BODY ||
+         metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_CLOTH) &&
         metadata.deformableIndex != CRESSIM_INVALID_DEFORMABLE_INDEX)
     {
         const SoftBodyWorldAabb worldAabb =

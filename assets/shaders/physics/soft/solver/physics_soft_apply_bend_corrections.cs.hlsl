@@ -4,7 +4,7 @@
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftConstraintRange, g_ParticleBendRanges);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftIncidentBend, g_ParticleIncidentBends);
-CRESSIM_STRUCTURED_BUFFER(GpuSoftBendCorrection, g_SoftBendCorrections);
+CRESSIM_STRUCTURED_BUFFER(GpuBendCorrection, g_BendCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -27,8 +27,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     {
         const GpuSoftIncidentBend ref =
             CRESSIM_SB_LOAD(g_ParticleIncidentBends, range.start + offset);
-        const GpuSoftBendCorrection correction =
-            CRESSIM_SB_LOAD(g_SoftBendCorrections, ref.bendIndex);
+        const GpuBendCorrection correction = CRESSIM_SB_LOAD(g_BendCorrections, ref.bendIndex);
         if (ref.slot == 0u)
         {
             totalCorrection += correction.correction0.xyz;
@@ -37,9 +36,13 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         {
             totalCorrection += correction.correction1.xyz;
         }
-        else
+        else if (ref.slot == 2u)
         {
             totalCorrection += correction.correction2.xyz;
+        }
+        else
+        {
+            totalCorrection += correction.correction3.xyz;
         }
     }
 

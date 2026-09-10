@@ -51,7 +51,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         normalize(CRESSIM_SB_LOAD(g_EntityOrientations, metadata.entityPoseSlot));
     const float3 scale = CRESSIM_SB_REF(g_EntityScales, metadata.entityPoseSlot).xyz;
 
-    if (metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_SOFT_BODY &&
+    if ((metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_SOFT_BODY ||
+         metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_CLOTH) &&
         metadata.deformableIndex != CRESSIM_INVALID_DEFORMABLE_INDEX)
     {
         const SoftBodyWorldAabb worldAabb =
