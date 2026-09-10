@@ -91,6 +91,7 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
     const auto &softBends             = physicsWorld.bendConstraints();
     const auto &softTets              = physicsWorld.softTets();
     const auto &softRenderData        = physicsWorld.softRenderData();
+    const auto &shapeMatchingData     = physicsWorld.shapeMatchingData();
     const auto &curveRenderData       = physicsWorld.curveRenderData();
     const auto &rigidJoints           = physicsWorld.rigidJointScene();
     const auto &strandSegments        = physicsWorld.strandSegments();
@@ -137,6 +138,10 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
             static_cast<std::uint32_t>(softEdges.size()),
             static_cast<std::uint32_t>(softBends.size()),
             static_cast<std::uint32_t>(softTets.size()),
+            static_cast<std::uint32_t>(shapeMatchingData.clusters.size()),
+            static_cast<std::uint32_t>(shapeMatchingData.members.size()),
+            static_cast<std::uint32_t>(shapeMatchingData.links.size()),
+            static_cast<std::uint32_t>(shapeMatchingData.particleMembershipIndices.size()),
             static_cast<std::uint32_t>(strandSegments.size()),
             static_cast<std::uint32_t>(strandJoints.size()),
             static_cast<std::uint32_t>(strandDistanceConstraints.size()),

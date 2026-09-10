@@ -82,7 +82,8 @@ int main()
         attachmentConstraint.particleB != expectedStrandParticle ||
         std::abs(attachmentConstraint.restLength) > 1.0e-6f ||
         std::abs(attachmentConstraint.compliance - 0.005f) > 1.0e-6f ||
-        attachmentConstraint.enabled != 1u)
+        (attachmentConstraint.flags & physics::Edge_Active) == 0u ||
+        (attachmentConstraint.flags & physics::Edge_Disabled) != 0u)
     {
         CRESSIM_LOG_ERROR("Resolved authored attachment constraint is incorrect.\n");
         return 1;
@@ -94,7 +95,7 @@ int main()
     world.upsertParticleDistanceConstraint(updated);
 
     if (world.distanceConstraints().size() != 1u ||
-        world.distanceConstraints().back().enabled != 0u)
+        (world.distanceConstraints().back().flags & physics::Edge_Disabled) == 0u)
     {
         CRESSIM_LOG_ERROR("Disabled authored particle constraint should remain resolved but disabled.\n");
         return 1;
@@ -104,7 +105,8 @@ int main()
     world.upsertParticleDistanceConstraint(updated);
     if (world.distanceConstraints().size() != 1u ||
         std::abs(world.distanceConstraints().back().compliance - 0.01f) > 1.0e-6f ||
-        world.distanceConstraints().back().enabled != 1u)
+        (world.distanceConstraints().back().flags & physics::Edge_Active) == 0u ||
+        (world.distanceConstraints().back().flags & physics::Edge_Disabled) != 0u)
     {
         CRESSIM_LOG_ERROR("Updated authored particle constraint did not rebuild correctly.\n");
         return 1;
