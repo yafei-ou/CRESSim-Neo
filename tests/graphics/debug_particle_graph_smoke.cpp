@@ -4,8 +4,8 @@
 #include "engine/render_scene_uploader.h"
 #include "engine/world.h"
 #include "gpu/gpu_device.h"
-#include "graphics/renderer.h"
 #include "graphics/render_resource_manager.h"
+#include "graphics/renderer.h"
 #include "physics/physics_scene_gpu_state.h"
 
 #include <algorithm>
@@ -58,7 +58,7 @@ bool uploadRenderScene(cressim::neo::engine::RenderSceneUploader &uploader,
                                        world.renderObjectScales()) ||
         !uploader.uploadRenderableMetadata(world.renderableMetadata()) ||
         !uploader.uploadRenderableQueueInfo(world.renderableQueueInfo()) ||
-        !uploader.uploadSoftBodyVertexBindings(world.softBodyVertexBindings()) ||
+        !uploader.uploadSurfaceDeformableVertexBindings(world.surfaceDeformableVertexBindings()) ||
         !uploader.uploadCameraInputs(world.cameraInputs()) ||
         !uploader.uploadLightInputs(world.lightInputs()) ||
         !uploader.uploadLocalLightSelections(world.localLightSelections()))
@@ -71,8 +71,7 @@ bool uploadRenderScene(cressim::neo::engine::RenderSceneUploader &uploader,
 }
 
 bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
-                        cressim::neo::engine::World &world,
-                        cressim::neo::gpu::GpuDevice &device)
+                        cressim::neo::engine::World &world, cressim::neo::gpu::GpuDevice &device)
 {
     cressim::neo::gpu::GpuComputeBackendContext computeBackend{};
     cressim::neo::gpu::GpuGraphicsBackendContext graphicsBackend{};
@@ -86,24 +85,24 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
 
     auto &physicsWorld = world.physicsWorld();
     physicsWorld.ensureDerivedStateUpToDate();
-    const auto &particles          = physicsWorld.particles();
-    const auto &softEdges             = physicsWorld.softEdges();
-    const auto &softBends             = physicsWorld.bendConstraints();
-    const auto &clothDihedrals        = physicsWorld.clothDihedralConstraints();
-    const auto &softTets              = physicsWorld.softTets();
-    const auto &softRenderData        = physicsWorld.softRenderData();
-    const auto &curveRenderData       = physicsWorld.curveRenderData();
-    const auto &rigidJoints           = physicsWorld.rigidJointScene();
-    const auto &strandSegments        = physicsWorld.strandSegments();
-    const auto &strandJoints          = physicsWorld.strandJoints();
-    const auto &strandDistanceConstraints = physicsWorld.strandDistanceConstraints();
-    const auto &rigidParticleAttachments   = physicsWorld.rigidParticleAttachments();
-    const auto &strandRigidAttachments     = physicsWorld.strandRigidAttachments();
-    const auto &rigidDistanceConstraints   = physicsWorld.rigidDistanceConstraints();
-    const auto &routedCableConstraints     = physicsWorld.routedCableConstraints();
-    const auto &routedCableRoutePoints     = physicsWorld.routedCableRoutePoints();
-    const std::uint32_t bodyCount     = physicsWorld.rigidBodyCount();
-    const std::uint32_t colliderCount = physicsWorld.colliderCount();
+    const auto &particles                      = physicsWorld.particles();
+    const auto &softEdges                      = physicsWorld.softEdges();
+    const auto &softBends                      = physicsWorld.bendConstraints();
+    const auto &clothDihedrals                 = physicsWorld.clothDihedralConstraints();
+    const auto &softTets                       = physicsWorld.softTets();
+    const auto &surfaceDeformableRenderData    = physicsWorld.surfaceDeformableRenderData();
+    const auto &curveRenderData                = physicsWorld.curveRenderData();
+    const auto &rigidJoints                    = physicsWorld.rigidJointScene();
+    const auto &strandSegments                 = physicsWorld.strandSegments();
+    const auto &strandJoints                   = physicsWorld.strandJoints();
+    const auto &strandDistanceConstraints      = physicsWorld.strandDistanceConstraints();
+    const auto &rigidParticleAttachments       = physicsWorld.rigidParticleAttachments();
+    const auto &strandRigidAttachments         = physicsWorld.strandRigidAttachments();
+    const auto &rigidDistanceConstraints       = physicsWorld.rigidDistanceConstraints();
+    const auto &routedCableConstraints         = physicsWorld.routedCableConstraints();
+    const auto &routedCableRoutePoints         = physicsWorld.routedCableRoutePoints();
+    const std::uint32_t bodyCount              = physicsWorld.rigidBodyCount();
+    const std::uint32_t colliderCount          = physicsWorld.colliderCount();
     std::uint32_t routedCableDebugSegmentCount = 0u;
     for (const auto &constraint : routedCableConstraints)
     {
@@ -149,23 +148,22 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
             static_cast<std::uint32_t>(rigidParticleAttachments.size()),
             static_cast<std::uint32_t>(strandRigidAttachments.size()),
             static_cast<std::uint32_t>(rigidDistanceConstraints.size()),
-            static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),
-            static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
-            static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size()),
-            std::max<std::uint32_t>(
-                static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()), 1u),
-            std::max<std::uint32_t>(physicsWorld.softBodyBoundsChunkCount(), 1u),
+            static_cast<std::uint32_t>(surfaceDeformableRenderData.fallbackNormals.size()),
+            static_cast<std::uint32_t>(surfaceDeformableRenderData.vertexTriangleIndices.size()),
+            static_cast<std::uint32_t>(surfaceDeformableRenderData.triangleParticleIndices.size()),
+            std::max<std::uint32_t>(static_cast<std::uint32_t>(
+                                        surfaceDeformableRenderData.surfaceParticleRanges.size()),
+                                    1u),
+            std::max<std::uint32_t>(physicsWorld.surfaceBoundsChunkCount(), 1u),
             static_cast<std::uint32_t>(physicsWorld.suturingPairs().size()),
             physicsWorld.reservedSuturingPathHeaderCount(),
             physicsWorld.reservedSuturingPathNodeCount(),
             static_cast<std::uint32_t>(routedCableConstraints.size()),
-            static_cast<std::uint32_t>(routedCableRoutePoints.size()),
-            routedCableDebugSegmentCount,
+            static_cast<std::uint32_t>(routedCableRoutePoints.size()), routedCableDebugSegmentCount,
             static_cast<std::uint32_t>(curveRenderData.descriptors.size()),
             static_cast<std::uint32_t>(curveRenderData.particleIndices.size()),
-            curveRenderVertexCount,
-            sharedContextMask, sharedQueueFamilyIndices.data(), sharedQueueFamilyIndexCount,
-            device.supportsNativePhysicsFloatAtomics()))
+            curveRenderVertexCount, sharedContextMask, sharedQueueFamilyIndices.data(),
+            sharedQueueFamilyIndexCount, device.supportsNativePhysicsFloatAtomics()))
     {
         return false;
     }
@@ -221,7 +219,7 @@ int main()
     world.setTransform(cameraEntity, cameraTransform);
 
     engine::CameraComponent camera{};
-    camera.outputWidth = 640u;
+    camera.outputWidth  = 640u;
     camera.outputHeight = 360u;
     world.setCamera(cameraEntity, camera);
 
@@ -234,8 +232,8 @@ int main()
         {0.0f, 0.5f, 0.0f},
     };
     softBody.staticParticleIndices = {0u};
-    softBody.neighbourCount = 2u;
-    softBody.particleRadius = 0.04f;
+    softBody.neighbourCount        = 2u;
+    softBody.particleRadius        = 0.04f;
     if (!world.setMeshfreeSoftBody(softEntity, softBody))
     {
         CRESSIM_LOG_ERROR("Failed to author debug meshfree soft body.\n");
@@ -253,10 +251,9 @@ int main()
     softSurfaceMesh.indices              = {0u, 1u, 2u};
     graphics::MaterialResourceDesc softSurfaceMaterial{};
     softSurfaceMaterial.debugName = "DebugParticleGraphSmoke.SoftSurfaceMaterial";
-    world.setMeshRenderer(
-        softEntity,
-        engine::MeshRendererComponent{resources.registerMesh(softSurfaceMesh),
-                                      resources.registerMaterial(softSurfaceMaterial), true});
+    world.setMeshRenderer(softEntity, engine::MeshRendererComponent{
+                                          resources.registerMesh(softSurfaceMesh),
+                                          resources.registerMaterial(softSurfaceMaterial), true});
 
     physics::PhysicsSceneGpuState physicsSceneState;
     if (!uploadRenderScene(uploader, world, resources) ||
@@ -271,14 +268,14 @@ int main()
     }
 
     graphics::RenderFrameOptions options{};
-    options.debugParticles.enabled = true;
-    options.debugParticles.drawConstraintEdges = true;
+    options.debugParticles.enabled                  = true;
+    options.debugParticles.drawConstraintEdges      = true;
     options.debugParticles.highlightStaticParticles = true;
 
     common::FrameContext frame{};
-    frame.deltaSeconds = 1.0f / 60.0f;
-    const physics::PhysicsGpuSceneView physicsSceneView = physicsSceneState.sceneView();
-    graphics::HostSceneView hostSceneView = world.hostSceneView();
+    frame.deltaSeconds                                            = 1.0f / 60.0f;
+    const physics::PhysicsGpuSceneView physicsSceneView           = physicsSceneState.sceneView();
+    graphics::HostSceneView hostSceneView                         = world.hostSceneView();
     std::vector<graphics::GpuRenderableMetadata> metadataOverride = world.renderableMetadata();
     if (!metadataOverride.empty())
     {

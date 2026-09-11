@@ -1340,7 +1340,7 @@ struct JointCollisionSuppressionHost
 };
 
 /// @brief Vertex-to-triangle mapping range for surface normal computation.
-struct SoftRenderVertexTriangleRange
+struct SurfaceRenderVertexTriangleRange
 {
     std::uint32_t start     = 0u;
     std::uint32_t count     = 0u;
@@ -1348,22 +1348,22 @@ struct SoftRenderVertexTriangleRange
     std::uint32_t reserved1 = 0u;
 };
 
-/// @brief Skinning binding connecting a render surface vertex to four simulation particles.
-struct SoftRenderVertexBinding
+/// @brief Skinning binding connecting a deformable surface vertex to four simulation particles.
+struct SurfaceRenderVertexBinding
 {
     Diligent::uint4 particleIndices{0u, 0u, 0u, 0u};  ///< Four simulation particle indices.
     Diligent::float4 weights{1.0f, 0.0f, 0.0f, 0.0f}; ///< Interpolation weights summing to 1.0.
 };
 
-/// @brief Host container for soft body surface rendering data and barycentric vertex bindings.
-struct SoftRenderDataHost
+/// @brief Host container for particle-driven surface rendering data and vertex bindings.
+struct SurfaceDeformableRenderDataHost
 {
-    std::vector<SoftRenderVertexBinding> vertexBindings;
+    std::vector<SurfaceRenderVertexBinding> vertexBindings;
     std::vector<Diligent::float4> fallbackNormals;
-    std::vector<SoftRenderVertexTriangleRange> vertexTriangleRanges;
+    std::vector<SurfaceRenderVertexTriangleRange> vertexTriangleRanges;
     std::vector<std::uint32_t> vertexTriangleIndices;
     std::vector<Diligent::uint4> triangleParticleIndices;
-    std::vector<Diligent::uint2> softBodyParticleRanges;
+    std::vector<Diligent::uint2> surfaceParticleRanges;
 
     void clear()
     {
@@ -1372,7 +1372,7 @@ struct SoftRenderDataHost
         vertexTriangleRanges.clear();
         vertexTriangleIndices.clear();
         triangleParticleIndices.clear();
-        softBodyParticleRanges.clear();
+        surfaceParticleRanges.clear();
     }
 };
 

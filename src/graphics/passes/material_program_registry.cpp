@@ -48,9 +48,9 @@ Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 
 {
     Diligent::Uint32 count = 0;
     macros[count++]        = Diligent::ShaderMacro{"MANUAL_LAYER_EXPORT", "1"};
-    if (programFamily == MaterialProgramFamily::SoftBodyLit)
+    if (programFamily == MaterialProgramFamily::SurfaceDeformableLit)
     {
-        macros[count++] = Diligent::ShaderMacro{"CRESSIM_PROGRAM_FAMILY_SOFT_BODY", "1"};
+        macros[count++] = Diligent::ShaderMacro{"CRESSIM_PROGRAM_FAMILY_SURFACE_DEFORMABLE", "1"};
     }
     else if (programFamily == MaterialProgramFamily::CurveLit)
     {
@@ -103,10 +103,10 @@ std::vector<Diligent::ShaderResourceVariableDesc> buildResourceLayoutVariables(
     appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras");
     appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras");
-    if (programFamily == MaterialProgramFamily::SoftBodyLit)
+    if (programFamily == MaterialProgramFamily::SurfaceDeformableLit)
     {
-        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions");
-        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexNormals");
+        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SurfaceRenderPositions");
+        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SurfaceDeformableVertexNormals");
     }
     else if (programFamily == MaterialProgramFamily::CurveLit)
     {
@@ -237,7 +237,7 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
     if ((key.passClass != MainPassClass::ForwardOpaque &&
          key.passClass != MainPassClass::ForwardTransparent) ||
         (key.programFamily != MaterialProgramFamily::StandardLit &&
-         key.programFamily != MaterialProgramFamily::SoftBodyLit &&
+         key.programFamily != MaterialProgramFamily::SurfaceDeformableLit &&
          key.programFamily != MaterialProgramFamily::CurveLit))
     {
         return false;

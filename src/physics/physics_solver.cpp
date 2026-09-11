@@ -218,7 +218,8 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
         world.routedCableConstraints();
     const std::vector<RoutedCableRoutePoint> &routedCableRoutePoints =
         world.routedCableRoutePoints();
-    const SoftRenderDataHost &softRenderData   = world.softRenderData();
+    const SurfaceDeformableRenderDataHost &surfaceDeformableRenderData =
+        world.surfaceDeformableRenderData();
     const CurveRenderDataHost &curveRenderData = world.curveRenderData();
     const RigidJointSceneHost &rigidJoints     = world.rigidJointScene();
     const std::uint32_t fluidCount             = world.fluidCount();
@@ -253,13 +254,13 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
         static_cast<std::uint32_t>(rigidJoints.spherical.size());
     const std::uint32_t hingeJointCount  = static_cast<std::uint32_t>(rigidJoints.hinge.size());
     const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());
-    const std::uint32_t softRenderTriangleCount =
-        static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+    const std::uint32_t surfaceRenderTriangleCount =
+        static_cast<std::uint32_t>(surfaceDeformableRenderData.triangleParticleIndices.size());
     const std::uint32_t curveRenderCount =
         static_cast<std::uint32_t>(curveRenderData.descriptors.size());
-    const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
-    const std::uint32_t suturingParticleCount    = world.suturingParticleCount();
-    const float particleGridCellSize             = world.particleGridCellSize();
+    const std::uint32_t surfaceBoundsChunkCount = world.surfaceBoundsChunkCount();
+    const std::uint32_t suturingParticleCount   = world.suturingParticleCount();
+    const float particleGridCellSize            = world.particleGridCellSize();
     std::array<std::uint32_t, 2> sharedQueueFamilyIndices{};
     const std::uint32_t sharedQueueFamilyIndexCount = buildUniqueQueueFamilyIndices(
         computeBackend.computeContext, graphicsBackend.graphicsContext, sharedQueueFamilyIndices);
@@ -280,11 +281,11 @@ bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
             strandDistanceCount, ballJointCount, sphericalJointCount, hingeJointCount,
             sliderJointCount, rigidParticleAttachmentCount, strandRigidAttachmentCount,
             rigidDistanceConstraintCount,
-            static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),
-            static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
-            softRenderTriangleCount,
-            static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()),
-            softBodyBoundsChunkCount, static_cast<std::uint32_t>(world.suturingPairs().size()),
+            static_cast<std::uint32_t>(surfaceDeformableRenderData.fallbackNormals.size()),
+            static_cast<std::uint32_t>(surfaceDeformableRenderData.vertexTriangleIndices.size()),
+            surfaceRenderTriangleCount,
+            static_cast<std::uint32_t>(surfaceDeformableRenderData.surfaceParticleRanges.size()),
+            surfaceBoundsChunkCount, static_cast<std::uint32_t>(world.suturingPairs().size()),
             world.reservedSuturingPathHeaderCount(), world.reservedSuturingPathNodeCount(),
             routedCableCount, static_cast<std::uint32_t>(routedCableRoutePoints.size()),
             routedCableDebugSegmentCount,
@@ -368,8 +369,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         world.rigidDistanceConstraints();
     const std::vector<RoutedCableConstraint> &routedCableConstraints =
         world.routedCableConstraints();
-    const RigidJointSceneHost &rigidJoints     = world.rigidJointScene();
-    const SoftRenderDataHost &softRenderData   = world.softRenderData();
+    const RigidJointSceneHost &rigidJoints = world.rigidJointScene();
+    const SurfaceDeformableRenderDataHost &surfaceDeformableRenderData =
+        world.surfaceDeformableRenderData();
     const CurveRenderDataHost &curveRenderData = world.curveRenderData();
     const std::uint32_t fluidCount             = world.fluidCount();
     const std::uint32_t particleCount          = static_cast<std::uint32_t>(particles.size());
@@ -395,15 +397,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         static_cast<std::uint32_t>(strandRigidAttachments.size());
     const std::uint32_t rigidDistanceConstraintCount =
         static_cast<std::uint32_t>(rigidDistanceConstraints.size());
-    const std::uint32_t softRenderTriangleCount =
-        static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+    const std::uint32_t surfaceRenderTriangleCount =
+        static_cast<std::uint32_t>(surfaceDeformableRenderData.triangleParticleIndices.size());
     const std::uint32_t curveRenderCount =
         static_cast<std::uint32_t>(curveRenderData.descriptors.size());
     const std::uint32_t surfaceDeformableCount =
-        static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size());
-    const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
-    const std::uint32_t suturingParticleCount    = world.suturingParticleCount();
-    const float particleGridCellSize             = world.particleGridCellSize();
+        static_cast<std::uint32_t>(surfaceDeformableRenderData.surfaceParticleRanges.size());
+    const std::uint32_t surfaceBoundsChunkCount = world.surfaceBoundsChunkCount();
+    const std::uint32_t suturingParticleCount   = world.suturingParticleCount();
+    const float particleGridCellSize            = world.particleGridCellSize();
 
     const std::uint32_t substeps = std::max<std::uint32_t>(mImpl->mDesc.substeps, 1u);
     const std::uint32_t defaultIterations =
@@ -1305,31 +1307,32 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 "PhysicsSolver::step failed: SolveParticleRigidContactVelocities dispatch.");
             return false;
         }
-        if (!mImpl->passDispatcher.skinSoftRenderVertices(
+        if (!mImpl->passDispatcher.skinSurfaceDeformableVertices(
                 computeBackend.computeContext, mImpl->sceneState,
-                static_cast<std::uint32_t>(softRenderData.vertexBindings.size())))
+                static_cast<std::uint32_t>(surfaceDeformableRenderData.vertexBindings.size())))
         {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SkinSoftRenderVertices dispatch.");
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: SkinSurfaceDeformableVertices dispatch.");
             return false;
         }
-        if (!mImpl->passDispatcher.updateSoftTriangleNormals(
-                computeBackend.computeContext, mImpl->sceneState, softRenderTriangleCount))
+        if (!mImpl->passDispatcher.updateSurfaceTriangleNormals(
+                computeBackend.computeContext, mImpl->sceneState, surfaceRenderTriangleCount))
         {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftTriangleNormals dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSurfaceTriangleNormals dispatch.");
             return false;
         }
-        if (!mImpl->passDispatcher.updateSoftRenderNormals(
+        if (!mImpl->passDispatcher.updateSurfaceDeformableNormals(
                 computeBackend.computeContext, mImpl->sceneState,
-                static_cast<std::uint32_t>(softRenderData.fallbackNormals.size())))
+                static_cast<std::uint32_t>(surfaceDeformableRenderData.fallbackNormals.size())))
         {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftRenderNormals dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSurfaceRenderNormals dispatch.");
             return false;
         }
-        if (!mImpl->passDispatcher.updateSoftBodyBounds(computeBackend.computeContext,
-                                                        mImpl->sceneState, surfaceDeformableCount,
-                                                        softBodyBoundsChunkCount))
+        if (!mImpl->passDispatcher.updateSurfaceDeformableBounds(
+                computeBackend.computeContext, mImpl->sceneState, surfaceDeformableCount,
+                surfaceBoundsChunkCount))
         {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftBodyBounds dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSurfaceBounds dispatch.");
             return false;
         }
         if (!mImpl->passDispatcher.updateCurveRenderData(computeBackend.computeContext,

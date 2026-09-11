@@ -57,9 +57,9 @@ public:
     /// @brief Uploads render-queue information for renderable slots.
     bool uploadRenderableQueueInfo(const std::vector<graphics::GpuRenderableQueueInfo> &queueInfo);
 
-    /// @brief Uploads soft-body vertex-to-particle bindings.
-    bool uploadSoftBodyVertexBindings(
-        const std::vector<graphics::GpuSoftBodyVertexBinding> &bindings);
+    /// @brief Uploads surface-deformable vertex-to-particle bindings.
+    bool uploadSurfaceDeformableVertexBindings(
+        const std::vector<graphics::GpuSurfaceDeformableVertexBinding> &bindings);
 
     /// @brief Uploads camera inputs; an empty vector clears the recorded camera count.
     bool uploadCameraInputs(const std::vector<graphics::GpuCameraInput> &cameras);

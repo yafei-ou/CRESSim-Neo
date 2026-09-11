@@ -560,10 +560,9 @@ public:
     /// @brief Returns per-environment local-light selections prepared for GPU upload.
     const std::vector<graphics::GpuLocalLightSelection> &localLightSelections() const noexcept;
 
-    /// @brief Returns soft-body vertex bindings prepared for GPU upload.
-    const std::vector<graphics::GpuSoftBodyVertexBinding> &softBodyVertexBindings() const noexcept;
-    const std::vector<graphics::GpuSoftBodyVertexBinding> &surfaceDeformableVertexBindings()
-        const noexcept;
+    /// @brief Returns surface-deformable vertex bindings prepared for GPU upload.
+    const std::vector<graphics::GpuSurfaceDeformableVertexBinding> &
+    surfaceDeformableVertexBindings() const noexcept;
 
     /// @brief Returns the opaque indirect-draw registry.
     const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;
@@ -590,8 +589,8 @@ public:
     /// @brief Returns the renderable-queue revision.
     std::uint64_t renderableQueueInfoRevision() const noexcept;
 
-    /// @brief Returns the soft-body vertex-binding revision.
-    std::uint64_t softBodyVertexBindingRevision() const noexcept;
+    /// @brief Returns the surface-deformable vertex-binding revision.
+    std::uint64_t surfaceDeformableVertexBindingRevision() const noexcept;
 
     /// @brief Returns the camera-input revision.
     std::uint64_t cameraInputRevision() const noexcept;

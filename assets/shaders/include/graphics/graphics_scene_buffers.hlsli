@@ -15,13 +15,13 @@ struct RenderableMetadata
     float4 localBoundsMax;
 };
 
-struct SoftBodyVertexBinding
+struct SurfaceDeformableVertexBinding
 {
     uint4 particleIndices;
     float4 weights;
 };
 
-struct SoftBodyWorldAabb
+struct SurfaceWorldAabb
 {
     float4 minBounds;
     float4 maxBounds;
@@ -168,10 +168,10 @@ CRESSIM_STRUCTURED_BUFFER(BatchCameraMetadata, g_BatchCameras);
 CRESSIM_STRUCTURED_BUFFER(uint, g_VisibleObjectIndices);
 #endif
 CRESSIM_STRUCTURED_BUFFER(VisiblePairInstance, g_VisiblePairs);
-#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
-CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyRenderPositions);
+#if defined(CRESSIM_PROGRAM_FAMILY_SURFACE_DEFORMABLE)
+CRESSIM_STRUCTURED_BUFFER(float4, g_SurfaceRenderPositions);
 #if !defined(CRESSIM_CAMERA_DEPTH_PASS)
-CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyVertexNormals);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SurfaceDeformableVertexNormals);
 #endif
 #endif
 #if defined(CRESSIM_PROGRAM_FAMILY_CURVE)
@@ -181,8 +181,8 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_CurveRenderNormals);
 #endif
 #endif
 #if !defined(CRESSIM_CAMERA_DEPTH_PASS)
-CRESSIM_STRUCTURED_BUFFER(SoftBodyWorldAabb, g_SoftBodyWorldAabbs);
-CRESSIM_STRUCTURED_BUFFER(SoftBodyWorldAabb, g_CurveWorldAabbs);
+CRESSIM_STRUCTURED_BUFFER(SurfaceWorldAabb, g_SurfaceWorldAabbs);
+CRESSIM_STRUCTURED_BUFFER(SurfaceWorldAabb, g_CurveWorldAabbs);
 #if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
 CRESSIM_STRUCTURED_BUFFER(EnvironmentIblLookupEntry, g_EnvironmentIblLookup);
 #endif

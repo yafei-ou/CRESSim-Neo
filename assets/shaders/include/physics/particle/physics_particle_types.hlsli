@@ -289,7 +289,7 @@ struct GpuStrandDistanceConstraint
     float distanceCompliance;
 };
 
-struct GpuSoftBodyParticleRange
+struct GpuSurfaceParticleRange
 {
     uint start;
     uint count;
@@ -297,7 +297,7 @@ struct GpuSoftBodyParticleRange
     uint reserved1;
 };
 
-struct GpuSoftBodyChunkRange
+struct GpuSurfaceChunkRange
 {
     uint start;
     uint count;
@@ -305,9 +305,9 @@ struct GpuSoftBodyChunkRange
     uint reserved1;
 };
 
-struct GpuSoftBodyBoundsChunk
+struct GpuSurfaceBoundsChunk
 {
-    uint softBodyIndex;
+    uint surfaceIndex;
     uint particleStart;
     uint particleCount;
     uint reserved0;

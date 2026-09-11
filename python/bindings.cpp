@@ -1143,8 +1143,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                                      "Selects the material shader program family.")
         .value("StandardLit", MaterialProgramFamily::StandardLit,
                "Material program for standard mesh geometry.")
-        .value("SoftBodyLit", MaterialProgramFamily::SoftBodyLit,
-               "Material program for soft-body render geometry.")
+        .value("SurfaceDeformableLit", MaterialProgramFamily::SurfaceDeformableLit,
+               "Material program for particle-driven deformable surface geometry.")
         .value("CurveLit", MaterialProgramFamily::CurveLit,
                "Material program for curve render geometry.");
 

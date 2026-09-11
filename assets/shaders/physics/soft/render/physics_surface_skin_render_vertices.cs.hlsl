@@ -1,15 +1,15 @@
-#include "physics_soft_render_dispatch_constants.hlsli"
+#include "physics_surface_render_dispatch_constants.hlsli"
 #include "physics_base.hlsli"
 
-struct SoftRenderVertexBinding
+struct SurfaceRenderVertexBinding
 {
     uint4 particleIndices;
     float4 weights;
 };
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(SoftRenderVertexBinding, g_SoftRenderVertexBindings);
-CRESSIM_RW_STRUCTURED_BUFFER(float4, g_SoftBodyRenderPositionsRW);
+CRESSIM_STRUCTURED_BUFFER(SurfaceRenderVertexBinding, g_SurfaceRenderVertexBindings);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_SurfaceRenderPositionsRW);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -20,8 +20,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const SoftRenderVertexBinding binding =
-        CRESSIM_SB_LOAD(g_SoftRenderVertexBindings, vertexIndex);
+    const SurfaceRenderVertexBinding binding =
+        CRESSIM_SB_LOAD(g_SurfaceRenderVertexBindings, vertexIndex);
 
     float3 skinnedPos = float3(0.0, 0.0, 0.0);
     [unroll]
@@ -32,5 +32,5 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         skinnedPos += weight * CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleId).xyz;
     }
 
-    CRESSIM_SB_STORE(g_SoftBodyRenderPositionsRW, vertexIndex, float4(skinnedPos, 1.0));
+    CRESSIM_SB_STORE(g_SurfaceRenderPositionsRW, vertexIndex, float4(skinnedPos, 1.0));
 }

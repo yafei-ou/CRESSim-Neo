@@ -661,13 +661,13 @@ public:
     /// @return Const reference to suturing particle indices vector.
     const std::vector<std::uint32_t> &suturingParticleIndices() const noexcept;
 
-    /// @brief Gets host soft-body skinning and rendering mesh bindings.
-    /// @return Const reference to SoftRenderDataHost.
-    const SoftRenderDataHost &softRenderData() const noexcept;
+    /// @brief Gets host surface-deformable skinning and rendering mesh bindings.
+    /// @return Const reference to SurfaceDeformableRenderDataHost.
+    const SurfaceDeformableRenderDataHost &surfaceDeformableRenderData() const noexcept;
 
-    /// @brief Sets host soft-body skinning and rendering mesh bindings.
+    /// @brief Sets host surface-deformable skinning and rendering mesh bindings.
     /// @param data Skinning and surface vertex binding data.
-    void setSoftRenderData(const SoftRenderDataHost &data);
+    void setSurfaceDeformableRenderData(const SurfaceDeformableRenderDataHost &data);
 
     /// @brief Gets host curve rendering descriptors.
     /// @return Const reference to CurveRenderDataHost.
@@ -759,9 +759,9 @@ public:
     /// @return Grid cell dimension.
     float particleGridCellSize() const noexcept;
 
-    /// @brief Gets number of bounding box chunks for soft body broadphase.
+    /// @brief Gets number of bounding-box chunks for deformable surfaces.
     /// @return Chunk count.
-    std::uint32_t softBodyBoundsChunkCount() const noexcept;
+    std::uint32_t surfaceBoundsChunkCount() const noexcept;
 
     /// @brief Gets maximum suturing paths allocated per needle-soft pair.
     /// @return Path capacity.

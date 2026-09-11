@@ -39,9 +39,9 @@ struct TextureHandle
 /// @brief Shader program specialization family applied when rendering surface primitives.
 enum class MaterialProgramFamily
 {
-    StandardLit, ///< Standard PBR metallic-roughness lit surface pipeline.
-    SoftBodyLit, ///< Deformable tetrahedral/surface soft-body mesh pipeline with skinning.
-    CurveLit,    ///< Elastic strand and ribbon curve rendering pipeline.
+    StandardLit,          ///< Standard PBR metallic-roughness lit surface pipeline.
+    SurfaceDeformableLit, ///< Particle-driven deformable surface pipeline with skinning.
+    CurveLit,             ///< Elastic strand and ribbon curve rendering pipeline.
 };
 
 /// @brief Blending and rasterization mode determining pipeline stage assignment.

@@ -245,20 +245,21 @@ public:
                                              std::uint32_t particleCount,
                                              std::uint32_t rigidBodyCount, std::uint32_t iterations,
                                              const GpuRigidDispatchConstants &rigidConstants);
-    bool skinSoftRenderVertices(Diligent::IDeviceContext *computeContext,
-                                const PhysicsSceneGpuState &sceneState,
-                                std::uint32_t renderVertexCount);
-    bool updateSoftTriangleNormals(Diligent::IDeviceContext *computeContext,
-                                   const PhysicsSceneGpuState &sceneState,
-                                   std::uint32_t renderTriangleCount);
-    bool updateSoftRenderNormals(Diligent::IDeviceContext *computeContext,
-                                 const PhysicsSceneGpuState &sceneState,
-                                 std::uint32_t renderVertexCount);
+    bool skinSurfaceDeformableVertices(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t renderVertexCount);
+    bool updateSurfaceTriangleNormals(Diligent::IDeviceContext *computeContext,
+                                      const PhysicsSceneGpuState &sceneState,
+                                      std::uint32_t renderTriangleCount);
+    bool updateSurfaceDeformableNormals(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        std::uint32_t renderVertexCount);
     bool updateCurveRenderData(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState, std::uint32_t curveCount);
-    bool updateSoftBodyBounds(Diligent::IDeviceContext *computeContext,
-                              const PhysicsSceneGpuState &sceneState, std::uint32_t softBodyCount,
-                              std::uint32_t softBodyBoundsChunkCount);
+    bool updateSurfaceDeformableBounds(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t surfaceCount,
+                                       std::uint32_t surfaceBoundsChunkCount);
     bool predictRigid(Diligent::IDeviceContext *computeContext,
                       const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                       const GpuRigidDispatchConstants &constants);
@@ -349,8 +350,8 @@ private:
                                           const GpuRigidJointDispatchConstants &constants);
     bool writeParticleDispatchConstants(Diligent::IDeviceContext *computeContext,
                                         const GpuParticleDispatchConstants &constants);
-    bool writeSoftRenderDispatchConstants(Diligent::IDeviceContext *computeContext,
-                                          const GpuSoftRenderDispatchConstants &constants);
+    bool writeSurfaceRenderDispatchConstants(Diligent::IDeviceContext *computeContext,
+                                             const GpuSurfaceRenderDispatchConstants &constants);
     bool writeCurveRenderDispatchConstants(Diligent::IDeviceContext *computeContext,
                                            const GpuCurveRenderDispatchConstants &constants);
     bool writeScanDispatchConstants(Diligent::IDeviceContext *computeContext,
@@ -539,12 +540,12 @@ private:
     gpu::GpuComputePass mSolveParticleContactVelocitiesPass;
     gpu::GpuComputePass mSolveParticleRigidContactVelocitiesPass;
     gpu::GpuComputePass mApplyParticleContactVelocitiesPass;
-    gpu::GpuComputePass mSkinSoftRenderVerticesPass;
-    gpu::GpuComputePass mUpdateSoftTriangleNormalsPass;
-    gpu::GpuComputePass mUpdateSoftRenderNormalsPass;
+    gpu::GpuComputePass mSkinSurfaceDeformableVerticesPass;
+    gpu::GpuComputePass mUpdateSurfaceTriangleNormalsPass;
+    gpu::GpuComputePass mUpdateSurfaceDeformableNormalsPass;
     gpu::GpuComputePass mUpdateCurveRenderDataPass;
-    gpu::GpuComputePass mUpdateSoftBodyBoundsPass;
-    gpu::GpuComputePass mFinalizeSoftBodyBoundsPass;
+    gpu::GpuComputePass mUpdateSurfaceBoundsPass;
+    gpu::GpuComputePass mFinalizeSurfaceBoundsPass;
     gpu::GpuComputePass mUpdateRigidWorldAabbsPass;
     gpu::GpuComputePass mScanBlockPass;
     gpu::GpuComputePass mScanAddOffsetsPass;
@@ -595,7 +596,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mSolverConfigBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidJointDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mParticleDispatchConstantsBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftRenderDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mSurfaceRenderDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mCurveRenderDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;

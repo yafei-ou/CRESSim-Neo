@@ -10,7 +10,7 @@ using cressim::neo::common::EntityId;
 using cressim::neo::physics::PhysicsWorld;
 using cressim::neo::physics::SoftBodySourceKind;
 using cressim::neo::physics::SoftBodyState;
-using cressim::neo::physics::SoftRenderDataHost;
+using cressim::neo::physics::SurfaceDeformableRenderDataHost;
 
 bool nearlyEqual(float lhs, float rhs)
 {
@@ -20,14 +20,14 @@ bool nearlyEqual(float lhs, float rhs)
 SoftBodyState makeSoftBody(EntityId entityId)
 {
     SoftBodyState state{};
-    state.entityId                             = entityId;
-    state.source.kind                          = SoftBodySourceKind::RegularGrid;
-    state.source.regularGrid.size              = {1.0f, 1.0f, 1.0f};
+    state.entityId                                 = entityId;
+    state.source.kind                              = SoftBodySourceKind::RegularGrid;
+    state.source.regularGrid.size                  = {1.0f, 1.0f, 1.0f};
     state.source.regularGrid.targetParticleSpacing = 1.0f;
-    state.particleMass                         = 1.0f;
-    state.particleRadius                       = 0.1f;
-    state.edgeCompliance                       = 0.02f;
-    state.volumeCompliance                     = 0.03f;
+    state.particleMass                             = 1.0f;
+    state.particleRadius                           = 0.1f;
+    state.edgeCompliance                           = 0.02f;
+    state.volumeCompliance                         = 0.03f;
     return state;
 }
 
@@ -53,29 +53,32 @@ int main()
     const std::uint64_t particleRevisionBeforeRender = world.softParticleRevision();
     const std::uint64_t topologyRevisionBeforeRender = world.softTopologyRevision();
 
-    SoftRenderDataHost renderData{};
+    SurfaceDeformableRenderDataHost renderData{};
     renderData.fallbackNormals.emplace_back(0.0f, 1.0f, 0.0f, 0.0f);
-    renderData.softBodyParticleRanges.emplace_back(0u, 65u);
-    world.setSoftRenderData(renderData);
+    renderData.surfaceParticleRanges.emplace_back(0u, 65u);
+    world.setSurfaceDeformableRenderData(renderData);
 
-    if (world.softBodyBoundsChunkCount() != 2u)
+    if (world.surfaceBoundsChunkCount() != 2u)
     {
-        CRESSIM_LOG_ERROR("Soft render data update did not refresh cached bounds chunk count.");
+        CRESSIM_LOG_ERROR(
+            "Surface-deformable render data update did not refresh cached bounds chunk count.");
         return 1;
     }
 
     if (world.softParticleRevision() != particleRevisionBeforeRender)
     {
-        CRESSIM_LOG_ERROR("Soft render data update should not bump soft particle revision.");
+        CRESSIM_LOG_ERROR(
+            "Surface-deformable render data update should not bump soft particle revision.");
         return 1;
     }
     if (world.softTopologyRevision() != topologyRevisionBeforeRender + 1u)
     {
-        CRESSIM_LOG_ERROR("Soft render data update should bump soft GPU topology revision.");
+        CRESSIM_LOG_ERROR(
+            "Surface-deformable render data update should bump soft GPU topology revision.");
         return 1;
     }
 
-    SoftBodyState updated = *world.tryGetSoftBody(entity);
+    SoftBodyState updated  = *world.tryGetSoftBody(entity);
     updated.particleRadius = 0.2f;
     if (!world.upsertSoftBody(updated))
     {
@@ -90,7 +93,8 @@ int main()
     }
     if (!nearlyEqual(world.particleGridCellSize(), 0.4f))
     {
-        CRESSIM_LOG_ERROR("Runtime soft body update did not refresh cached particle grid cell size.");
+        CRESSIM_LOG_ERROR(
+            "Runtime soft body update did not refresh cached particle grid cell size.");
         return 1;
     }
     if (world.softTopologyRevision() != topologyRevisionBeforeRender + 1u)

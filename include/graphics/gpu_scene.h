@@ -112,15 +112,15 @@ struct GpuRenderableMetadata
 };
 static_assert(sizeof(GpuRenderableMetadata) == 64u);
 
-/// @brief Skinning weights and barycentric particle indices binding a soft-body surface vertex to
-/// simulation nodes.
-struct GpuSoftBodyVertexBinding
+/// @brief Skinning weights and particle indices binding a deformable surface vertex to simulation
+/// nodes.
+struct GpuSurfaceDeformableVertexBinding
 {
     Diligent::uint4 particleIndices{0u, 0u, 0u,
                                     0u}; ///< Indices of up to 4 influencing simulation particles.
     Diligent::float4 weights{1.0f, 0.0f, 0.0f, 0.0f}; ///< Normalized barycentric skinning weights.
 };
-static_assert(sizeof(GpuSoftBodyVertexBinding) == 32u);
+static_assert(sizeof(GpuSurfaceDeformableVertexBinding) == 32u);
 
 /// @brief Mapping linking a renderable object to its slots in indirect draw argument command
 /// buffers.
@@ -153,8 +153,8 @@ struct GpuEntitySceneView
     Diligent::IBuffer *lightInputsBuffer = nullptr; ///< GPU buffer holding GpuLightInput array.
     Diligent::IBuffer *localLightSelectionBuffer =
         nullptr; ///< GPU buffer holding GpuLocalLightSelection array.
-    Diligent::IBuffer *softBodyVertexBindingBuffer =
-        nullptr;                         ///< GPU buffer holding GpuSoftBodyVertexBinding array.
+    Diligent::IBuffer *surfaceDeformableVertexBindingBuffer =
+        nullptr; ///< GPU buffer holding GpuSurfaceDeformableVertexBinding elements.
     std::uint32_t entityCount       = 0; ///< Total active entities.
     std::uint32_t renderableCount   = 0; ///< Total renderable objects.
     std::uint32_t cameraCount       = 0; ///< Total cameras.

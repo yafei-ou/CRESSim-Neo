@@ -786,7 +786,7 @@ struct PhysicsWorld::Impl
     void applyStrandRuntimeProperties(std::uint32_t index,
                                       const StrandState &normalizedState) noexcept;
     void recomputeParticleGridCellSize() noexcept;
-    void recomputeSoftBodyBoundsChunkCount() noexcept;
+    void recomputeSurfaceBoundsChunkCount() noexcept;
     bool prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
                                        const SoftBodyState *previousState,
                                        SoftBodyDerivedCache &derivedCache) noexcept;
@@ -873,7 +873,7 @@ struct PhysicsWorld::Impl
     std::vector<RigidDistanceConstraint> mRigidDistanceConstraints{};
     std::vector<RoutedCableConstraint> mRoutedCableConstraints{};
     std::vector<RoutedCableRoutePoint> mRoutedCableRoutePoints{};
-    SoftRenderDataHost mSoftRenderData{};
+    SurfaceDeformableRenderDataHost mSurfaceDeformableRenderData{};
     CurveRenderDataHost mCurveRenderData{};
     std::vector<std::uint32_t> mRigidBodyDirtyIndices{};
     std::vector<std::uint32_t> mColliderDirtyIndices{};
@@ -896,7 +896,7 @@ struct PhysicsWorld::Impl
     std::uint32_t mActiveMovingColliderCount                                     = 0u;
     std::uint32_t mStaticColliderCount                                           = 0u;
     float mParticleGridCellSize                                                  = 0.1f;
-    std::uint32_t mSoftBodyBoundsChunkCount                                      = 0u;
+    std::uint32_t mSurfaceBoundsChunkCount                                       = 0u;
     std::uint32_t mMaxSuturingPathsPerPair                                       = 4u;
     std::uint32_t mMaxSuturingNodesPerPath                                       = 128u;
     std::uint32_t mReservedSuturingPathHeaders                                   = 0u;
@@ -1042,7 +1042,7 @@ void PhysicsWorld::clear()
     mImpl->mRigidDistanceConstraints.clear();
     mImpl->mRoutedCableConstraints.clear();
     mImpl->mRoutedCableRoutePoints.clear();
-    mImpl->mSoftRenderData.clear();
+    mImpl->mSurfaceDeformableRenderData.clear();
     mImpl->mCurveRenderData.clear();
     mImpl->mRigidBodyDirtyIndices.clear();
     mImpl->mColliderDirtyIndices.clear();
@@ -1065,7 +1065,7 @@ void PhysicsWorld::clear()
     mImpl->mActiveMovingColliderCount               = 0u;
     mImpl->mStaticColliderCount                     = 0u;
     mImpl->mParticleGridCellSize                    = 0.1f;
-    mImpl->mSoftBodyBoundsChunkCount                = 0u;
+    mImpl->mSurfaceBoundsChunkCount                 = 0u;
     mImpl->mNextRigidBodyId                         = 1u;
     mImpl->mNextColliderId                          = 1u;
     mImpl->mNextBallJointId                         = 1u;
@@ -3359,15 +3359,15 @@ const std::vector<std::uint32_t> &PhysicsWorld::suturingParticleIndices() const 
     return mImpl->mParticles.suturingParticleIndices;
 }
 
-const SoftRenderDataHost &PhysicsWorld::softRenderData() const noexcept
+const SurfaceDeformableRenderDataHost &PhysicsWorld::surfaceDeformableRenderData() const noexcept
 {
-    return mImpl->mSoftRenderData;
+    return mImpl->mSurfaceDeformableRenderData;
 }
 
-void PhysicsWorld::setSoftRenderData(const SoftRenderDataHost &data)
+void PhysicsWorld::setSurfaceDeformableRenderData(const SurfaceDeformableRenderDataHost &data)
 {
-    mImpl->mSoftRenderData = data;
-    mImpl->recomputeSoftBodyBoundsChunkCount();
+    mImpl->mSurfaceDeformableRenderData = data;
+    mImpl->recomputeSurfaceBoundsChunkCount();
     ++mImpl->mSoftTopologyRevision;
     ++mImpl->mAuthoredRevision;
 }
@@ -3634,9 +3634,9 @@ float PhysicsWorld::particleGridCellSize() const noexcept
     return mImpl->mParticleGridCellSize;
 }
 
-std::uint32_t PhysicsWorld::softBodyBoundsChunkCount() const noexcept
+std::uint32_t PhysicsWorld::surfaceBoundsChunkCount() const noexcept
 {
-    return mImpl->mSoftBodyBoundsChunkCount;
+    return mImpl->mSurfaceBoundsChunkCount;
 }
 
 std::uint32_t PhysicsWorld::maxSuturingPathsPerPair() const noexcept
@@ -6844,12 +6844,12 @@ void PhysicsWorld::Impl::recomputeParticleGridCellSize() noexcept
     mParticleGridCellSize = std::max(gridCellSize, 1.0e-4f);
 }
 
-void PhysicsWorld::Impl::recomputeSoftBodyBoundsChunkCount() noexcept
+void PhysicsWorld::Impl::recomputeSurfaceBoundsChunkCount() noexcept
 {
-    mSoftBodyBoundsChunkCount = 0u;
-    for (const Diligent::uint2 &range : mSoftRenderData.softBodyParticleRanges)
+    mSurfaceBoundsChunkCount = 0u;
+    for (const Diligent::uint2 &range : mSurfaceDeformableRenderData.surfaceParticleRanges)
     {
-        mSoftBodyBoundsChunkCount += (range.y + 64u - 1u) / 64u;
+        mSurfaceBoundsChunkCount += (range.y + 64u - 1u) / 64u;
     }
 }
 

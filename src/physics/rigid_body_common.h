@@ -282,11 +282,11 @@ struct GpuParticleDispatchConstants
     Diligent::float4 gravity{0.0f, -9.81f, 0.0f, 0.0f};
 };
 
-struct GpuSoftRenderDispatchConstants
+struct GpuSurfaceRenderDispatchConstants
 {
     std::uint32_t renderVertexCount   = 0u;
     std::uint32_t renderTriangleCount = 0u;
-    std::uint32_t softBodyCount       = 0u;
+    std::uint32_t surfaceCount        = 0u;
     std::uint32_t reserved0           = 0u;
 };
 
@@ -456,7 +456,7 @@ struct GpuStrandIncidentAttachment
     std::uint32_t reserved2       = 0u;
 };
 
-struct GpuSoftRenderVertexTriangleRange
+struct GpuSurfaceRenderVertexTriangleRange
 {
     std::uint32_t start     = 0u;
     std::uint32_t count     = 0u;
@@ -464,7 +464,7 @@ struct GpuSoftRenderVertexTriangleRange
     std::uint32_t reserved1 = 0u;
 };
 
-struct GpuSoftBodyParticleRange
+struct GpuSurfaceParticleRange
 {
     std::uint32_t start     = 0u;
     std::uint32_t count     = 0u;
@@ -472,7 +472,7 @@ struct GpuSoftBodyParticleRange
     std::uint32_t reserved1 = 0u;
 };
 
-struct GpuSoftBodyChunkRange
+struct GpuSurfaceChunkRange
 {
     std::uint32_t start     = 0u;
     std::uint32_t count     = 0u;
@@ -480,9 +480,9 @@ struct GpuSoftBodyChunkRange
     std::uint32_t reserved1 = 0u;
 };
 
-struct GpuSoftBodyBoundsChunk
+struct GpuSurfaceBoundsChunk
 {
-    std::uint32_t softBodyIndex = 0u;
+    std::uint32_t surfaceIndex  = 0u;
     std::uint32_t particleStart = 0u;
     std::uint32_t particleCount = 0u;
     std::uint32_t reserved0     = 0u;
@@ -850,8 +850,8 @@ static_assert(sizeof(GpuSuturingPair) == 64u);
 static_assert(sizeof(GpuSuturingPathHeader) == 32u);
 static_assert(sizeof(GpuSuturingPathNode) == 48u);
 static_assert(sizeof(GpuSuturingInsertionStateStorage) == 48u);
-static_assert(sizeof(GpuSoftBodyChunkRange) == 16u);
-static_assert(sizeof(GpuSoftBodyBoundsChunk) == 16u);
+static_assert(sizeof(GpuSurfaceChunkRange) == 16u);
+static_assert(sizeof(GpuSurfaceBoundsChunk) == 16u);
 static_assert(sizeof(GpuSoftEdgeCorrection) == 32u);
 static_assert(sizeof(DeformableBendConstraint) == 32u);
 static_assert(sizeof(GpuClothDihedral) == 32u);

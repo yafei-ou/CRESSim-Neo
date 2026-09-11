@@ -20,7 +20,7 @@ namespace
 
 constexpr std::uint32_t kScenePrepareThreadGroupSize = 64u;
 
-struct SoftBodyWorldAabbFallback
+struct SurfaceWorldAabbFallback
 {
     Diligent::float4 minBounds = {0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 maxBounds = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -80,7 +80,7 @@ constexpr Diligent::ShaderResourceVariableDesc kScenePrepareVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RenderableMetadata",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyWorldAabbs",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SurfaceWorldAabbs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_CurveWorldAabbs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -256,7 +256,7 @@ struct Renderer::Impl
         gpu::GpuComputePass scenePreparePass;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> cameraPrepareConstantsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> scenePrepareConstantsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> fallbackSoftBodyWorldAabbsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> fallbackSurfaceWorldAabbsBuffer;
         bool initialized = false;
     };
 
@@ -371,12 +371,12 @@ bool Renderer::Impl::ensureGpuScenePrepareState()
         return false;
     }
 
-    const SoftBodyWorldAabbFallback fallbackSoftBodyWorldAabb{};
+    const SurfaceWorldAabbFallback fallbackSurfaceWorldAabb{};
     if (!createStructuredSrvBuffer(backendContext.renderDevice,
-                                   "CRESSimNeo.Graphics.ScenePrepare.FallbackSoftBodyWorldAabbs",
-                                   sizeof(SoftBodyWorldAabbFallback), &fallbackSoftBodyWorldAabb,
+                                   "CRESSimNeo.Graphics.ScenePrepare.FallbackSurfaceWorldAabbs",
+                                   sizeof(SurfaceWorldAabbFallback), &fallbackSurfaceWorldAabb,
                                    graphicsContextMask,
-                                   mGpuScenePrepare->fallbackSoftBodyWorldAabbsBuffer))
+                                   mGpuScenePrepare->fallbackSurfaceWorldAabbsBuffer))
     {
         return false;
     }
@@ -407,8 +407,8 @@ bool Renderer::Impl::prepareGpuScene(const HostSceneView &world,
     {
         return false;
     }
-    const bool needsSoftBodyWorldAabbs = hasActiveDeformableRenderables(world.renderableMetadata);
-    if (needsSoftBodyWorldAabbs &&
+    const bool needsSurfaceWorldAabbs = hasActiveDeformableRenderables(world.renderableMetadata);
+    if (needsSurfaceWorldAabbs &&
         (physicsScene == nullptr || physicsScene->soft.worldAabbsBuffer == nullptr ||
          physicsScene->curve.worldAabbsBuffer == nullptr))
     {
@@ -477,13 +477,12 @@ bool Renderer::Impl::prepareGpuScene(const HostSceneView &world,
     std::memcpy(mappedConstants, &constants, sizeof(constants));
     backendContext.graphicsContext->UnmapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
                                                 Diligent::MAP_WRITE);
-    Diligent::IBuffer *softBodyWorldAabbsBuffer =
-        mGpuScenePrepare->fallbackSoftBodyWorldAabbsBuffer;
-    Diligent::IBuffer *curveWorldAabbsBuffer = mGpuScenePrepare->fallbackSoftBodyWorldAabbsBuffer;
-    if (needsSoftBodyWorldAabbs)
+    Diligent::IBuffer *surfaceWorldAabbsBuffer = mGpuScenePrepare->fallbackSurfaceWorldAabbsBuffer;
+    Diligent::IBuffer *curveWorldAabbsBuffer   = mGpuScenePrepare->fallbackSurfaceWorldAabbsBuffer;
+    if (needsSurfaceWorldAabbs)
     {
-        softBodyWorldAabbsBuffer = physicsScene->soft.worldAabbsBuffer;
-        curveWorldAabbsBuffer    = physicsScene->curve.worldAabbsBuffer;
+        surfaceWorldAabbsBuffer = physicsScene->soft.worldAabbsBuffer;
+        curveWorldAabbsBuffer   = physicsScene->curve.worldAabbsBuffer;
     }
 
     const std::array bindings{
@@ -498,7 +497,7 @@ bool Renderer::Impl::prepareGpuScene(const HostSceneView &world,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RenderableMetadata", sceneView.renderableMetadataBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs", softBodyWorldAabbsBuffer,
+        gpu::GpuBufferBinding{"g_SurfaceWorldAabbs", surfaceWorldAabbsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_CurveWorldAabbs", curveWorldAabbsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
