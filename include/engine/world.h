@@ -162,6 +162,11 @@ public:
     /// @param component Soft body component data.
     /// @return True if set successfully.
     bool setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
+
+    /// @brief Assigns a ClothComponent to an entity.
+    /// @param entityId Target entity ID.
+    /// @param component Cloth component data.
+    /// @return True if set successfully.
     bool setCloth(common::EntityId entityId, const ClothComponent &component);
 
     /// @brief Assigns a MeshfreeSoftBodyComponent to an entity.
@@ -174,6 +179,10 @@ public:
     /// @param entityId Target entity ID.
     /// @return True if either the soft body or its amplitude ranges existed and was removed.
     bool removeSoftBody(common::EntityId entityId);
+
+    /// @brief Removes the ClothComponent from an entity.
+    /// @param entityId Target entity ID.
+    /// @return True if removed; false otherwise.
     bool removeCloth(common::EntityId entityId);
 
     /// @brief Assigns a StrandComponent to an entity.
@@ -412,6 +421,8 @@ public:
 
     /// @brief Returns the soft-body component for an entity, or std::nullopt.
     std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
+
+    /// @brief Returns the cloth component for an entity, or std::nullopt.
     std::optional<ClothComponent> tryGetCloth(common::EntityId entityId) const;
 
     /// @brief Returns the strand component for an entity, or std::nullopt.
@@ -486,6 +497,8 @@ public:
     /// @brief Returns authored rest positions for a soft body, or std::nullopt.
     std::optional<SoftBodyAuthoringParticles> tryGetSoftBodyAuthoringParticles(
         common::EntityId entityId) const;
+
+    /// @brief Returns authored rest positions for cloth, or std::nullopt.
     std::optional<ClothAuthoringParticles> tryGetClothAuthoringParticles(
         common::EntityId entityId) const;
 

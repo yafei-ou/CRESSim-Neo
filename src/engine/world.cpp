@@ -3272,6 +3272,7 @@ void World::Impl::rebuildSurfaceDeformableRenderBindings(
         surfaceDeformableRenderData.surfaceParticleRanges[softBodyIndex] =
             Diligent::uint2{softBody.particleOffset, softBody.particleCount};
     }
+    // Shared GPU surface arrays are packed as [soft bodies][cloths].
     for (std::uint32_t clothIndex = 0u; clothIndex < cloths.size(); ++clothIndex)
         surfaceDeformableRenderData.surfaceParticleRanges[softBodies.size() + clothIndex] =
             Diligent::uint2{cloths[clothIndex].particleOffset, cloths[clothIndex].particleCount};

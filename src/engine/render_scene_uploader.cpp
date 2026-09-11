@@ -490,10 +490,10 @@ bool RenderSceneUploader::Impl::ensureLocalLightSelectionCapacity(
 namespace
 {
 bool ensureSurfaceDeformableBufferCapacity(Diligent::IRenderDevice *renderDevice,
-                                  Diligent::Uint64 contextMask, const char *name,
-                                  std::uint32_t elementStride, std::uint32_t elementCount,
-                                  Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer,
-                                  std::uint32_t &inOutCapacity)
+                                           Diligent::Uint64 contextMask, const char *name,
+                                           std::uint32_t elementStride, std::uint32_t elementCount,
+                                           Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer,
+                                           std::uint32_t &inOutCapacity)
 {
     if (renderDevice == nullptr || contextMask == 0)
     {
@@ -594,12 +594,13 @@ bool RenderSceneUploader::uploadSurfaceDeformableVertexBindings(
     mImpl->mSurfaceDeformableVertexBindingCount = static_cast<std::uint32_t>(bindings.size());
     Diligent::IBuffer *oldSurfaceDeformableVertexBindingBuffer =
         mImpl->mSurfaceDeformableVertexBindingBuffer;
-    if (!ensureSurfaceDeformableBufferCapacity(graphicsContext.renderDevice, mImpl->mGraphicsContextMask,
-                                      "CRESSimNeo.Gpu.SurfaceDeformableVertexBindings",
-                                      sizeof(graphics::GpuSurfaceDeformableVertexBinding),
-                                      mImpl->mSurfaceDeformableVertexBindingCount,
-                                      mImpl->mSurfaceDeformableVertexBindingBuffer,
-                                      mImpl->mSurfaceDeformableVertexBindingCapacity))
+    if (!ensureSurfaceDeformableBufferCapacity(graphicsContext.renderDevice,
+                                               mImpl->mGraphicsContextMask,
+                                               "CRESSimNeo.Gpu.SurfaceDeformableVertexBindings",
+                                               sizeof(graphics::GpuSurfaceDeformableVertexBinding),
+                                               mImpl->mSurfaceDeformableVertexBindingCount,
+                                               mImpl->mSurfaceDeformableVertexBindingBuffer,
+                                               mImpl->mSurfaceDeformableVertexBindingCapacity))
     {
         return false;
     }

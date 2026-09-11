@@ -44,10 +44,11 @@ struct ParticleLayoutMapping
     std::vector<std::uint32_t> softBodyParticleOffsets;    ///< First particle slots.
     std::vector<std::uint32_t> softBodyParticleCounts;     ///< Particle counts.
 
+    /// @brief Owning entity IDs, indexed by cloth slot.
     std::vector<common::EntityId> clothEntityIds;
-    std::vector<std::uint32_t> clothEnvironmentIndices;
-    std::vector<std::uint32_t> clothParticleOffsets;
-    std::vector<std::uint32_t> clothParticleCounts;
+    std::vector<std::uint32_t> clothEnvironmentIndices; ///< Environment indices.
+    std::vector<std::uint32_t> clothParticleOffsets;    ///< First particle slots.
+    std::vector<std::uint32_t> clothParticleCounts;     ///< Particle counts.
 
     /// @brief Owning entity IDs, indexed by fluid slot.
     std::vector<common::EntityId> fluidEntityIds;

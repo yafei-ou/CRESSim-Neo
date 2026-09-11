@@ -470,41 +470,48 @@ struct SoftBodyState
 /// @brief Explicit indexed simulation triangle mesh used to author cloth particles and topology.
 struct ClothMeshSource
 {
-    std::vector<Diligent::float3> objectSpaceRestPositions;
-    std::vector<std::uint32_t> triangleVertexIndices;
-    std::vector<std::uint32_t> staticParticleIndices;
+    std::vector<Diligent::float3>
+        objectSpaceRestPositions; ///< Cloth particle rest positions in object space.
+    std::vector<std::uint32_t>
+        triangleVertexIndices; ///< Triangle-list indices into objectSpaceRestPositions.
+    std::vector<std::uint32_t> staticParticleIndices; ///< Local particle indices fixed in place.
 };
 
 /// @brief Cloth contact material description.
 struct ClothMaterialDesc
 {
-    ParticleContactMaterialDesc contact{};
+    ParticleContactMaterialDesc contact{}; ///< Particle contact response parameters.
 };
 
 /// @brief Authored and derived state for a surface cloth instance.
 struct ClothState
 {
-    common::EntityId entityId      = common::kInvalidEntityId;
-    std::uint32_t environmentIndex = 0u;
-    std::uint32_t collisionLayer   = 1u;
-    std::uint32_t collisionMask    = 0xffffffffu;
-    ClothMeshSource source{};
-    ClothMaterialDesc material{};
-    std::vector<std::uint32_t> renderVertexToParticle{};
-    common::Transform restTransform{};
-    float particleMass                       = 1.0f;
-    float particleRadius                     = 0.125f;
-    float structuralCompliance               = 0.0f;
-    float bendCompliance                     = 0.0f;
-    bool selfCollisionEnabled                = false;
-    std::uint32_t contactMaterialIndex       = 0u;
-    std::uint32_t particleOffset             = 0u;
-    std::uint32_t particleCount              = 0u;
-    std::uint32_t structuralConstraintOffset = 0u;
-    std::uint32_t structuralConstraintCount  = 0u;
-    std::uint32_t dihedralConstraintOffset   = 0u;
-    std::uint32_t dihedralConstraintCount    = 0u;
-    std::vector<Diligent::float3> restPositions{};
+    common::EntityId entityId      = common::kInvalidEntityId; ///< Owning entity identifier.
+    std::uint32_t environmentIndex = 0u;                       ///< Owning environment index.
+    std::uint32_t collisionLayer   = 1u;                       ///< Collision bitmask layer.
+    std::uint32_t collisionMask    = 0xffffffffu;              ///< Collision bitmask filter.
+    ClothMeshSource source{};                                  ///< Authored simulation mesh.
+    ClothMaterialDesc material{};                              ///< Authored material parameters.
+    std::vector<std::uint32_t>
+        renderVertexToParticle{};      ///< Optional visual-vertex to local-particle mapping.
+    common::Transform restTransform{}; ///< Transform applied to authored rest positions.
+    float particleMass                 = 1.0f;   ///< Mass per cloth particle.
+    float particleRadius               = 0.125f; ///< Collision radius per cloth particle.
+    float structuralCompliance         = 0.0f;   ///< XPBD structural-edge compliance.
+    float bendCompliance               = 0.0f;   ///< XPBD dihedral-bending compliance.
+    bool selfCollisionEnabled          = false;  ///< Enable internal self-collision handling.
+    std::uint32_t contactMaterialIndex = 0u;     ///< Resolved contact-material table index.
+    std::uint32_t particleOffset       = 0u;     ///< Start offset in the global particle buffer.
+    std::uint32_t particleCount        = 0u;     ///< Number of particles in this cloth.
+    std::uint32_t structuralConstraintOffset =
+        0u; ///< Start offset in the global structural-constraint buffer.
+    std::uint32_t structuralConstraintCount =
+        0u; ///< Number of structural constraints owned by this cloth.
+    std::uint32_t dihedralConstraintOffset =
+        0u; ///< Start offset in the global cloth-dihedral buffer.
+    std::uint32_t dihedralConstraintCount =
+        0u; ///< Number of dihedral constraints owned by this cloth.
+    std::vector<Diligent::float3> restPositions{}; ///< Derived world-space rest positions.
 };
 
 /// @brief State descriptor for an authored 1D elastic Cosserat-like strand or surgical suture
@@ -736,12 +743,12 @@ using SoftBend = DeformableBendConstraint;
 /// @brief Signed four-particle dihedral-angle constraint for a cloth interior edge.
 struct ClothDihedralConstraint
 {
-    std::uint32_t edgeParticle0     = 0u;
-    std::uint32_t edgeParticle1     = 0u;
-    std::uint32_t oppositeParticle0 = 0u;
-    std::uint32_t oppositeParticle1 = 0u;
-    float restAngle                 = 0.0f;
-    float compliance                = 0.0f;
+    std::uint32_t edgeParticle0     = 0u;   ///< First global particle on the shared edge.
+    std::uint32_t edgeParticle1     = 0u;   ///< Second global particle on the shared edge.
+    std::uint32_t oppositeParticle0 = 0u;   ///< Opposite global particle in the first triangle.
+    std::uint32_t oppositeParticle1 = 0u;   ///< Opposite global particle in the second triangle.
+    float restAngle                 = 0.0f; ///< Signed rest dihedral angle in radians.
+    float compliance                = 0.0f; ///< XPBD bending compliance.
 };
 
 static_assert(sizeof(ClothDihedralConstraint) == 24u);
@@ -1342,10 +1349,10 @@ struct JointCollisionSuppressionHost
 /// @brief Vertex-to-triangle mapping range for surface normal computation.
 struct SurfaceRenderVertexTriangleRange
 {
-    std::uint32_t start     = 0u;
-    std::uint32_t count     = 0u;
-    std::uint32_t reserved0 = 0u;
-    std::uint32_t reserved1 = 0u;
+    std::uint32_t start     = 0u; ///< First index in the incident-triangle index array.
+    std::uint32_t count     = 0u; ///< Number of incident triangle indices.
+    std::uint32_t reserved0 = 0u; ///< Reserved padding for the 16-byte GPU layout.
+    std::uint32_t reserved1 = 0u; ///< Reserved padding for the 16-byte GPU layout.
 };
 
 /// @brief Skinning binding connecting a deformable surface vertex to four simulation particles.
@@ -1358,13 +1365,19 @@ struct SurfaceRenderVertexBinding
 /// @brief Host container for particle-driven surface rendering data and vertex bindings.
 struct SurfaceDeformableRenderDataHost
 {
-    std::vector<SurfaceRenderVertexBinding> vertexBindings;
-    std::vector<Diligent::float4> fallbackNormals;
-    std::vector<SurfaceRenderVertexTriangleRange> vertexTriangleRanges;
-    std::vector<std::uint32_t> vertexTriangleIndices;
-    std::vector<Diligent::uint4> triangleParticleIndices;
-    std::vector<Diligent::uint2> surfaceParticleRanges;
+    std::vector<SurfaceRenderVertexBinding>
+        vertexBindings; ///< Per-render-vertex particle skinning bindings.
+    std::vector<Diligent::float4>
+        fallbackNormals; ///< Per-render-vertex normals used for degenerate geometry.
+    std::vector<SurfaceRenderVertexTriangleRange>
+        vertexTriangleRanges; ///< Per-render-vertex incident-triangle ranges.
+    std::vector<std::uint32_t> vertexTriangleIndices; ///< Packed incident render-triangle indices.
+    std::vector<Diligent::uint4>
+        triangleParticleIndices; ///< Simulation particle indices for each render triangle.
+    std::vector<Diligent::uint2>
+        surfaceParticleRanges; ///< Global particle offset and count for each surface.
 
+    /// @brief Clears all surface-render arrays.
     void clear()
     {
         vertexBindings.clear();

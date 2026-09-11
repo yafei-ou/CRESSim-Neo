@@ -159,16 +159,16 @@ struct Runtime::Impl
     World mWorld;
     graphics::RenderResourceManager mResources;
     common::FrameContext mLastFrameContext{};
-    bool mDeviceFrameActive                                  = false;
-    bool mWorldUploaded                                      = false;
-    bool mPhysicsPosesNeedSync                               = false;
-    std::uint64_t mLastUploadedEntityPoseRevision            = 0u;
-    std::uint64_t mLastUploadedRenderableMetadataRevision    = 0u;
-    std::uint64_t mLastUploadedRenderableQueueInfoRevision   = 0u;
+    bool mDeviceFrameActive                                           = false;
+    bool mWorldUploaded                                               = false;
+    bool mPhysicsPosesNeedSync                                        = false;
+    std::uint64_t mLastUploadedEntityPoseRevision                     = 0u;
+    std::uint64_t mLastUploadedRenderableMetadataRevision             = 0u;
+    std::uint64_t mLastUploadedRenderableQueueInfoRevision            = 0u;
     std::uint64_t mLastUploadedSurfaceDeformableVertexBindingRevision = 0u;
-    std::uint64_t mLastUploadedCameraInputRevision           = 0u;
-    std::uint64_t mLastUploadedLightInputRevision            = 0u;
-    std::uint64_t mLastUploadedLocalLightSelectionRevision   = 0u;
+    std::uint64_t mLastUploadedCameraInputRevision                    = 0u;
+    std::uint64_t mLastUploadedLightInputRevision                     = 0u;
+    std::uint64_t mLastUploadedLocalLightSelectionRevision            = 0u;
 };
 
 Runtime::Runtime() : mImpl(std::make_unique<Impl>()) {}
@@ -332,20 +332,20 @@ void Runtime::shutdown()
         mImpl->mGpuDevice.reset();
     }
 
-    mImpl->mLastRenderStats                           = {};
-    mImpl->mRenderFrameOptions                        = {};
-    mImpl->mLastFrameContext                          = {};
-    mImpl->mDeviceFrameActive                         = false;
-    mImpl->mWorldUploaded                             = false;
-    mImpl->mPhysicsPosesNeedSync                      = false;
-    mImpl->mInitialized                               = false;
-    mImpl->mLastUploadedEntityPoseRevision            = 0u;
-    mImpl->mLastUploadedRenderableMetadataRevision    = 0u;
-    mImpl->mLastUploadedRenderableQueueInfoRevision   = 0u;
+    mImpl->mLastRenderStats                                    = {};
+    mImpl->mRenderFrameOptions                                 = {};
+    mImpl->mLastFrameContext                                   = {};
+    mImpl->mDeviceFrameActive                                  = false;
+    mImpl->mWorldUploaded                                      = false;
+    mImpl->mPhysicsPosesNeedSync                               = false;
+    mImpl->mInitialized                                        = false;
+    mImpl->mLastUploadedEntityPoseRevision                     = 0u;
+    mImpl->mLastUploadedRenderableMetadataRevision             = 0u;
+    mImpl->mLastUploadedRenderableQueueInfoRevision            = 0u;
     mImpl->mLastUploadedSurfaceDeformableVertexBindingRevision = 0u;
-    mImpl->mLastUploadedCameraInputRevision           = 0u;
-    mImpl->mLastUploadedLightInputRevision            = 0u;
-    mImpl->mLastUploadedLocalLightSelectionRevision   = 0u;
+    mImpl->mLastUploadedCameraInputRevision                    = 0u;
+    mImpl->mLastUploadedLightInputRevision                     = 0u;
+    mImpl->mLastUploadedLocalLightSelectionRevision            = 0u;
 }
 
 void Runtime::prepare()
@@ -483,8 +483,9 @@ void Runtime::stepVisualSensors(const common::FrameContext &frameContext)
         mImpl->mPhysicsSolver.get(), mImpl->mPhysicsPosesNeedSync,
         mImpl->mLastUploadedEntityPoseRevision, mImpl->mLastUploadedRenderableMetadataRevision,
         mImpl->mLastUploadedRenderableQueueInfoRevision,
-        mImpl->mLastUploadedSurfaceDeformableVertexBindingRevision, mImpl->mLastUploadedCameraInputRevision,
-        mImpl->mLastUploadedLightInputRevision, mImpl->mLastUploadedLocalLightSelectionRevision);
+        mImpl->mLastUploadedSurfaceDeformableVertexBindingRevision,
+        mImpl->mLastUploadedCameraInputRevision, mImpl->mLastUploadedLightInputRevision,
+        mImpl->mLastUploadedLocalLightSelectionRevision);
 
     if (gpuSceneReady)
     {
