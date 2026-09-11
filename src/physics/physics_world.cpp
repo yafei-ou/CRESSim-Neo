@@ -1656,6 +1656,7 @@ bool PhysicsWorld::upsertCloth(const ClothState &state)
         for (std::uint32_t i = 0; i < stored.dihedralConstraintCount; ++i)
             mImpl->mClothDihedrals[stored.dihedralConstraintOffset + i].compliance =
                 stored.bendCompliance;
+        mImpl->recomputeParticleGridCellSize();
         if (oldEnvironment != stored.environmentIndex)
         {
             mImpl->markRebuildDirty(PhysicsRebuildFlags::SoftConstraintData);

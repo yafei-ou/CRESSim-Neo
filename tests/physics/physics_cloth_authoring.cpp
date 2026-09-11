@@ -59,6 +59,7 @@ int main()
                  0.1f) > 1.0e-6f ||
         std::abs(world.clothDihedralConstraints()[stored->dihedralConstraintOffset].compliance -
                  0.2f) > 1.0e-6f ||
+        std::abs(world.particleGridCellSize() - 0.4f) > 1.0e-6f ||
         world.clothTopologyRevision() != renderRevision + 1u)
         return 9;
 
