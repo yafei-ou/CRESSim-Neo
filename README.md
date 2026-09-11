@@ -13,6 +13,7 @@ instructions are in [`docs/README.md`](docs/README.md). Browse the published
 > [!NOTE]
 > CRESSim-Neo was developed at the [Telerobotic and Biorobotic Systems (TBS)
 > Group](https://www.ece.ualberta.ca/~tbs/pmwiki/) at the University of Alberta.
+> See the [citation](#citation).
 
 > [!WARNING]
 > Coding agents assisted with the development of this project. Exercise care
@@ -420,3 +421,22 @@ These projects were consulted as algorithmic references.
 - [InteractiveComputerGraphics/PositionBasedDynamics](https://github.com/InteractiveComputerGraphics/PositionBasedDynamics)
 - [MircoWerner/VkLBVH](https://github.com/MircoWerner/VkLBVH).
 - [NVIDIA PhysX](https://github.com/NVIDIA-Omniverse/PhysX).
+
+## Citation
+
+Y. Ou, A. Naheen, T. Mussin, H. Jarales, M. Chacko Moncy, and M. Tavakoli,
+“CRESSim-Neo: A Batched GPU Simulation Engine for Surgical Robotics and Robot
+Learning,” *arXiv:2608.25192* [cs.RO], 2026. [Online]. Available:
+https://arxiv.org/abs/2608.25192
+
+```bibtex
+@misc{ou2026cressimneo,
+  title={CRESSim-Neo: A Batched GPU Simulation Engine for Surgical Robotics and Robot Learning},
+  author={Ou, Yafei and Naheen, Ahnaf and Mussin, Tleukhan and Jarales, Hans and Chacko Moncy, Melwin and Tavakoli, Mahdi},
+  year={2026},
+  eprint={2608.25192},
+  archivePrefix={arXiv},
+  primaryClass={cs.RO},
+  url={https://arxiv.org/abs/2608.25192}
+}
+```

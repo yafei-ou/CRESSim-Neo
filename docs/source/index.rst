@@ -30,7 +30,7 @@ integration using DLPack.
 
    CRESSim-Neo was developed at the `Telerobotic and Biorobotic Systems (TBS)
    Group <https://www.ece.ualberta.ca/~tbs/pmwiki/>`_ at the University of
-   Alberta.
+   Alberta. See the :ref:`citation`.
 
 .. warning::
 
@@ -60,3 +60,25 @@ the runtime model and scene-authoring workflow. The :doc:`Developer Guide
    guides/index
    developers/index
    reference/index
+
+.. _citation:
+
+Citation
+--------
+
+Y. Ou, A. Naheen, T. Mussin, H. Jarales, M. Chacko Moncy, and M. Tavakoli,
+“CRESSim-Neo: A Batched GPU Simulation Engine for Surgical Robotics and Robot
+Learning,” *arXiv:2608.25192* [cs.RO], 2026. `Available online
+<https://arxiv.org/abs/2608.25192>`_.
+
+.. code-block:: bibtex
+
+   @misc{ou2026cressimneo,
+     title={CRESSim-Neo: A Batched GPU Simulation Engine for Surgical Robotics and Robot Learning},
+     author={Ou, Yafei and Naheen, Ahnaf and Mussin, Tleukhan and Jarales, Hans and Chacko Moncy, Melwin and Tavakoli, Mahdi},
+     year={2026},
+     eprint={2608.25192},
+     archivePrefix={arXiv},
+     primaryClass={cs.RO},
+     url={https://arxiv.org/abs/2608.25192}
+   }
