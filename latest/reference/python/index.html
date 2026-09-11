@@ -32,6 +32,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/navbar.css?v=b91d66f6" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
@@ -110,7 +111,7 @@
   </button>
   
   
-  <div class="col-lg-3 navbar-header-items__start">
+  <div class=" navbar-header-items__start">
     
       <div class="navbar-item">
 
@@ -125,13 +126,13 @@
   
   
   
-    <p class="title logo__title">CRESSim-Neo Documentation</p>
+    <p class="title logo__title">CRESSim-Neo</p>
   
 </a></div>
     
   </div>
   
-  <div class="col-lg-9 navbar-header-items">
+  <div class=" navbar-header-items">
     
     <div class="me-auto navbar-header-items__center">
       
@@ -204,6 +205,21 @@
     <!-- dropdown will be populated by javascript on page load -->
   </div>
 </div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/yafei-ou/CRESSim-Neo" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
       
     </div>
     
@@ -307,6 +323,21 @@
     <!-- dropdown will be populated by javascript on page load -->
   </div>
 </div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/yafei-ou/CRESSim-Neo" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
         
       </div>
     
@@ -508,7 +539,13 @@
 <div><p>SoftBodyParticle : Particle belonging to a soft body.</p>
 <p>StrandParticle : Particle belonging to a strand.</p>
 <p>RigidProxyParticle : Proxy particle belonging to a rigid body.</p>
+<p>ClothParticle : Particle belonging to a cloth.</p>
 </div></blockquote>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cressim_neo.AuthoredParticleReferenceType.ClothParticle">
+<span class="sig-name descname"><span class="pre">ClothParticle</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;AuthoredParticleReferenceType.ClothParticle:</span> <span class="pre">3&gt;</span></span><a class="headerlink" href="#cressim_neo.AuthoredParticleReferenceType.ClothParticle" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="cressim_neo.AuthoredParticleReferenceType.RigidProxyParticle">
 <span class="sig-name descname"><span class="pre">RigidProxyParticle</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;AuthoredParticleReferenceType.RigidProxyParticle:</span> <span class="pre">2&gt;</span></span><a class="headerlink" href="#cressim_neo.AuthoredParticleReferenceType.RigidProxyParticle" title="Link to this definition">#</a></dt>
@@ -1031,6 +1068,110 @@
 <dl class="py property">
 <dt class="sig sig-object py" id="cressim_neo.CameraProduct.value">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">value</span></span><a class="headerlink" href="#cressim_neo.CameraProduct.value" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="cressim_neo.ClothAuthoringParticles">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">cressim_neo.</span></span><span class="sig-name descname"><span class="pre">ClothAuthoringParticles</span></span><a class="headerlink" href="#cressim_neo.ClothAuthoringParticles" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pybind11_object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothAuthoringParticles.particle_count">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">particle_count</span></span><a class="headerlink" href="#cressim_neo.ClothAuthoringParticles.particle_count" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothAuthoringParticles.rest_positions">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">rest_positions</span></span><a class="headerlink" href="#cressim_neo.ClothAuthoringParticles.rest_positions" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">cressim_neo.</span></span><span class="sig-name descname"><span class="pre">ClothComponent</span></span><a class="headerlink" href="#cressim_neo.ClothComponent" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pybind11_object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent.bend_compliance">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">bend_compliance</span></span><a class="headerlink" href="#cressim_neo.ClothComponent.bend_compliance" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent.collision_layer">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">collision_layer</span></span><a class="headerlink" href="#cressim_neo.ClothComponent.collision_layer" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent.collision_mask">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">collision_mask</span></span><a class="headerlink" href="#cressim_neo.ClothComponent.collision_mask" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent.material">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">material</span></span><a class="headerlink" href="#cressim_neo.ClothComponent.material" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent.particle_mass">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">particle_mass</span></span><a class="headerlink" href="#cressim_neo.ClothComponent.particle_mass" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent.particle_radius">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">particle_radius</span></span><a class="headerlink" href="#cressim_neo.ClothComponent.particle_radius" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent.render_vertex_to_particle">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">render_vertex_to_particle</span></span><a class="headerlink" href="#cressim_neo.ClothComponent.render_vertex_to_particle" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent.self_collision_enabled">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">self_collision_enabled</span></span><a class="headerlink" href="#cressim_neo.ClothComponent.self_collision_enabled" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent.source">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">source</span></span><a class="headerlink" href="#cressim_neo.ClothComponent.source" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothComponent.structural_compliance">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">structural_compliance</span></span><a class="headerlink" href="#cressim_neo.ClothComponent.structural_compliance" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="cressim_neo.ClothMaterialDesc">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">cressim_neo.</span></span><span class="sig-name descname"><span class="pre">ClothMaterialDesc</span></span><a class="headerlink" href="#cressim_neo.ClothMaterialDesc" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pybind11_object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothMaterialDesc.contact">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">contact</span></span><a class="headerlink" href="#cressim_neo.ClothMaterialDesc.contact" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="cressim_neo.ClothMeshSource">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">cressim_neo.</span></span><span class="sig-name descname"><span class="pre">ClothMeshSource</span></span><a class="headerlink" href="#cressim_neo.ClothMeshSource" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pybind11_object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothMeshSource.object_space_rest_positions">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">object_space_rest_positions</span></span><a class="headerlink" href="#cressim_neo.ClothMeshSource.object_space_rest_positions" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothMeshSource.static_particle_indices">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">static_particle_indices</span></span><a class="headerlink" href="#cressim_neo.ClothMeshSource.static_particle_indices" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ClothMeshSource.triangle_vertex_indices">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">triangle_vertex_indices</span></span><a class="headerlink" href="#cressim_neo.ClothMeshSource.triangle_vertex_indices" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -3026,7 +3167,7 @@
 <p>Members:</p>
 <blockquote>
 <div><p>StandardLit : Material program for standard mesh geometry.</p>
-<p>SoftBodyLit : Material program for soft-body render geometry.</p>
+<p>SurfaceDeformableLit : Material program for particle-driven deformable surface geometry.</p>
 <p>CurveLit : Material program for curve render geometry.</p>
 </div></blockquote>
 <dl class="py attribute">
@@ -3035,13 +3176,13 @@
 <dd></dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="cressim_neo.MaterialProgramFamily.SoftBodyLit">
-<span class="sig-name descname"><span class="pre">SoftBodyLit</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;MaterialProgramFamily.SoftBodyLit:</span> <span class="pre">1&gt;</span></span><a class="headerlink" href="#cressim_neo.MaterialProgramFamily.SoftBodyLit" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="cressim_neo.MaterialProgramFamily.StandardLit">
+<span class="sig-name descname"><span class="pre">StandardLit</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;MaterialProgramFamily.StandardLit:</span> <span class="pre">0&gt;</span></span><a class="headerlink" href="#cressim_neo.MaterialProgramFamily.StandardLit" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="cressim_neo.MaterialProgramFamily.StandardLit">
-<span class="sig-name descname"><span class="pre">StandardLit</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;MaterialProgramFamily.StandardLit:</span> <span class="pre">0&gt;</span></span><a class="headerlink" href="#cressim_neo.MaterialProgramFamily.StandardLit" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="cressim_neo.MaterialProgramFamily.SurfaceDeformableLit">
+<span class="sig-name descname"><span class="pre">SurfaceDeformableLit</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;MaterialProgramFamily.SurfaceDeformableLit:</span> <span class="pre">1&gt;</span></span><a class="headerlink" href="#cressim_neo.MaterialProgramFamily.SurfaceDeformableLit" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py property">
@@ -3469,6 +3610,32 @@
 </dd></dl>
 
 <dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ParticleLayoutMapping.cloth_count">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cloth_count</span></span><a class="headerlink" href="#cressim_neo.ParticleLayoutMapping.cloth_count" title="Link to this definition">#</a></dt>
+<dd><p>Number of prepared cloth slots.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ParticleLayoutMapping.cloth_entity_ids">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cloth_entity_ids</span></span><a class="headerlink" href="#cressim_neo.ParticleLayoutMapping.cloth_entity_ids" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ParticleLayoutMapping.cloth_environment_indices">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cloth_environment_indices</span></span><a class="headerlink" href="#cressim_neo.ParticleLayoutMapping.cloth_environment_indices" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ParticleLayoutMapping.cloth_particle_counts">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cloth_particle_counts</span></span><a class="headerlink" href="#cressim_neo.ParticleLayoutMapping.cloth_particle_counts" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cressim_neo.ParticleLayoutMapping.cloth_particle_offsets">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cloth_particle_offsets</span></span><a class="headerlink" href="#cressim_neo.ParticleLayoutMapping.cloth_particle_offsets" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
 <dt class="sig sig-object py" id="cressim_neo.ParticleLayoutMapping.collision_layers">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">collision_layers</span></span><a class="headerlink" href="#cressim_neo.ParticleLayoutMapping.collision_layers" title="Link to this definition">#</a></dt>
 <dd><p>Collision layers by prepared particle slot.</p>
@@ -3662,7 +3829,13 @@
 <p>FluidBody : Fluid-body particle owner.</p>
 <p>Strand : Strand particle owner.</p>
 <p>RigidBody : Rigid-body proxy-particle owner.</p>
+<p>Cloth : Cloth particle owner.</p>
 </div></blockquote>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cressim_neo.ParticleOwnerType.Cloth">
+<span class="sig-name descname"><span class="pre">Cloth</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;ParticleOwnerType.Cloth:</span> <span class="pre">5&gt;</span></span><a class="headerlink" href="#cressim_neo.ParticleOwnerType.Cloth" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="cressim_neo.ParticleOwnerType.FluidBody">
 <span class="sig-name descname"><span class="pre">FluidBody</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;ParticleOwnerType.FluidBody:</span> <span class="pre">2&gt;</span></span><a class="headerlink" href="#cressim_neo.ParticleOwnerType.FluidBody" title="Link to this definition">#</a></dt>
@@ -7123,6 +7296,12 @@ If the path is a directory, use rmdir() instead.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="cressim_neo.World.remove_cloth">
+<span class="sig-name descname"><span class="pre">remove_cloth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#cressim_neo.World" title="cressim_neo._cressim_neo.World"><span class="pre">cressim_neo._cressim_neo.World</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SupportsInt</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">SupportsIndex</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#cressim_neo.World.remove_cloth" title="Link to this definition">#</a></dt>
+<dd><p>Removes a cloth from an entity.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="cressim_neo.World.remove_collider">
 <span class="sig-name descname"><span class="pre">remove_collider</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#cressim_neo.World" title="cressim_neo._cressim_neo.World"><span class="pre">cressim_neo._cressim_neo.World</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#cressim_neo.ColliderHandle" title="cressim_neo._cressim_neo.ColliderHandle"><span class="pre">cressim_neo._cressim_neo.ColliderHandle</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#cressim_neo.World.remove_collider" title="Link to this definition">#</a></dt>
 <dd><p>Removes a registered collider handle.</p>
@@ -7291,6 +7470,12 @@ If the path is a directory, use rmdir() instead.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="cressim_neo.World.set_cloth">
+<span class="sig-name descname"><span class="pre">set_cloth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#cressim_neo.World" title="cressim_neo._cressim_neo.World"><span class="pre">cressim_neo._cressim_neo.World</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SupportsInt</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">SupportsIndex</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#cressim_neo.ClothComponent" title="cressim_neo._cressim_neo.ClothComponent"><span class="pre">cressim_neo._cressim_neo.ClothComponent</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#cressim_neo.World.set_cloth" title="Link to this definition">#</a></dt>
+<dd><p>Assigns a ClothComponent to an entity.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="cressim_neo.World.set_directional_light">
 <span class="sig-name descname"><span class="pre">set_directional_light</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#cressim_neo.World" title="cressim_neo._cressim_neo.World"><span class="pre">cressim_neo._cressim_neo.World</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SupportsInt</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">SupportsIndex</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#cressim_neo.DirectionalLightComponent" title="cressim_neo._cressim_neo.DirectionalLightComponent"><span class="pre">cressim_neo._cressim_neo.DirectionalLightComponent</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><code class="docutils literal notranslate"><span class="pre">None</span></code></span></span><a class="headerlink" href="#cressim_neo.World.set_directional_light" title="Link to this definition">#</a></dt>
 <dd><p>Assigns or updates a DirectionalLightComponent for an entity.</p>
@@ -7414,6 +7599,18 @@ If the path is a directory, use rmdir() instead.</p>
 <dt class="sig sig-object py" id="cressim_neo.World.try_get_camera">
 <span class="sig-name descname"><span class="pre">try_get_camera</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#cressim_neo.World" title="cressim_neo._cressim_neo.World"><span class="pre">cressim_neo._cressim_neo.World</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SupportsInt</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">SupportsIndex</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#cressim_neo.CameraComponent" title="cressim_neo._cressim_neo.CameraComponent"><span class="pre">cressim_neo._cressim_neo.CameraComponent</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><code class="docutils literal notranslate"><span class="pre">None</span></code></span></span><a class="headerlink" href="#cressim_neo.World.try_get_camera" title="Link to this definition">#</a></dt>
 <dd><p>Returns the camera component for an entity, or None.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cressim_neo.World.try_get_cloth">
+<span class="sig-name descname"><span class="pre">try_get_cloth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#cressim_neo.World" title="cressim_neo._cressim_neo.World"><span class="pre">cressim_neo._cressim_neo.World</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SupportsInt</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">SupportsIndex</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#cressim_neo.ClothComponent" title="cressim_neo._cressim_neo.ClothComponent"><span class="pre">cressim_neo._cressim_neo.ClothComponent</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><code class="docutils literal notranslate"><span class="pre">None</span></code></span></span><a class="headerlink" href="#cressim_neo.World.try_get_cloth" title="Link to this definition">#</a></dt>
+<dd><p>Returns the cloth component for an entity, or None.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cressim_neo.World.try_get_cloth_authoring_particles">
+<span class="sig-name descname"><span class="pre">try_get_cloth_authoring_particles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#cressim_neo.World" title="cressim_neo._cressim_neo.World"><span class="pre">cressim_neo._cressim_neo.World</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SupportsInt</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">SupportsIndex</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#cressim_neo.ClothAuthoringParticles" title="cressim_neo._cressim_neo.ClothAuthoringParticles"><span class="pre">cressim_neo._cressim_neo.ClothAuthoringParticles</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><code class="docutils literal notranslate"><span class="pre">None</span></code></span></span><a class="headerlink" href="#cressim_neo.World.try_get_cloth_authoring_particles" title="Link to this definition">#</a></dt>
+<dd><p>Returns the authored rest positions for a cloth, or None.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -7784,6 +7981,7 @@ for example <code class="docutils literal notranslate"><span class="pre">cressim
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.AuthoredParticleReferenceType"><code class="docutils literal notranslate"><span class="pre">AuthoredParticleReferenceType</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.AuthoredParticleReferenceType.ClothParticle"><code class="docutils literal notranslate"><span class="pre">AuthoredParticleReferenceType.ClothParticle</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.AuthoredParticleReferenceType.RigidProxyParticle"><code class="docutils literal notranslate"><span class="pre">AuthoredParticleReferenceType.RigidProxyParticle</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.AuthoredParticleReferenceType.SoftBodyParticle"><code class="docutils literal notranslate"><span class="pre">AuthoredParticleReferenceType.SoftBodyParticle</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.AuthoredParticleReferenceType.StrandParticle"><code class="docutils literal notranslate"><span class="pre">AuthoredParticleReferenceType.StrandParticle</span></code></a></li>
@@ -7889,6 +8087,34 @@ for example <code class="docutils literal notranslate"><span class="pre">cressim
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.CameraProduct.Depth"><code class="docutils literal notranslate"><span class="pre">CameraProduct.Depth</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.CameraProduct.SegmentationDepth"><code class="docutils literal notranslate"><span class="pre">CameraProduct.SegmentationDepth</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.CameraProduct.value"><code class="docutils literal notranslate"><span class="pre">CameraProduct.value</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothAuthoringParticles"><code class="docutils literal notranslate"><span class="pre">ClothAuthoringParticles</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothAuthoringParticles.particle_count"><code class="docutils literal notranslate"><span class="pre">ClothAuthoringParticles.particle_count</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothAuthoringParticles.rest_positions"><code class="docutils literal notranslate"><span class="pre">ClothAuthoringParticles.rest_positions</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent"><code class="docutils literal notranslate"><span class="pre">ClothComponent</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent.bend_compliance"><code class="docutils literal notranslate"><span class="pre">ClothComponent.bend_compliance</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent.collision_layer"><code class="docutils literal notranslate"><span class="pre">ClothComponent.collision_layer</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent.collision_mask"><code class="docutils literal notranslate"><span class="pre">ClothComponent.collision_mask</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent.material"><code class="docutils literal notranslate"><span class="pre">ClothComponent.material</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent.particle_mass"><code class="docutils literal notranslate"><span class="pre">ClothComponent.particle_mass</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent.particle_radius"><code class="docutils literal notranslate"><span class="pre">ClothComponent.particle_radius</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent.render_vertex_to_particle"><code class="docutils literal notranslate"><span class="pre">ClothComponent.render_vertex_to_particle</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent.self_collision_enabled"><code class="docutils literal notranslate"><span class="pre">ClothComponent.self_collision_enabled</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent.source"><code class="docutils literal notranslate"><span class="pre">ClothComponent.source</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothComponent.structural_compliance"><code class="docutils literal notranslate"><span class="pre">ClothComponent.structural_compliance</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothMaterialDesc"><code class="docutils literal notranslate"><span class="pre">ClothMaterialDesc</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothMaterialDesc.contact"><code class="docutils literal notranslate"><span class="pre">ClothMaterialDesc.contact</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothMeshSource"><code class="docutils literal notranslate"><span class="pre">ClothMeshSource</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothMeshSource.object_space_rest_positions"><code class="docutils literal notranslate"><span class="pre">ClothMeshSource.object_space_rest_positions</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothMeshSource.static_particle_indices"><code class="docutils literal notranslate"><span class="pre">ClothMeshSource.static_particle_indices</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ClothMeshSource.triangle_vertex_indices"><code class="docutils literal notranslate"><span class="pre">ClothMeshSource.triangle_vertex_indices</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ColliderComponent"><code class="docutils literal notranslate"><span class="pre">ColliderComponent</span></code></a><ul class="nav section-nav flex-column">
@@ -8291,8 +8517,8 @@ for example <code class="docutils literal notranslate"><span class="pre">cressim
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.MaterialProgramFamily"><code class="docutils literal notranslate"><span class="pre">MaterialProgramFamily</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.MaterialProgramFamily.CurveLit"><code class="docutils literal notranslate"><span class="pre">MaterialProgramFamily.CurveLit</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.MaterialProgramFamily.SoftBodyLit"><code class="docutils literal notranslate"><span class="pre">MaterialProgramFamily.SoftBodyLit</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.MaterialProgramFamily.StandardLit"><code class="docutils literal notranslate"><span class="pre">MaterialProgramFamily.StandardLit</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.MaterialProgramFamily.SurfaceDeformableLit"><code class="docutils literal notranslate"><span class="pre">MaterialProgramFamily.SurfaceDeformableLit</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.MaterialProgramFamily.value"><code class="docutils literal notranslate"><span class="pre">MaterialProgramFamily.value</span></code></a></li>
 </ul>
 </li>
@@ -8379,6 +8605,11 @@ for example <code class="docutils literal notranslate"><span class="pre">cressim
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping.adjacency_counts"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping.adjacency_counts</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping.adjacency_offsets"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping.adjacency_offsets</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping.cloth_count"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping.cloth_count</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping.cloth_entity_ids"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping.cloth_entity_ids</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping.cloth_environment_indices"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping.cloth_environment_indices</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping.cloth_particle_counts"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping.cloth_particle_counts</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping.cloth_particle_offsets"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping.cloth_particle_offsets</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping.collision_layers"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping.collision_layers</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping.collision_masks"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping.collision_masks</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleLayoutMapping.environment_indices"><code class="docutils literal notranslate"><span class="pre">ParticleLayoutMapping.environment_indices</span></code></a></li>
@@ -8412,6 +8643,7 @@ for example <code class="docutils literal notranslate"><span class="pre">cressim
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleOwnerType"><code class="docutils literal notranslate"><span class="pre">ParticleOwnerType</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleOwnerType.Cloth"><code class="docutils literal notranslate"><span class="pre">ParticleOwnerType.Cloth</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleOwnerType.FluidBody"><code class="docutils literal notranslate"><span class="pre">ParticleOwnerType.FluidBody</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleOwnerType.None"><code class="docutils literal notranslate"><span class="pre">ParticleOwnerType.None</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.ParticleOwnerType.RigidBody"><code class="docutils literal notranslate"><span class="pre">ParticleOwnerType.RigidBody</span></code></a></li>
@@ -9084,6 +9316,7 @@ for example <code class="docutils literal notranslate"><span class="pre">cressim
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.is_alive"><code class="docutils literal notranslate"><span class="pre">World.is_alive()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.remove_ball_joint"><code class="docutils literal notranslate"><span class="pre">World.remove_ball_joint()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.remove_camera"><code class="docutils literal notranslate"><span class="pre">World.remove_camera()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.remove_cloth"><code class="docutils literal notranslate"><span class="pre">World.remove_cloth()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.remove_collider"><code class="docutils literal notranslate"><span class="pre">World.remove_collider()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.remove_directional_light"><code class="docutils literal notranslate"><span class="pre">World.remove_directional_light()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.remove_fluid"><code class="docutils literal notranslate"><span class="pre">World.remove_fluid()</span></code></a></li>
@@ -9112,6 +9345,7 @@ for example <code class="docutils literal notranslate"><span class="pre">cressim
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.replace_colliders"><code class="docutils literal notranslate"><span class="pre">World.replace_colliders()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.scene_layout"><code class="docutils literal notranslate"><span class="pre">World.scene_layout()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.set_camera"><code class="docutils literal notranslate"><span class="pre">World.set_camera()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.set_cloth"><code class="docutils literal notranslate"><span class="pre">World.set_cloth()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.set_directional_light"><code class="docutils literal notranslate"><span class="pre">World.set_directional_light()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.set_entity_environment"><code class="docutils literal notranslate"><span class="pre">World.set_entity_environment()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.set_environment_fluid"><code class="docutils literal notranslate"><span class="pre">World.set_environment_fluid()</span></code></a></li>
@@ -9133,6 +9367,8 @@ for example <code class="docutils literal notranslate"><span class="pre">cressim
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.set_ultrasound_scatterer_source"><code class="docutils literal notranslate"><span class="pre">World.set_ultrasound_scatterer_source()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.try_get_ball_joint"><code class="docutils literal notranslate"><span class="pre">World.try_get_ball_joint()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.try_get_camera"><code class="docutils literal notranslate"><span class="pre">World.try_get_camera()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.try_get_cloth"><code class="docutils literal notranslate"><span class="pre">World.try_get_cloth()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.try_get_cloth_authoring_particles"><code class="docutils literal notranslate"><span class="pre">World.try_get_cloth_authoring_particles()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.try_get_collider"><code class="docutils literal notranslate"><span class="pre">World.try_get_collider()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.try_get_directional_light"><code class="docutils literal notranslate"><span class="pre">World.try_get_directional_light()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cressim_neo.World.try_get_environment_fluid"><code class="docutils literal notranslate"><span class="pre">World.try_get_environment_fluid()</span></code></a></li>

@@ -32,6 +32,7 @@
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/navbar.css?v=b91d66f6" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
@@ -111,7 +112,7 @@
   </button>
   
   
-  <div class="col-lg-3 navbar-header-items__start">
+  <div class=" navbar-header-items__start">
     
       <div class="navbar-item">
 
@@ -126,13 +127,13 @@
   
   
   
-    <p class="title logo__title">CRESSim-Neo Documentation</p>
+    <p class="title logo__title">CRESSim-Neo</p>
   
 </a></div>
     
   </div>
   
-  <div class="col-lg-9 navbar-header-items">
+  <div class=" navbar-header-items">
     
     <div class="me-auto navbar-header-items__center">
       
@@ -205,6 +206,21 @@
     <!-- dropdown will be populated by javascript on page load -->
   </div>
 </div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/yafei-ou/CRESSim-Neo" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
       
     </div>
     
@@ -308,6 +324,21 @@
     <!-- dropdown will be populated by javascript on page load -->
   </div>
 </div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/yafei-ou/CRESSim-Neo" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
         
       </div>
     
@@ -432,9 +463,10 @@ from <a class="reference internal" href="../reference/cpp/engine.html#_CPPv4N7cr
 (or <a class="reference internal" href="../reference/python/index.html#cressim_neo.Runtime.resources" title="cressim_neo.Runtime.resources"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Runtime.resources</span></code></a> in Python) to
 register reusable meshes, materials, and textures. Configure their descriptor
 objects before registering them:</p>
-<p>Use <code class="docutils literal notranslate"><span class="pre">StandardLit</span></code> for regular mesh renderers. <code class="docutils literal notranslate"><span class="pre">SoftBodyLit</span></code> and <code class="docutils literal notranslate"><span class="pre">CurveLit</span></code> are
-the specialized program families selected for deformable bodies and procedural
-strand geometry. A material’s <code class="docutils literal notranslate"><span class="pre">renderMode</span></code> determines when it is drawn:
+<p>Use <code class="docutils literal notranslate"><span class="pre">StandardLit</span></code> for regular mesh renderers. <code class="docutils literal notranslate"><span class="pre">SurfaceDeformableLit</span></code> and
+<code class="docutils literal notranslate"><span class="pre">CurveLit</span></code> are the specialized program families selected for particle-driven
+deformable surfaces and procedural strand geometry. A material’s <code class="docutils literal notranslate"><span class="pre">renderMode</span></code>
+determines when it is drawn:
 <code class="docutils literal notranslate"><span class="pre">Opaque</span></code> is the default, <code class="docutils literal notranslate"><span class="pre">Cutout</span></code> enables alpha testing with <code class="docutils literal notranslate"><span class="pre">alphaCutoff</span></code>, and
 <code class="docutils literal notranslate"><span class="pre">Transparent</span></code> is drawn after opaque geometry. <code class="docutils literal notranslate"><span class="pre">renderOrder</span></code> orders materials
 only within the same render mode.</p>
