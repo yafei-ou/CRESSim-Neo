@@ -2559,6 +2559,8 @@ void PhysicsSceneGpuState::clearPublishedSceneCounts() noexcept
     mHingeJointCount              = 0u;
     mSliderJointCount             = 0u;
     mSoftBodyCount                = 0u;
+    mClothCount                   = 0u;
+    mSurfaceCount                 = 0u;
     mSoftParticleCount            = 0u;
     mFluidCount                   = 0u;
     mParticleContactMaterialCount = 0u;
@@ -2607,9 +2609,12 @@ void PhysicsSceneGpuState::publishSceneCounts(
     std::uint32_t suturingPathHeaderCount, std::uint32_t suturingPathNodeCount,
     const CurveRenderDataHost &curveRenderData) noexcept
 {
-    mRigidBodyCount               = bodyCount;
-    mColliderCount                = colliderCount;
-    mSoftBodyCount                = world.softBodyCount();
+    mRigidBodyCount = bodyCount;
+    mColliderCount  = colliderCount;
+    mSoftBodyCount  = world.softBodyCount();
+    mClothCount     = world.clothCount();
+    mSurfaceCount   = static_cast<std::uint32_t>(
+        world.surfaceDeformableRenderData().surfaceParticleRanges.size());
     mSoftParticleCount            = static_cast<std::uint32_t>(world.particles().size());
     mFluidCount                   = static_cast<std::uint32_t>(fluids.size());
     mParticleContactMaterialCount = static_cast<std::uint32_t>(particleContactMaterials.size());
@@ -4463,6 +4468,8 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.renderNormalsBuffer           = mPersistentSoftTopology.surfaceRenderNormalsBuffer;
     view.soft.worldAabbsBuffer              = mPersistentSoftTopology.surfaceWorldAabbsBuffer;
     view.soft.softBodyCount                 = mSoftBodyCount;
+    view.soft.clothCount                    = mClothCount;
+    view.soft.surfaceCount                  = mSurfaceCount;
     view.soft.edgeCount                     = mSoftEdgeCount;
     view.soft.bendCount                     = mSoftBendCount;
     view.soft.clothDihedralCount            = mClothDihedralCount;

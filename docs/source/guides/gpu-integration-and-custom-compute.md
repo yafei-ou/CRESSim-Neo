@@ -147,7 +147,7 @@ for its authored features do not appear.
 | Entity poses | `entity.positions`, `entity.orientations`, `entity.scales` | — |
 | Particle state | `particle.positions_inv_mass`, `particle.previous_positions`, `particle.velocities` | `particle.radii`, `particle.environment_indices`, `particle.kinds`, `particle.owner_types`, `particle.owner_indices`, `particle.strand_ids`, `particle.strand_roles`, `particle.owning_soft_body_indices`, `particle.material_indices`, `particle.fluid_material_indices`, `particle.phases`, `particle.collision_layers`, `particle.collision_masks` |
 | Particle materials and adjacency | — | `particle.fluid_visuals`, `particle.contact_materials`, `particle.fluid_materials`, `particle.adjacency_offsets`, `particle.adjacency_counts`, `particle.adjacency_indices` |
-| Soft-body topology and render data | — | `soft.edges`, `soft.bends`, `soft.tets`, `soft.render_positions`, `soft.render_normals`, `soft.world_aabbs` |
+| Particle-deformable topology and surface render data | — | `soft.edges`, `soft.bends`, `soft.tets`, `soft.render_positions`, `soft.render_normals`, `surface.world_aabbs` |
 | Strand data | — | `strand.segments`, `strand.joints`, `strand.distance_constraints`, `strand.segment_states`, `strand.segment_joint_ranges`, `strand.segment_incident_joints` |
 | Suturing data | — | `suturing.pairs`, `suturing.particle_refs`, `suturing.insertion_states`, `suturing.path_headers`, `suturing.path_nodes` |
 

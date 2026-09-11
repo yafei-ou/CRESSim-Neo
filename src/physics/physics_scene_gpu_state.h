@@ -568,6 +568,8 @@ private:
     std::uint32_t mRigidBodyCount                                      = 0;
     std::uint32_t mColliderCount                                       = 0;
     std::uint32_t mSoftBodyCount                                       = 0;
+    std::uint32_t mClothCount                                          = 0;
+    std::uint32_t mSurfaceCount                                        = 0;
     std::uint32_t mSoftParticleCount                                   = 0;
     std::uint32_t mFluidCount                                          = 0;
     std::uint32_t mParticleContactMaterialCount                        = 0;

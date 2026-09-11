@@ -132,11 +132,15 @@ int main()
         static_cast<std::uint32_t>(world.physicsWorld().softTets().size());
     const std::uint32_t expectedClothDihedralCount =
         static_cast<std::uint32_t>(world.physicsWorld().clothDihedralConstraints().size());
+    const std::uint32_t expectedSurfaceCount = static_cast<std::uint32_t>(
+        world.physicsWorld().surfaceDeformableRenderData().surfaceParticleRanges.size());
     const std::uint32_t expectedStrandSegmentCount =
         static_cast<std::uint32_t>(world.physicsWorld().strandSegments().size());
     const std::uint32_t expectedStrandJointCount =
         static_cast<std::uint32_t>(world.physicsWorld().strandJoints().size());
-    if (expectedClothDihedralCount != 1u || sceneView.soft.softBodyCount != 1u ||
+    if (expectedClothDihedralCount != 1u || expectedSurfaceCount != 2u ||
+        sceneView.soft.softBodyCount != 1u || sceneView.soft.clothCount != 1u ||
+        sceneView.soft.surfaceCount != expectedSurfaceCount ||
         sceneView.soft.particles.count != expectedParticleCount ||
         sceneView.soft.edgeCount != expectedEdgeCount ||
         sceneView.soft.tetCount != expectedTetCount ||
@@ -145,6 +149,20 @@ int main()
         sceneView.soft.strandJointCount != expectedStrandJointCount)
     {
         CRESSIM_LOG_ERROR("Unexpected soft GPU scene counts.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    const auto customResources = runtime.listCustomComputeResources();
+    const engine::CustomComputeResourceDesc *surfaceAabbsResource = nullptr;
+    for (const auto &resource : customResources)
+    {
+        if (resource.key == "surface.world_aabbs") surfaceAabbsResource = &resource;
+    }
+    if (surfaceAabbsResource == nullptr ||
+        surfaceAabbsResource->elementCount != expectedSurfaceCount)
+    {
+        CRESSIM_LOG_ERROR("Unexpected surface AABB custom-compute resources.");
         runtime.shutdown();
         return 1;
     }
