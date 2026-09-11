@@ -29,7 +29,8 @@ int main()
     }
 
     engine::World &world            = runtime.getWorld();
-    const common::EntityId softBody = world.createEntity();
+    const common::EntityId softBody     = world.createEntity();
+    const common::EntityId clothEntity  = world.createEntity();
     const common::EntityId strandEntity = world.createEntity();
 
     engine::TransformComponent transform{};
@@ -49,6 +50,26 @@ int main()
     if (!world.setSoftBody(softBody, soft))
     {
         CRESSIM_LOG_ERROR("Failed to author soft body in GPU scene upload test.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    engine::TransformComponent clothTransform{};
+    clothTransform.worldTransform.position = {0.0f, 2.0f, 0.0f};
+    world.setTransform(clothEntity, clothTransform);
+    engine::ClothComponent cloth{};
+    cloth.source.objectSpaceRestPositions = {
+        {-0.5f, 0.0f, 0.0f},
+        {0.5f, 0.0f, 0.0f},
+        {-0.5f, 1.0f, 0.0f},
+        {0.5f, 1.0f, 0.0f},
+    };
+    cloth.source.triangleVertexIndices = {0u, 1u, 2u, 2u, 1u, 3u};
+    cloth.source.staticParticleIndices = {2u, 3u};
+    cloth.bendCompliance               = 0.01f;
+    if (!world.setCloth(clothEntity, cloth))
+    {
+        CRESSIM_LOG_ERROR("Failed to author cloth in GPU scene upload test.");
         runtime.shutdown();
         return 1;
     }
@@ -109,16 +130,39 @@ int main()
         static_cast<std::uint32_t>(world.physicsWorld().softEdges().size());
     const std::uint32_t expectedTetCount =
         static_cast<std::uint32_t>(world.physicsWorld().softTets().size());
+    const std::uint32_t expectedClothDihedralCount =
+        static_cast<std::uint32_t>(world.physicsWorld().clothDihedralConstraints().size());
+    const std::uint32_t expectedSurfaceCount = static_cast<std::uint32_t>(
+        world.physicsWorld().surfaceDeformableRenderData().surfaceParticleRanges.size());
     const std::uint32_t expectedStrandSegmentCount =
         static_cast<std::uint32_t>(world.physicsWorld().strandSegments().size());
     const std::uint32_t expectedStrandJointCount =
         static_cast<std::uint32_t>(world.physicsWorld().strandJoints().size());
-    if (sceneView.soft.softBodyCount != 1u || sceneView.soft.particles.count != expectedParticleCount ||
-        sceneView.soft.edgeCount != expectedEdgeCount || sceneView.soft.tetCount != expectedTetCount ||
+    if (expectedClothDihedralCount != 1u || expectedSurfaceCount != 2u ||
+        sceneView.soft.softBodyCount != 1u || sceneView.soft.clothCount != 1u ||
+        sceneView.soft.surfaceCount != expectedSurfaceCount ||
+        sceneView.soft.particles.count != expectedParticleCount ||
+        sceneView.soft.edgeCount != expectedEdgeCount ||
+        sceneView.soft.tetCount != expectedTetCount ||
+        sceneView.soft.clothDihedralCount != expectedClothDihedralCount ||
         sceneView.soft.strandSegmentCount != expectedStrandSegmentCount ||
         sceneView.soft.strandJointCount != expectedStrandJointCount)
     {
         CRESSIM_LOG_ERROR("Unexpected soft GPU scene counts.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    const auto customResources = runtime.listCustomComputeResources();
+    const engine::CustomComputeResourceDesc *surfaceAabbsResource = nullptr;
+    for (const auto &resource : customResources)
+    {
+        if (resource.key == "surface.world_aabbs") surfaceAabbsResource = &resource;
+    }
+    if (surfaceAabbsResource == nullptr ||
+        surfaceAabbsResource->elementCount != expectedSurfaceCount)
+    {
+        CRESSIM_LOG_ERROR("Unexpected surface AABB custom-compute resources.");
         runtime.shutdown();
         return 1;
     }
@@ -135,8 +179,9 @@ int main()
         sceneView.soft.particles.adjacencyOffsetsBuffer == nullptr ||
         sceneView.soft.particles.adjacencyCountsBuffer == nullptr ||
         sceneView.soft.particles.adjacencyIndicesBuffer == nullptr ||
-        sceneView.soft.edgesBuffer == nullptr || sceneView.soft.tetsBuffer == nullptr ||
-        sceneView.soft.strandSegmentsBuffer == nullptr || sceneView.soft.strandJointsBuffer == nullptr ||
+        sceneView.soft.edgesBuffer == nullptr || sceneView.soft.clothDihedralsBuffer == nullptr ||
+        sceneView.soft.tetsBuffer == nullptr || sceneView.soft.strandSegmentsBuffer == nullptr ||
+        sceneView.soft.strandJointsBuffer == nullptr ||
         sceneView.soft.strandSegmentStatesBuffer == nullptr ||
         sceneView.soft.segmentStrandJointRangesBuffer == nullptr ||
         sceneView.soft.segmentIncidentStrandJointsBuffer == nullptr)

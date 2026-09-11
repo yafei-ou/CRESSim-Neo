@@ -11,6 +11,7 @@ static const uint kParticleOwnerTypeSoftBody = 1u;
 static const uint kParticleOwnerTypeFluidBody = 2u;
 static const uint kParticleOwnerTypeStrand = 3u;
 static const uint kParticleOwnerTypeRigidBody = 4u;
+static const uint kParticleOwnerTypeCloth = 5u;
 static const uint kParticleStrandRoleNone = 0u;
 static const uint kParticleStrandRoleNeedleTip = 1u;
 static const uint kParticleStrandRoleNeedleBody = 2u;
@@ -140,6 +141,18 @@ struct GpuSoftBend
     uint reserved2;
 };
 
+struct GpuClothDihedral
+{
+    uint edgeParticle0;
+    uint edgeParticle1;
+    uint oppositeParticle0;
+    uint oppositeParticle1;
+    float restAngle;
+    float compliance;
+    uint reserved0;
+    uint reserved1;
+};
+
 struct GpuSoftConstraintRange
 {
     uint start;
@@ -210,11 +223,12 @@ struct GpuSoftTetCorrection
     float4 correction3;
 };
 
-struct GpuSoftBendCorrection
+struct GpuBendCorrection
 {
     float4 correction0;
     float4 correction1;
     float4 correction2;
+    float4 correction3;
 };
 
 struct GpuStrandSegment
@@ -275,7 +289,7 @@ struct GpuStrandDistanceConstraint
     float distanceCompliance;
 };
 
-struct GpuSoftBodyParticleRange
+struct GpuSurfaceParticleRange
 {
     uint start;
     uint count;
@@ -283,7 +297,7 @@ struct GpuSoftBodyParticleRange
     uint reserved1;
 };
 
-struct GpuSoftBodyChunkRange
+struct GpuSurfaceChunkRange
 {
     uint start;
     uint count;
@@ -291,9 +305,9 @@ struct GpuSoftBodyChunkRange
     uint reserved1;
 };
 
-struct GpuSoftBodyBoundsChunk
+struct GpuSurfaceBoundsChunk
 {
-    uint softBodyIndex;
+    uint surfaceIndex;
     uint particleStart;
     uint particleCount;
     uint reserved0;

@@ -30,18 +30,19 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     const uint baseIndex = envIndex * CRESSIM_LOCAL_SHADOW_ENV_BOUNDS_WORDS;
     float3 boundsMin = 0.0;
     float3 boundsMax = 0.0;
-    if (metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_SOFT_BODY &&
+    if ((metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_SOFT_BODY ||
+         metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_CLOTH) &&
         metadata.deformableIndex != CRESSIM_INVALID_DEFORMABLE_INDEX)
     {
-        const SoftBodyWorldAabb worldAabb =
-            CRESSIM_SB_LOAD(g_SoftBodyWorldAabbs, metadata.deformableIndex);
+        const SurfaceWorldAabb worldAabb =
+            CRESSIM_SB_LOAD(g_SurfaceWorldAabbs, metadata.deformableIndex);
         boundsMin = worldAabb.minBounds.xyz;
         boundsMax = worldAabb.maxBounds.xyz;
     }
     else if (metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_CURVE &&
              metadata.deformableIndex != CRESSIM_INVALID_DEFORMABLE_INDEX)
     {
-        const SoftBodyWorldAabb worldAabb =
+        const SurfaceWorldAabb worldAabb =
             CRESSIM_SB_LOAD(g_CurveWorldAabbs, metadata.deformableIndex);
         boundsMin = worldAabb.minBounds.xyz;
         boundsMax = worldAabb.maxBounds.xyz;

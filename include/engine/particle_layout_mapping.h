@@ -13,6 +13,7 @@ struct ParticleLayoutMapping
 {
     std::uint32_t particleCount  = 0u; ///< Number of particle slots.
     std::uint32_t softBodyCount  = 0u; ///< Number of soft-body owner slots.
+    std::uint32_t clothCount     = 0u; ///< Number of cloth owner slots.
     std::uint32_t fluidCount     = 0u; ///< Number of fluid owner slots.
     std::uint32_t strandCount    = 0u; ///< Number of strand owner slots.
     /// Prepared host-side particle/deformable slot-layout invalidation key produced by prepare().
@@ -42,6 +43,12 @@ struct ParticleLayoutMapping
     std::vector<std::uint32_t> softBodyEnvironmentIndices; ///< Environment indices.
     std::vector<std::uint32_t> softBodyParticleOffsets;    ///< First particle slots.
     std::vector<std::uint32_t> softBodyParticleCounts;     ///< Particle counts.
+
+    /// @brief Owning entity IDs, indexed by cloth slot.
+    std::vector<common::EntityId> clothEntityIds;
+    std::vector<std::uint32_t> clothEnvironmentIndices; ///< Environment indices.
+    std::vector<std::uint32_t> clothParticleOffsets;    ///< First particle slots.
+    std::vector<std::uint32_t> clothParticleCounts;     ///< Particle counts.
 
     /// @brief Owning entity IDs, indexed by fluid slot.
     std::vector<common::EntityId> fluidEntityIds;

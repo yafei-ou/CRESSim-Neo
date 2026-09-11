@@ -25,7 +25,7 @@ struct VSOutput
 };
 
 void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
-#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY) || defined(CRESSIM_PROGRAM_FAMILY_CURVE)
+#if defined(CRESSIM_PROGRAM_FAMILY_SURFACE_DEFORMABLE) || defined(CRESSIM_PROGRAM_FAMILY_CURVE)
     , uint vertexId : SV_VertexID
 #endif
 )
@@ -74,17 +74,17 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     float3 worldNormal = float3(0.0, 1.0, 0.0);
     float3 worldTangent = float3(1.0, 0.0, 0.0);
     float transformSign = 1.0;
-#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+#if defined(CRESSIM_PROGRAM_FAMILY_SURFACE_DEFORMABLE)
     const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
     if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
         metadata.deformNormalBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
         metadata.deformVertexCount > 0u && vertexId < metadata.deformVertexCount)
     {
         const float3 deformedPos =
-            CRESSIM_SB_LOAD(g_SoftBodyRenderPositions, metadata.deformVertexBase + vertexId).xyz;
+            CRESSIM_SB_LOAD(g_SurfaceRenderPositions, metadata.deformVertexBase + vertexId).xyz;
         worldPos = float4(deformedPos, 1.0);
         worldNormal =
-            normalize(CRESSIM_SB_LOAD(g_SoftBodyVertexNormals, metadata.deformNormalBase + vertexId).xyz);
+            normalize(CRESSIM_SB_LOAD(g_SurfaceDeformableVertexNormals, metadata.deformNormalBase + vertexId).xyz);
         const float3 tangentCandidate = In.Tangent.xyz - worldNormal * dot(worldNormal, In.Tangent.xyz);
         worldTangent = normalize(dot(tangentCandidate, tangentCandidate) > 1e-6
                                      ? tangentCandidate

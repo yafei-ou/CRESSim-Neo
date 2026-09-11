@@ -1,10 +1,10 @@
-#include "physics_soft_render_dispatch_constants.hlsli"
+#include "physics_surface_render_dispatch_constants.hlsli"
 #include "physics_particle_types.hlsli"
 #include "physics_rigid_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(GpuSoftBodyBoundsChunk, g_SoftBodyBoundsChunks);
-CRESSIM_RW_STRUCTURED_BUFFER(GpuBodyAabb, g_SoftBodyChunkAabbsRW);
+CRESSIM_STRUCTURED_BUFFER(GpuSurfaceBoundsChunk, g_SurfaceBoundsChunks);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuBodyAabb, g_SurfaceChunkAabbsRW);
 
 groupshared float3 s_MinBounds[64];
 groupshared float3 s_MaxBounds[64];
@@ -13,12 +13,12 @@ groupshared float3 s_MaxBounds[64];
 void main(uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
 {
     const uint chunkIndex = groupId.x;
-    if (chunkIndex >= softRenderReserved0)
+    if (chunkIndex >= surfaceRenderReserved0)
     {
         return;
     }
 
-    const GpuSoftBodyBoundsChunk chunk = CRESSIM_SB_LOAD(g_SoftBodyBoundsChunks, chunkIndex);
+    const GpuSurfaceBoundsChunk chunk = CRESSIM_SB_LOAD(g_SurfaceBoundsChunks, chunkIndex);
     const uint lane = groupThreadId.x;
     GpuBodyAabb bodyAabb;
     if (chunk.particleCount == 0u)
@@ -27,7 +27,7 @@ void main(uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
         {
             bodyAabb.minBounds = float4(0.0, 0.0, 0.0, 0.0);
             bodyAabb.maxBounds = float4(0.0, 0.0, 0.0, 0.0);
-            CRESSIM_SB_STORE(g_SoftBodyChunkAabbsRW, chunkIndex, bodyAabb);
+            CRESSIM_SB_STORE(g_SurfaceChunkAabbsRW, chunkIndex, bodyAabb);
         }
         return;
     }
@@ -60,6 +60,6 @@ void main(uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
     {
         bodyAabb.minBounds = float4(s_MinBounds[0], 0.0);
         bodyAabb.maxBounds = float4(s_MaxBounds[0], 0.0);
-        CRESSIM_SB_STORE(g_SoftBodyChunkAabbsRW, chunkIndex, bodyAabb);
+        CRESSIM_SB_STORE(g_SurfaceChunkAabbsRW, chunkIndex, bodyAabb);
     }
 }

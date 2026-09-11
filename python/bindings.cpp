@@ -103,6 +103,8 @@ JointState remapJointBodiesToEntityIds(const cressim::neo::engine::World &world,
 using cressim::neo::common::FrameContext;
 using cressim::neo::common::Transform;
 using cressim::neo::engine::CameraComponent;
+using cressim::neo::engine::ClothAuthoringParticles;
+using cressim::neo::engine::ClothComponent;
 using cressim::neo::engine::ColliderComponent;
 using cressim::neo::engine::ConstraintLayoutMapping;
 using cressim::neo::engine::CustomComputeDispatchDesc;
@@ -190,6 +192,8 @@ using cressim::neo::physics::AuthoredRoutedCableRoutePoint;
 using cressim::neo::physics::AuthoredStrandRigidAttachmentConstraintState;
 using cressim::neo::physics::AuthoredSuturingSequenceState;
 using cressim::neo::physics::BallJointState;
+using cressim::neo::physics::ClothMaterialDesc;
+using cressim::neo::physics::ClothMeshSource;
 using cressim::neo::physics::FluidMaterialDesc;
 using cressim::neo::physics::FluidRegularGridSource;
 using cressim::neo::physics::FluidSourceDesc;
@@ -829,6 +833,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "Number of prepared particle slots.")
         .def_readwrite("soft_body_count", &ParticleLayoutMapping::softBodyCount,
                        "Number of prepared soft-body slots.")
+        .def_readwrite("cloth_count", &ParticleLayoutMapping::clothCount,
+                       "Number of prepared cloth slots.")
         .def_readwrite("fluid_count", &ParticleLayoutMapping::fluidCount,
                        "Number of prepared fluid slots.")
         .def_readwrite("strand_count", &ParticleLayoutMapping::strandCount,
@@ -876,6 +882,10 @@ PYBIND11_MODULE(_cressim_neo, m)
                        "First prepared particle slot for each soft body.")
         .def_readwrite("soft_body_particle_counts", &ParticleLayoutMapping::softBodyParticleCounts,
                        "Particle counts for the prepared soft-body slots.")
+        .def_readwrite("cloth_entity_ids", &ParticleLayoutMapping::clothEntityIds)
+        .def_readwrite("cloth_environment_indices", &ParticleLayoutMapping::clothEnvironmentIndices)
+        .def_readwrite("cloth_particle_offsets", &ParticleLayoutMapping::clothParticleOffsets)
+        .def_readwrite("cloth_particle_counts", &ParticleLayoutMapping::clothParticleCounts)
         .def_readwrite("fluid_entity_ids", &ParticleLayoutMapping::fluidEntityIds,
                        "Entity IDs for the prepared fluid slots.")
         .def_readwrite("fluid_environment_indices", &ParticleLayoutMapping::fluidEnvironmentIndices,
@@ -1069,7 +1079,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("StrandParticle", AuthoredParticleReferenceType::StrandParticle,
                "Particle belonging to a strand.")
         .value("RigidProxyParticle", AuthoredParticleReferenceType::RigidProxyParticle,
-               "Proxy particle belonging to a rigid body.");
+               "Proxy particle belonging to a rigid body.")
+        .value("ClothParticle", AuthoredParticleReferenceType::ClothParticle,
+               "Particle belonging to a cloth.");
 
     py::enum_<SoftBodySourceKind>(m, "SoftBodySourceKind",
                                   "Selects which member of a soft-body source description is used.")
@@ -1097,7 +1109,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("SoftBody", ParticleOwnerType::SoftBody, "Soft-body particle owner.")
         .value("FluidBody", ParticleOwnerType::FluidBody, "Fluid-body particle owner.")
         .value("Strand", ParticleOwnerType::Strand, "Strand particle owner.")
-        .value("RigidBody", ParticleOwnerType::RigidBody, "Rigid-body proxy-particle owner.");
+        .value("RigidBody", ParticleOwnerType::RigidBody, "Rigid-body proxy-particle owner.")
+        .value("Cloth", ParticleOwnerType::Cloth, "Cloth particle owner.");
 
     py::enum_<ParticleStrandRole>(m, "ParticleStrandRole", "Suturing roles assigned to particles.")
         .value("None", ParticleStrandRole::None, "No suturing role.")
@@ -1130,8 +1143,8 @@ PYBIND11_MODULE(_cressim_neo, m)
                                      "Selects the material shader program family.")
         .value("StandardLit", MaterialProgramFamily::StandardLit,
                "Material program for standard mesh geometry.")
-        .value("SoftBodyLit", MaterialProgramFamily::SoftBodyLit,
-               "Material program for soft-body render geometry.")
+        .value("SurfaceDeformableLit", MaterialProgramFamily::SurfaceDeformableLit,
+               "Material program for particle-driven deformable surface geometry.")
         .value("CurveLit", MaterialProgramFamily::CurveLit,
                "Material program for curve render geometry.");
 
@@ -2042,6 +2055,27 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("collision_mask", &SoftBodyComponent::collisionMask,
                        "Collision bitmask filter.");
 
+    py::class_<ClothMeshSource>(m, "ClothMeshSource")
+        .def(py::init<>())
+        .def_readwrite("object_space_rest_positions", &ClothMeshSource::objectSpaceRestPositions)
+        .def_readwrite("triangle_vertex_indices", &ClothMeshSource::triangleVertexIndices)
+        .def_readwrite("static_particle_indices", &ClothMeshSource::staticParticleIndices);
+    py::class_<ClothMaterialDesc>(m, "ClothMaterialDesc")
+        .def(py::init<>())
+        .def_readwrite("contact", &ClothMaterialDesc::contact);
+    py::class_<ClothComponent>(m, "ClothComponent")
+        .def(py::init<>())
+        .def_readwrite("source", &ClothComponent::source)
+        .def_readwrite("material", &ClothComponent::material)
+        .def_readwrite("render_vertex_to_particle", &ClothComponent::renderVertexToParticle)
+        .def_readwrite("particle_mass", &ClothComponent::particleMass)
+        .def_readwrite("particle_radius", &ClothComponent::particleRadius)
+        .def_readwrite("structural_compliance", &ClothComponent::structuralCompliance)
+        .def_readwrite("bend_compliance", &ClothComponent::bendCompliance)
+        .def_readwrite("self_collision_enabled", &ClothComponent::selfCollisionEnabled)
+        .def_readwrite("collision_layer", &ClothComponent::collisionLayer)
+        .def_readwrite("collision_mask", &ClothComponent::collisionMask);
+
     py::class_<MeshfreeSoftBodyComponent>(
         m, "MeshfreeSoftBodyComponent",
         "Meshfree / particle-based soft body component for point cloud elastic simulation.")
@@ -2445,6 +2479,11 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("rest_positions", &SoftBodyAuthoringParticles::restPositions,
                        "Rest position coordinate array.");
 
+    py::class_<ClothAuthoringParticles>(m, "ClothAuthoringParticles")
+        .def(py::init<>())
+        .def_readwrite("particle_count", &ClothAuthoringParticles::particleCount)
+        .def_readwrite("rest_positions", &ClothAuthoringParticles::restPositions);
+
     py::class_<AuthoredParticleReference>(m, "AuthoredParticleReference",
                                           "Identifies a particle owned by an entity.")
         .def(py::init<>(), "Initializes a reference with an invalid entity ID.")
@@ -2819,6 +2858,10 @@ PYBIND11_MODULE(_cressim_neo, m)
              "True when either existed.")
         .def("try_get_soft_body", &World::tryGetSoftBody,
              "Returns the soft body component for an entity, or None.")
+        .def("set_cloth", &World::setCloth, "Assigns a ClothComponent to an entity.")
+        .def("remove_cloth", &World::removeCloth, "Removes a cloth from an entity.")
+        .def("try_get_cloth", &World::tryGetCloth,
+             "Returns the cloth component for an entity, or None.")
         .def("set_strand", &World::setStrand, "Assigns a StrandComponent to an entity.")
         .def("remove_strand", &World::removeStrand, "Removes the StrandComponent from an entity.")
         .def("try_get_strand", &World::tryGetStrand,
@@ -3131,7 +3174,9 @@ PYBIND11_MODULE(_cressim_neo, m)
              "Returns the collider handles belonging to an entity.",
              py::return_value_policy::reference_internal)
         .def("try_get_soft_body_authoring_particles", &World::tryGetSoftBodyAuthoringParticles,
-             "Returns the authored rest positions for a soft body, or None.");
+             "Returns the authored rest positions for a soft body, or None.")
+        .def("try_get_cloth_authoring_particles", &World::tryGetClothAuthoringParticles,
+             "Returns the authored rest positions for a cloth, or None.");
 
     py::class_<Runtime>(m, "Runtime",
                         "Main engine runtime coordinator managing GPU devices, physics solvers, "

@@ -104,22 +104,22 @@ struct RenderSceneUploader::Impl
 
     gpu::GpuDevice &mDevice;
     common::SceneLayoutDesc mLayout{};
-    bool mInitialized                            = false;
-    std::uint32_t mPoseCapacity                  = 0;
-    std::uint32_t mPhysicsSyncCapacity           = 0;
-    std::uint32_t mEntityCount                   = 0;
-    std::uint32_t mRenderableCapacity            = 0;
-    std::uint32_t mRenderableCount               = 0;
-    std::uint32_t mSoftBodyVertexBindingCapacity = 0;
-    std::uint32_t mSoftBodyVertexBindingCount    = 0;
-    std::uint32_t mCameraCapacity                = 0;
-    std::uint32_t mCameraCount                   = 0;
-    std::uint32_t mLightCapacity                 = 0;
-    std::uint32_t mLightCount                    = 0;
-    std::uint32_t mLocalLightSelectionCapacity   = 0;
-    Diligent::Uint64 mGraphicsContextMask        = 0;
-    Diligent::Uint64 mPhysicsContextMask         = 0;
-    Diligent::Uint64 mSharedPoseContextMask      = 0;
+    bool mInitialized                                     = false;
+    std::uint32_t mPoseCapacity                           = 0;
+    std::uint32_t mPhysicsSyncCapacity                    = 0;
+    std::uint32_t mEntityCount                            = 0;
+    std::uint32_t mRenderableCapacity                     = 0;
+    std::uint32_t mRenderableCount                        = 0;
+    std::uint32_t mSurfaceDeformableVertexBindingCapacity = 0;
+    std::uint32_t mSurfaceDeformableVertexBindingCount    = 0;
+    std::uint32_t mCameraCapacity                         = 0;
+    std::uint32_t mCameraCount                            = 0;
+    std::uint32_t mLightCapacity                          = 0;
+    std::uint32_t mLightCount                             = 0;
+    std::uint32_t mLocalLightSelectionCapacity            = 0;
+    Diligent::Uint64 mGraphicsContextMask                 = 0;
+    Diligent::Uint64 mPhysicsContextMask                  = 0;
+    Diligent::Uint64 mSharedPoseContextMask               = 0;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mMappingBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantsBuffer;
@@ -130,7 +130,7 @@ struct RenderSceneUploader::Impl
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableQueueInfoBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableVisibilityFlagsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableShadowCascadeMasksBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftBodyVertexBindingBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mSurfaceDeformableVertexBindingBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mCameraInputsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPreparedCamerasBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mLightInputsBuffer;
@@ -218,8 +218,8 @@ void RenderSceneUploader::shutdown()
     mImpl->mEntityCount                            = 0;
     mImpl->mRenderableCapacity                     = 0;
     mImpl->mRenderableCount                        = 0;
-    mImpl->mSoftBodyVertexBindingCapacity          = 0;
-    mImpl->mSoftBodyVertexBindingCount             = 0;
+    mImpl->mSurfaceDeformableVertexBindingCapacity = 0;
+    mImpl->mSurfaceDeformableVertexBindingCount    = 0;
     mImpl->mCameraCapacity                         = 0;
     mImpl->mCameraCount                            = 0;
     mImpl->mLightCapacity                          = 0;
@@ -237,7 +237,7 @@ void RenderSceneUploader::shutdown()
     mImpl->mRenderableQueueInfoBuffer              = nullptr;
     mImpl->mRenderableVisibilityFlagsBuffer        = nullptr;
     mImpl->mRenderableShadowCascadeMasksBuffer     = nullptr;
-    mImpl->mSoftBodyVertexBindingBuffer            = nullptr;
+    mImpl->mSurfaceDeformableVertexBindingBuffer   = nullptr;
     mImpl->mCameraInputsBuffer                     = nullptr;
     mImpl->mPreparedCamerasBuffer                  = nullptr;
     mImpl->mLightInputsBuffer                      = nullptr;
@@ -489,11 +489,11 @@ bool RenderSceneUploader::Impl::ensureLocalLightSelectionCapacity(
 
 namespace
 {
-bool ensureSoftBodyBufferCapacity(Diligent::IRenderDevice *renderDevice,
-                                  Diligent::Uint64 contextMask, const char *name,
-                                  std::uint32_t elementStride, std::uint32_t elementCount,
-                                  Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer,
-                                  std::uint32_t &inOutCapacity)
+bool ensureSurfaceDeformableBufferCapacity(Diligent::IRenderDevice *renderDevice,
+                                           Diligent::Uint64 contextMask, const char *name,
+                                           std::uint32_t elementStride, std::uint32_t elementCount,
+                                           Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer,
+                                           std::uint32_t &inOutCapacity)
 {
     if (renderDevice == nullptr || contextMask == 0)
     {
@@ -576,8 +576,8 @@ bool RenderSceneUploader::uploadRenderableQueueInfo(
                               queueInfo.size() * sizeof(graphics::GpuRenderableQueueInfo));
 }
 
-bool RenderSceneUploader::uploadSoftBodyVertexBindings(
-    const std::vector<graphics::GpuSoftBodyVertexBinding> &bindings)
+bool RenderSceneUploader::uploadSurfaceDeformableVertexBindings(
+    const std::vector<graphics::GpuSurfaceDeformableVertexBinding> &bindings)
 {
     if (!mImpl->mInitialized)
     {
@@ -591,17 +591,20 @@ bool RenderSceneUploader::uploadSoftBodyVertexBindings(
         return false;
     }
 
-    mImpl->mSoftBodyVertexBindingCount                = static_cast<std::uint32_t>(bindings.size());
-    Diligent::IBuffer *oldSoftBodyVertexBindingBuffer = mImpl->mSoftBodyVertexBindingBuffer;
-    if (!ensureSoftBodyBufferCapacity(
-            graphicsContext.renderDevice, mImpl->mGraphicsContextMask,
-            "CRESSimNeo.Gpu.SoftBodyVertexBindings", sizeof(graphics::GpuSoftBodyVertexBinding),
-            mImpl->mSoftBodyVertexBindingCount, mImpl->mSoftBodyVertexBindingBuffer,
-            mImpl->mSoftBodyVertexBindingCapacity))
+    mImpl->mSurfaceDeformableVertexBindingCount = static_cast<std::uint32_t>(bindings.size());
+    Diligent::IBuffer *oldSurfaceDeformableVertexBindingBuffer =
+        mImpl->mSurfaceDeformableVertexBindingBuffer;
+    if (!ensureSurfaceDeformableBufferCapacity(graphicsContext.renderDevice,
+                                               mImpl->mGraphicsContextMask,
+                                               "CRESSimNeo.Gpu.SurfaceDeformableVertexBindings",
+                                               sizeof(graphics::GpuSurfaceDeformableVertexBinding),
+                                               mImpl->mSurfaceDeformableVertexBindingCount,
+                                               mImpl->mSurfaceDeformableVertexBindingBuffer,
+                                               mImpl->mSurfaceDeformableVertexBindingCapacity))
     {
         return false;
     }
-    if (oldSoftBodyVertexBindingBuffer != mImpl->mSoftBodyVertexBindingBuffer)
+    if (oldSurfaceDeformableVertexBindingBuffer != mImpl->mSurfaceDeformableVertexBindingBuffer)
     {
         bumpGeneration(mImpl->mSceneBindingGeneration);
     }
@@ -611,9 +614,9 @@ bool RenderSceneUploader::uploadSoftBodyVertexBindings(
         return true;
     }
 
-    return mImpl->writeBuffer(graphicsContext.graphicsContext, mImpl->mSoftBodyVertexBindingBuffer,
-                              bindings.data(),
-                              bindings.size() * sizeof(graphics::GpuSoftBodyVertexBinding));
+    return mImpl->writeBuffer(
+        graphicsContext.graphicsContext, mImpl->mSurfaceDeformableVertexBindingBuffer,
+        bindings.data(), bindings.size() * sizeof(graphics::GpuSurfaceDeformableVertexBinding));
 }
 
 bool RenderSceneUploader::uploadCameraInputs(const std::vector<graphics::GpuCameraInput> &cameras)
@@ -873,21 +876,21 @@ graphics::GpuEntitySceneView RenderSceneUploader::sceneView(
     const common::PoseBufferView &poses, std::uint32_t entityCount) const noexcept
 {
     graphics::GpuEntitySceneView view{};
-    view.layout                             = mImpl->mLayout;
-    view.poses                              = poses;
-    view.renderableMetadataBuffer           = mImpl->mRenderableMetadataBuffer;
-    view.renderableQueueInfoBuffer          = mImpl->mRenderableQueueInfoBuffer;
-    view.renderableVisibilityFlagsBuffer    = mImpl->mRenderableVisibilityFlagsBuffer;
-    view.renderableShadowCascadeMasksBuffer = mImpl->mRenderableShadowCascadeMasksBuffer;
-    view.cameraInputsBuffer                 = mImpl->mCameraInputsBuffer;
-    view.preparedCamerasBuffer              = mImpl->mPreparedCamerasBuffer;
-    view.lightInputsBuffer                  = mImpl->mLightInputsBuffer;
-    view.localLightSelectionBuffer          = mImpl->mLocalLightSelectionBuffer;
-    view.softBodyVertexBindingBuffer        = mImpl->mSoftBodyVertexBindingBuffer;
-    view.entityCount                        = entityCount;
-    view.renderableCount                    = mImpl->mRenderableCount;
-    view.cameraCount                        = mImpl->mCameraCount;
-    view.lightCount                         = mImpl->mLightCount;
+    view.layout                               = mImpl->mLayout;
+    view.poses                                = poses;
+    view.renderableMetadataBuffer             = mImpl->mRenderableMetadataBuffer;
+    view.renderableQueueInfoBuffer            = mImpl->mRenderableQueueInfoBuffer;
+    view.renderableVisibilityFlagsBuffer      = mImpl->mRenderableVisibilityFlagsBuffer;
+    view.renderableShadowCascadeMasksBuffer   = mImpl->mRenderableShadowCascadeMasksBuffer;
+    view.cameraInputsBuffer                   = mImpl->mCameraInputsBuffer;
+    view.preparedCamerasBuffer                = mImpl->mPreparedCamerasBuffer;
+    view.lightInputsBuffer                    = mImpl->mLightInputsBuffer;
+    view.localLightSelectionBuffer            = mImpl->mLocalLightSelectionBuffer;
+    view.surfaceDeformableVertexBindingBuffer = mImpl->mSurfaceDeformableVertexBindingBuffer;
+    view.entityCount                          = entityCount;
+    view.renderableCount                      = mImpl->mRenderableCount;
+    view.cameraCount                          = mImpl->mCameraCount;
+    view.lightCount                           = mImpl->mLightCount;
     view.bindingGeneration =
         combineGenerations(mImpl->mSceneBindingGeneration, poses.bindingGeneration);
     return view;

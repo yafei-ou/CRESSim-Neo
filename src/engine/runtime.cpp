@@ -50,7 +50,7 @@ bool syncGpuScene(World &world, EntitySceneGpuState *entitySceneState,
                   bool usePhysicsPoses, std::uint64_t &lastEntityPoseRevision,
                   std::uint64_t &lastRenderableMetadataRevision,
                   std::uint64_t &lastRenderableQueueInfoRevision,
-                  std::uint64_t &lastSoftBodyVertexBindingRevision,
+                  std::uint64_t &lastSurfaceDeformableVertexBindingRevision,
                   std::uint64_t &lastCameraInputRevision, std::uint64_t &lastLightInputRevision,
                   std::uint64_t &lastLocalLightSelectionRevision)
 {
@@ -60,21 +60,22 @@ bool syncGpuScene(World &world, EntitySceneGpuState *entitySceneState,
         return false;
     }
 
-    const std::uint64_t entityPoseRevision            = world.entityPoseRevision();
-    const std::uint64_t renderableMetadataRevision    = world.renderableMetadataRevision();
-    const std::uint64_t renderableQueueInfoRevision   = world.renderableQueueInfoRevision();
-    const std::uint64_t softBodyVertexBindingRevision = world.softBodyVertexBindingRevision();
-    const std::uint64_t cameraInputRevision           = world.cameraInputRevision();
-    const std::uint64_t lightInputRevision            = world.lightInputRevision();
-    const std::uint64_t localLightSelectionRevision   = world.localLightSelectionRevision();
+    const std::uint64_t entityPoseRevision          = world.entityPoseRevision();
+    const std::uint64_t renderableMetadataRevision  = world.renderableMetadataRevision();
+    const std::uint64_t renderableQueueInfoRevision = world.renderableQueueInfoRevision();
+    const std::uint64_t surfaceDeformableVertexBindingRevision =
+        world.surfaceDeformableVertexBindingRevision();
+    const std::uint64_t cameraInputRevision         = world.cameraInputRevision();
+    const std::uint64_t lightInputRevision          = world.lightInputRevision();
+    const std::uint64_t localLightSelectionRevision = world.localLightSelectionRevision();
 
     const bool needsEntityPoseUpload = entityPoseRevision != lastEntityPoseRevision;
     const bool needsRenderableMetadataUpload =
         renderableMetadataRevision != lastRenderableMetadataRevision;
     const bool needsRenderableQueueInfoUpload =
         renderableQueueInfoRevision != lastRenderableQueueInfoRevision;
-    const bool needsSoftBodyVertexBindingUpload =
-        softBodyVertexBindingRevision != lastSoftBodyVertexBindingRevision;
+    const bool needsSurfaceDeformableVertexBindingUpload =
+        surfaceDeformableVertexBindingRevision != lastSurfaceDeformableVertexBindingRevision;
     const bool needsCameraInputUpload = cameraInputRevision != lastCameraInputRevision;
     const bool needsLightInputUpload  = lightInputRevision != lastLightInputRevision;
     const bool needsLocalLightSelectionUpload =
@@ -103,9 +104,10 @@ bool syncGpuScene(World &world, EntitySceneGpuState *entitySceneState,
     {
         gpuSceneReady = uploader->uploadRenderableQueueInfo(world.renderableQueueInfo());
     }
-    if (gpuSceneReady && needsSoftBodyVertexBindingUpload)
+    if (gpuSceneReady && needsSurfaceDeformableVertexBindingUpload)
     {
-        gpuSceneReady = uploader->uploadSoftBodyVertexBindings(world.softBodyVertexBindings());
+        gpuSceneReady = uploader->uploadSurfaceDeformableVertexBindings(
+            world.surfaceDeformableVertexBindings());
     }
     if (gpuSceneReady && needsCameraInputUpload)
     {
@@ -124,13 +126,13 @@ bool syncGpuScene(World &world, EntitySceneGpuState *entitySceneState,
     {
         world.setGpuEntityScene(
             uploader->sceneView(entitySceneState->poseView(), entitySceneState->entityCount()));
-        lastEntityPoseRevision            = entityPoseRevision;
-        lastRenderableMetadataRevision    = renderableMetadataRevision;
-        lastRenderableQueueInfoRevision   = renderableQueueInfoRevision;
-        lastSoftBodyVertexBindingRevision = softBodyVertexBindingRevision;
-        lastCameraInputRevision           = cameraInputRevision;
-        lastLightInputRevision            = lightInputRevision;
-        lastLocalLightSelectionRevision   = localLightSelectionRevision;
+        lastEntityPoseRevision                     = entityPoseRevision;
+        lastRenderableMetadataRevision             = renderableMetadataRevision;
+        lastRenderableQueueInfoRevision            = renderableQueueInfoRevision;
+        lastSurfaceDeformableVertexBindingRevision = surfaceDeformableVertexBindingRevision;
+        lastCameraInputRevision                    = cameraInputRevision;
+        lastLightInputRevision                     = lightInputRevision;
+        lastLocalLightSelectionRevision            = localLightSelectionRevision;
         return true;
     }
 
@@ -157,16 +159,16 @@ struct Runtime::Impl
     World mWorld;
     graphics::RenderResourceManager mResources;
     common::FrameContext mLastFrameContext{};
-    bool mDeviceFrameActive                                  = false;
-    bool mWorldUploaded                                      = false;
-    bool mPhysicsPosesNeedSync                               = false;
-    std::uint64_t mLastUploadedEntityPoseRevision            = 0u;
-    std::uint64_t mLastUploadedRenderableMetadataRevision    = 0u;
-    std::uint64_t mLastUploadedRenderableQueueInfoRevision   = 0u;
-    std::uint64_t mLastUploadedSoftBodyVertexBindingRevision = 0u;
-    std::uint64_t mLastUploadedCameraInputRevision           = 0u;
-    std::uint64_t mLastUploadedLightInputRevision            = 0u;
-    std::uint64_t mLastUploadedLocalLightSelectionRevision   = 0u;
+    bool mDeviceFrameActive                                           = false;
+    bool mWorldUploaded                                               = false;
+    bool mPhysicsPosesNeedSync                                        = false;
+    std::uint64_t mLastUploadedEntityPoseRevision                     = 0u;
+    std::uint64_t mLastUploadedRenderableMetadataRevision             = 0u;
+    std::uint64_t mLastUploadedRenderableQueueInfoRevision            = 0u;
+    std::uint64_t mLastUploadedSurfaceDeformableVertexBindingRevision = 0u;
+    std::uint64_t mLastUploadedCameraInputRevision                    = 0u;
+    std::uint64_t mLastUploadedLightInputRevision                     = 0u;
+    std::uint64_t mLastUploadedLocalLightSelectionRevision            = 0u;
 };
 
 Runtime::Runtime() : mImpl(std::make_unique<Impl>()) {}
@@ -330,20 +332,20 @@ void Runtime::shutdown()
         mImpl->mGpuDevice.reset();
     }
 
-    mImpl->mLastRenderStats                           = {};
-    mImpl->mRenderFrameOptions                        = {};
-    mImpl->mLastFrameContext                          = {};
-    mImpl->mDeviceFrameActive                         = false;
-    mImpl->mWorldUploaded                             = false;
-    mImpl->mPhysicsPosesNeedSync                      = false;
-    mImpl->mInitialized                               = false;
-    mImpl->mLastUploadedEntityPoseRevision            = 0u;
-    mImpl->mLastUploadedRenderableMetadataRevision    = 0u;
-    mImpl->mLastUploadedRenderableQueueInfoRevision   = 0u;
-    mImpl->mLastUploadedSoftBodyVertexBindingRevision = 0u;
-    mImpl->mLastUploadedCameraInputRevision           = 0u;
-    mImpl->mLastUploadedLightInputRevision            = 0u;
-    mImpl->mLastUploadedLocalLightSelectionRevision   = 0u;
+    mImpl->mLastRenderStats                                    = {};
+    mImpl->mRenderFrameOptions                                 = {};
+    mImpl->mLastFrameContext                                   = {};
+    mImpl->mDeviceFrameActive                                  = false;
+    mImpl->mWorldUploaded                                      = false;
+    mImpl->mPhysicsPosesNeedSync                               = false;
+    mImpl->mInitialized                                        = false;
+    mImpl->mLastUploadedEntityPoseRevision                     = 0u;
+    mImpl->mLastUploadedRenderableMetadataRevision             = 0u;
+    mImpl->mLastUploadedRenderableQueueInfoRevision            = 0u;
+    mImpl->mLastUploadedSurfaceDeformableVertexBindingRevision = 0u;
+    mImpl->mLastUploadedCameraInputRevision                    = 0u;
+    mImpl->mLastUploadedLightInputRevision                     = 0u;
+    mImpl->mLastUploadedLocalLightSelectionRevision            = 0u;
 }
 
 void Runtime::prepare()
@@ -386,7 +388,7 @@ bool Runtime::uploadWorld()
             mImpl->mPhysicsSolver.get(), false, mImpl->mLastUploadedEntityPoseRevision,
             mImpl->mLastUploadedRenderableMetadataRevision,
             mImpl->mLastUploadedRenderableQueueInfoRevision,
-            mImpl->mLastUploadedSoftBodyVertexBindingRevision,
+            mImpl->mLastUploadedSurfaceDeformableVertexBindingRevision,
             mImpl->mLastUploadedCameraInputRevision, mImpl->mLastUploadedLightInputRevision,
             mImpl->mLastUploadedLocalLightSelectionRevision))
     {
@@ -444,7 +446,7 @@ bool Runtime::stepSimulationSensors(const common::FrameContext &frameContext)
             mImpl->mPhysicsSolver.get(), mImpl->mPhysicsPosesNeedSync,
             mImpl->mLastUploadedEntityPoseRevision, mImpl->mLastUploadedRenderableMetadataRevision,
             mImpl->mLastUploadedRenderableQueueInfoRevision,
-            mImpl->mLastUploadedSoftBodyVertexBindingRevision,
+            mImpl->mLastUploadedSurfaceDeformableVertexBindingRevision,
             mImpl->mLastUploadedCameraInputRevision, mImpl->mLastUploadedLightInputRevision,
             mImpl->mLastUploadedLocalLightSelectionRevision))
     {
@@ -481,8 +483,9 @@ void Runtime::stepVisualSensors(const common::FrameContext &frameContext)
         mImpl->mPhysicsSolver.get(), mImpl->mPhysicsPosesNeedSync,
         mImpl->mLastUploadedEntityPoseRevision, mImpl->mLastUploadedRenderableMetadataRevision,
         mImpl->mLastUploadedRenderableQueueInfoRevision,
-        mImpl->mLastUploadedSoftBodyVertexBindingRevision, mImpl->mLastUploadedCameraInputRevision,
-        mImpl->mLastUploadedLightInputRevision, mImpl->mLastUploadedLocalLightSelectionRevision);
+        mImpl->mLastUploadedSurfaceDeformableVertexBindingRevision,
+        mImpl->mLastUploadedCameraInputRevision, mImpl->mLastUploadedLightInputRevision,
+        mImpl->mLastUploadedLocalLightSelectionRevision);
 
     if (gpuSceneReady)
     {
@@ -874,10 +877,12 @@ bool Runtime::tryGetPreparedParticleLayoutMapping(ParticleLayoutMapping &outMapp
 
     const physics::ParticleSoAHost &particles = physicsWorld.particles();
     const auto &softBodies                    = physicsWorld.softBodySnapshot();
+    const auto &cloths                        = physicsWorld.clothSnapshot();
     const auto &fluids                        = physicsWorld.fluidSnapshot();
     const auto &strands                       = physicsWorld.strandSnapshot();
     outMapping.particleCount                  = static_cast<std::uint32_t>(particles.size());
     outMapping.softBodyCount                  = static_cast<std::uint32_t>(softBodies.size());
+    outMapping.clothCount                     = static_cast<std::uint32_t>(cloths.size());
     outMapping.fluidCount                     = static_cast<std::uint32_t>(fluids.size());
     outMapping.strandCount                    = static_cast<std::uint32_t>(strands.size());
     outMapping.layoutRevision                 = physicsWorld.softParticleRevision();
@@ -907,6 +912,18 @@ bool Runtime::tryGetPreparedParticleLayoutMapping(ParticleLayoutMapping &outMapp
         outMapping.softBodyEnvironmentIndices.push_back(softBody.environmentIndex);
         outMapping.softBodyParticleOffsets.push_back(softBody.particleOffset);
         outMapping.softBodyParticleCounts.push_back(softBody.particleCount);
+    }
+
+    outMapping.clothEntityIds.reserve(cloths.size());
+    outMapping.clothEnvironmentIndices.reserve(cloths.size());
+    outMapping.clothParticleOffsets.reserve(cloths.size());
+    outMapping.clothParticleCounts.reserve(cloths.size());
+    for (const auto &cloth : cloths)
+    {
+        outMapping.clothEntityIds.push_back(cloth.entityId);
+        outMapping.clothEnvironmentIndices.push_back(cloth.environmentIndex);
+        outMapping.clothParticleOffsets.push_back(cloth.particleOffset);
+        outMapping.clothParticleCounts.push_back(cloth.particleCount);
     }
 
     outMapping.fluidEntityIds.reserve(fluids.size());

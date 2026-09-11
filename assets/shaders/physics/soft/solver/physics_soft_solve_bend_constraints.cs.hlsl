@@ -4,16 +4,17 @@
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftBend, g_SoftBends);
-CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftBendLambdas);
-CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftBendCorrection, g_SoftBendCorrections);
+CRESSIM_RW_STRUCTURED_BUFFER(float, g_BendLambdas);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuBendCorrection, g_BendCorrections);
 
 static void StoreZeroCorrection(uint bendIndex)
 {
-    GpuSoftBendCorrection bendCorrection;
-    bendCorrection.correction0 = float4(0.0, 0.0, 0.0, 0.0);
-    bendCorrection.correction1 = float4(0.0, 0.0, 0.0, 0.0);
-    bendCorrection.correction2 = float4(0.0, 0.0, 0.0, 0.0);
-    CRESSIM_SB_STORE(g_SoftBendCorrections, bendIndex, bendCorrection);
+    GpuBendCorrection correction;
+    correction.correction0 = float4(0.0, 0.0, 0.0, 0.0);
+    correction.correction1 = float4(0.0, 0.0, 0.0, 0.0);
+    correction.correction2 = float4(0.0, 0.0, 0.0, 0.0);
+    correction.correction3 = float4(0.0, 0.0, 0.0, 0.0);
+    CRESSIM_SB_STORE(g_BendCorrections, bendIndex, correction);
 }
 
 [numthreads(64, 1, 1)]
@@ -61,12 +62,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 gradient0 = -(dir1 - cosTheta * dir0) / max(length0 * sinTheta, kEpsilon);
     const float3 gradient2 = -(dir0 - cosTheta * dir1) / max(length1 * sinTheta, kEpsilon);
     const float3 gradient1 = -(gradient0 + gradient2);
-
     const float denominator =
         w0 * dot(gradient0, gradient0) + w1 * dot(gradient1, gradient1) +
         w2 * dot(gradient2, gradient2);
-    const float compliance = max(bend.compliance, 0.0);
-    const float alpha = compliance / max(dt * dt, kEpsilon);
+    const float alpha = max(bend.compliance, 0.0) / max(dt * dt, kEpsilon);
     if (denominator + alpha <= kEpsilon)
     {
         StoreZeroCorrection(bendIndex);
@@ -74,13 +73,14 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const float constraint = theta - bend.restAngle;
-    const float lambda = CRESSIM_SB_LOAD(g_SoftBendLambdas, bendIndex);
+    const float lambda = CRESSIM_SB_LOAD(g_BendLambdas, bendIndex);
     const float deltaLambda = -(constraint + alpha * lambda) / (denominator + alpha);
-    CRESSIM_SB_STORE(g_SoftBendLambdas, bendIndex, lambda + deltaLambda);
+    CRESSIM_SB_STORE(g_BendLambdas, bendIndex, lambda + deltaLambda);
 
-    GpuSoftBendCorrection bendCorrection;
-    bendCorrection.correction0 = float4(w0 * deltaLambda * gradient0 * kSoftInternalRelaxation, 0.0);
-    bendCorrection.correction1 = float4(w1 * deltaLambda * gradient1 * kSoftInternalRelaxation, 0.0);
-    bendCorrection.correction2 = float4(w2 * deltaLambda * gradient2 * kSoftInternalRelaxation, 0.0);
-    CRESSIM_SB_STORE(g_SoftBendCorrections, bendIndex, bendCorrection);
+    GpuBendCorrection correction;
+    correction.correction0 = float4(w0 * deltaLambda * gradient0 * kSoftInternalRelaxation, 0.0);
+    correction.correction1 = float4(w1 * deltaLambda * gradient1 * kSoftInternalRelaxation, 0.0);
+    correction.correction2 = float4(w2 * deltaLambda * gradient2 * kSoftInternalRelaxation, 0.0);
+    correction.correction3 = float4(0.0, 0.0, 0.0, 0.0);
+    CRESSIM_SB_STORE(g_BendCorrections, bendIndex, correction);
 }

@@ -163,6 +163,12 @@ public:
     /// @return True if set successfully.
     bool setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
 
+    /// @brief Assigns a ClothComponent to an entity.
+    /// @param entityId Target entity ID.
+    /// @param component Cloth component data.
+    /// @return True if set successfully.
+    bool setCloth(common::EntityId entityId, const ClothComponent &component);
+
     /// @brief Assigns a MeshfreeSoftBodyComponent to an entity.
     /// @param entityId Target entity ID.
     /// @param component Meshfree soft body component data.
@@ -173,6 +179,11 @@ public:
     /// @param entityId Target entity ID.
     /// @return True if either the soft body or its amplitude ranges existed and was removed.
     bool removeSoftBody(common::EntityId entityId);
+
+    /// @brief Removes the ClothComponent from an entity.
+    /// @param entityId Target entity ID.
+    /// @return True if removed; false otherwise.
+    bool removeCloth(common::EntityId entityId);
 
     /// @brief Assigns a StrandComponent to an entity.
     /// @param entityId Target entity ID.
@@ -411,6 +422,9 @@ public:
     /// @brief Returns the soft-body component for an entity, or std::nullopt.
     std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
 
+    /// @brief Returns the cloth component for an entity, or std::nullopt.
+    std::optional<ClothComponent> tryGetCloth(common::EntityId entityId) const;
+
     /// @brief Returns the strand component for an entity, or std::nullopt.
     std::optional<StrandComponent> tryGetStrand(common::EntityId entityId) const;
 
@@ -484,6 +498,10 @@ public:
     std::optional<SoftBodyAuthoringParticles> tryGetSoftBodyAuthoringParticles(
         common::EntityId entityId) const;
 
+    /// @brief Returns authored rest positions for cloth, or std::nullopt.
+    std::optional<ClothAuthoringParticles> tryGetClothAuthoringParticles(
+        common::EntityId entityId) const;
+
     /// @brief Returns ultrasound scatterer amplitude ranges for an entity, or nullptr.
     const std::vector<UltrasoundAmplitudeRange> *tryGetUltrasoundScattererAmplitudeRanges(
         common::EntityId entityId) const noexcept;
@@ -555,8 +573,9 @@ public:
     /// @brief Returns per-environment local-light selections prepared for GPU upload.
     const std::vector<graphics::GpuLocalLightSelection> &localLightSelections() const noexcept;
 
-    /// @brief Returns soft-body vertex bindings prepared for GPU upload.
-    const std::vector<graphics::GpuSoftBodyVertexBinding> &softBodyVertexBindings() const noexcept;
+    /// @brief Returns surface-deformable vertex bindings prepared for GPU upload.
+    const std::vector<graphics::GpuSurfaceDeformableVertexBinding> &
+    surfaceDeformableVertexBindings() const noexcept;
 
     /// @brief Returns the opaque indirect-draw registry.
     const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;
@@ -583,8 +602,8 @@ public:
     /// @brief Returns the renderable-queue revision.
     std::uint64_t renderableQueueInfoRevision() const noexcept;
 
-    /// @brief Returns the soft-body vertex-binding revision.
-    std::uint64_t softBodyVertexBindingRevision() const noexcept;
+    /// @brief Returns the surface-deformable vertex-binding revision.
+    std::uint64_t surfaceDeformableVertexBindingRevision() const noexcept;
 
     /// @brief Returns the camera-input revision.
     std::uint64_t cameraInputRevision() const noexcept;

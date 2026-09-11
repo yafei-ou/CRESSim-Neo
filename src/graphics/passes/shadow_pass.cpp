@@ -97,12 +97,12 @@ bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
     }
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> &pipelineState =
-        drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit
+        drawCommand.programFamily == MaterialProgramFamily::SurfaceDeformableLit
             ? mSoftBodyPipelineState
             : (drawCommand.programFamily == MaterialProgramFamily::CurveLit ? mCurvePipelineState
                                                                             : mPipelineState);
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> &shaderBinding =
-        drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit
+        drawCommand.programFamily == MaterialProgramFamily::SurfaceDeformableLit
             ? mSoftBodyShaderResourceBinding
             : (drawCommand.programFamily == MaterialProgramFamily::CurveLit
                    ? mCurveShaderResourceBinding
@@ -138,7 +138,7 @@ bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
 bool ShadowPass::bindSceneBuffers(MaterialProgramFamily programFamily) const
 {
     Diligent::IShaderResourceBinding *shaderBinding =
-        programFamily == MaterialProgramFamily::SoftBodyLit
+        programFamily == MaterialProgramFamily::SurfaceDeformableLit
             ? mSoftBodyShaderResourceBinding
             : (programFamily == MaterialProgramFamily::CurveLit ? mCurveShaderResourceBinding
                                                                 : mShaderResourceBinding);
@@ -238,14 +238,14 @@ bool ShadowPass::bindSceneBuffers(MaterialProgramFamily programFamily) const
         visiblePairsVar->Set(visiblePairsSrv);
     }
 
-    if (programFamily == MaterialProgramFamily::SoftBodyLit)
+    if (programFamily == MaterialProgramFamily::SurfaceDeformableLit)
     {
         if (mPhysicsScene == nullptr || mPhysicsScene->soft.renderPositionsBuffer == nullptr)
         {
             return false;
         }
         Diligent::IShaderResourceVariable *softPositionVar = shaderBinding->GetVariableByName(
-            Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions");
+            Diligent::SHADER_TYPE_VERTEX, "g_SurfaceRenderPositions");
         if (softPositionVar == nullptr)
         {
             return false;
@@ -353,12 +353,12 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
     }
     bindGeometry(setup.backendContext.graphicsContext, *setup.meshBuffers);
     Diligent::IPipelineState *pipeline =
-        drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit
+        drawCommand.programFamily == MaterialProgramFamily::SurfaceDeformableLit
             ? mSoftBodyPipelineState
             : (drawCommand.programFamily == MaterialProgramFamily::CurveLit ? mCurvePipelineState
                                                                             : mPipelineState);
     Diligent::IShaderResourceBinding *shaderBinding =
-        drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit
+        drawCommand.programFamily == MaterialProgramFamily::SurfaceDeformableLit
             ? mSoftBodyShaderResourceBinding
             : (drawCommand.programFamily == MaterialProgramFamily::CurveLit
                    ? mCurveShaderResourceBinding
@@ -404,16 +404,16 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
     shaderCreateInfo.EntryPoint                      = "main";
     shaderCreateInfo.Desc.ShaderType                 = Diligent::SHADER_TYPE_VERTEX;
     shaderCreateInfo.Desc.Name =
-        programFamily == MaterialProgramFamily::SoftBodyLit
-            ? "CRESSimNeo.ShadowPass.SoftBody.VS"
+        programFamily == MaterialProgramFamily::SurfaceDeformableLit
+            ? "CRESSimNeo.ShadowPass.SurfaceDeformable.VS"
             : (programFamily == MaterialProgramFamily::CurveLit ? "CRESSimNeo.ShadowPass.Curve.VS"
                                                                 : "CRESSimNeo.ShadowPass.VS");
     shaderCreateInfo.FilePath                   = kShadowVsRelativePath;
     shaderCreateInfo.pShaderSourceStreamFactory = streamFactory;
     Diligent::ShaderMacro shadowMacros[]        = {
         {"MANUAL_LAYER_EXPORT", "1"},
-        {programFamily == MaterialProgramFamily::SoftBodyLit
-             ? "CRESSIM_PROGRAM_FAMILY_SOFT_BODY"
+        {programFamily == MaterialProgramFamily::SurfaceDeformableLit
+             ? "CRESSIM_PROGRAM_FAMILY_SURFACE_DEFORMABLE"
              : (programFamily == MaterialProgramFamily::CurveLit ? "CRESSIM_PROGRAM_FAMILY_CURVE"
                                                                  : ""),
          programFamily != MaterialProgramFamily::StandardLit ? "1" : ""},
@@ -435,8 +435,8 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
 
     Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
     psoCreateInfo.PSODesc.Name =
-        programFamily == MaterialProgramFamily::SoftBodyLit
-            ? "CRESSimNeo.ShadowPass.SoftBody.PSO"
+        programFamily == MaterialProgramFamily::SurfaceDeformableLit
+            ? "CRESSimNeo.ShadowPass.SurfaceDeformable.PSO"
             : (programFamily == MaterialProgramFamily::CurveLit ? "CRESSimNeo.ShadowPass.Curve.PSO"
                                                                 : "CRESSimNeo.ShadowPass.PSO");
     psoCreateInfo.PSODesc.PipelineType               = Diligent::PIPELINE_TYPE_GRAPHICS;
@@ -475,7 +475,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    constexpr Diligent::ShaderResourceVariableDesc kSoftBodyVars[] = {
+    constexpr Diligent::ShaderResourceVariableDesc kSurfaceDeformableVars[] = {
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityOrientations",
@@ -496,7 +496,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions",
+        {Diligent::SHADER_TYPE_VERTEX, "g_SurfaceRenderPositions",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     constexpr Diligent::ShaderResourceVariableDesc kCurveVars[] = {
@@ -524,12 +524,12 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     psoCreateInfo.PSODesc.ResourceLayout.Variables =
-        programFamily == MaterialProgramFamily::SoftBodyLit
-            ? kSoftBodyVars
+        programFamily == MaterialProgramFamily::SurfaceDeformableLit
+            ? kSurfaceDeformableVars
             : (programFamily == MaterialProgramFamily::CurveLit ? kCurveVars : kStandardVars);
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables = static_cast<Diligent::Uint32>(
-        programFamily == MaterialProgramFamily::SoftBodyLit
-            ? std::size(kSoftBodyVars)
+        programFamily == MaterialProgramFamily::SurfaceDeformableLit
+            ? std::size(kSurfaceDeformableVars)
             : (programFamily == MaterialProgramFamily::CurveLit ? std::size(kCurveVars)
                                                                 : std::size(kStandardVars)));
 
@@ -543,7 +543,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
     psoCreateInfo.pVS                                         = vertexShader;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> &pipelineState =
-        programFamily == MaterialProgramFamily::SoftBodyLit
+        programFamily == MaterialProgramFamily::SurfaceDeformableLit
             ? mSoftBodyPipelineState
             : (programFamily == MaterialProgramFamily::CurveLit ? mCurvePipelineState
                                                                 : mPipelineState);
@@ -578,7 +578,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
     shadowPerPassVar->Set(mShadowPerPassBuffer);
 
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> &shaderBinding =
-        programFamily == MaterialProgramFamily::SoftBodyLit
+        programFamily == MaterialProgramFamily::SurfaceDeformableLit
             ? mSoftBodyShaderResourceBinding
             : (programFamily == MaterialProgramFamily::CurveLit ? mCurveShaderResourceBinding
                                                                 : mShaderResourceBinding);

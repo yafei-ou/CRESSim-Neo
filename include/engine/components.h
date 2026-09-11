@@ -178,6 +178,22 @@ struct SoftBodyComponent
     std::uint32_t collisionMask  = 0xffffffffu; ///< Collision bitmask filter.
 };
 
+/// @brief Surface cloth authored from an explicit indexed simulation triangle mesh.
+struct ClothComponent
+{
+    physics::ClothMeshSource source{};     ///< Simulation mesh and fixed-particle source.
+    physics::ClothMaterialDesc material{}; ///< Particle contact material parameters.
+    std::vector<std::uint32_t>
+        renderVertexToParticle{};          ///< Optional visual-vertex to local-particle mapping.
+    float particleMass           = 1.0f;   ///< Mass per cloth particle.
+    float particleRadius         = 0.125f; ///< Collision radius per cloth particle.
+    float structuralCompliance   = 0.0f;   ///< XPBD structural-edge compliance.
+    float bendCompliance         = 0.0f;   ///< XPBD dihedral-bending compliance.
+    bool selfCollisionEnabled    = false;  ///< Enable internal self-collision handling.
+    std::uint32_t collisionLayer = 1u;     ///< Collision bitmask layer.
+    std::uint32_t collisionMask  = 0xffffffffu; ///< Collision bitmask filter.
+};
+
 /// @brief Meshfree / particle-based soft body component for point cloud elastic simulation.
 struct MeshfreeSoftBodyComponent
 {
@@ -319,6 +335,13 @@ struct SoftBodyAuthoringParticles
 {
     std::uint32_t particleCount = 0u;              ///< Total particle count.
     std::vector<Diligent::float3> restPositions{}; ///< Rest position coordinate array.
+};
+
+/// @brief Authoring particle position container for cloth asset creation.
+struct ClothAuthoringParticles
+{
+    std::uint32_t particleCount = 0u;              ///< Total cloth particle count.
+    std::vector<Diligent::float3> restPositions{}; ///< Object-space rest positions.
 };
 
 /// @brief Execution result containing output handles and metadata for ultrasound probe simulation.

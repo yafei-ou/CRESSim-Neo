@@ -24,7 +24,7 @@ struct VSOutput
 };
 
 void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
-#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY) || defined(CRESSIM_PROGRAM_FAMILY_CURVE)
+#if defined(CRESSIM_PROGRAM_FAMILY_SURFACE_DEFORMABLE) || defined(CRESSIM_PROGRAM_FAMILY_CURVE)
     , uint vertexId : SV_VertexID
 #endif
 )
@@ -62,12 +62,12 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     }
 
     float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
-#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+#if defined(CRESSIM_PROGRAM_FAMILY_SURFACE_DEFORMABLE)
     if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
         vertexId < metadata.deformVertexCount)
     {
         const float3 deformedPos =
-            CRESSIM_SB_LOAD(g_SoftBodyRenderPositions, metadata.deformVertexBase + vertexId).xyz;
+            CRESSIM_SB_LOAD(g_SurfaceRenderPositions, metadata.deformVertexBase + vertexId).xyz;
         worldPos = float4(deformedPos, 1.0);
     }
 #elif defined(CRESSIM_PROGRAM_FAMILY_CURVE)
@@ -119,13 +119,13 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
             }
 
             float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
-#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+#if defined(CRESSIM_PROGRAM_FAMILY_SURFACE_DEFORMABLE)
             const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
             if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
                 vertexId < metadata.deformVertexCount)
             {
                 const float3 deformedPos =
-                    CRESSIM_SB_LOAD(g_SoftBodyRenderPositions, metadata.deformVertexBase + vertexId).xyz;
+                    CRESSIM_SB_LOAD(g_SurfaceRenderPositions, metadata.deformVertexBase + vertexId).xyz;
                 worldPos = float4(deformedPos, 1.0);
             }
 #elif defined(CRESSIM_PROGRAM_FAMILY_CURVE)
@@ -171,13 +171,13 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
         return;
     }
     float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
-#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+#if defined(CRESSIM_PROGRAM_FAMILY_SURFACE_DEFORMABLE)
     const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
     if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
         vertexId < metadata.deformVertexCount)
     {
         const float3 deformedPos =
-            CRESSIM_SB_LOAD(g_SoftBodyRenderPositions, metadata.deformVertexBase + vertexId).xyz;
+            CRESSIM_SB_LOAD(g_SurfaceRenderPositions, metadata.deformVertexBase + vertexId).xyz;
         worldPos = float4(deformedPos, 1.0);
     }
 #elif defined(CRESSIM_PROGRAM_FAMILY_CURVE)

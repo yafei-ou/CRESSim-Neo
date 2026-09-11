@@ -832,7 +832,7 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     lightShadowAssignmentsVar->Set(lightShadowAssignmentsSrv);
     localShadowViewsVar->Set(localShadowViewsSrv);
 
-    if (programFamily == MaterialProgramFamily::SoftBodyLit)
+    if (programFamily == MaterialProgramFamily::SurfaceDeformableLit)
     {
         if (mPhysicsScene == nullptr || mPhysicsScene->soft.renderPositionsBuffer == nullptr ||
             mPhysicsScene->soft.renderNormalsBuffer == nullptr)
@@ -841,10 +841,10 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         }
         Diligent::IShaderResourceVariable *softPositionVar =
             program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                                             "g_SoftBodyRenderPositions");
+                                                             "g_SurfaceRenderPositions");
         Diligent::IShaderResourceVariable *normalVar =
             program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                                             "g_SoftBodyVertexNormals");
+                                                             "g_SurfaceDeformableVertexNormals");
         if (softPositionVar == nullptr || normalVar == nullptr)
         {
             return false;

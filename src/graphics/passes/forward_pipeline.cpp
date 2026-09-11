@@ -106,7 +106,7 @@ constexpr std::uint32_t kPointShadowMapResolution = 512u;
 constexpr std::uint32_t kLocalShadowViewsPerEnv   = kShadowedLocalLightCap + kShadowedPointLightCap;
 constexpr std::uint32_t kLocalShadowEnvBoundsWords = 8u;
 
-struct SoftBodyWorldAabbFallback
+struct SurfaceWorldAabbFallback
 {
     Diligent::float4 minBounds = {0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 maxBounds = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -224,7 +224,7 @@ constexpr Diligent::ShaderResourceVariableDesc kLocalShadowEnvBoundsPrepareVars[
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_EntityPositions",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyWorldAabbs",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SurfaceWorldAabbs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_CurveWorldAabbs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -471,7 +471,7 @@ struct ForwardPipeline::GpuIndirectState
     Diligent::RefCntAutoPtr<Diligent::IBuffer> localShadowEnvBoundsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> localShadowViewBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> localShadowAssignmentBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> fallbackSoftBodyWorldAabbsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> fallbackSurfaceWorldAabbsBuffer;
     std::uint32_t localShadowEnvBoundsCapacity  = 0u;
     std::uint32_t localShadowViewCapacity       = 0u;
     std::uint32_t localShadowAssignmentCapacity = 0u;
@@ -670,11 +670,11 @@ bool ForwardPipeline::initialize()
         return false;
     }
 
-    const SoftBodyWorldAabbFallback fallbackSoftBodyWorldAabb{};
+    const SurfaceWorldAabbFallback fallbackSurfaceWorldAabb{};
     if (!createStructuredSrvBuffer(
-            backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.FallbackSoftBodyWorldAabbs",
-            sizeof(SoftBodyWorldAabbFallback), &fallbackSoftBodyWorldAabb, graphicsContextMask,
-            mGpuIndirectState->fallbackSoftBodyWorldAabbsBuffer))
+            backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.FallbackSurfaceWorldAabbs",
+            sizeof(SurfaceWorldAabbFallback), &fallbackSurfaceWorldAabb, graphicsContextMask,
+            mGpuIndirectState->fallbackSurfaceWorldAabbsBuffer))
     {
         return false;
     }
@@ -1351,9 +1351,9 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
 
         if (envCount > 0u)
         {
-            const bool needsSoftBodyWorldAabbs =
+            const bool needsSurfaceWorldAabbs =
                 hasActiveDeformableRenderables(sceneView.renderableMetadata);
-            if (needsSoftBodyWorldAabbs &&
+            if (needsSurfaceWorldAabbs &&
                 (physicsScene == nullptr || physicsScene->soft.worldAabbsBuffer == nullptr ||
                  physicsScene->curve.worldAabbsBuffer == nullptr))
             {
@@ -1375,14 +1375,14 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                 return false;
             }
 
-            Diligent::IBuffer *softBodyWorldAabbsBuffer =
-                mGpuIndirectState->fallbackSoftBodyWorldAabbsBuffer;
+            Diligent::IBuffer *surfaceWorldAabbsBuffer =
+                mGpuIndirectState->fallbackSurfaceWorldAabbsBuffer;
             Diligent::IBuffer *curveWorldAabbsBuffer =
-                mGpuIndirectState->fallbackSoftBodyWorldAabbsBuffer;
-            if (needsSoftBodyWorldAabbs)
+                mGpuIndirectState->fallbackSurfaceWorldAabbsBuffer;
+            if (needsSurfaceWorldAabbs)
             {
-                softBodyWorldAabbsBuffer = physicsScene->soft.worldAabbsBuffer;
-                curveWorldAabbsBuffer    = physicsScene->curve.worldAabbsBuffer;
+                surfaceWorldAabbsBuffer = physicsScene->soft.worldAabbsBuffer;
+                curveWorldAabbsBuffer   = physicsScene->curve.worldAabbsBuffer;
             }
 
             const std::array envBoundsPrepareBindings{
@@ -1393,7 +1393,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
                 gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
                                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs", softBodyWorldAabbsBuffer,
+                gpu::GpuBufferBinding{"g_SurfaceWorldAabbs", surfaceWorldAabbsBuffer,
                                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
                 gpu::GpuBufferBinding{"g_CurveWorldAabbs", curveWorldAabbsBuffer,
                                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},

@@ -168,14 +168,19 @@ struct PhysicsGpuParticleBufferView
     std::uint32_t fluidMaterialCount   = 0; ///< Number of fluid material entries.
 };
 
-/// @brief GPU buffer bindings and counts for deformable soft bodies, strands, and suturing paths.
+/// @brief Unified GPU bindings and counts for particle-driven deformables and related systems.
+///
+/// Despite the historical "soft" name, this view contains shared solver data for soft bodies,
+/// cloth, strands, fluids, rigid proxy particles, and suturing, plus surface-render outputs.
 struct PhysicsGpuSoftSceneView
 {
     PhysicsGpuParticleBufferView particles{}; ///< Unified particle buffer view.
     Diligent::IBuffer *edgesBuffer =
-        nullptr; ///< GPU buffer of DeformableDistanceConstraint edge constraints.
+        nullptr; ///< Unified DeformableDistanceConstraint buffer, including cloth structural edges.
     Diligent::IBuffer *bendsBuffer =
-        nullptr; ///< GPU buffer of DeformableBendConstraint bending constraints.
+        nullptr; ///< DeformableBendConstraint buffer; cloth dihedrals are stored separately.
+    Diligent::IBuffer *clothDihedralsBuffer =
+        nullptr; ///< ClothDihedralConstraint buffer used for cloth bending.
     Diligent::IBuffer *tetsBuffer =
         nullptr; ///< GPU buffer of DeformableVolumeConstraint tetrahedral volume constraints.
     Diligent::IBuffer *strandSegmentsBuffer =
@@ -205,10 +210,16 @@ struct PhysicsGpuSoftSceneView
     Diligent::IBuffer *renderNormalsBuffer =
         nullptr; ///< GPU buffer of interpolated surface render vertex normals.
     Diligent::IBuffer *worldAabbsBuffer =
-        nullptr;                               ///< GPU buffer of world-space AABBs for soft bodies.
-    std::uint32_t softBodyCount           = 0; ///< Total soft bodies in the scene.
-    std::uint32_t edgeCount               = 0; ///< Number of deformable edge constraints.
-    std::uint32_t bendCount               = 0; ///< Number of deformable bending constraints.
+        nullptr; ///< GPU buffer of world-space AABBs packed as [soft bodies][cloths].
+    std::uint32_t softBodyCount = 0; ///< Soft-body prefix length in worldAabbsBuffer.
+    std::uint32_t clothCount    = 0; ///< Cloth suffix length in worldAabbsBuffer.
+    std::uint32_t surfaceCount =
+        0; ///< Logical worldAabbsBuffer length from the uploaded surface range table.
+    std::uint32_t edgeCount =
+        0; ///< Logical edgesBuffer length, including cloth structural constraints.
+    std::uint32_t bendCount = 0; ///< Logical bendsBuffer length; excludes clothDihedralsBuffer.
+    std::uint32_t clothDihedralCount =
+        0; ///< Logical clothDihedralsBuffer length for cloth bending constraints.
     std::uint32_t tetCount                = 0; ///< Number of tetrahedral volume constraints.
     std::uint32_t strandSegmentCount      = 0; ///< Number of strand segments.
     std::uint32_t strandJointCount        = 0; ///< Number of strand joints.
@@ -216,7 +227,8 @@ struct PhysicsGpuSoftSceneView
     std::uint32_t suturingPairCount       = 0; ///< Number of active suturing interaction pairs.
     std::uint32_t suturingPathHeaderCount = 0; ///< Number of active suturing path headers.
     std::uint32_t suturingPathNodeCount   = 0; ///< Number of generated suturing path nodes.
-    std::uint64_t bindingGeneration = 0; ///< Revision counter for soft scene buffer allocations.
+    std::uint64_t bindingGeneration =
+        0; ///< Revision counter for unified particle/deformable buffer allocations.
 };
 
 /// @brief GPU buffer bindings for strand curve rendering and extrusion geometry.

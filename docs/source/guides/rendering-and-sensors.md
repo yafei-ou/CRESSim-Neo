@@ -46,9 +46,10 @@ from {cpp:func}`Runtime::getResources <cressim::neo::engine::Runtime::getResourc
 register reusable meshes, materials, and textures. Configure their descriptor
 objects before registering them:
 
-Use `StandardLit` for regular mesh renderers. `SoftBodyLit` and `CurveLit` are
-the specialized program families selected for deformable bodies and procedural
-strand geometry. A material's `renderMode` determines when it is drawn:
+Use `StandardLit` for regular mesh renderers. `SurfaceDeformableLit` and
+`CurveLit` are the specialized program families selected for particle-driven
+deformable surfaces and procedural strand geometry. A material's `renderMode`
+determines when it is drawn:
 `Opaque` is the default, `Cutout` enables alpha testing with `alphaCutoff`, and
 `Transparent` is drawn after opaque geometry. `renderOrder` orders materials
 only within the same render mode.

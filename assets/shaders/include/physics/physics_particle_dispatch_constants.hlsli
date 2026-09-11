@@ -25,8 +25,8 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint suturingParticleCount;
     uint maxSuturingCandidatesPerParticle;
     uint maxSuturingNodesPerPath;
+    uint clothDihedralCount;
     uint reserved0;
-    uint reserved1;
     float4 gravity;
 };
 

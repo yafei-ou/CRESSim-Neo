@@ -51,11 +51,12 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         normalize(CRESSIM_SB_LOAD(g_EntityOrientations, metadata.entityPoseSlot));
     const float3 scale = CRESSIM_SB_REF(g_EntityScales, metadata.entityPoseSlot).xyz;
 
-    if (metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_SOFT_BODY &&
+    if ((metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_SOFT_BODY ||
+         metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_CLOTH) &&
         metadata.deformableIndex != CRESSIM_INVALID_DEFORMABLE_INDEX)
     {
-        const SoftBodyWorldAabb worldAabb =
-            CRESSIM_SB_LOAD(g_SoftBodyWorldAabbs, metadata.deformableIndex);
+        const SurfaceWorldAabb worldAabb =
+            CRESSIM_SB_LOAD(g_SurfaceWorldAabbs, metadata.deformableIndex);
         float3 corners[8];
         corners[0] = worldAabb.minBounds.xyz;
         corners[1] = float3(worldAabb.maxBounds.x, worldAabb.minBounds.y, worldAabb.minBounds.z);
@@ -129,7 +130,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_CURVE &&
         metadata.deformableIndex != CRESSIM_INVALID_DEFORMABLE_INDEX)
     {
-        const SoftBodyWorldAabb worldAabb =
+        const SurfaceWorldAabb worldAabb =
             CRESSIM_SB_LOAD(g_CurveWorldAabbs, metadata.deformableIndex);
         float3 corners[8];
         corners[0] = worldAabb.minBounds.xyz;

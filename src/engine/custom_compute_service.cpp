@@ -921,8 +921,8 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
               CustomComputeResourceAccess::ReadOnly,
               bufferElementCount(sceneView.soft.renderNormalsBuffer),
               sceneView.soft.bindingGeneration);
-    addBuffer("soft.world_aabbs", sceneView.soft.worldAabbsBuffer,
-              CustomComputeResourceAccess::ReadOnly, sceneView.soft.softBodyCount,
+    addBuffer("surface.world_aabbs", sceneView.soft.worldAabbsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.surfaceCount,
               sceneView.soft.bindingGeneration);
 
     return true;

@@ -111,8 +111,8 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
     shaderCreateInfo.Desc.ShaderType                 = Diligent::SHADER_TYPE_VERTEX;
     shaderCreateInfo.FilePath                        = "graphics/shadow_depth.vs.hlsl";
     shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
-    shaderCreateInfo.Desc.Name = key.programFamily == MaterialProgramFamily::SoftBodyLit
-                                     ? "CRESSimNeo.CameraDepthPass.SoftBody.VS"
+    shaderCreateInfo.Desc.Name = key.programFamily == MaterialProgramFamily::SurfaceDeformableLit
+                                     ? "CRESSimNeo.CameraDepthPass.SurfaceDeformable.VS"
                                      : (key.programFamily == MaterialProgramFamily::CurveLit
                                             ? "CRESSimNeo.CameraDepthPass.Curve.VS"
                                             : "CRESSimNeo.CameraDepthPass.VS");
@@ -121,8 +121,8 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
         {"CRESSIM_CAMERA_DEPTH_PASS", "1"},
         {"CRESSIM_FEATURE_ALPHA_TEST",
          hasFlag(key.materialFeatureFlags, MaterialFeatureFlags::AlphaTest) ? "1" : ""},
-        {key.programFamily == MaterialProgramFamily::SoftBodyLit
-             ? "CRESSIM_PROGRAM_FAMILY_SOFT_BODY"
+        {key.programFamily == MaterialProgramFamily::SurfaceDeformableLit
+             ? "CRESSIM_PROGRAM_FAMILY_SURFACE_DEFORMABLE"
              : (key.programFamily == MaterialProgramFamily::CurveLit
                     ? "CRESSIM_PROGRAM_FAMILY_CURVE"
                     : ""),
@@ -148,11 +148,11 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
     Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
     shaderCreateInfo.FilePath        = "graphics/camera_depth.ps.hlsl";
-    shaderCreateInfo.Desc.Name       = key.programFamily == MaterialProgramFamily::SoftBodyLit
-                                           ? "CRESSimNeo.CameraDepthPass.SoftBody.PS"
-                                           : (key.programFamily == MaterialProgramFamily::CurveLit
-                                                  ? "CRESSimNeo.CameraDepthPass.Curve.PS"
-                                                  : "CRESSimNeo.CameraDepthPass.PS");
+    shaderCreateInfo.Desc.Name = key.programFamily == MaterialProgramFamily::SurfaceDeformableLit
+                                     ? "CRESSimNeo.CameraDepthPass.SurfaceDeformable.PS"
+                                     : (key.programFamily == MaterialProgramFamily::CurveLit
+                                            ? "CRESSimNeo.CameraDepthPass.Curve.PS"
+                                            : "CRESSimNeo.CameraDepthPass.PS");
     if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
     {
         pixelShader = nullptr;
@@ -163,12 +163,12 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
     }
 
     Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
-    psoCreateInfo.PSODesc.Name         = key.programFamily == MaterialProgramFamily::SoftBodyLit
-                                             ? "CRESSimNeo.CameraDepthPass.SoftBody.PSO"
-                                             : (key.programFamily == MaterialProgramFamily::CurveLit
-                                                    ? "CRESSimNeo.CameraDepthPass.Curve.PSO"
-                                                    : "CRESSimNeo.CameraDepthPass.PSO");
-    psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+    psoCreateInfo.PSODesc.Name = key.programFamily == MaterialProgramFamily::SurfaceDeformableLit
+                                     ? "CRESSimNeo.CameraDepthPass.SurfaceDeformable.PSO"
+                                     : (key.programFamily == MaterialProgramFamily::CurveLit
+                                            ? "CRESSimNeo.CameraDepthPass.Curve.PSO"
+                                            : "CRESSimNeo.CameraDepthPass.PSO");
+    psoCreateInfo.PSODesc.PipelineType               = Diligent::PIPELINE_TYPE_GRAPHICS;
     psoCreateInfo.GraphicsPipeline.NumRenderTargets  = 0;
     psoCreateInfo.GraphicsPipeline.DSVFormat         = key.depthFormat;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -201,7 +201,7 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
         {Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    constexpr Diligent::ShaderResourceVariableDesc kSoftBodyVars[] = {
+    constexpr Diligent::ShaderResourceVariableDesc kSurfaceDeformableVars[] = {
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityOrientations",
@@ -218,7 +218,7 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions",
+        {Diligent::SHADER_TYPE_VERTEX, "g_SurfaceRenderPositions",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -246,12 +246,12 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     psoCreateInfo.PSODesc.ResourceLayout.Variables =
-        key.programFamily == MaterialProgramFamily::SoftBodyLit
-            ? kSoftBodyVars
+        key.programFamily == MaterialProgramFamily::SurfaceDeformableLit
+            ? kSurfaceDeformableVars
             : (key.programFamily == MaterialProgramFamily::CurveLit ? kCurveVars : kStandardVars);
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables = static_cast<Diligent::Uint32>(
-        key.programFamily == MaterialProgramFamily::SoftBodyLit
-            ? std::size(kSoftBodyVars)
+        key.programFamily == MaterialProgramFamily::SurfaceDeformableLit
+            ? std::size(kSurfaceDeformableVars)
             : (key.programFamily == MaterialProgramFamily::CurveLit ? std::size(kCurveVars)
                                                                     : std::size(kStandardVars)));
 
@@ -416,7 +416,7 @@ bool CameraDepthPass::bindSceneBuffers(Diligent::IShaderResourceBinding *shaderB
         variable->Set(srv);
     }
 
-    if (programFamily == MaterialProgramFamily::SoftBodyLit)
+    if (programFamily == MaterialProgramFamily::SurfaceDeformableLit)
     {
         if (mPhysicsScene == nullptr || mPhysicsScene->soft.renderPositionsBuffer == nullptr ||
             mPhysicsScene->soft.renderNormalsBuffer == nullptr)
@@ -424,7 +424,7 @@ bool CameraDepthPass::bindSceneBuffers(Diligent::IShaderResourceBinding *shaderB
             return false;
         }
         Diligent::IShaderResourceVariable *positionVar = shaderBinding->GetVariableByName(
-            Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions");
+            Diligent::SHADER_TYPE_VERTEX, "g_SurfaceRenderPositions");
         if (positionVar == nullptr)
         {
             return false;
