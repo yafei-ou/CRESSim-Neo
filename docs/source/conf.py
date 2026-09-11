@@ -64,9 +64,18 @@ autosummary_generate = True
 
 html_theme = "pydata_sphinx_theme"
 html_theme_options = {
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/yafei-ou/CRESSim-Neo",
+            "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+    ],
     "logo": {
-        "text": "CRESSim-Neo Documentation",
+        "text": "CRESSim-Neo",
     },
+    "navbar_align": "left",
     "switcher": {
         # This file is published at the Pages-site root, rather than copied
         # into each version directory.  Consequently, old static releases
@@ -84,7 +93,8 @@ html_theme_options = {
         "index": [],
     },
 }
-html_static_path = []
+html_static_path = ["_static"]
+html_css_files = ["navbar.css"]
 templates_path = ["_templates"]
 html_sidebars = {
     "**": ["components/sidebar-nav-bs.html"],

@@ -1,0 +1,22 @@
+/*
+ * PyData Sphinx Theme switches from its mobile to desktop navbar at 960 px.
+ * Keep the intermediate desktop range compact so that navigation labels do not
+ * wrap when the version picker and navbar icons are also visible.
+ */
+@media (min-width: 960px) {
+  .bd-header .navbar-header-items__start {
+    margin-right: 1rem;
+  }
+}
+
+@media (min-width: 960px) and (max-width: 1199.98px) {
+  .bd-header ul.navbar-nav > li.nav-item > .nav-link {
+    padding-inline: 3px;
+    white-space: nowrap;
+  }
+
+  .bd-header .search-button__default-text,
+  .bd-header .search-button__kbd-shortcut {
+    display: none;
+  }
+}
