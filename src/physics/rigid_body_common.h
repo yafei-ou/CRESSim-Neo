@@ -568,18 +568,6 @@ struct GpuSoftTetCorrection
     Diligent::float4 correction3{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
-struct GpuClothDihedral
-{
-    std::uint32_t edgeParticle0     = 0u;
-    std::uint32_t edgeParticle1     = 0u;
-    std::uint32_t oppositeParticle0 = 0u;
-    std::uint32_t oppositeParticle1 = 0u;
-    float restAngle                 = 0.0f;
-    float compliance                = 0.0f;
-    std::uint32_t reserved0         = 0u;
-    std::uint32_t reserved1         = 0u;
-};
-
 struct GpuBendCorrection
 {
     Diligent::float4 correction0{0.0f, 0.0f, 0.0f, 0.0f};
@@ -840,6 +828,7 @@ static_assert(sizeof(GpuParticleRigidContact) == 64u);
 static_assert(sizeof(GpuParticleContact) == 48u);
 static_assert(sizeof(GpuSoftConstraintRange) == 16u);
 static_assert(sizeof(DeformableDistanceConstraint) == 32u);
+static_assert(sizeof(DeformableVolumeConstraint) == 32u);
 static_assert(sizeof(GpuSoftIncidentEdge) == 16u);
 static_assert(sizeof(GpuSoftIncidentBend) == 16u);
 static_assert(sizeof(GpuSoftIncidentTet) == 16u);
@@ -854,9 +843,8 @@ static_assert(sizeof(GpuSurfaceChunkRange) == 16u);
 static_assert(sizeof(GpuSurfaceBoundsChunk) == 16u);
 static_assert(sizeof(GpuSoftEdgeCorrection) == 32u);
 static_assert(sizeof(DeformableBendConstraint) == 32u);
-static_assert(sizeof(GpuClothDihedral) == 32u);
+static_assert(sizeof(ClothDihedralConstraint) == 32u);
 static_assert(sizeof(GpuBendCorrection) == 64u);
-static_assert(sizeof(ClothDihedralConstraint) == 24u);
 static_assert(sizeof(StrandSegmentConstraint) == 32u);
 static_assert(sizeof(StrandJointConstraint) == 32u);
 static_assert(sizeof(StrandDistanceConstraint) == 16u);

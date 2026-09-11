@@ -749,9 +749,9 @@ struct ClothDihedralConstraint
     std::uint32_t oppositeParticle1 = 0u;   ///< Opposite global particle in the second triangle.
     float restAngle                 = 0.0f; ///< Signed rest dihedral angle in radians.
     float compliance                = 0.0f; ///< XPBD bending compliance.
+    std::uint32_t reserved0         = 0u;   ///< Reserved padding.
+    std::uint32_t reserved1         = 0u;   ///< Reserved padding.
 };
-
-static_assert(sizeof(ClothDihedralConstraint) == 24u);
 
 /// @brief Segment constraint connecting adjacent particles along an elastic strand.
 struct StrandSegmentConstraint

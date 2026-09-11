@@ -1194,7 +1194,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.bendsBuffer) ||
         !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.ClothDihedrals", sizeof(GpuClothDihedral),
+            renderDevice, "CRESSimNeo.Physics.ClothDihedrals", sizeof(ClothDihedralConstraint),
             newClothDihedralCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentSoftTopology.clothDihedralsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftTets", sizeof(SoftTet),
@@ -3497,24 +3497,16 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
             static_cast<std::uint32_t>(surfaceBoundsChunks.size()) - chunkRange.start;
     }
 
-    std::vector<GpuClothDihedral> gpuClothDihedrals;
-    gpuClothDihedrals.reserve(clothDihedralConstraints.size());
-    for (const ClothDihedralConstraint &constraint : clothDihedralConstraints)
-    {
-        gpuClothDihedrals.push_back(GpuClothDihedral{
-            constraint.edgeParticle0, constraint.edgeParticle1, constraint.oppositeParticle0,
-            constraint.oppositeParticle1, constraint.restAngle, constraint.compliance, 0u, 0u});
-    }
-
     return updateStructuredBufferRange(computeContext, mPersistentSoftTopology.edgesBuffer,
                                        distanceConstraints, 0u,
                                        static_cast<std::uint32_t>(distanceConstraints.size())) &&
            updateStructuredBufferRange(computeContext, mPersistentSoftTopology.bendsBuffer,
                                        bendConstraints, 0u,
                                        static_cast<std::uint32_t>(bendConstraints.size())) &&
-           updateStructuredBufferRange(computeContext, mPersistentSoftTopology.clothDihedralsBuffer,
-                                       gpuClothDihedrals, 0u,
-                                       static_cast<std::uint32_t>(gpuClothDihedrals.size())) &&
+           updateStructuredBufferRange(
+               computeContext, mPersistentSoftTopology.clothDihedralsBuffer,
+               clothDihedralConstraints, 0u,
+               static_cast<std::uint32_t>(clothDihedralConstraints.size())) &&
            updateStructuredBufferRange(computeContext, mPersistentSoftTopology.tetsBuffer,
                                        volumeConstraints, 0u,
                                        static_cast<std::uint32_t>(volumeConstraints.size())) &&
