@@ -138,6 +138,14 @@ struct PhysicsSolverDesc
     JointSolverSettings joints{};    ///< Joint constraint solver numerical tuning parameters.
     SoftSolverSettings soft{};       ///< Soft-body solver numerical tuning parameters.
     FluidSolverSettings fluid{};     ///< Fluid solver numerical tuning parameters.
+    bool enableExperimentalStrandCapsuleSelfCollision =
+        false; ///< Enable the isolated all-pairs GPU strand capsule self-collision experiment.
+    std::uint32_t experimentalStrandCapsuleSelfCollisionPasses =
+        8u; ///< Number of final soft-contact iterations that run the experimental capsule pass.
+    std::uint32_t experimentalStrandCapsuleExcludedNeighborSpan =
+        2u; ///< Same-strand link-index distance excluded from experimental capsule contacts.
+    std::uint32_t experimentalStrandCapsuleCcdIterations =
+        64u; ///< Maximum conservative-advancement iterations for a swept capsule pair.
     bool enableBlockingReadback = true; ///< Whether each physics step blocks to copy GPU simulated
                                         ///< state back to CPU host memory.
 };

@@ -285,6 +285,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initSolverConfigPass(mSolveStrandDistanceConstraintsPass,
                               kSolveStrandDistanceConstraints) ||
         !initPass(mApplyStrandDistanceCorrectionsPass, kApplyStrandDistanceCorrections) ||
+        !initSolverConfigPass(mExperimentalSolveStrandCapsuleSelfCollisionPass,
+                              kExperimentalSolveStrandCapsuleSelfCollision) ||
         !initSolverConfigPass(mSolveParticleExplicitContactsPass, kSolveParticleExplicitContacts) ||
         !initSolverConfigPass(mSolveParticleRigidContactsPass, kSolveParticleRigidContacts) ||
         !initPass(mApplyParticlePositionCorrectionsPass, kApplyParticlePositionCorrections) ||
@@ -2496,6 +2498,43 @@ bool PhysicsPassDispatcher::applyStrandDistanceCorrections(
     return writeParticleDispatchConstants(computeContext, constants) &&
            mApplyStrandDistanceCorrectionsPass.dispatch(computeContext, kDefaultVariant, bindings,
                                                         dispatchGroupCount(particleCount));
+}
+
+bool PhysicsPassDispatcher::experimentalSolveStrandCapsuleSelfCollision(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t pairThreadCount, const GpuParticleDispatchConstants &constants)
+{
+    if (pairThreadCount == 0u || constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const auto &transient     = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePreviousPositions",
+                              softParticles.previousPositionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleRadii", softParticles.radiiBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleStrandIds", softParticles.strandIdsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_StrandSegments", softTopology.strandSegmentsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionCorrections",
+                              transient.softPositionCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mExperimentalSolveStrandCapsuleSelfCollisionPass.dispatch(
+               computeContext, kDefaultVariant, bindings, dispatchGroupCount(pairThreadCount));
 }
 
 bool PhysicsPassDispatcher::solveParticleExplicitContacts(
@@ -5684,6 +5723,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
         mApplyStrandRigidAttachmentCorrectionsPass.forceRecreateAllVariants() &&
         mSolveStrandDistanceConstraintsPass.forceRecreateAllVariants() &&
         mApplyStrandDistanceCorrectionsPass.forceRecreateAllVariants() &&
+        mExperimentalSolveStrandCapsuleSelfCollisionPass.forceRecreateAllVariants() &&
         mSolveParticleExplicitContactsPass.forceRecreateAllVariants() &&
         mSolveParticleRigidContactsPass.forceRecreateAllVariants() &&
         mApplyParticlePositionCorrectionsPass.forceRecreateAllVariants() &&
@@ -5766,6 +5806,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            bindSolverConfig(mSolveStrandSegmentConstraintsPass) &&
            bindSolverConfig(mSolveStrandJointConstraintsPass) &&
            bindSolverConfig(mSolveStrandDistanceConstraintsPass) &&
+           bindSolverConfig(mExperimentalSolveStrandCapsuleSelfCollisionPass) &&
            bindSolverConfig(mSolveParticleExplicitContactsPass) &&
            bindSolverConfig(mSolveParticleRigidContactsPass) &&
            bindSolverConfig(mComputeFluidDeltaPositionsPass) &&

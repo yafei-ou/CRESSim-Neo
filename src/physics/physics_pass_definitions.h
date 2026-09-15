@@ -57,6 +57,7 @@ extern const gpu::GpuComputePassDefinition kApplyStrandJointCorrections;
 extern const gpu::GpuComputePassDefinition kApplyStrandRigidAttachmentCorrections;
 extern const gpu::GpuComputePassDefinition kSolveStrandDistanceConstraints;
 extern const gpu::GpuComputePassDefinition kApplyStrandDistanceCorrections;
+extern const gpu::GpuComputePassDefinition kExperimentalSolveStrandCapsuleSelfCollision;
 extern const gpu::GpuComputePassDefinition kSolveParticleExplicitContacts;
 extern const gpu::GpuComputePassDefinition kSolveParticleRigidContacts;
 extern const gpu::GpuComputePassDefinition kApplyParticlePositionCorrections;

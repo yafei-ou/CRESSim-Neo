@@ -813,6 +813,24 @@ constexpr Diligent::ShaderResourceVariableDesc kApplyStrandDistanceCorrectionsVa
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc
+    kExperimentalSolveStrandCapsuleSelfCollisionVars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePreviousPositions",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleRadii",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleStrandIds",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegments",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionCorrections",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kSolveParticleRigidContactsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2490,6 +2508,14 @@ const gpu::GpuComputePassDefinition kApplyStrandDistanceCorrections{
     "CRESSimNeo.Physics.ApplyStrandDistanceCorrections.PSO",
     kApplyStrandDistanceCorrectionsVars,
     std::size(kApplyStrandDistanceCorrectionsVars),
+};
+
+const gpu::GpuComputePassDefinition kExperimentalSolveStrandCapsuleSelfCollision{
+    "physics/experimental/physics_strand_solve_capsule_self_collision.cs.hlsl",
+    "CRESSimNeo.Physics.ExperimentalSolveStrandCapsuleSelfCollision.CS",
+    "CRESSimNeo.Physics.ExperimentalSolveStrandCapsuleSelfCollision.PSO",
+    kExperimentalSolveStrandCapsuleSelfCollisionVars,
+    std::size(kExperimentalSolveStrandCapsuleSelfCollisionVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveParticleRigidContacts{

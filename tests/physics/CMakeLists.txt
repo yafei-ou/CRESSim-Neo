@@ -119,6 +119,13 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE physics
+    NAME experimental_strand_capsule_self_collision
+    SOURCE physics_experimental_strand_capsule_self_collision.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
     NAME rigid_proxy_suturing_authoring
     SOURCE physics_rigid_proxy_suturing_authoring.cpp
     LIBS cressim_neo_engine

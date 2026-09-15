@@ -1204,6 +1204,11 @@ public:
         mKeyIsDown.clear();
     }
 
+    bool keyDown(int key) const noexcept
+    {
+        return isKeyDown(key);
+    }
+
 private:
     struct InputState
     {
@@ -1542,6 +1547,11 @@ bool DebugViewerApp::run(engine::Runtime &runtime, DebugViewerCameraBinding came
                          DebugViewerCallbacks callbacks)
 {
     return mImpl->run(runtime, camera, std::move(callbacks));
+}
+
+bool DebugViewerApp::isKeyDown(int key) const noexcept
+{
+    return mImpl != nullptr && mImpl->keyDown(key);
 }
 
 void DebugViewerApp::requestExit()

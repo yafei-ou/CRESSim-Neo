@@ -46,6 +46,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_strand_keyboard_control
+    SOURCE strand_keyboard_control.cpp
+)
+
+add_cressim_example(
     NAME physics_rigid_proxy_particles
     SOURCE rigid_proxy_particles.cpp
 )

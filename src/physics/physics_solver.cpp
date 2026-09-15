@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <memory>
 
 namespace cressim::neo::physics
@@ -410,6 +411,21 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         std::max(std::max(std::max(fluidIterations, softInternalIterations), softContactIterations),
                  std::max(rigidJointIterations, rigidContactIterations));
     const float substepDt = frameContext.deltaSeconds / static_cast<float>(substeps);
+    const bool hasExperimentalStrandCapsuleSelfCollision =
+        mImpl->mDesc.enableExperimentalStrandCapsuleSelfCollision && strandSegmentCount > 1u;
+    const std::uint64_t experimentalCapsulePairThreadCount64 =
+        static_cast<std::uint64_t>(strandSegmentCount) * strandSegmentCount;
+    if (hasExperimentalStrandCapsuleSelfCollision &&
+        experimentalCapsulePairThreadCount64 > std::numeric_limits<std::uint32_t>::max())
+    {
+        CRESSIM_LOG_ERROR(
+            "PhysicsSolver: experimental strand capsule pair dispatch exceeds uint32 range.\n");
+        return false;
+    }
+    const std::uint32_t experimentalCapsulePairThreadCount =
+        static_cast<std::uint32_t>(experimentalCapsulePairThreadCount64);
+    const std::uint32_t experimentalCapsulePassCount = std::min(
+        mImpl->mDesc.experimentalStrandCapsuleSelfCollisionPasses, softContactIterations);
 
     if (!mImpl->passDispatcher.updateSolverConfig(computeBackend.computeContext,
                                                   makeSolverConfig(mImpl->mDesc)))
@@ -457,6 +473,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.suturingParticleCount   = suturingParticleCount;
         particleConstants.maxSuturingCandidatesPerParticle = kMaxSuturingCandidatesPerParticle;
         particleConstants.maxSuturingNodesPerPath          = world.maxSuturingNodesPerPath();
+        particleConstants.reserved0 =
+            mImpl->mDesc.experimentalStrandCapsuleExcludedNeighborSpan;
+        particleConstants.reserved1 = mImpl->mDesc.experimentalStrandCapsuleCcdIterations;
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
@@ -819,6 +838,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             (hasSoftSoftContactWork && softContactIterations > 0u) ||
             (hasSoftRigidContactWork && softContactIterations > 0u) || hasSuturingCouplingWork ||
             hasRoutedCableWork || hasRigidParticleAttachmentWork || hasStrandRigidAttachmentWork ||
+            hasExperimentalStrandCapsuleSelfCollision ||
             hasRigidDistanceConstraintWork || useInitialRigidContactSolve ||
             ((ballJointCount > 0u || sphericalJointCount > 0u || hingeJointCount > 0u ||
               sliderJointCount > 0u) &&
@@ -834,6 +854,11 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     hasSoftSoftContactWork && iteration < softContactIterations;
                 const bool runSoftRigidContacts =
                     hasSoftRigidContactWork && iteration < softContactIterations;
+                const bool runExperimentalStrandCapsuleSelfCollision =
+                    hasExperimentalStrandCapsuleSelfCollision &&
+                    experimentalCapsulePassCount > 0u &&
+                    iteration < softContactIterations &&
+                    iteration + experimentalCapsulePassCount >= softContactIterations;
                 const bool runFluidSolve = hasFluidWork && iteration < fluidIterations;
                 const bool runBallJoints = ballJointCount > 0u && iteration < rigidJointIterations;
                 const bool runSphericalJoints =
@@ -844,7 +869,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     sliderJointCount > 0u && iteration < rigidJointIterations;
                 const bool runRigidContacts =
                     useInitialRigidContactSolve && iteration < rigidContactIterations;
-                const bool needContactSoftApply = runSoftContacts || runSoftRigidContacts;
+                const bool needContactSoftApply = runSoftContacts || runSoftRigidContacts ||
+                                                  runExperimentalStrandCapsuleSelfCollision;
                 const bool needAttachmentApply =
                     hasRigidParticleAttachmentWork || hasStrandRigidAttachmentWork;
                 const bool needRoutedCableApply   = hasRoutedCableWork;
@@ -1045,6 +1071,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveParticleRigidContacts dispatch.");
+                    return false;
+                }
+                if (runExperimentalStrandCapsuleSelfCollision &&
+                    !mImpl->passDispatcher.experimentalSolveStrandCapsuleSelfCollision(
+                        computeBackend.computeContext, mImpl->sceneState,
+                        experimentalCapsulePairThreadCount, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR("PhysicsSolver::step failed: "
+                                      "ExperimentalSolveStrandCapsuleSelfCollision dispatch.\n");
                     return false;
                 }
                 if (needJointOnlyRigidConstants &&

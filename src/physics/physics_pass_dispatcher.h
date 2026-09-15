@@ -191,6 +191,9 @@ public:
                                         const PhysicsSceneGpuState &sceneState,
                                         std::uint32_t particleCount,
                                         const GpuParticleDispatchConstants &constants);
+    bool experimentalSolveStrandCapsuleSelfCollision(
+        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+        std::uint32_t pairThreadCount, const GpuParticleDispatchConstants &constants);
     bool solveParticleExplicitContacts(Diligent::IDeviceContext *computeContext,
                                        const PhysicsSceneGpuState &sceneState,
                                        const GpuParticleDispatchConstants &constants);
@@ -518,6 +521,7 @@ private:
     gpu::GpuComputePass mApplyStrandRigidAttachmentCorrectionsPass;
     gpu::GpuComputePass mSolveStrandDistanceConstraintsPass;
     gpu::GpuComputePass mApplyStrandDistanceCorrectionsPass;
+    gpu::GpuComputePass mExperimentalSolveStrandCapsuleSelfCollisionPass;
     gpu::GpuComputePass mSolveParticleExplicitContactsPass;
     gpu::GpuComputePass mSolveParticleRigidContactsPass;
     gpu::GpuComputePass mApplyParticlePositionCorrectionsPass;

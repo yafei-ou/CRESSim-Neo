@@ -163,6 +163,13 @@ public:
     bool run(engine::Runtime &runtime, DebugViewerCameraBinding camera,
              DebugViewerCallbacks callbacks = {});
 
+    /// @brief Returns whether a GLFW-compatible keyboard key is currently held down.
+    ///
+    /// This is intended for interactive example and tool callbacks that need controls beyond the
+    /// built-in fly camera. It returns false when no desktop window is active or @p key is
+    /// negative.
+    bool isKeyDown(int key) const noexcept;
+
     /// @brief Requests the application main loop to terminate after the current frame.
     void requestExit();
 
