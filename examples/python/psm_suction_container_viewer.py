@@ -225,7 +225,7 @@ def _bottom_static_particle_indices(node_path: Path, band_height: float) -> list
 def _author_container(runtime: neo.Runtime) -> None:
     world = runtime.world()
     resources = runtime.resources()
-    models_dir = REPO_ROOT / "examples" / "models"
+    models_dir = REPO_ROOT / "assets" / "models"
     node_path = models_dir / "container.node"
     ele_path = models_dir / "container.ele"
     surface_path = models_dir / "container_surface.obj"
@@ -279,7 +279,7 @@ def _author_container(runtime: neo.Runtime) -> None:
 def _author_psm(runtime: neo.Runtime) -> PsmBuildResult:
     world = runtime.world()
     resources = runtime.resources()
-    urdf_path = REPO_ROOT / "examples" / "models" / "psm" / "psm_suction_irrigator.urdf"
+    urdf_path = REPO_ROOT / "assets" / "models" / "psm" / "psm_suction_irrigator.urdf"
     build = author_psm_scene(
         world,
         resources,

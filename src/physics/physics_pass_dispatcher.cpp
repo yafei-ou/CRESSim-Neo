@@ -290,7 +290,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mApplyParticlePositionCorrectionsPass, kApplyParticlePositionCorrections) ||
         !initPass(mUpdateParticleVelocitiesPass, kUpdateParticleVelocities) ||
         !initPass(mBuildFluidNeighborPairsPass, kBuildFluidNeighborPairs) ||
-        !initPass(mComputeFluidDensityConstraintsPass, kComputeFluidDensityConstraints) ||
+        !initSolverConfigPass(mComputeFluidDensityConstraintsPass,
+                              kComputeFluidDensityConstraints) ||
         !initSolverConfigPass(mComputeFluidDeltaPositionsPass, kComputeFluidDeltaPositions) ||
         !initSolverConfigPass(mApplyFluidDeltaPositionsPass, kApplyFluidDeltaPositions) ||
         !initPass(mClampFluidBoundaryPass, kClampFluidBoundary) ||
@@ -5768,6 +5769,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            bindSolverConfig(mSolveStrandDistanceConstraintsPass) &&
            bindSolverConfig(mSolveParticleExplicitContactsPass) &&
            bindSolverConfig(mSolveParticleRigidContactsPass) &&
+           bindSolverConfig(mComputeFluidDensityConstraintsPass) &&
            bindSolverConfig(mComputeFluidDeltaPositionsPass) &&
            bindSolverConfig(mApplyFluidDeltaPositionsPass) &&
            bindSolverConfig(mProjectFluidBoundaryVelocitiesPass) &&
